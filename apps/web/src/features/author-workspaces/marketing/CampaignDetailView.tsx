@@ -49,7 +49,7 @@ type Post = {
 
 const CHANNEL_DOT: Record<string, string> = {
   instagram: "bg-pink-400",
-  tiktok: "bg-slate-700 dark:bg-white/70",
+  tiktok: "bg-primary dark:bg-card",
   youtube: "bg-red-500",
   facebook: "bg-blue-500",
   x: "bg-amber-500",
@@ -66,12 +66,12 @@ const CHANNEL_OPEN_URL: Record<string, string> = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  draft: "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/60",
+  draft: "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground",
   ready: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
   asset_pending: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
   asset_failed: "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400",
   posted: "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400",
-  skipped: "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-white/45",
+  skipped: "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -235,11 +235,11 @@ export default function CampaignDetailView({
         <header>
           <Link
             href="/author/marketing"
-            className="text-[12px] uppercase tracking-[0.14em] text-[#8B92A5] hover:text-[#6B7280] dark:text-white/50 dark:hover:text-white/65"
+            className="text-[12px] uppercase tracking-[0.14em] text-muted-foreground hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-muted-foreground"
           >
             ← Marketing
           </Link>
-          <h1 className="mt-1 truncate text-[22px] font-semibold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="author-page-title mt-1 truncate text-foreground">
             {campaign.name ?? campaign.bookTitle ?? "Campaign"}
           </h1>
         </header>
@@ -248,7 +248,7 @@ export default function CampaignDetailView({
       main={
         <div className="space-y-5">
           {/* Summary card */}
-          <section className="rounded-2xl bg-white p-5 dark:bg-white/[0.04]">
+          <section className="rounded-2xl bg-card p-5 dark:bg-card">
             <div className="flex flex-wrap items-center gap-3">
               {campaign.bookCoverUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -259,15 +259,15 @@ export default function CampaignDetailView({
                 />
               ) : null}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-medium text-slate-900 dark:text-white">
+                <p className="truncate text-[15px] font-medium text-foreground dark:text-foreground">
                   {campaign.bookTitle ?? "Untitled book"}
                 </p>
-                <p className="mt-0.5 text-[13px] text-slate-500 dark:text-white/45">
+                <p className="mt-0.5 text-[13px] text-muted-foreground dark:text-muted-foreground">
                   {campaign.languages.map(getLanguageLabel).join(", ")} ·{" "}
                   {campaign.channels.length} channels · {campaign.contentTypes.join(", ")}
                 </p>
               </div>
-              <div className="flex items-center gap-2 text-[13px] text-slate-500 dark:text-white/45">
+              <div className="flex items-center gap-2 text-[13px] text-muted-foreground dark:text-muted-foreground">
                 <span>{counts.posted}/{counts.total} posted</span>
               </div>
               <Button
@@ -296,7 +296,7 @@ export default function CampaignDetailView({
 
           {/* Filters */}
           {posts.length > 0 ? (
-            <section className="rounded-2xl bg-white p-3 dark:bg-white/[0.04]">
+            <section className="rounded-2xl bg-card p-3 dark:bg-card">
               <div className="flex flex-wrap items-center gap-2 text-[12px]">
                 <FilterPill
                   label="All channels"
@@ -347,8 +347,8 @@ export default function CampaignDetailView({
 
           {/* Calendar / day groups */}
           {grouped.length === 0 ? (
-            <section className="rounded-2xl border border-dashed border-slate-200 bg-white/40 p-8 text-center dark:border-white/10 dark:bg-white/[0.02]">
-              <p className="text-[14px] text-slate-500 dark:text-white/45">
+            <section className="rounded-2xl border border-dashed border-border bg-white/40 p-8 text-center dark:border-border dark:bg-card">
+              <p className="text-[14px] text-muted-foreground dark:text-muted-foreground">
                 {posts.length === 0
                   ? "No posts yet — they will show up here when generation finishes."
                   : "No posts match the current filters."}
@@ -359,7 +359,7 @@ export default function CampaignDetailView({
               {grouped.map(([day, dayPosts]) => (
                 <div
                   key={day}
-                  className="rounded-2xl bg-white p-4 dark:bg-white/[0.04]"
+                  className="rounded-2xl bg-card p-4 dark:bg-card"
                 >
                   <h3 className="text-eyebrow">{formatDay(day)}</h3>
                   <ul className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -368,21 +368,21 @@ export default function CampaignDetailView({
                         <button
                           type="button"
                           onClick={() => setActiveId(post.id)}
-                          className="flex w-full flex-col items-start gap-2 rounded-xl border border-black/[0.06] bg-black/[0.02] p-3 text-left transition-all hover:border-[#907AFF]/40 hover:bg-[#907AFF]/[0.04] dark:border-white/[0.06] dark:bg-white/[0.02]"
+                          className="flex w-full flex-col items-start gap-2 rounded-xl border border-black/[0.06] bg-black/[0.02] p-3 text-left transition-all hover:border-[#907AFF]/40 hover:bg-[#907AFF]/[0.04] dark:border-border dark:bg-card"
                         >
                           <div className="flex w-full items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span
                                 className={cn(
                                   "h-2 w-2 rounded-full",
-                                  CHANNEL_DOT[post.channel] ?? "bg-slate-400"
+                                  CHANNEL_DOT[post.channel] ?? "bg-muted"
                                 )}
                                 aria-hidden
                               />
-                              <span className="text-[12px] font-medium uppercase tracking-wider text-slate-500 dark:text-white/55">
+                              <span className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                                 {post.channel}
                               </span>
-                              <span className="text-[12px] text-slate-400 dark:text-white/35">
+                              <span className="text-[12px] text-muted-foreground dark:text-muted-foreground">
                                 {formatTime(post.scheduledFor)}
                               </span>
                             </div>
@@ -395,10 +395,10 @@ export default function CampaignDetailView({
                               {STATUS_LABEL[post.status] ?? post.status}
                             </span>
                           </div>
-                          <p className="line-clamp-2 text-[13px] text-slate-700 dark:text-white/70">
+                          <p className="line-clamp-2 text-[13px] text-foreground dark:text-foreground">
                             {post.caption ?? "(no caption yet)"}
                           </p>
-                          <div className="flex items-center gap-2 text-[11px] text-slate-400 dark:text-white/35">
+                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground dark:text-muted-foreground">
                             <span className="uppercase">{post.contentType}</span>
                             <span aria-hidden>·</span>
                             <span className="uppercase">{post.language}</span>
@@ -441,7 +441,7 @@ function FilterPill({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="h-8 rounded-full border-0 bg-black/[0.04] px-3 text-[12px] text-slate-700 outline-none ring-0 focus:bg-black/[0.06] dark:bg-white/[0.06] dark:text-white/70"
+      className="h-8 rounded-full border-0 bg-black/[0.04] px-3 text-[12px] text-foreground outline-none ring-0 focus:bg-black/[0.06] dark:bg-card dark:text-foreground"
     >
       {options.map((opt) => (
         <option key={opt.value} value={opt.value}>
@@ -519,21 +519,21 @@ function PostDrawer({
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        className="flex h-full w-full max-w-[520px] flex-col overflow-hidden bg-white shadow-2xl dark:bg-[#0a0a0f]"
+        className="flex h-full w-full max-w-[520px] flex-col overflow-hidden bg-card shadow-2xl dark:bg-card"
       >
-        <header className="flex items-center justify-between border-b border-black/[0.06] p-5 dark:border-white/[0.06]">
+        <header className="flex items-center justify-between border-b border-black/[0.06] p-5 dark:border-border">
           <div className="min-w-0">
-            <p className="truncate text-[12px] uppercase tracking-wider text-slate-400 dark:text-white/35">
+            <p className="truncate text-[12px] uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
               {post.channel} · {post.language} · {post.contentType}
             </p>
-            <p className="mt-0.5 truncate text-[14px] font-medium text-slate-900 dark:text-white">
+            <p className="mt-0.5 truncate text-[14px] font-medium text-foreground dark:text-foreground">
               {formatDay(post.scheduledFor)} · {formatTime(post.scheduledFor)}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 dark:text-white/40 dark:hover:text-white"
+            className="text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path
@@ -559,7 +559,7 @@ function PostDrawer({
                   className="mt-2 w-full rounded-xl bg-black"
                 />
               ) : (
-                <div className="mt-2 rounded-xl border border-dashed border-black/10 bg-black/[0.02] p-4 text-center text-[13px] text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/45">
+                <div className="mt-2 rounded-xl border border-dashed border-black/10 bg-black/[0.02] p-4 text-center text-[13px] text-muted-foreground dark:border-border dark:bg-card dark:text-muted-foreground">
                   {post.status === "asset_pending"
                     ? "Generating trailer…"
                     : post.assetError
@@ -572,7 +572,7 @@ function PostDrawer({
                 onClick={() => onGenerateTrailer(post.id)}
                 isLoading={post.status === "asset_pending"}
                 loadingText="Generating…"
-                className="mt-3 w-full rounded-full bg-[#0F172A] text-white hover:bg-[#1E293B]"
+                className="mt-3 w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {post.mediaAssetUrl ? "Regenerate trailer" : "Generate trailer"}
               </Button>
@@ -582,7 +582,7 @@ function PostDrawer({
           {post.contentType === "podcast" ? (
             <section>
               <p className="text-eyebrow">Podcast clip</p>
-              <div className="mt-2 rounded-xl border border-dashed border-black/10 bg-black/[0.02] p-4 text-center text-[13px] text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/45">
+              <div className="mt-2 rounded-xl border border-dashed border-black/10 bg-black/[0.02] p-4 text-center text-[13px] text-muted-foreground dark:border-border dark:bg-card dark:text-muted-foreground">
                 Narrated chapter excerpt — generation hooks up to the audiobook
                 pipeline. Coming in the next drop.
               </div>
@@ -596,7 +596,7 @@ function PostDrawer({
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               rows={6}
-              className="mt-2 w-full resize-y rounded-xl border-0 bg-black/[0.04] p-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#907AFF]/30 dark:bg-white/[0.06] dark:text-white"
+              className="mt-2 w-full resize-y rounded-xl border-0 bg-black/[0.04] p-3 text-[14px] text-foreground outline-none focus:ring-2 focus:ring-[#907AFF]/30 dark:bg-card dark:text-foreground"
             />
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Button
@@ -619,7 +619,7 @@ function PostDrawer({
               value={hashtags}
               onChange={(e) => setHashtags(e.target.value)}
               rows={2}
-              className="mt-2 w-full resize-y rounded-xl border-0 bg-black/[0.04] p-3 text-[13px] text-slate-700 outline-none focus:ring-2 focus:ring-[#907AFF]/30 dark:bg-white/[0.06] dark:text-white/75"
+              className="mt-2 w-full resize-y rounded-xl border-0 bg-black/[0.04] p-3 text-[13px] text-foreground outline-none focus:ring-2 focus:ring-[#907AFF]/30 dark:bg-card dark:text-foreground"
             />
             <Button
               size="sm"
@@ -631,16 +631,16 @@ function PostDrawer({
           </section>
 
           {/* Quick actions */}
-          <section className="rounded-2xl bg-black/[0.03] p-4 dark:bg-white/[0.04]">
+          <section className="rounded-2xl bg-black/[0.03] p-4 dark:bg-card">
             <p className="text-eyebrow">Post this</p>
-            <p className="mt-2 text-[13px] text-slate-500 dark:text-white/45">
+            <p className="mt-2 text-[13px] text-muted-foreground dark:text-muted-foreground">
               Copy everything, open {post.channel}, paste, hit publish.
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
                 onClick={() => copy(fullCaption(post), "all")}
-                className="rounded-full bg-[#0F172A] text-white hover:bg-[#1E293B]"
+                className="rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {copyFlash === "all" ? "Copied!" : "Copy caption + hashtags"}
               </Button>
@@ -648,7 +648,7 @@ function PostDrawer({
                 href={CHANNEL_OPEN_URL[post.channel] ?? "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center rounded-full border border-slate-200 px-4 py-1.5 text-[13px] font-medium text-slate-700 hover:border-slate-300 hover:text-slate-900 dark:border-white/15 dark:text-white/65 dark:hover:border-white/25 dark:hover:text-white"
+                className="inline-flex items-center rounded-full border border-border px-4 py-1.5 text-[13px] font-medium text-foreground hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
               >
                 Open {post.channel}
               </a>
@@ -656,7 +656,7 @@ function PostDrawer({
                 <a
                   href={post.mediaAssetUrl}
                   download
-                  className="inline-flex items-center rounded-full border border-slate-200 px-4 py-1.5 text-[13px] font-medium text-slate-700 hover:border-slate-300 hover:text-slate-900 dark:border-white/15 dark:text-white/65 dark:hover:border-white/25 dark:hover:text-white"
+                  className="inline-flex items-center rounded-full border border-border px-4 py-1.5 text-[13px] font-medium text-foreground hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
                 >
                   Download trailer
                 </a>

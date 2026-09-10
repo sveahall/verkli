@@ -20,16 +20,16 @@ function StatCard({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200/50 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900">
+    <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm dark:border-border dark:bg-card">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#907AFF]/10 text-[#907AFF]">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#907AFF]/10 text-accent-foreground">
           {icon}
         </div>
         <div>
-          <p className="text-[12px] font-medium text-slate-500 dark:text-white/50">
+          <p className="text-[12px] font-medium text-muted-foreground dark:text-muted-foreground">
             {label}
           </p>
-          <p className="text-xl font-bold text-slate-900 dark:text-white">
+          <p className="text-xl font-bold text-foreground dark:text-foreground">
             {value}
           </p>
         </div>

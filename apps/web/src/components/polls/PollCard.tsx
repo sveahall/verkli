@@ -114,13 +114,13 @@ export default function PollCard({
     <Card className="p-5">
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+          <h3 className="text-[15px] font-medium text-foreground font-display">
             {question}
           </h3>
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
               isClosed
-                ? "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-white/50"
+                ? "bg-muted text-muted-foreground dark:bg-card "
                 : "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
             }`}
           >
@@ -145,27 +145,27 @@ export default function PollCard({
                     <span
                       className={
                         isMyVote
-                          ? "font-medium text-slate-900 dark:text-white"
-                          : "text-slate-600 dark:text-white/60"
+                          ? "font-medium text-foreground "
+                          : "text-muted-foreground "
                       }
                     >
                       {r.text}
                       {isMyVote && (
-                        <span className="ml-1.5 text-[11px] text-[#907AFF]">
+                        <span className="ml-1.5 text-[11px] text-accent-foreground">
                           (your vote)
                         </span>
                       )}
                     </span>
-                    <span className="tabular-nums text-slate-500 dark:text-white/40">
+                    <span className="tabular-nums text-muted-foreground">
                       {pct}%
                     </span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted dark:bg-card">
                     <div
-                      className={`h-full rounded-full transition-all ${
+                      className={`h-full rounded-full transition-[background-color,border-color,color,box-shadow] ${
                         isMyVote
                           ? "bg-[#907AFF]"
-                          : "bg-slate-300 dark:bg-white/20"
+                          : "bg-muted dark:bg-card"
                       }`}
                       style={{ width: `${pct}%` }}
                     />
@@ -173,7 +173,7 @@ export default function PollCard({
                 </div>
               );
             })}
-            <p className="text-[12px] text-slate-400 dark:text-white/30">
+            <p className="text-[12px] text-muted-foreground">
               {totalVotes} {totalVotes === 1 ? "vote" : "votes"} total
             </p>
           </div>
@@ -184,8 +184,8 @@ export default function PollCard({
                 key={opt.id}
                 className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-[14px] transition ${
                   selectedOptionId === opt.id
-                    ? "border-[#907AFF] bg-[#907AFF]/5 text-slate-900 dark:text-white"
-                    : "border-slate-200/80 bg-white text-slate-600 hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-white/60 dark:hover:border-white/20"
+                    ? "border-[#907AFF] bg-[#907AFF]/5 text-foreground "
+                    : "border-border bg-card text-muted-foreground hover:border-border dark:hover:border-border"
                 }`}
               >
                 <input
@@ -200,11 +200,11 @@ export default function PollCard({
                   className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
                     selectedOptionId === opt.id
                       ? "border-[#907AFF] bg-[#907AFF]"
-                      : "border-slate-300 dark:border-white/20"
+                      : "border-border "
                   }`}
                 >
                   {selectedOptionId === opt.id && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-card" />
                   )}
                 </span>
                 {opt.text}
@@ -225,7 +225,7 @@ export default function PollCard({
         )}
 
         {closesAt && !isClosed && (
-          <p className="text-[12px] text-slate-400 dark:text-white/30">
+          <p className="text-[12px] text-muted-foreground">
             Closes{" "}
             {new Date(closesAt).toLocaleDateString("en-US", {
               year: "numeric",

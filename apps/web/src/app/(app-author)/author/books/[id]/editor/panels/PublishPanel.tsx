@@ -175,9 +175,9 @@ export default function PublishPanel({
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       {/* ── Hero card: book info + status ── */}
-      <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] sm:grid-cols-[120px_1fr]">
+      <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-border dark:bg-card sm:grid-cols-[120px_1fr]">
         {/* Cover thumbnail */}
-        <div className="relative mx-auto aspect-[3/4] w-[120px] overflow-hidden rounded-xl border border-black/[0.06] bg-slate-50 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02] sm:mx-0">
+        <div className="relative mx-auto aspect-[3/4] w-[120px] overflow-hidden rounded-xl border border-black/[0.06] bg-background shadow-sm dark:border-border dark:bg-card sm:mx-0">
           {coverImageUrl ? (
             <Image
               src={coverImageUrl}
@@ -191,7 +191,7 @@ export default function PublishPanel({
             <button
               type="button"
               onClick={onOpenCover}
-              className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-slate-300 transition hover:text-slate-500 dark:text-white/20 dark:hover:text-white/40"
+              className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-muted-foreground transition hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-muted-foreground"
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
@@ -208,22 +208,22 @@ export default function PublishPanel({
               className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
                 isPublished
                   ? "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-400"
-                  : "bg-slate-100 text-slate-500 dark:bg-white/[0.06] dark:text-white/50"
+                  : "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground"
               }`}
             >
               {isPublished ? "Published" : "Draft"}
             </span>
             {isPublished && (
-              <span className="text-[11px] text-slate-400 dark:text-white/40">
+              <span className="text-[11px] text-muted-foreground dark:text-muted-foreground">
                 {publishVisibility === "public" ? "Visible to everyone" : publishVisibility === "followers" ? "Followers only" : "Private"}
               </span>
             )}
           </div>
-          <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-900 dark:text-white">{bookTitle}</h2>
-          <p className="text-sm text-slate-500 dark:text-white/50">{authorDisplayName}</p>
+          <h2 className="author-section-title mt-2 text-lg font-medium tracking-tight text-foreground dark:text-foreground">{bookTitle}</h2>
+          <p className="text-sm text-muted-foreground dark:text-muted-foreground">{authorDisplayName}</p>
           {/* Description */}
           <div className="mt-3">
-            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/35">
+            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
               Description
             </label>
             <div className="relative">
@@ -233,16 +233,16 @@ export default function PublishPanel({
                 onBlur={() => void handleSaveDescription()}
                 placeholder="A short description shown to readers…"
                 rows={3}
-                className="w-full resize-none rounded-xl border border-black/[0.07] bg-slate-50/60 px-3 py-2.5 text-[13px] leading-relaxed text-slate-800 placeholder-slate-300 outline-none transition-all focus:border-[#907AFF]/40 focus:bg-white dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-white/80 dark:placeholder-white/20 dark:focus:border-[#907AFF]/30 dark:focus:bg-white/[0.05]"
+                className="w-full resize-none rounded-xl border border-black/[0.07] bg-background/60 px-3 py-2.5 text-[13px] leading-relaxed text-foreground placeholder-muted-foreground outline-none transition-all focus:border-[#907AFF]/40 focus:bg-card dark:border-border dark:bg-card dark:text-foreground dark:placeholder-white/20 dark:focus:border-[#907AFF]/30 dark:focus:bg-card"
               />
               {descSaving && (
-                <span className="absolute bottom-2.5 right-3 text-[11px] text-slate-400 dark:text-white/30">
+                <span className="absolute bottom-2.5 right-3 text-[11px] text-muted-foreground dark:text-muted-foreground">
                   Saving…
                 </span>
               )}
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400 dark:text-white/40">
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground dark:text-muted-foreground">
             <span>{totalCount} chapters</span>
             {isPublished && <span>{liveCount}/{totalCount} live</span>}
             {versionLanguages.length > 0 && <span>{versionLanguages.join(", ")}</span>}
@@ -252,12 +252,12 @@ export default function PublishPanel({
 
       {/* ── Publish progress (when published) ── */}
       {isPublished && totalCount > 0 && (
-        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
           <div className="mb-2 flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-700 dark:text-white/80">Chapters live</span>
-            <span className="tabular-nums text-slate-400 dark:text-white/40">{liveCount} of {totalCount} ({livePercent}%)</span>
+            <span className="font-semibold text-foreground dark:text-foreground">Chapters live</span>
+            <span className="tabular-nums text-muted-foreground dark:text-muted-foreground">{liveCount} of {totalCount} ({livePercent}%)</span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/[0.06]">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-muted dark:bg-card">
             <div
               className="h-full rounded-full bg-emerald-500 transition-all duration-500 dark:bg-emerald-400"
               style={{ width: `${livePercent}%` }}
@@ -284,8 +284,8 @@ export default function PublishPanel({
       )}
 
       {/* ── Visibility selector ── */}
-      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
-        <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">Visibility</h3>
+      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
+        <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">Visibility</h3>
         <div className="grid gap-3 sm:grid-cols-3">
           {VISIBILITY_OPTIONS.map((option) => {
             const selected = publishVisibility === option.value;
@@ -297,16 +297,16 @@ export default function PublishPanel({
                 className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition ${
                   selected
                     ? "border-[#907AFF] bg-[#907AFF]/[0.06] dark:bg-[#907AFF]/10"
-                    : "border-transparent bg-slate-50/50 hover:bg-slate-50 dark:bg-white/[0.02] dark:hover:bg-white/[0.04]"
+                    : "border-transparent bg-background/50 hover:bg-background dark:bg-card dark:hover:bg-accent"
                 }`}
               >
-                <div className={`${selected ? "text-[#907AFF]" : "text-slate-400 dark:text-white/30"}`}>
+                <div className={`${selected ? "text-accent-foreground" : "text-muted-foreground dark:text-muted-foreground"}`}>
                   {option.icon}
                 </div>
-                <span className={`text-sm font-medium ${selected ? "text-[#907AFF]" : "text-slate-700 dark:text-white/70"}`}>
+                <span className={`text-sm font-medium ${selected ? "text-accent-foreground" : "text-foreground dark:text-foreground"}`}>
                   {option.label}
                 </span>
-                <span className="text-[11px] leading-tight text-slate-400 dark:text-white/40">
+                <span className="text-[11px] leading-tight text-muted-foreground dark:text-muted-foreground">
                   {option.description}
                 </span>
               </button>
@@ -317,16 +317,16 @@ export default function PublishPanel({
 
       {/* ── Genre selector (if enabled) ── */}
       {genreSelector && (
-        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
           {genreSelector}
         </div>
       )}
 
       {/* ── Chapter release control ── */}
       {isPublished && (
-        <div className="rounded-2xl border border-black/[0.05] bg-white/60 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
-          <div className="border-b border-black/[0.05] px-5 py-3 dark:border-white/[0.06]">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">Chapter release</h3>
+        <div className="rounded-2xl border border-black/[0.05] bg-white/60 backdrop-blur-sm dark:border-border dark:bg-card">
+          <div className="border-b border-black/[0.05] px-5 py-3 dark:border-border">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">Chapter release</h3>
           </div>
           <div className="max-h-[360px] overflow-y-auto">
             {chapters.map((chapter, idx) => {
@@ -346,7 +346,7 @@ export default function PublishPanel({
               return (
                 <div
                   key={chapter.id}
-                  className={`flex items-center gap-3 border-b border-black/[0.03] px-5 py-2.5 last:border-b-0 dark:border-white/[0.03] ${
+                  className={`flex items-center gap-3 border-b border-black/[0.03] px-5 py-2.5 last:border-b-0 dark:border-border ${
                     isSelected ? "bg-[#907AFF]/[0.04] dark:bg-[#907AFF]/[0.06]" : ""
                   }`}
                 >
@@ -355,10 +355,10 @@ export default function PublishPanel({
                     onClick={() => onSelectChapter(chapter.id)}
                     className="min-w-0 flex-1 truncate text-left"
                   >
-                    <span className="mr-2 inline-block w-5 text-right text-xs tabular-nums text-slate-400 dark:text-white/30">
+                    <span className="mr-2 inline-block w-5 text-right text-xs tabular-nums text-muted-foreground dark:text-muted-foreground">
                       {idx + 1}
                     </span>
-                    <span className={`text-[13px] ${isSelected ? "font-semibold text-slate-900 dark:text-white" : "text-slate-700 dark:text-white/70"}`}>
+                    <span className={`text-[13px] ${isSelected ? "font-semibold text-foreground dark:text-foreground" : "text-foreground dark:text-foreground"}`}>
                       {chapter.title}
                     </span>
                   </button>
@@ -373,8 +373,8 @@ export default function PublishPanel({
                       isChapterPublished
                         ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
                         : canToggle
-                          ? "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-white/60 dark:hover:bg-white/10"
-                          : "bg-slate-50 text-slate-300 dark:bg-white/[0.03] dark:text-white/20"
+                          ? "bg-muted text-muted-foreground hover:bg-muted dark:bg-card dark:text-muted-foreground dark:hover:bg-accent"
+                          : "bg-background text-muted-foreground dark:bg-card dark:text-muted-foreground"
                     } disabled:cursor-not-allowed disabled:opacity-60`}
                     title={
                       isChapterPublished
@@ -400,22 +400,22 @@ export default function PublishPanel({
 
       {/* ── Confirm dialog ── */}
       {confirmPublishAction && confirmCopy && (
-        <div className="rounded-2xl border border-black/[0.06] bg-white p-5 shadow-lg dark:border-white/[0.06] dark:bg-[#0b0b12]">
-          <h3 className="mb-1 text-sm font-semibold text-slate-900 dark:text-white">Confirm action</h3>
-          <p className="mb-4 text-sm text-slate-600 dark:text-white/60">{confirmCopy}</p>
+        <div className="rounded-2xl border border-black/[0.06] bg-card p-5 shadow-lg dark:border-border dark:bg-card">
+          <h3 className="mb-1 text-sm font-semibold text-foreground dark:text-foreground">Confirm action</h3>
+          <p className="mb-4 text-sm text-muted-foreground dark:text-muted-foreground">{confirmCopy}</p>
           <div className="flex gap-3">
             <button
               type="button"
               onClick={onConfirm}
               disabled={isPublishing}
-              className="rounded-xl bg-[#0F172A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1E293B] disabled:opacity-60"
+              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
             >
               {isPublishing ? "Working..." : "Confirm"}
             </button>
             <button
               type="button"
               onClick={onCancelConfirm}
-              className="rounded-xl border border-black/[0.08] px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/70 dark:hover:bg-white/[0.04]"
+              className="rounded-xl border border-black/[0.08] px-5 py-2.5 text-sm font-medium text-foreground transition hover:bg-background dark:border-border dark:text-foreground dark:hover:bg-accent"
             >
               Cancel
             </button>
@@ -431,7 +431,7 @@ export default function PublishPanel({
               <button
                 type="button"
                 onClick={publishDisabled ? handleDisabledPublishClick : onPublishFull}
-                className={`rounded-xl bg-[#0F172A] px-6 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-[#1E293B] hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] ${publishDisabled ? "cursor-not-allowed opacity-50" : ""}`}
+                className={`rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-primary/90 hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] ${publishDisabled ? "cursor-not-allowed opacity-50" : ""}`}
               >
                 {isPublishing ? "Publishing..." : "Publish book"}
               </button>
@@ -439,7 +439,7 @@ export default function PublishPanel({
                 type="button"
                 onClick={onPublishChapter}
                 disabled={chapterPublishDisabled}
-                className="rounded-xl border border-black/[0.08] bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
+                className="rounded-xl border border-black/[0.08] bg-card px-5 py-3 text-sm font-medium text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
               >
                 {isPublishing
                   ? "Publishing..."
@@ -454,7 +454,7 @@ export default function PublishPanel({
                 type="button"
                 onClick={onPublishChapter}
                 disabled={chapterPublishDisabled}
-                className="rounded-xl bg-[#0F172A] px-6 py-3 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-[#1E293B] hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-primary/90 hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isPublishing
                   ? "Publishing..."
@@ -467,7 +467,7 @@ export default function PublishPanel({
                   type="button"
                   onClick={onUpdateSettings}
                   disabled={isPublishing}
-                  className="rounded-xl border border-black/[0.08] bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.06]"
+                  className="rounded-xl border border-black/[0.08] bg-card px-5 py-3 text-sm font-medium text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
                 >
                   Update visibility
                 </button>
@@ -476,7 +476,7 @@ export default function PublishPanel({
                 type="button"
                 onClick={onUnpublish}
                 disabled={isPublishing}
-                className="rounded-xl border border-red-200/60 bg-white px-5 py-3 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/30 dark:bg-white/[0.02] dark:text-red-400 dark:hover:bg-red-950/20"
+                className="rounded-xl border border-red-200/60 bg-card px-5 py-3 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/30 dark:bg-card dark:text-red-400 dark:hover:bg-red-950/20"
               >
                 Unpublish
               </button>

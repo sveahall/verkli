@@ -1,10 +1,6 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown } from "lucide-react";
-import Reveal from "@/components/Reveal";
-import { BRAND_COLORS } from "@/lib/design/brand";
+import { ArrowUpRight, Plus } from "lucide-react";
+import styles from "@/components/public/PublicPage.module.css";
 
 const CATEGORIES = [
   {
@@ -81,103 +77,24 @@ const CATEGORIES = [
   },
 ];
 
-function FaqItem({ q, a, delay }: { q: string; a: string; delay: number }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Reveal delay={delay}>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full border-b border-slate-100 py-5 text-left dark:border-white/[0.07] last:border-0"
-        aria-expanded={open}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <span className="text-[15px] font-medium leading-snug text-slate-900 dark:text-white">{q}</span>
-          <ChevronDown
-            className={`mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400 transition-transform duration-300 dark:text-white/30 ${open ? "rotate-180" : ""}`}
-          />
-        </div>
-        {open && (
-          <p className="mt-3 pr-8 text-[14px] leading-relaxed text-slate-500 dark:text-white/50">{a}</p>
-        )}
-      </button>
-    </Reveal>
-  );
-}
-
 export default function FaqPage() {
   return (
-    <main className="relative min-h-screen bg-background text-foreground -mt-[88px]">
-      {/* ── Hero ── */}
-      <section className="relative isolate flex flex-col items-center overflow-hidden px-6 pb-0 pt-[136px] text-center">
-        <div className="pointer-events-none absolute inset-0 -z-10">
-          <div
-            className="absolute left-1/2 top-[5%] h-[400px] w-[400px] -translate-x-1/2 rounded-full blur-[120px]"
-            style={{ background: BRAND_COLORS.violet, opacity: 0.09 }}
-          />
-        </div>
-
-        <div className="hero-animate-down mb-6 inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-white/80 px-4 py-1.5 backdrop-blur-xl dark:border-white/[0.12] dark:bg-white/[0.04]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#907AFF]" />
-          <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-600 dark:text-white/60">
-            Help center
-          </span>
-        </div>
-
-        <h1 className="hero-animate max-w-[560px] text-[clamp(36px,5vw,60px)] font-semibold leading-[0.97] tracking-[-0.04em] text-slate-900 dark:text-white" style={{ animationDelay: "120ms" }}>
-          Frequently asked questions
-        </h1>
-        <p className="hero-animate mx-auto mt-5 max-w-[400px] text-[16px] leading-relaxed text-slate-500 dark:text-white/50" style={{ animationDelay: "220ms" }}>
-          Can&apos;t find what you&apos;re looking for? Contact support and we&apos;ll help.
-        </p>
-      </section>
-
-      {/* ── FAQ sections ── */}
-      <section className="mx-auto mt-16 w-full max-w-2xl px-6 pb-24">
-        <div className="space-y-10">
-          {CATEGORIES.map((cat, ci) => (
-            <div key={cat.label}>
-              <Reveal delay={ci * 40}>
-                <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#907AFF]">
-                  {cat.label}
-                </p>
-              </Reveal>
-              <div className="rounded-2xl border border-slate-200/60 bg-white/80 px-6 shadow-[0_4px_16px_rgba(15,23,42,0.04)] dark:border-white/[0.08] dark:bg-white/[0.02]">
-                {cat.items.map((item, ii) => (
-                  <FaqItem key={item.q} q={item.q} a={item.a} delay={ci * 40 + ii * 30} />
-                ))}
-              </div>
+    <main className={styles.page}>
+      <div className={styles.shell}>
+        <header className={styles.hero}>
+          <h1>A few answers.<br /><span>A clear way forward.</span></h1>
+          <div><p>Everything you need to know about writing, publishing and growing with Verkli.</p><div className={styles.actions}><Link href="/support" className={styles.textLink}>Talk to our team <ArrowUpRight size={16} /></Link></div></div>
+        </header>
+        {CATEGORIES.map((category) => (
+          <section key={category.label} className={`${styles.section} ${styles.split}`}>
+            <h2>{category.label}</h2>
+            <div className={styles.questions}>
+              {category.items.map((item) => <details key={item.q}><summary>{item.q}<Plus size={18} aria-hidden="true" /></summary><p>{item.a}</p></details>)}
             </div>
-          ))}
-        </div>
-
-        {/* Still have questions */}
-        <Reveal delay={120}>
-          <div className="mt-14 rounded-3xl border border-slate-200/70 bg-white/80 p-8 text-center shadow-[0_4px_16px_rgba(15,23,42,0.04)] dark:border-white/[0.08] dark:bg-white/[0.02]">
-            <p className="text-[15px] font-medium text-slate-900 dark:text-white">Still have questions?</p>
-            <p className="mt-1 text-[14px] text-slate-500 dark:text-white/50">We&apos;re happy to help you get started.</p>
-            <div className="mt-5 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Link
-                href="/author/signup"
-                className="btn-primary rounded-full bg-slate-900 px-6 py-2.5 text-[14px] font-semibold text-white hover:bg-slate-800 dark:bg-[#907AFF] dark:hover:bg-[#8069EE]"
-              >
-                Create account
-              </Link>
-              <Link
-                href="/support"
-                className="rounded-full border border-slate-200 px-6 py-2.5 text-[14px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:text-white/60 dark:hover:text-white"
-              >
-                Contact support
-              </Link>
-              <Link
-                href="/pricing"
-                className="rounded-full border border-slate-200 px-6 py-2.5 text-[14px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:text-white/60 dark:hover:text-white"
-              >
-                View pricing
-              </Link>
-            </div>
-          </div>
-        </Reveal>
-      </section>
+          </section>
+        ))}
+        <section className={styles.invitation}><div><h2>Ready for your next chapter?</h2><p>Start writing, or take a closer look at the plans.</p></div><div className={styles.actions}><Link href="/author/signup" className={styles.primary}>Create account <ArrowUpRight size={16} /></Link><Link href="/pricing" className={styles.textLink}>View pricing</Link></div></section>
+      </div>
     </main>
   );
 }

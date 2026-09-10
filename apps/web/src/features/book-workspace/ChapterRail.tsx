@@ -77,7 +77,7 @@ function ChapterRail({
       {/* Book header */}
       <div className="px-5 pb-3 pt-5">
         <div className="flex items-center gap-3">
-          <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-black/[0.06] bg-slate-50/60 dark:border-white/[0.08] dark:bg-white/[0.03]">
+          <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-black/[0.06] bg-background/60 dark:border-border dark:bg-card">
             {coverImageUrl ? (
               <Image
                 src={coverImageUrl}
@@ -88,42 +88,42 @@ function ChapterRail({
                 unoptimized={requiresUnoptimizedImage(coverImageUrl)}
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-slate-400 dark:text-white/35">
+              <div className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-muted-foreground dark:text-muted-foreground">
                 Cover
               </div>
             )}
           </div>
 
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-white/30">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground dark:text-muted-foreground">
               Book
             </p>
-            <p className="mt-1 truncate text-[14px] font-semibold tracking-[-0.01em] text-slate-900 dark:text-white/90">
+            <p className="mt-1 truncate text-[14px] font-semibold tracking-[-0.01em] text-foreground dark:text-foreground">
               {bookTitle}
             </p>
           </div>
         </div>
 
         <div className="mt-4 flex items-baseline justify-between gap-3">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Chapters</h2>
-          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-white/35">
+          <h2 className="text-sm font-semibold text-foreground dark:text-foreground">Chapters</h2>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground dark:text-muted-foreground">
             {chapters.length} {chapters.length === 1 ? "chapter" : "chapters"}
           </span>
         </div>
 
         {totalWords > 0 ? (
-          <p className="mt-1 text-xs text-slate-500 dark:text-white/55">
+          <p className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground">
             {totalWords.toLocaleString()} words in the manuscript
           </p>
         ) : (
-          <p className="mt-1 text-xs text-slate-500 dark:text-white/55">Start by creating your first chapter.</p>
+          <p className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground">Start by creating your first chapter.</p>
         )}
       </div>
 
       {/* Chapter list */}
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {chapters.length === 0 ? (
-          <div className="flex min-h-[220px] items-center justify-center px-5 text-center text-sm text-slate-500 dark:text-white/45">
+          <div className="flex min-h-[220px] items-center justify-center px-5 text-center text-sm text-muted-foreground dark:text-muted-foreground">
             Create your first chapter to start writing.
           </div>
         ) : (
@@ -176,8 +176,8 @@ function ChapterRail({
                       isDragTarget
                         ? "border-[#907AFF]/25 bg-[#907AFF]/[0.06]"
                         : isActive
-                          ? "border-slate-900/10 bg-slate-50 dark:border-white/10 dark:bg-white/[0.06]"
-                          : "border-transparent hover:bg-slate-50/70 dark:hover:bg-white/[0.03]",
+                          ? "border-border/10 bg-background dark:border-border dark:bg-card"
+                          : "border-transparent hover:bg-background/70 dark:hover:bg-accent",
                       "py-0.5"
                     )}
                   >
@@ -190,8 +190,8 @@ function ChapterRail({
                         className={cn(
                           "w-5 shrink-0 text-right text-[12px] tabular-nums transition-colors",
                           isActive
-                            ? "font-semibold text-slate-900 dark:text-white"
-                            : "font-medium text-slate-400 dark:text-white/25"
+                            ? "font-semibold text-foreground dark:text-foreground"
+                            : "font-medium text-muted-foreground dark:text-muted-foreground"
                         )}
                       >
                         {index + 1}
@@ -201,8 +201,8 @@ function ChapterRail({
                         className={cn(
                           "min-w-0 flex-1 truncate text-[13px] transition-colors",
                           isActive
-                            ? "font-semibold text-slate-900 dark:text-white"
-                            : "font-medium text-slate-700 dark:text-white/70",
+                            ? "font-semibold text-foreground dark:text-foreground"
+                            : "font-medium text-foreground dark:text-foreground",
                           !isActive && isEmpty ? "opacity-60" : ""
                         )}
                       >
@@ -214,11 +214,11 @@ function ChapterRail({
                           "shrink-0 text-[11px] tabular-nums transition-colors",
                           isEmpty
                             ? isActive
-                              ? "text-slate-400 dark:text-white/30"
-                              : "text-slate-300 dark:text-white/20"
+                              ? "text-muted-foreground dark:text-muted-foreground"
+                              : "text-muted-foreground dark:text-muted-foreground"
                             : isActive
-                              ? "font-medium text-slate-500 dark:text-white/45"
-                              : "text-slate-400 dark:text-white/35"
+                              ? "font-medium text-muted-foreground dark:text-muted-foreground"
+                              : "text-muted-foreground dark:text-muted-foreground"
                         )}
                       >
                         {formatWordCount(words)}
@@ -231,7 +231,7 @@ function ChapterRail({
                         aria-hidden="true"
                         className={cn(
                           "cursor-grab text-[11px] leading-none",
-                          isActive ? "text-slate-400 dark:text-white/30" : "text-slate-300 dark:text-white/15"
+                          isActive ? "text-muted-foreground dark:text-muted-foreground" : "text-muted-foreground dark:text-muted-foreground"
                         )}
                       >
                         ⋮⋮
@@ -242,7 +242,7 @@ function ChapterRail({
                             type="button"
                             onClick={() => onMoveChapter(chapter.id, "up")}
                             disabled={index === 0}
-                            className="rounded px-1 py-0.5 text-[11px] font-medium text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/35 dark:hover:bg-white/10 dark:hover:text-white/70"
+                            className="rounded px-1 py-0.5 text-[11px] font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30 dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
                             aria-label={`Move ${chapter.title || `Chapter ${index + 1}`} up`}
                           >
                             ↑
@@ -251,7 +251,7 @@ function ChapterRail({
                             type="button"
                             onClick={() => onMoveChapter(chapter.id, "down")}
                             disabled={index === chapters.length - 1}
-                            className="rounded px-1 py-0.5 text-[11px] font-medium text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-white/35 dark:hover:bg-white/10 dark:hover:text-white/70"
+                            className="rounded px-1 py-0.5 text-[11px] font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30 dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
                             aria-label={`Move ${chapter.title || `Chapter ${index + 1}`} down`}
                           >
                             ↓
@@ -263,7 +263,7 @@ function ChapterRail({
                           type="button"
                           onClick={() => setConfirmDeleteId(chapter.id)}
                           disabled={deletingChapterId === chapter.id}
-                          className="rounded px-1 py-0.5 text-[11px] font-medium text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:text-white/35 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                          className="rounded px-1 py-0.5 text-[11px] font-medium text-muted-foreground transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:text-muted-foreground dark:hover:bg-red-500/10 dark:hover:text-red-400"
                           aria-label={`Delete ${chapter.title || `Chapter ${index + 1}`}`}
                         >
                           ×
@@ -284,7 +284,7 @@ function ChapterRail({
           type="button"
           onClick={onCreateChapter}
           disabled={isCreating}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 px-3 py-2.5 text-[13px] font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50 dark:border-white/10 dark:text-white/45 dark:hover:border-white/20 dark:hover:bg-white/[0.03] dark:hover:text-white/70"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border px-3 py-2.5 text-[13px] font-semibold text-muted-foreground transition hover:border-border hover:bg-background hover:text-foreground disabled:opacity-50 dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:bg-accent dark:hover:text-foreground"
         >
           {isCreating ? "Creating..." : "+ New chapter"}
         </button>
@@ -305,7 +305,7 @@ function ChapterRail({
             <button
               type="button"
               onClick={() => setConfirmDeleteId(null)}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:text-white/70 dark:hover:bg-white/[0.04]"
+              className="rounded-lg border border-border px-4 py-2 text-[13px] font-medium text-foreground transition hover:bg-background dark:border-border dark:text-foreground dark:hover:bg-accent"
             >
               Cancel
             </button>

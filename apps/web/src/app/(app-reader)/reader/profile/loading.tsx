@@ -6,7 +6,7 @@ export default function ReaderProfileLoading() {
       <Skeleton className="mb-2 h-7 w-28" />
       <Skeleton className="mb-6 h-4 w-48" />
       <div className="space-y-6">
-        <div className="rounded-2xl border border-slate-200/70 bg-white p-6 dark:border-white/10 dark:bg-white/5">
+        <div className="rounded-2xl border border-border bg-card p-6">
           <div className="flex items-center gap-4">
             <Skeleton className="h-16 w-16 rounded-full" />
             <div className="space-y-2">

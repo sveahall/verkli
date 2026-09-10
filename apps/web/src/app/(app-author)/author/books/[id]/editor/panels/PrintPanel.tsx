@@ -225,14 +225,14 @@ export default function PrintPanel({
   /* ── Configuration ── */
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <h2 className="text-[clamp(20px,2.5vw,24px)] font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
+      <h2 className="author-section-title text-[clamp(20px,2.5vw,24px)] font-medium tracking-[-0.02em] text-foreground dark:text-foreground">
         Print on demand
       </h2>
 
       {/* Format */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Format</h3>
-        <p className="mt-1 text-[13px] text-slate-400 dark:text-white/40">Select one or both.</p>
+        <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Format</h3>
+        <p className="mt-1 text-[13px] text-muted-foreground dark:text-muted-foreground">Select one or both.</p>
         <div className="mt-4 grid grid-cols-2 gap-3">
           {(["softcover", "hardcover"] as const).map((format) => {
             const info = FORMAT_INFO[format];
@@ -245,22 +245,22 @@ export default function PrintPanel({
                 className={`rounded-xl border px-5 py-4 text-left transition ${
                   selected
                     ? "border-[#907AFF] ring-1 ring-[#907AFF]/30"
-                    : "border-slate-100 hover:border-slate-200 dark:border-white/[0.08] dark:hover:border-white/[0.15]"
+                    : "border-border hover:border-border dark:border-border dark:hover:border-border"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-slate-800 dark:text-white/90">{info.label}</span>
+                  <span className="text-sm font-semibold text-foreground dark:text-foreground">{info.label}</span>
                   {selected ? (
-                    <svg className="h-5 w-5 text-[#907AFF]" viewBox="0 0 20 20" fill="currentColor">
+                    <svg className="h-5 w-5 text-accent-foreground" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
                     </svg>
                   ) : (
-                    <div className="h-5 w-5 rounded-full ring-1.5 ring-slate-200 dark:ring-white/20" />
+                    <div className="h-5 w-5 rounded-full ring-1.5 ring-border dark:ring-white/20" />
                   )}
                 </div>
-                <p className="mt-1 text-xs text-slate-400 dark:text-white/40">{info.tagline}</p>
-                <p className="mt-2 text-xs text-slate-500 dark:text-white/50">
-                  From <span className="font-medium text-slate-700 dark:text-white/80">{info.cost}</span> / copy
+                <p className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground">{info.tagline}</p>
+                <p className="mt-2 text-xs text-muted-foreground dark:text-muted-foreground">
+                  From <span className="font-medium text-foreground dark:text-foreground">{info.cost}</span> / copy
                 </p>
               </button>
             );
@@ -270,16 +270,16 @@ export default function PrintPanel({
 
       {/* Edition */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Edition</h3>
-        <p className="mt-1 text-[13px] text-slate-400 dark:text-white/40">Set a limit to create exclusivity, or leave it open.</p>
+        <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Edition</h3>
+        <p className="mt-1 text-[13px] text-muted-foreground dark:text-muted-foreground">Set a limit to create exclusivity, or leave it open.</p>
         <div className="mt-4 flex items-center gap-2">
           <button
             type="button"
             onClick={() => setEditionLimit("unlimited")}
             className={`rounded-full px-4 py-1.5 text-[13px] font-medium transition ${
               editionLimit === "unlimited"
-                ? "bg-[#0F172A] text-white"
-                : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-white/60 dark:hover:bg-white/10"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted dark:bg-card dark:text-muted-foreground dark:hover:bg-accent"
             }`}
           >
             Unlimited
@@ -289,8 +289,8 @@ export default function PrintPanel({
             onClick={() => setEditionLimit("limited")}
             className={`rounded-full px-4 py-1.5 text-[13px] font-medium transition ${
               editionLimit === "limited"
-                ? "bg-[#0F172A] text-white"
-                : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-white/60 dark:hover:bg-white/10"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted dark:bg-card dark:text-muted-foreground dark:hover:bg-accent"
             }`}
           >
             Limited edition
@@ -302,9 +302,9 @@ export default function PrintPanel({
                 min="1"
                 value={limitCount}
                 onChange={(e) => setLimitCount(e.target.value)}
-                className="w-20 rounded-lg border border-black/[0.08] px-3 py-1.5 text-[13px] text-slate-900 focus:border-[#907AFF] focus:outline-none focus:ring-1 focus:ring-[#907AFF] dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
+                className="w-20 rounded-lg border border-black/[0.08] px-3 py-1.5 text-[13px] text-foreground focus:border-[#907AFF] focus:outline-none focus:ring-1 focus:ring-[#907AFF] dark:border-border dark:bg-card dark:text-foreground"
               />
-              <span className="text-[13px] text-slate-400 dark:text-white/40">copies</span>
+              <span className="text-[13px] text-muted-foreground dark:text-muted-foreground">copies</span>
             </div>
           )}
         </div>
@@ -312,18 +312,18 @@ export default function PrintPanel({
 
       {/* ISBN */}
       <div>
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">ISBN</h3>
-        <p className="mt-1 text-[13px] text-slate-400 dark:text-white/40">Required for bookstore and distributor listings.</p>
+        <h3 className="text-sm font-semibold text-foreground dark:text-foreground">ISBN</h3>
+        <p className="mt-1 text-[13px] text-muted-foreground dark:text-muted-foreground">Required for bookstore and distributor listings.</p>
         {isbnSaved ? (
           <div className="mt-3 flex items-center gap-3">
             <svg className="h-4 w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
             </svg>
-            <span className="text-sm text-slate-600 dark:text-white/70">ISBN saved</span>
+            <span className="text-sm text-muted-foreground dark:text-foreground">ISBN saved</span>
             <button
               type="button"
               onClick={() => setIsbnSaved(false)}
-              className="text-xs font-medium text-[#907AFF] transition hover:text-[#7c6ae6]"
+              className="text-xs font-medium text-accent-foreground transition hover:text-accent-foreground"
             >
               Edit
             </button>
@@ -336,13 +336,13 @@ export default function PrintPanel({
               onChange={(e) => setIsbnDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleSaveIsbn(); }}
               placeholder="978-91-XXXX-XXX-X"
-              className="w-52 rounded-lg border border-black/[0.08] px-3 py-1.5 text-[13px] text-slate-900 placeholder:text-slate-300 focus:border-[#907AFF] focus:outline-none focus:ring-1 focus:ring-[#907AFF] dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/25"
+              className="w-52 rounded-lg border border-black/[0.08] px-3 py-1.5 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-[#907AFF] focus:outline-none focus:ring-1 focus:ring-[#907AFF] dark:border-border dark:bg-card dark:text-foreground dark:placeholder:text-muted-foreground"
             />
             <button
               type="button"
               onClick={handleSaveIsbn}
               disabled={isSavingIsbn || !isbnDraft.replace(/\D/g, "").trim()}
-              className="rounded-full bg-[#0F172A] px-4 py-1.5 text-[13px] font-semibold text-white transition hover:bg-[#1E293B] disabled:opacity-40"
+              className="rounded-full bg-primary px-4 py-1.5 text-[13px] font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-40"
             >
               {isSavingIsbn ? "Saving..." : "Save"}
             </button>
@@ -353,11 +353,11 @@ export default function PrintPanel({
       {/* Pricing */}
       {selectedFormats.size > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Pricing</h3>
-          <p className="mt-1 text-[13px] text-slate-400 dark:text-white/40">Set the reader price per format. You keep the margin after production and shipping.</p>
+          <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Pricing</h3>
+          <p className="mt-1 text-[13px] text-muted-foreground dark:text-muted-foreground">Set the reader price per format. You keep the margin after production and shipping.</p>
 
           <div className="mt-3 flex items-center gap-2">
-            <span className="text-[13px] text-slate-500 dark:text-white/50">Currency</span>
+            <span className="text-[13px] text-muted-foreground dark:text-muted-foreground">Currency</span>
             {(["SEK", "EUR", "USD"] as const).map((cur) => (
               <button
                 key={cur}
@@ -365,8 +365,8 @@ export default function PrintPanel({
                 onClick={() => { setPriceCurrency(cur); setSaveError(null); }}
                 className={`rounded-full px-3 py-1 text-[12px] font-medium transition ${
                   priceCurrency === cur
-                    ? "bg-[#0F172A] text-white"
-                    : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-white/60 dark:hover:bg-white/10"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted dark:bg-card dark:text-muted-foreground dark:hover:bg-accent"
                 }`}
               >
                 {cur}
@@ -387,9 +387,9 @@ export default function PrintPanel({
                 const belowFloor = priceMinor !== null && priceMinor < POD_PRICE_FLOOR[fmt];
 
                 return (
-                  <div key={fmt} className="rounded-xl border border-slate-100 px-4 py-3 dark:border-white/[0.08]">
+                  <div key={fmt} className="rounded-xl border border-border px-4 py-3 dark:border-border">
                     <div className="flex items-center justify-between">
-                      <span className="text-[13px] font-semibold text-slate-800 dark:text-white/90">
+                      <span className="text-[13px] font-semibold text-foreground dark:text-foreground">
                         {FORMAT_INFO[fmt].label}
                       </span>
                       <div className="flex items-center gap-2">
@@ -400,13 +400,13 @@ export default function PrintPanel({
                           value={priceStr}
                           onChange={(e) => { setPrice(e.target.value); setSaveError(null); }}
                           placeholder={(POD_PRICE_FLOOR[fmt] / 100).toFixed(0)}
-                          className="w-24 rounded-lg border border-black/[0.08] px-3 py-1.5 text-right text-[13px] text-slate-900 focus:border-[#907AFF] focus:outline-none focus:ring-1 focus:ring-[#907AFF] dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
+                          className="w-24 rounded-lg border border-black/[0.08] px-3 py-1.5 text-right text-[13px] text-foreground focus:border-[#907AFF] focus:outline-none focus:ring-1 focus:ring-[#907AFF] dark:border-border dark:bg-card dark:text-foreground"
                         />
-                        <span className="text-[13px] text-slate-400 dark:text-white/40">{priceCurrency}</span>
+                        <span className="text-[13px] text-muted-foreground dark:text-muted-foreground">{priceCurrency}</span>
                       </div>
                     </div>
                     {margin !== null && (
-                      <p className={`mt-2 text-[12px] ${belowFloor ? "text-rose-600 dark:text-rose-400" : margin > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-white/40"}`}>
+                      <p className={`mt-2 text-[12px] ${belowFloor ? "text-rose-600 dark:text-rose-400" : margin > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground dark:text-muted-foreground"}`}>
                         {belowFloor
                           ? `Below minimum (${(POD_PRICE_FLOOR[fmt] / 100).toFixed(0)} ${priceCurrency})`
                           : `Margin: ${(margin / 100).toFixed(0)} ${priceCurrency} (price ${((priceMinor ?? 0) / 100).toFixed(0)} - production ${(productionCost / 100).toFixed(0)} - shipping ${(shippingCost / 100).toFixed(0)})`}
@@ -451,7 +451,7 @@ export default function PrintPanel({
       )}
 
       {/* Actions */}
-      <div className="flex items-center justify-between border-t border-slate-100 pt-6 dark:border-white/[0.06]">
+      <div className="flex items-center justify-between border-t border-border pt-6 dark:border-border">
         <button
           type="button"
           onClick={() => {
@@ -464,7 +464,7 @@ export default function PrintPanel({
             setEnabled(false);
             setSaveError(null);
           }}
-          className="text-[13px] text-slate-400 transition hover:text-slate-700 dark:text-white/40 dark:hover:text-white/80"
+          className="text-[13px] text-muted-foreground transition hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground"
         >
           &larr; Back
         </button>
@@ -472,7 +472,7 @@ export default function PrintPanel({
           type="button"
           disabled={isSavingActivation || selectedFormats.size === 0}
           onClick={() => void handleActivate()}
-          className="rounded-full bg-[#0F172A] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] disabled:opacity-40 disabled:cursor-not-allowed"
+          className="rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isSavingActivation
             ? "Saving..."

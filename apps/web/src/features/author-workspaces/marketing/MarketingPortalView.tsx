@@ -60,10 +60,10 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  pending: "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/60",
+  pending: "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground",
   generating: "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
   active: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
-  paused: "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/60",
+  paused: "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground",
   finished: "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400",
   failed: "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400",
 };
@@ -137,16 +137,16 @@ export default function MarketingPortalView({
       <WorkspaceLayout
         header={
           <header>
-            <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+            <h1 className="author-page-title">
               Marketing
             </h1>
           </header>
         }
         headerRight={<WorkspaceHeaderActions />}
         main={
-          <div className="rounded-2xl bg-white p-8 text-center dark:bg-white/[0.04]">
+          <div className="rounded-2xl border border-border bg-card p-8 text-center dark:bg-card">
             <p className="text-eyebrow">Not yet enabled</p>
-            <h2 className="mt-4 text-[24px] font-semibold tracking-tight text-slate-900 dark:text-white">
+            <h2 className="author-section-title mt-4 text-[24px] font-medium tracking-tight text-foreground dark:text-foreground">
               Marketing is not enabled in this environment yet.
             </h2>
           </div>
@@ -160,25 +160,25 @@ export default function MarketingPortalView({
       <WorkspaceLayout
         header={
           <header>
-            <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+            <h1 className="author-page-title">
               Marketing
             </h1>
           </header>
         }
         headerRight={<WorkspaceHeaderActions />}
         main={
-          <div className="rounded-2xl bg-white p-8 text-center dark:bg-white/[0.04]">
+          <div className="rounded-2xl border border-border bg-card p-8 text-center dark:bg-card">
             <p className="text-eyebrow">Marketing</p>
-            <h2 className="mt-4 text-[24px] font-semibold tracking-tight text-slate-900 dark:text-white">
+            <h2 className="author-section-title mt-4 text-[24px] font-medium tracking-tight text-foreground dark:text-foreground">
               Add a book first
             </h2>
-            <p className="mx-auto mt-3 max-w-lg text-[15px] text-slate-500 dark:text-white/45">
+            <p className="mx-auto mt-3 max-w-lg text-[15px] text-muted-foreground dark:text-muted-foreground">
               Trailers, podcast clips, and captions are generated from your
               published book. Add one and come back here.
             </p>
             <Link
               href="/author/books/new"
-              className="mt-5 inline-flex items-center rounded-full bg-[#0F172A] px-5 py-2.5 text-[14px] font-medium text-white hover:bg-[#1E293B]"
+              className="mt-5 inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-[14px] font-medium text-primary-foreground hover:bg-primary/90"
             >
               Add a book
             </Link>
@@ -192,7 +192,7 @@ export default function MarketingPortalView({
     <WorkspaceLayout
       header={
         <header>
-          <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+          <h1 className="author-page-title">
             Marketing
           </h1>
         </header>
@@ -201,23 +201,23 @@ export default function MarketingPortalView({
       main={
         <div className="space-y-6">
           {/* Hero CTA */}
-          <div className="rounded-2xl bg-white p-6 dark:bg-white/[0.04] sm:p-8">
+          <div className="rounded-2xl border border-border bg-card p-6 dark:bg-card sm:p-8">
             <p className="text-eyebrow">Campaigns</p>
-            <h2 className="mt-4 text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white sm:text-[32px]">
+            <h2 className="author-section-title mt-4 text-[28px] font-medium tracking-tight text-foreground dark:text-foreground sm:text-[32px]">
               One wizard. Trailers, clips, captions — every language.
             </h2>
-            <p className="mt-2 max-w-2xl text-[15px] text-slate-500 dark:text-white/45">
+            <p className="mt-2 max-w-2xl text-[15px] text-muted-foreground dark:text-muted-foreground">
               Pick a book, pick languages, pick what to publish. We build a
               week-by-week plan you can post yourself with one click.
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <Button
                 onClick={() => setWizardOpen(true)}
-                className="rounded-full bg-[#0F172A] px-6 text-white hover:bg-[#1E293B]"
+                className="rounded-full bg-primary px-6 text-primary-foreground hover:bg-primary/90"
               >
                 Create campaign
               </Button>
-              <span className="text-[13px] text-slate-400 dark:text-white/35">
+              <span className="text-[13px] text-muted-foreground dark:text-muted-foreground">
                 Organic now · Paid ads later
               </span>
             </div>
@@ -230,8 +230,8 @@ export default function MarketingPortalView({
 
           {/* Campaign list */}
           {campaigns.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-white/40 p-8 text-center dark:border-white/10 dark:bg-white/[0.02]">
-              <p className="text-[14px] text-slate-500 dark:text-white/45">
+            <div className="rounded-2xl border border-dashed border-border bg-white/40 p-8 text-center dark:border-border dark:bg-card">
+              <p className="text-[14px] text-muted-foreground dark:text-muted-foreground">
                 No campaigns yet — start one above and we&apos;ll generate the
                 weekly content drop.
               </p>
@@ -243,8 +243,8 @@ export default function MarketingPortalView({
                   <Link
                     href={`/author/marketing/${campaign.id}`}
                     className={cn(
-                      "block rounded-2xl border border-black/10 bg-white p-5 transition-all hover:border-[#907AFF]/40 hover:bg-[#907AFF]/[0.03]",
-                      "dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-[#907AFF]/40 dark:hover:bg-[#907AFF]/[0.06]"
+                      "block rounded-2xl border border-black/10 bg-card p-5 transition-all hover:border-[#907AFF]/40 hover:bg-[#907AFF]/[0.03]",
+                      "dark:border-border dark:bg-card dark:hover:border-[#907AFF]/40 dark:hover:bg-[#907AFF]/[0.06]"
                     )}
                   >
                     <div className="flex items-start gap-3.5">
@@ -256,11 +256,11 @@ export default function MarketingPortalView({
                           className="h-16 w-11 rounded-md object-cover shadow-sm"
                         />
                       ) : (
-                        <div className="h-16 w-11 rounded-md bg-black/[0.05] dark:bg-white/10" />
+                        <div className="h-16 w-11 rounded-md bg-black/[0.05] dark:bg-card" />
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="truncate text-[15px] font-medium text-slate-900 dark:text-white">
+                          <p className="truncate text-[15px] font-medium text-foreground dark:text-foreground">
                             {campaign.name ?? campaign.bookTitle ?? "Campaign"}
                           </p>
                           <span
@@ -272,22 +272,22 @@ export default function MarketingPortalView({
                             {STATUS_LABEL[campaign.status] ?? campaign.status}
                           </span>
                         </div>
-                        <p className="mt-1 truncate text-[13px] text-slate-500 dark:text-white/45">
+                        <p className="mt-1 truncate text-[13px] text-muted-foreground dark:text-muted-foreground">
                           {campaign.bookTitle ?? "—"}
-                          <span className="mx-1.5 text-slate-300 dark:text-white/15">·</span>
+                          <span className="mx-1.5 text-muted-foreground dark:text-muted-foreground">·</span>
                           {campaign.languages.map(getLanguageLabel).join(", ")}
                         </p>
                         <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[12px]">
                           {campaign.contentTypes.map((ct) => (
                             <span
                               key={ct}
-                              className="rounded-full bg-black/[0.04] px-2 py-0.5 text-slate-700 dark:bg-white/10 dark:text-white/65"
+                              className="rounded-full bg-black/[0.04] px-2 py-0.5 text-foreground dark:bg-card dark:text-muted-foreground"
                             >
                               {CONTENT_TYPE_EMOJI[ct] ?? ""} {ct}
                             </span>
                           ))}
                         </div>
-                        <div className="mt-3 flex items-center gap-3 text-[12px] text-slate-400 dark:text-white/35">
+                        <div className="mt-3 flex items-center gap-3 text-[12px] text-muted-foreground dark:text-muted-foreground">
                           <span>{campaign.counts.total} posts</span>
                           <span aria-hidden="true">·</span>
                           <span>{campaign.counts.posted} posted</span>

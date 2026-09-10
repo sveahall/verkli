@@ -37,7 +37,7 @@ function SaveButton() {
     <button
       type="submit"
       disabled={pending}
-      className="min-h-[44px] rounded-full bg-[#0F172A] px-5 py-2 text-[13px] font-semibold text-white shadow-[0_4px_12px_rgba(15,23,42,0.18)] transition hover:bg-[#1E293B] hover:shadow-[0_6px_16px_rgba(15,23,42,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+      className="min-h-[44px] rounded-full bg-primary px-5 py-2 text-[13px] font-semibold text-primary-foreground shadow-[0_4px_12px_rgba(15,23,42,0.18)] transition hover:bg-primary/90 hover:shadow-[0_6px_16px_rgba(15,23,42,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? "Saving..." : "Save settings"}
     </button>
@@ -72,7 +72,7 @@ export default function SettingsPage({ user, profile, subscriptionPlanSection }:
     <WorkspaceLayout
       header={
         <header>
-          <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+          <h1 className="author-page-title">
             Settings
           </h1>
         </header>
@@ -85,22 +85,22 @@ export default function SettingsPage({ user, profile, subscriptionPlanSection }:
             <SaveButton />
           </div>
 
-          <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
-            <h2 className="text-section-title">Account</h2>
+          <section className="rounded-2xl border border-border bg-card px-5 py-6 sm:px-7 dark:bg-card">
+            <h2 className="author-section-title text-section-title">Account</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
+                <label className="text-sm font-medium text-foreground dark:text-foreground">
                   Email
                 </label>
                 <input
                   value={user.email}
                   readOnly
-                  className="input-base min-h-[44px] text-[14px] text-slate-500 dark:text-white/50"
+                  className="input-base min-h-[44px] text-[14px] text-muted-foreground dark:text-muted-foreground"
                 />
               </div>
               <div />
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
+                <label className="text-sm font-medium text-foreground dark:text-foreground">
                   Password
                 </label>
                 <input
@@ -111,7 +111,7 @@ export default function SettingsPage({ user, profile, subscriptionPlanSection }:
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
+                <label className="text-sm font-medium text-foreground dark:text-foreground">
                   Confirm password
                 </label>
                 <input
@@ -124,11 +124,11 @@ export default function SettingsPage({ user, profile, subscriptionPlanSection }:
             </div>
           </section>
 
-          <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
-            <h2 className="text-section-title">Publishing defaults</h2>
+          <section className="rounded-2xl border border-border bg-card px-5 py-6 sm:px-7 dark:bg-card">
+            <h2 className="author-section-title text-section-title">Publishing defaults</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
+                <label className="text-sm font-medium text-foreground dark:text-foreground">
                   Language
                 </label>
                 <select
@@ -143,7 +143,7 @@ export default function SettingsPage({ user, profile, subscriptionPlanSection }:
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-900 dark:text-white">
+                <label className="text-sm font-medium text-foreground dark:text-foreground">
                   Default visibility
                 </label>
                 <select
@@ -158,11 +158,11 @@ export default function SettingsPage({ user, profile, subscriptionPlanSection }:
             </div>
           </section>
 
-          <section className="rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
+          <section className="rounded-2xl border border-border bg-card px-5 py-6 sm:px-7 dark:bg-card">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-section-title">Notifications</h2>
-                <p className="mt-2 text-sm text-slate-500 dark:text-white/45">
+                <h2 className="author-section-title text-section-title">Notifications</h2>
+                <p className="mt-2 text-sm text-muted-foreground dark:text-muted-foreground">
                   Choose whether Verkli should email you about activity.
                 </p>
               </div>
@@ -175,12 +175,12 @@ export default function SettingsPage({ user, profile, subscriptionPlanSection }:
                 />
                 <span
                   className={`h-6 w-11 rounded-full transition ${
-                    emailNotifications ? "bg-[#907AFF] dark:bg-[#907AFF]" : "bg-slate-200 dark:bg-white/20"
+                    emailNotifications ? "bg-[#907AFF] dark:bg-[#907AFF]" : "bg-muted dark:bg-card"
                   }`}
                 />
                 <span
                   className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white transition ${
-                    emailNotifications ? "translate-x-5" : "dark:bg-slate-900"
+                    emailNotifications ? "translate-x-5" : "dark:bg-card"
                   }`}
                 />
               </label>
@@ -199,11 +199,11 @@ export default function SettingsPage({ user, profile, subscriptionPlanSection }:
           <div className="mt-4">{subscriptionPlanSection}</div>
         ) : null}
 
-        <section className="mt-4 rounded-2xl bg-white px-7 py-5 dark:bg-white/[0.04]">
+        <section className="mt-4 rounded-2xl border border-border bg-card px-5 py-6 sm:px-7 dark:bg-card">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-section-title">Sign out</h2>
-              <p className="mt-2 text-sm text-slate-500 dark:text-white/45">
+              <h2 className="author-section-title text-section-title">Sign out</h2>
+              <p className="mt-2 text-sm text-muted-foreground dark:text-muted-foreground">
                 Sign out from all devices.
               </p>
             </div>

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { BookOpen, Clock3 } from "lucide-react";
+import styles from "@/components/public/PublicPage.module.css";
 import { getStripeCheckoutSession } from "@/lib/payments/stripe";
 import { TA_FOR_ER_ORDER } from "@/lib/orders/ta-for-er";
 
@@ -27,12 +29,13 @@ export default async function TaForErSuccessPage({
   }
 
   return (
-    <main className="mx-auto flex min-h-[70vh] w-full max-w-2xl items-center px-6 py-12">
-      <section className="w-full rounded-2xl border border-black/10 bg-white p-8 text-slate-900 shadow-sm dark:border-white/10 dark:bg-[#0f1115] dark:text-white">
+    <main className={styles.page}>
+      <section className={styles.status}>
+        <div className={styles.statusIcon}>{paid ? <BookOpen size={25} aria-hidden="true" /> : <Clock3 size={25} aria-hidden="true" />}</div>
         {paid ? (
           <>
-            <h1 className="text-2xl font-semibold">Tack för din beställning!</h1>
-            <p className="mt-3 text-[15px] leading-relaxed text-slate-700 dark:text-white/75">
+            <h1 className="text-foreground">Tack för din beställning!</h1>
+            <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
               Din betalning är bekräftad. <span className="font-medium">{TA_FOR_ER_ORDER.bookTitle}</span> av{" "}
               {TA_FOR_ER_ORDER.authorName} skickas till adressen du angav. Frakten ingår. Du får ett kvitto
               via e-post.
@@ -40,18 +43,18 @@ export default async function TaForErSuccessPage({
           </>
         ) : (
           <>
-            <h1 className="text-2xl font-semibold">Beställningsstatus</h1>
-            <p className="mt-3 text-[15px] leading-relaxed text-slate-700 dark:text-white/75">
+            <h1 className="text-foreground">Beställningsstatus</h1>
+            <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
               Vi väntar på en bekräftelse på din betalning. Om statusen inte uppdateras, titta in igen om en
               liten stund.
             </p>
           </>
         )}
 
-        <div className="mt-6">
+        <div className={styles.actions}>
           <Link
             href="/waitlist"
-            className="inline-flex min-h-[44px] items-center rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+            className={styles.primary}
           >
             Tillbaka till verkli
           </Link>

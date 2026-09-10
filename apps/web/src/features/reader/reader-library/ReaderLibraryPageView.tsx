@@ -56,13 +56,13 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
       {/* ── Header ── */}
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#907AFF]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-accent-foreground">
             Library
           </p>
-          <h1 className="mt-1 text-page-title">
+          <h1 className="mt-1 text-page-title font-display">
             Your books
           </h1>
-          <p className="mt-1 text-sm text-[#64748B] dark:text-white/50">
+          <p className="mt-1 text-sm text-muted-foreground">
             {initialData.reading.length} reading &middot; {initialData.purchased.length} purchased &middot;{" "}
             {initialData.saved.length} saved &middot; {initialData.finished.length} completed
           </p>
@@ -80,12 +80,14 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
       {/* ── Search ── */}
       {hasAnyBooks && (
         <div className="relative">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B] dark:text-white/40" />
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            type="search"
+            aria-label="Search your library"
             placeholder="Search your library..."
-            className="h-10 w-full rounded-xl border border-black/[0.06] bg-white pl-10 pr-4 text-sm text-[#0F172A] placeholder:text-[#64748B]/60 focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30"
+            className="h-12 w-full rounded-xl border border-border bg-card pl-10 pr-4 text-base sm:text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/20 dark:border-border dark:placeholder:text-muted-foreground"
           />
         </div>
       )}
@@ -94,12 +96,12 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
       {!hasAnyBooks ? (
         <section className="card-base p-8 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#907AFF]/10">
-            <BookOpen className="h-6 w-6 text-[#907AFF]" />
+            <BookOpen className="h-6 w-6 text-accent-foreground" />
           </div>
-          <h2 className="mt-4 text-lg font-semibold text-[#0F172A] dark:text-white">
+          <h2 className="mt-4 text-lg font-medium text-foreground font-display">
             Your library is empty
           </h2>
-          <p className="mx-auto mt-1 max-w-md text-sm text-[#64748B] dark:text-white/50">
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
             {discoverHref
               ? "Start reading from Discover and your books will be organized here."
               : "Open a book and your library will fill in here."}
@@ -116,17 +118,18 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
       ) : (
         <>
           {noSearchResults && (
-            <section className="card-base p-6 text-center">
-              <p className="text-sm text-[#64748B] dark:text-white/50">
+            <section className="card-base p-8 text-center">
+              <p className="text-sm text-muted-foreground">
                 No books matching &ldquo;{search}&rdquo;
               </p>
+              <button type="button" onClick={() => setSearch("")} className="btn-secondary mt-4">Clear search</button>
             </section>
           )}
 
           {/* ── Continue reading ── */}
           {showReading && (
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-[#0F172A] dark:text-white">
+              <h2 className="text-xl font-medium text-foreground font-display">
                 Continue reading
               </h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -138,7 +141,7 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
                       href={book.href ?? `/reader/books/${book.id}`}
                       className="card-base group flex items-start gap-4 p-4 transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40"
                     >
-                      <div className="relative h-28 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-[#F8F9FB] dark:bg-white/10">
+                      <div className="relative h-28 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-muted dark:bg-card">
                         {book.cover ? (
                           <Image
                             src={book.cover}
@@ -149,42 +152,42 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center">
-                            <BookMarked className="h-5 w-5 text-[#64748B]/40 dark:text-white/25" />
+                            <BookMarked className="h-5 w-5 text-muted-foreground/40 dark:text-muted-foreground" />
                           </div>
                         )}
                       </div>
                       <div className="min-w-0 flex-1 space-y-2">
                         <div>
-                          <p className="truncate text-sm font-semibold text-[#0F172A] group-hover:text-[#907AFF] dark:text-white">
+                          <p className="truncate text-sm font-semibold text-foreground group-hover:text-accent-foreground">
                             {book.title}
                           </p>
-                          <p className="truncate text-xs text-[#64748B] dark:text-white/50">
+                          <p className="truncate text-xs text-muted-foreground">
                             {book.author}
                           </p>
                         </div>
                         {book.chapterLabel && (
-                          <p className="truncate text-xs text-[#64748B] dark:text-white/50">
+                          <p className="truncate text-xs text-muted-foreground">
                             {book.chapterLabel}
                           </p>
                         )}
                         {book.lastOpenedLabel && (
-                          <div className="flex items-center gap-1.5 text-xs text-[#64748B]/70 dark:text-white/35">
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70 dark:text-muted-foreground">
                             <Clock3 className="h-3 w-3" />
                             <span>{book.lastOpenedLabel}</span>
                           </div>
                         )}
                         <div className="space-y-1.5">
-                          <div className="h-1.5 overflow-hidden rounded-full bg-[#F8F9FB] dark:bg-white/10">
+                          <div className="h-1.5 overflow-hidden rounded-full bg-muted dark:bg-card">
                             <div
                               className="h-full rounded-full bg-gradient-to-r from-[#907AFF] to-[#907AFF]/60"
                               style={{ width: `${pct}%` }}
                             />
                           </div>
                           <div className="flex items-center justify-between text-xs font-medium">
-                            <span className="text-[#64748B] dark:text-white/50">
+                            <span className="text-muted-foreground">
                               {Math.round(pct)}% complete
                             </span>
-                            <span className="inline-flex items-center gap-1 text-[#907AFF] group-hover:text-[#7058DD]">
+                            <span className="inline-flex items-center gap-1 text-accent-foreground group-hover:text-accent-foreground">
                               Resume
                               <ArrowRight className="h-3 w-3" />
                             </span>
@@ -202,12 +205,12 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
           {showPurchased && (
             <section className="space-y-4">
               <div className="flex items-baseline justify-between gap-4">
-                <h2 className="text-xl font-semibold text-[#0F172A] dark:text-white">
+                <h2 className="text-xl font-medium text-foreground font-display">
                   Purchased
                 </h2>
                 <Link
                   href="/reader/orders"
-                  className="text-xs font-medium text-[#907AFF] transition-colors hover:text-[#7058DD] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
+                  className="text-xs font-medium text-accent-foreground transition-colors hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
                 >
                   View order history
                 </Link>
@@ -227,12 +230,12 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
                       size="md"
                     />
                     {book.lastOpenedLabel && (
-                      <p className="text-xs text-[#64748B]/70 dark:text-white/35">
+                      <p className="text-xs text-muted-foreground/70 dark:text-muted-foreground">
                         {book.lastOpenedLabel}
                       </p>
                     )}
                     {book.unavailableNote && (
-                      <p className="flex items-start gap-1.5 text-xs text-[#64748B] dark:text-white/50">
+                      <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
                         <Info className="mt-0.5 h-3 w-3 flex-shrink-0" />
                         <span>{book.unavailableNote}</span>
                       </p>
@@ -246,7 +249,7 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
           {/* ── Saved for later ── */}
           {(showSaved || !isSearching) && (
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-[#0F172A] dark:text-white">
+              <h2 className="text-xl font-medium text-foreground font-display">
                 Saved for later
               </h2>
               {showSaved ? (
@@ -265,15 +268,15 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
                   ))}
                 </div>
               ) : (
-                <div className="empty-state-base flex items-center gap-4">
+                <div className="empty-state-base flex flex-wrap items-center gap-4">
                   <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-500/10">
                     <Bookmark className="h-5 w-5 text-amber-400" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[#0F172A] dark:text-white/60">
+                    <p className="text-sm font-medium text-foreground dark:text-muted-foreground">
                       No saved books yet
                     </p>
-                    <p className="text-xs text-[#64748B] dark:text-white/40">
+                    <p className="text-xs text-muted-foreground">
                       {discoverHref
                         ? "Bookmark books from Discover to save them here."
                         : "Bookmark a book and it will save here."}
@@ -295,7 +298,7 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
           {/* ── Completed ── */}
           {(showFinished || !isSearching) && (
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-[#0F172A] dark:text-white">
+              <h2 className="text-xl font-medium text-foreground font-display">
                 Completed
               </h2>
               {showFinished ? (
@@ -316,15 +319,15 @@ export default function ReaderLibraryPageView({ initialData }: ReaderLibraryPage
                   ))}
                 </div>
               ) : (
-                <div className="empty-state-base flex items-center gap-4">
+                <div className="empty-state-base flex flex-wrap items-center gap-4">
                   <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-500/10">
                     <CheckCircle2 className="h-5 w-5 text-emerald-400" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[#0F172A] dark:text-white/60">
+                    <p className="text-sm font-medium text-foreground dark:text-muted-foreground">
                       No completed books yet
                     </p>
-                    <p className="text-xs text-[#64748B] dark:text-white/40">
+                    <p className="text-xs text-muted-foreground">
                       Books you finish reading will appear here.
                     </p>
                   </div>

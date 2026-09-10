@@ -27,11 +27,11 @@ export default function ProfileCreditsSection({ creditCheckout }: Props) {
   }, [creditCheckout, toast]);
 
   return (
-    <section className="rounded-3xl border border-slate-200/70 bg-white/80 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/5">
-      <h2 className="text-[18px] font-semibold text-slate-900 dark:text-white">
+    <section className="rounded-3xl border border-border bg-card/80 p-6 shadow-[0_16px_30px_rgba(15,23,42,0.08)] dark:bg-card">
+      <h2 className="text-[18px] font-medium text-foreground font-display">
         Credits &amp; Referrals
       </h2>
-      <p className="mt-1 text-[13px] text-slate-500 dark:text-white/60">
+      <p className="mt-1 text-[13px] text-muted-foreground">
         View your balance and invite friends to earn extra credits.
       </p>
 

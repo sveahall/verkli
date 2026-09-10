@@ -74,7 +74,7 @@ export default function PollsPageClient({ polls }: PollsPageClientProps) {
   };
 
   return (
-    <div className="section-gap">
+    <div className="section-gap mx-auto max-w-[1520px] px-5 py-7 sm:px-7 lg:px-9 xl:px-12">
       <PageHeader
         eyebrow="Polls"
         title="Your polls"
@@ -110,14 +110,14 @@ export default function PollsPageClient({ polls }: PollsPageClientProps) {
               <Card key={poll.id} className="p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex-1 space-y-1">
-                    <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+                    <h3 className="text-[15px] font-semibold text-foreground dark:text-foreground">
                       {poll.question}
                     </h3>
-                    <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-500 dark:text-white/50">
+                    <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground dark:text-muted-foreground">
                       <span
                         className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
                           isClosed
-                            ? "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-white/50"
+                            ? "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground"
                             : "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
                         }`}
                       >
@@ -134,7 +134,7 @@ export default function PollsPageClient({ polls }: PollsPageClientProps) {
                       {poll.options.map((opt) => (
                         <span
                           key={opt.id}
-                          className="rounded-full border border-slate-200/80 px-2.5 py-1 text-[11px] text-slate-500 dark:border-white/10 dark:text-white/50"
+                          className="rounded-full border border-border/80 px-2.5 py-1 text-[11px] text-muted-foreground dark:border-border dark:text-muted-foreground"
                         >
                           {opt.text}
                         </span>

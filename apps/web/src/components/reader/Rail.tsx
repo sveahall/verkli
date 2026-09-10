@@ -17,7 +17,7 @@ export default function Rail({ title, subtitle, description, action, children, i
     <section className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1">
-          <h2 className="text-section-title">{title}</h2>
+          <h2 className="text-section-title font-display">{title}</h2>
           {(subtitle ?? description) && <p className="text-helper">{subtitle ?? description}</p>}
         </div>
         {action && <div className="flex items-center gap-2">{action}</div>}

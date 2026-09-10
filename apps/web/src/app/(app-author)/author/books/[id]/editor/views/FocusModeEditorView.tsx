@@ -12,7 +12,7 @@ const TiptapEditor = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[400px] animate-pulse rounded-xl bg-slate-100 dark:bg-white/5" />
+      <div className="h-[400px] animate-pulse rounded-xl bg-muted dark:bg-card" />
     ),
   }
 );
@@ -64,7 +64,7 @@ export default function FocusModeEditorView({
         <div
           role="status"
           aria-live="polite"
-          className="fixed right-3 top-3 z-[1000] rounded-full bg-slate-900/90 px-4 py-2 text-[13px] font-medium text-white shadow-lg backdrop-blur-sm sm:right-6 sm:top-24 dark:bg-white/90 dark:text-slate-900"
+          className="fixed right-3 top-3 z-[1000] rounded-full bg-primary/90 px-4 py-2 text-[13px] font-medium text-primary-foreground shadow-lg backdrop-blur-sm sm:right-6 sm:top-24 dark:bg-card dark:text-foreground"
         >
           {publishToast}
         </div>
@@ -76,11 +76,11 @@ export default function FocusModeEditorView({
             <EditorCanvas
               mode="focus"
               header={
-                <div className="mb-5 border-b border-slate-200 pb-5 dark:border-white/[0.08]">
-                  <h1 className="text-2xl font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
+                <div className="mb-5 border-b border-border pb-5 dark:border-border">
+                  <h1 className="author-page-title text-foreground">
                     {bookTitle}
                   </h1>
-                  <p className="mt-1 text-[15px] text-slate-500 dark:text-white/50">
+                  <p className="mt-1 text-[15px] text-muted-foreground dark:text-muted-foreground">
                     {authorDisplayName}
                   </p>
                 </div>
@@ -89,7 +89,7 @@ export default function FocusModeEditorView({
                 <ChapterRail
                   variant="compact"
                   title={
-                    <span className="text-slate-400 dark:text-white/35">
+                    <span className="text-muted-foreground dark:text-muted-foreground">
                       Ch
                     </span>
                   }
@@ -102,7 +102,7 @@ export default function FocusModeEditorView({
                         onResetSessionWords();
                       }}
                       disabled={selectedChapterIndex <= 0}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-[14px] text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-35 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-[14px] text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:opacity-35 dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
                       aria-label="Previous chapter"
                     >
                       &lsaquo;
@@ -121,8 +121,8 @@ export default function FocusModeEditorView({
                           }}
                           className={`flex h-8 min-w-[1.9rem] items-center justify-center rounded-lg text-[12px] tabular-nums transition-colors duration-150 ${
                             isActive
-                              ? "bg-slate-900 font-semibold text-white ring-1 ring-[#907AFF]/30 shadow-[0_10px_25px_rgba(15,23,42,0.12)] dark:bg-white dark:text-slate-900"
-                              : "text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-white/45 dark:hover:bg-white/[0.06] dark:hover:text-white/80"
+                              ? "bg-primary font-semibold text-primary-foreground ring-1 ring-[#907AFF]/30 shadow-[0_10px_25px_rgba(15,23,42,0.12)]"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
                           } ${!isActive && isEmpty ? "opacity-55" : ""}`}
                           aria-label={`Chapter ${index + 1}`}
                           aria-current={isActive ? "true" : undefined}
@@ -146,7 +146,7 @@ export default function FocusModeEditorView({
                         selectedChapterIndex < 0 ||
                         selectedChapterIndex >= chapters.length - 1
                       }
-                      className="flex h-8 w-8 items-center justify-center rounded-lg text-[14px] text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-35 dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-[14px] text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:opacity-35 dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
                       aria-label="Next chapter"
                     >
                       &rsaquo;
@@ -171,7 +171,7 @@ export default function FocusModeEditorView({
                 />
               ) : (
                 <div className="flex h-[500px] items-center justify-center">
-                  <p className="text-[14px] text-slate-400 dark:text-white/40">
+                  <p className="text-[14px] text-muted-foreground dark:text-muted-foreground">
                     {chapters.length === 0
                       ? "Create your first chapter to start writing"
                       : "Select a chapter above to edit"}

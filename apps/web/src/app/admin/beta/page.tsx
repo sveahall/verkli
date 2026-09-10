@@ -120,11 +120,11 @@ function Body({
           <CardContent className="space-y-2">
             <div className="flex items-center gap-2">
               <Badge variant="warning">Kill criteria</Badge>
-              <span className="text-[15px] font-semibold text-slate-900 dark:text-white">
+              <span className="text-[15px] font-semibold text-foreground">
                 Thresholds tripped
               </span>
             </div>
-            <ul className="list-disc space-y-1 pl-5 text-[14px] text-slate-700 dark:text-white/70">
+            <ul className="list-disc space-y-1 pl-5 text-[14px] text-foreground dark:text-muted-foreground">
               {kill.warnings.map((w) => (
                 <li key={w}>{w}</li>
               ))}
@@ -177,11 +177,11 @@ function Metric({
   return (
     <Card className="px-5 py-5">
       <p className="text-eyebrow">{label}</p>
-      <p className="text-stat mt-2 tabular-nums text-slate-900 dark:text-white">
+      <p className="text-stat mt-2 tabular-nums text-foreground">
         {value}
       </p>
       {sub && (
-        <p className="mt-1 text-[13px] text-slate-500 dark:text-white/50">{sub}</p>
+        <p className="mt-1 text-[13px] text-muted-foreground">{sub}</p>
       )}
     </Card>
   );
@@ -197,13 +197,13 @@ function EventBreakdown({
   return (
     <Card className="p-0">
       <CardHeader>
-        <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+        <h3 className="text-[15px] font-medium text-foreground font-display">
           {title}
         </h3>
       </CardHeader>
       <CardContent>
         {events.length === 0 ? (
-          <p className="text-[13px] text-slate-500 dark:text-white/50">
+          <p className="text-[13px] text-muted-foreground">
             No events in window.
           </p>
         ) : (
@@ -213,10 +213,10 @@ function EventBreakdown({
                 key={e.event_name}
                 className="flex items-center justify-between gap-3 text-[14px]"
               >
-                <span className="truncate font-mono text-[13px] text-slate-700 dark:text-white/70">
+                <span className="truncate font-mono text-[13px] text-foreground dark:text-muted-foreground">
                   {e.event_name}
                 </span>
-                <span className="tabular-nums font-medium text-slate-900 dark:text-white">
+                <span className="tabular-nums font-medium text-foreground">
                   {formatNumber(e.count)}
                 </span>
               </li>

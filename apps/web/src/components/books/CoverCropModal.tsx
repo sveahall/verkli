@@ -81,13 +81,13 @@ export default function CoverCropModal({ src, onSave, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="mx-4 flex max-h-[90vh] w-full max-w-xl flex-col rounded-2xl bg-white shadow-2xl dark:bg-slate-900">
-        <div className="flex items-center justify-between border-b border-black/[0.06] px-5 py-4 dark:border-white/[0.06]">
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white">Crop cover</h3>
+      <div className="mx-4 flex max-h-[90vh] w-full max-w-xl flex-col rounded-2xl bg-card shadow-2xl dark:bg-card">
+        <div className="flex items-center justify-between border-b border-black/[0.06] px-5 py-4 dark:border-border">
+          <h3 className="text-base font-semibold text-foreground dark:text-foreground">Crop cover</h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-white/40 dark:hover:bg-white/[0.06]"
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground dark:text-muted-foreground dark:hover:bg-accent"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -113,7 +113,7 @@ export default function CoverCropModal({ src, onSave, onClose }: Props) {
             />
           </ReactCrop>
         </div>
-        <div className="flex items-center justify-between gap-3 border-t border-black/[0.06] px-5 py-4 dark:border-white/[0.06]">
+        <div className="flex items-center justify-between gap-3 border-t border-black/[0.06] px-5 py-4 dark:border-border">
           {error ? (
             <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
           ) : <span />}
@@ -121,7 +121,7 @@ export default function CoverCropModal({ src, onSave, onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-black/[0.08] px-4 py-2 text-[13px] font-medium text-slate-600 hover:bg-slate-50 dark:border-white/[0.08] dark:text-white/60 dark:hover:bg-white/[0.04]"
+            className="rounded-xl border border-black/[0.08] px-4 py-2 text-[13px] font-medium text-muted-foreground hover:bg-background dark:border-border dark:text-muted-foreground dark:hover:bg-accent"
           >
             Cancel
           </button>
@@ -129,7 +129,7 @@ export default function CoverCropModal({ src, onSave, onClose }: Props) {
             type="button"
             onClick={handleSave}
             disabled={saving || !completedCrop}
-            className="rounded-xl bg-[#907AFF] px-5 py-2 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-[#7B6BF0] disabled:opacity-50"
+            className="rounded-xl bg-primary px-5 py-2 text-[13px] font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save crop"}
           </button>

@@ -133,14 +133,14 @@ export default function ResetPassword() {
           </form>
         )}
 
-        <div className="mt-6 flex flex-col gap-2 text-sm text-slate-600 dark:text-white/50">
+        <div className="mt-6 flex flex-col gap-2 text-sm text-muted-foreground">
           <span>Back to sign in:</span>
           <div className="flex flex-wrap items-center gap-3">
-            <Link href="/author/signin" className="font-semibold text-slate-900 dark:text-white">
+            <Link href="/author/signin" className="font-semibold text-foreground">
               Author sign in
             </Link>
-            <span className="text-slate-400 dark:text-white/30">|</span>
-            <Link href="/reader/signin" className="font-semibold text-slate-900 dark:text-white">
+            <span className="text-muted-foreground">|</span>
+            <Link href="/reader/signin" className="font-semibold text-foreground">
               Reader sign in
             </Link>
           </div>

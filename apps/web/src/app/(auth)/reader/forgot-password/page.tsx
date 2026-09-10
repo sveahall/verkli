@@ -74,9 +74,9 @@ export default function ReaderForgotPassword() {
           </form>
         )}
 
-        <p className="mt-6 text-sm text-slate-500 dark:text-white/50">
+        <p className="mt-6 text-sm text-muted-foreground">
           Remembered it?{" "}
-          <Link href="/reader/signin" className="font-semibold text-slate-900 dark:text-white">
+          <Link href="/reader/signin" className="font-semibold text-foreground">
             Back to sign in
           </Link>
         </p>

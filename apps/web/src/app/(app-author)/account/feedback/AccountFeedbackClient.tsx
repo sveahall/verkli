@@ -60,7 +60,7 @@ export default function AccountFeedbackClient() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-semibold">Feedback</h1>
+      <h1 className="author-page-title">Feedback</h1>
       <p className="mt-1 text-muted-foreground text-sm">Send a bug report or idea. We read everything.</p>
 
       <form onSubmit={handleSubmit} className="mt-6 rounded-lg border p-4">
@@ -108,7 +108,7 @@ export default function AccountFeedbackClient() {
         </div>
       </form>
 
-      <h2 className="mt-8 text-lg font-medium">Your feedback</h2>
+      <h2 className="author-section-title mt-8 text-lg font-medium">Your feedback</h2>
       {loading ? (
         <p className="mt-2 text-sm text-muted-foreground">Loading…</p>
       ) : feedback.length === 0 ? (

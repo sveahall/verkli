@@ -108,7 +108,7 @@ export default function WriteOnlyWorkspaceView({
         <div
           role="status"
           aria-live="polite"
-          className="fixed right-3 top-3 z-[1000] rounded-full bg-slate-900/90 px-4 py-2 text-[13px] font-medium text-white shadow-lg backdrop-blur-sm sm:right-6 sm:top-24 dark:bg-white/90 dark:text-slate-900"
+          className="fixed right-3 top-3 z-[1000] rounded-full bg-primary/90 px-4 py-2 text-[13px] font-medium text-primary-foreground shadow-lg backdrop-blur-sm sm:right-6 sm:top-24 dark:bg-card dark:text-foreground"
         >
           {publishToast}
         </div>

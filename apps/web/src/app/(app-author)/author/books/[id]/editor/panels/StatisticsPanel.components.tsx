@@ -69,7 +69,7 @@ export function ProgressRing({
           className="transition-all duration-700 ease-out"
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[13px] font-bold tabular-nums text-slate-900 dark:text-white">
+      <span className="absolute inset-0 flex items-center justify-center text-[13px] font-bold tabular-nums text-foreground dark:text-foreground">
         {pct}%
       </span>
     </div>
@@ -96,7 +96,7 @@ export function MiniBarChart({ data }: { data: DailyPoint[] }) {
             className="group relative flex flex-1 flex-col justify-end"
             style={BAR_COL_STYLE}
           >
-            <div className="pointer-events-none absolute -top-9 left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-[10px] font-medium text-white shadow-lg group-hover:block dark:bg-white dark:text-slate-900">
+            <div className="pointer-events-none absolute -top-9 left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-primary px-2.5 py-1 text-[10px] font-medium text-primary-foreground shadow-lg group-hover:block">
               {d.date.slice(5)} &middot; {d.views} views &middot; {d.reads} reads
             </div>
             <div
@@ -130,7 +130,7 @@ export function Stars({ rating, size = 13 }: { rating: number; size?: number }) 
           fill={s <= rating ? "currentColor" : "none"}
           stroke="currentColor"
           strokeWidth={1.5}
-          className={s <= rating ? "text-amber-400" : "text-slate-200 dark:text-white/10"}
+          className={s <= rating ? "text-amber-400" : "text-muted-foreground dark:text-muted-foreground"}
         >
           <path
             strokeLinecap="round"
@@ -146,10 +146,10 @@ export function Stars({ rating, size = 13 }: { rating: number; size?: number }) 
 export function HeroStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="px-5 py-4 text-center">
-      <p className="text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
+      <p className="text-2xl font-bold tabular-nums text-foreground dark:text-foreground">
         {value}
       </p>
-      <p className="mt-0.5 text-[11px] font-medium text-slate-400 dark:text-white/35">
+      <p className="mt-0.5 text-[11px] font-medium text-muted-foreground dark:text-muted-foreground">
         {label}
       </p>
     </div>
@@ -212,7 +212,7 @@ export function InsightCard({ data }: { data: StatsData }) {
     emerald: "text-emerald-700 dark:text-emerald-400",
     amber: "text-amber-700 dark:text-amber-400",
     blue: "text-blue-700 dark:text-blue-400",
-    purple: "text-[#6C5CE7] dark:text-[#b8a9ff]",
+    purple: "text-accent-foreground dark:text-accent-foreground",
   };
 
   return (

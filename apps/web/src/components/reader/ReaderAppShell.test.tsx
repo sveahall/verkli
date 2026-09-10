@@ -14,10 +14,8 @@ vi.mock("next/link", () => ({
   default: ({
     href,
     children,
-  }: {
-    href: string;
-    children: React.ReactNode;
-  }) => <a href={href}>{children}</a>,
+    ...props
+  }: React.ComponentProps<"a"> & { href: string }) => <a href={href} {...props}>{children}</a>,
 }));
 
 vi.mock("next/image", () => ({
@@ -76,6 +74,24 @@ describe("ReaderAppShell", () => {
 
   it("links to support from the signed-in sidebar", () => {
     expect(render()).toContain('href="/support"');
+  });
+
+  it("marks Library as current on both navigation surfaces for bookmarks", () => {
+    mocks.pathname = "/reader/bookmarks";
+    const currentLinks = [...render().matchAll(/<a[^>]*aria-current="page"[^>]*>/g)];
+
+    expect(currentLinks).toHaveLength(2);
+    for (const [link] of currentLinks) {
+      expect(link).toContain('href="/reader/library"');
+    }
+  });
+
+  it("marks the current utility destination in the desktop sidebar", () => {
+    mocks.pathname = "/reader/notifications";
+    const currentLinks = [...render().matchAll(/<a[^>]*aria-current="page"[^>]*>/g)];
+
+    expect(currentLinks).toHaveLength(1);
+    expect(currentLinks[0][0]).toContain('href="/reader/notifications"');
   });
 
   it("renders the footer the route-group layout passes in", () => {

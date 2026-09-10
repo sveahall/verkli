@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import styles from "@/components/public/PublicPage.module.css";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -8,16 +9,18 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
   return (
-    <main className="mx-auto max-w-[760px] px-6 py-16 md:py-24">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white md:text-4xl">
+    <main className={`${styles.page} ${styles.legal}`}>
+      <h1 className="text-foreground">
         Privacy Policy
       </h1>
-      <p className="mt-2 text-sm text-slate-500 dark:text-white/40">
+      <p className="mt-2 text-sm text-muted-foreground">
         Last updated: March 23, 2026
       </p>
 
-      <div className="prose-policy mt-10 space-y-8 text-[15px] leading-[1.8] text-slate-700 dark:text-white/70">
-        <section>
+      <nav aria-label="On this page"><a href="#privacy-section-1">Who we are</a><a href="#privacy-section-2">Data we collect</a><a href="#privacy-section-10">Contact</a></nav>
+
+      <div className="prose-policy mt-10 space-y-8 text-[15px] leading-[1.8] text-muted-foreground">
+        <section id="privacy-section-1">
           <h2>1. Who we are</h2>
           <p>
             Verkli (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) operates the
@@ -26,7 +29,7 @@ export default function PrivacyPolicyPage() {
           </p>
         </section>
 
-        <section>
+        <section id="privacy-section-2">
           <h2>2. Data we collect</h2>
           <p>We collect the following categories of personal data:</p>
           <ul>
@@ -60,7 +63,7 @@ export default function PrivacyPolicyPage() {
           </ul>
         </section>
 
-        <section>
+        <section id="privacy-section-3">
           <h2>3. How we use your data</h2>
           <ul>
             <li>Provide, maintain, and improve the platform.</li>
@@ -72,7 +75,7 @@ export default function PrivacyPolicyPage() {
           </ul>
         </section>
 
-        <section>
+        <section id="privacy-section-4">
           <h2>4. Cookies</h2>
           <p>We use the following cookies:</p>
           <ul>
@@ -93,7 +96,7 @@ export default function PrivacyPolicyPage() {
           </p>
         </section>
 
-        <section>
+        <section id="privacy-section-5">
           <h2>5. Data sharing</h2>
           <p>
             We share personal data only with trusted service providers that help
@@ -122,7 +125,7 @@ export default function PrivacyPolicyPage() {
           </p>
         </section>
 
-        <section>
+        <section id="privacy-section-6">
           <h2>6. Data retention</h2>
           <p>
             We retain your data for as long as your account is active. If you
@@ -131,7 +134,7 @@ export default function PrivacyPolicyPage() {
           </p>
         </section>
 
-        <section>
+        <section id="privacy-section-7">
           <h2>7. Your rights</h2>
           <p>
             Under GDPR and applicable data protection laws, you have the right
@@ -150,7 +153,7 @@ export default function PrivacyPolicyPage() {
           </p>
         </section>
 
-        <section>
+        <section id="privacy-section-8">
           <h2>8. Security</h2>
           <p>
             We use industry-standard security measures including encrypted
@@ -159,7 +162,7 @@ export default function PrivacyPolicyPage() {
           </p>
         </section>
 
-        <section>
+        <section id="privacy-section-9">
           <h2>9. Changes to this policy</h2>
           <p>
             We may update this policy from time to time. Material changes will
@@ -167,7 +170,7 @@ export default function PrivacyPolicyPage() {
           </p>
         </section>
 
-        <section>
+        <section id="privacy-section-10">
           <h2>10. Contact</h2>
           <p>
             Questions about this policy? Reach us at{" "}

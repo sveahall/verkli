@@ -236,33 +236,33 @@ export default function BookReviewsSection({
 
   return (
     <section className="mx-auto mt-6 max-w-[1100px] px-6 pb-16">
-      <div className="relative overflow-hidden rounded-[28px] border border-slate-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.95),rgba(246,243,255,0.82))] p-6 shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))]">
+      <div className="relative overflow-hidden rounded-[28px] border border-border bg-[linear-gradient(145deg,rgba(255,255,255,0.95),rgba(246,243,255,0.82))] p-6 shadow-[0_20px_50px_rgba(15,23,42,0.08)] dark:bg-[linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))]">
         <div className="pointer-events-none absolute -right-20 -top-24 h-52 w-52 rounded-full bg-[#907AFF]/15 blur-3xl dark:bg-[#907AFF]/20" />
         <div className="pointer-events-none absolute -bottom-20 left-16 h-48 w-48 rounded-full bg-[#E29ED5]/12 blur-3xl dark:bg-[#E29ED5]/15" />
 
         <div className="relative grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
           <div className="space-y-4">
-            <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] dark:border-white/10 dark:bg-white/[0.05]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500 dark:text-white/55">
+            <div className="rounded-2xl border border-border bg-card/90 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] dark:bg-card">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
               Reader rating
               </p>
               <div className="mt-3 flex items-end gap-3">
-                <span className="text-[34px] font-semibold tracking-tight text-slate-900 dark:text-white">
+                <span className="text-[34px] font-semibold tracking-tight text-foreground">
                   {averageRating !== null ? averageRating.toFixed(1) : "-"}
                 </span>
                 <ReviewStars value={roundedAverageStars} readOnly size="sm" className="pb-1" />
               </div>
-              <p className="mt-2 text-[13px] text-slate-600 dark:text-white/60">
+              <p className="mt-2 text-[13px] text-muted-foreground">
                 {ratingsCount} {ratingsCount === 1 ? "rating" : "ratings"}
               </p>
             </div>
 
             {isSignedIn ? (
-              <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] dark:border-white/10 dark:bg-white/[0.05]">
-                <h3 className="text-[17px] font-semibold text-slate-900 dark:text-white">
+              <div className="rounded-2xl border border-border bg-card/90 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] dark:bg-card">
+                <h3 className="text-[17px] font-medium text-foreground font-display">
                   {myReview ? "Update your review" : "Leave a review"}
                 </h3>
-                <p className="mt-1 text-[13px] text-slate-600 dark:text-white/60">
+                <p className="mt-1 text-[13px] text-muted-foreground">
                   Rate this book from 1 to 5 stars. Review text is optional.
                 </p>
 
@@ -270,7 +270,7 @@ export default function BookReviewsSection({
                   <ReviewStars value={selectedRating} onChange={setSelectedRating} />
                 </div>
 
-                <label className="mt-4 block text-[13px] font-medium text-slate-700 dark:text-white/75">
+                <label className="mt-4 block text-[13px] font-medium text-foreground dark:text-muted-foreground">
                   Review text (optional)
                 </label>
                 <textarea
@@ -293,7 +293,7 @@ export default function BookReviewsSection({
                     type="button"
                     onClick={handleSubmit}
                     disabled={savingReview}
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-gradient-to-r from-[#907AFF] via-[#A68EFF] to-[#E29ED5] px-5 py-2.5 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(144,122,255,0.30)] transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 dark:focus-visible:ring-offset-[#08070f]"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-gradient-to-r from-[#907AFF] via-[#A68EFF] to-[#E29ED5] px-5 py-2.5 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(144,122,255,0.30)] transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60 dark:focus-visible:ring-offset-[#08070f]"
                   >
                     {savingReview
                       ? myReview
@@ -308,7 +308,7 @@ export default function BookReviewsSection({
                       type="button"
                       onClick={handleDelete}
                       disabled={savingReview}
-                      className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-rose-300/70 bg-white px-4 py-2.5 text-[13px] font-medium text-rose-600 transition hover:border-rose-400 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-400/40 dark:bg-transparent dark:text-rose-300 dark:hover:bg-rose-500/10 dark:focus-visible:ring-offset-[#08070f]"
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-rose-300/70 bg-card px-4 py-2.5 text-[13px] font-medium text-rose-600 transition hover:border-rose-400 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-400/40 dark:bg-transparent dark:text-rose-300 dark:hover:bg-rose-500/10 dark:focus-visible:ring-offset-[#08070f]"
                     >
                       Delete review
                     </button>
@@ -316,11 +316,11 @@ export default function BookReviewsSection({
                 </div>
               </div>
             ) : (
-              <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 text-[14px] text-slate-700 shadow-[0_8px_24px_rgba(15,23,42,0.05)] dark:border-white/10 dark:bg-white/[0.05] dark:text-white/70">
+              <div className="rounded-2xl border border-border bg-card/90 p-5 text-[14px] text-foreground shadow-[0_8px_24px_rgba(15,23,42,0.05)] dark:bg-card dark:text-muted-foreground">
                 <p>Sign in to rate this book and leave a review.</p>
                 <Link
                   href={`/reader/signin?next=${encodeURIComponent(`/reader/books/${bookId}`)}`}
-                  className="mt-3 inline-flex min-h-[40px] items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/15"
+                  className="mt-3 inline-flex min-h-[44px] items-center rounded-full border border-border bg-card px-4 py-2 text-[13px] font-medium text-foreground transition hover:border-border hover:bg-muted dark:hover:bg-card"
                 >
                   Sign in
                 </Link>
@@ -328,12 +328,12 @@ export default function BookReviewsSection({
             )}
           </div>
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] dark:border-white/10 dark:bg-white/[0.05]">
+          <div className="rounded-2xl border border-border bg-card/90 p-5 shadow-[0_8px_24px_rgba(15,23,42,0.05)] dark:bg-card">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-[18px] font-semibold text-slate-900 dark:text-white">
+              <h3 className="text-[18px] font-medium text-foreground font-display">
                 Reviews
               </h3>
-              <p className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[12px] text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/60">
+              <p className="rounded-full border border-border bg-muted px-3 py-1 text-[12px] text-muted-foreground dark:bg-card">
                 {totalCount} {totalCount === 1 ? "review" : "reviews"}
               </p>
             </div>
@@ -345,13 +345,13 @@ export default function BookReviewsSection({
             ) : null}
 
             {loadingReviews && !listError ? (
-              <p className="mt-4 rounded-xl border border-slate-200/70 bg-slate-100/70 px-4 py-3 text-[14px] text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/60">
+              <p className="mt-4 rounded-xl border border-border bg-muted/70 px-4 py-3 text-[14px] text-muted-foreground dark:bg-card">
                 Loading reviews...
               </p>
             ) : null}
 
             {!listError && reviews.length === 0 && !loadingReviews ? (
-              <p className="mt-4 rounded-xl border border-dashed border-slate-300/70 bg-slate-100/70 px-4 py-4 text-[14px] text-slate-600 dark:border-white/15 dark:bg-white/[0.04] dark:text-white/60">
+              <p className="mt-4 rounded-xl border border-dashed border-border bg-muted/70 px-4 py-4 text-[14px] text-muted-foreground dark:bg-card">
                 No reviews yet. Be the first to rate this book.
               </p>
             ) : null}
@@ -360,10 +360,10 @@ export default function BookReviewsSection({
               {reviews.map((review) => (
                 <article
                   key={review.id}
-                  className="rounded-xl border border-slate-200/80 bg-white/90 p-4 transition-shadow hover:shadow-[0_12px_28px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.04]"
+                  className="rounded-xl border border-border bg-card/90 p-4 transition-shadow hover:shadow-[0_12px_28px_rgba(15,23,42,0.08)] dark:bg-card"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-[14px] font-semibold text-slate-800 dark:text-white/85">
+                    <p className="text-[14px] font-semibold text-foreground dark:text-muted-foreground">
                       {review.reviewerName}
                       {review.isMine ? (
                         <span className="ml-2 rounded-full border border-[#907AFF]/30 bg-[#907AFF]/10 px-2 py-0.5 text-[11px] font-medium text-[#7257f0] dark:text-[#c4b5ff]">
@@ -371,17 +371,17 @@ export default function BookReviewsSection({
                         </span>
                       ) : null}
                     </p>
-                    <p className="text-[12px] text-slate-500 dark:text-white/45">
+                    <p className="text-[12px] text-muted-foreground">
                       {formatDate(review.updatedAt || review.createdAt)}
                     </p>
                   </div>
                   <ReviewStars value={review.rating} readOnly size="sm" className="mt-2" />
                   {review.content ? (
-                    <p className="mt-3 whitespace-pre-wrap text-[14px] leading-relaxed text-slate-700 dark:text-white/70">
+                    <p className="mt-3 whitespace-pre-wrap text-[14px] leading-relaxed text-foreground dark:text-muted-foreground">
                       {review.content}
                     </p>
                   ) : (
-                    <p className="mt-3 text-[13px] italic text-slate-500 dark:text-white/50">
+                    <p className="mt-3 text-[13px] italic text-muted-foreground">
                       No written review.
                     </p>
                   )}
@@ -394,7 +394,7 @@ export default function BookReviewsSection({
                 type="button"
                 disabled={page <= 1 || loadingReviews}
                 onClick={() => setPage((current) => Math.max(1, current - 1))}
-                className="rounded-full border border-slate-300 bg-white px-3.5 py-1.5 text-[13px] text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/10"
+                className="rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] text-foreground transition hover:border-border hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-muted-foreground dark:hover:bg-card"
               >
                 Previous
               </button>
@@ -402,11 +402,11 @@ export default function BookReviewsSection({
                 type="button"
                 disabled={!hasMore || loadingReviews}
                 onClick={() => setPage((current) => current + 1)}
-                className="rounded-full border border-slate-300 bg-white px-3.5 py-1.5 text-[13px] text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/20 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/10"
+                className="rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] text-foreground transition hover:border-border hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50 dark:text-muted-foreground dark:hover:bg-card"
               >
                 Next
               </button>
-              <span className="ml-1 text-[12px] text-slate-500 dark:text-white/45">
+              <span className="ml-1 text-[12px] text-muted-foreground">
                 Page {page}
               </span>
             </div>

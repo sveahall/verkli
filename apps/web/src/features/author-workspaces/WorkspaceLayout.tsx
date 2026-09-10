@@ -41,7 +41,7 @@ export function WorkspaceSurface({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-slate-200/80 bg-white dark:border-white/10 dark:bg-white/[0.04]",
+        "rounded-2xl border border-border bg-card shadow-[0_2px_10px_rgba(25,23,28,0.025)]",
         className
       )}
       {...props}
@@ -67,7 +67,7 @@ export function WorkspaceContextCard({
   return (
     <section
       className={cn(
-        "rounded-2xl border border-slate-200/80 bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]",
+        "rounded-2xl border border-border bg-card p-5 shadow-[0_2px_10px_rgba(25,23,28,0.025)]",
         className
       )}
       {...props}
@@ -76,12 +76,12 @@ export function WorkspaceContextCard({
         <div className="space-y-1.5">
           {eyebrow ? <p className="text-eyebrow">{eyebrow}</p> : null}
           {title ? (
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+            <h2 className="author-section-title text-sm text-foreground">
               {title}
             </h2>
           ) : null}
           {description ? (
-            <p className="text-[13px] leading-relaxed text-slate-500 dark:text-white/45">
+            <p className="text-[13px] leading-relaxed text-muted-foreground dark:text-muted-foreground">
               {description}
             </p>
           ) : null}
@@ -103,10 +103,10 @@ export function WorkspaceMetric({
 }: WorkspaceMetricProps) {
   return (
     <div className={cn("space-y-0", className)}>
-      <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-white/35">
+      <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
         {label}
       </dt>
-      <dd className="text-sm text-slate-900 dark:text-white">{value}</dd>
+      <dd className="text-sm text-foreground dark:text-foreground">{value}</dd>
     </div>
   );
 }
@@ -126,17 +126,16 @@ export default function WorkspaceLayout({
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="bg-white dark:bg-transparent">
-        <div className="mx-auto flex max-w-[1520px] items-center justify-between px-4 pb-4 pt-6 sm:px-6 sm:pb-5 sm:pt-5 lg:px-8 lg:pt-10 xl:px-10">
+      <div className="border-b border-border bg-background">
+        <div className="mx-auto flex max-w-[1520px] items-center justify-between gap-4 px-5 py-6 sm:px-7 sm:py-7 lg:px-9 xl:px-12">
           <div className="min-w-0">{header}</div>
           {headerRight ? <div className="shrink-0">{headerRight}</div> : null}
         </div>
-        <div className="h-px bg-slate-200/80 dark:bg-white/10" />
       </div>
 
       <div
         className={cn(
-          "mx-auto max-w-[1520px] px-4 pb-10 pt-6 sm:px-6 lg:px-8 xl:px-10",
+          "mx-auto max-w-[1520px] px-5 pb-12 pt-7 sm:px-7 lg:px-9 xl:px-12",
           docked &&
             "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(360px,400px)] lg:items-start lg:gap-6 xl:gap-8"
         )}
@@ -162,7 +161,7 @@ export default function WorkspaceLayout({
               // Using the .safe-area-inset-bottom utility instead would set
               // padding-bottom on its own and, as a custom utility, silently
               // beat pb-* — leaving the composer under the mobile tab bar.
-              "fixed inset-y-0 right-0 z-50 flex w-full max-w-[420px] flex-col bg-white px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] shadow-surface-lg dark:bg-[#111318]",
+              "fixed inset-y-0 right-0 z-50 flex w-full max-w-[420px] flex-col bg-card px-4 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] shadow-surface-lg dark:bg-card",
               // From lg the tab bar is gone; the clearance is for the floating
               // theme toggle in the bottom-right corner.
               "lg:sticky lg:inset-auto lg:top-6 lg:z-auto lg:h-[calc(100vh-7rem)] lg:max-w-none lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-14 lg:shadow-none lg:dark:bg-transparent"
@@ -180,7 +179,7 @@ export default function WorkspaceLayout({
           type="button"
           aria-label={`Close ${asideLabel.toLowerCase()}`}
           onClick={onAsideClose}
-          className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-[2px] lg:hidden dark:bg-black/50"
+          className="fixed inset-0 z-40 bg-primary/30 backdrop-blur-[2px] lg:hidden dark:bg-black/50"
         />
       ) : null}
     </div>

@@ -70,7 +70,7 @@ function CopyLinkButton({ url }: { url: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
-      className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors duration-150 ease-out hover:bg-slate-50 active:scale-[0.97] dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
+      className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors duration-150 ease-out hover:bg-background active:scale-[0.97] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
     >
       {copied ? (
         <>
@@ -114,8 +114,8 @@ function Section({
   action?: { label: string; onClick: () => void };
 }) {
   return (
-    <div className="rounded-2xl border border-black/[0.05] bg-white/60 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
-      <div className="flex items-center justify-between border-b border-black/[0.05] px-5 py-3 dark:border-white/[0.06]">
+    <div className="rounded-2xl border border-black/[0.05] bg-white/60 backdrop-blur-sm dark:border-border dark:bg-card">
+      <div className="flex items-center justify-between border-b border-black/[0.05] px-5 py-3 dark:border-border">
         <div className="flex items-center gap-2.5">
           {status && (
             <span
@@ -124,11 +124,11 @@ function Section({
                   ? "bg-emerald-500"
                   : status === "warning"
                     ? "bg-amber-400"
-                    : "bg-slate-300 dark:bg-white/20"
+                    : "bg-muted dark:bg-card"
               }`}
             />
           )}
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/50">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
             {title}
           </h3>
         </div>
@@ -136,7 +136,7 @@ function Section({
           <button
             type="button"
             onClick={action.onClick}
-            className="rounded-lg px-2.5 py-1 text-[11px] font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/10"
+            className="rounded-lg px-2.5 py-1 text-[11px] font-semibold text-accent-foreground transition hover:bg-[#907AFF]/10"
           >
             {action.label}
           </button>
@@ -161,7 +161,7 @@ function Issue({ text, onFix }: { text: string; onFix: () => void }) {
       <button
         type="button"
         onClick={onFix}
-        className="shrink-0 rounded-lg px-3 py-1 text-[11px] font-semibold text-[#907AFF] transition hover:bg-[#907AFF]/10"
+        className="shrink-0 rounded-lg px-3 py-1 text-[11px] font-semibold text-accent-foreground transition hover:bg-[#907AFF]/10"
       >
         Fix
       </button>
@@ -227,12 +227,12 @@ export default function ReviewPanel({
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       {/* ── Hero: Book identity ── */}
-      <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] sm:grid-cols-[140px_1fr]">
-        <div className="relative mx-auto aspect-[3/4] w-[140px] overflow-hidden rounded-xl border border-black/[0.06] bg-slate-50 shadow-sm dark:border-white/[0.06] dark:bg-white/[0.02] sm:mx-0">
+      <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-border dark:bg-card sm:grid-cols-[140px_1fr]">
+        <div className="relative mx-auto aspect-[3/4] w-[140px] overflow-hidden rounded-xl border border-black/[0.06] bg-background shadow-sm dark:border-border dark:bg-card sm:mx-0">
           {coverImageUrl ? (
             <Image src={coverImageUrl} alt="Book cover" fill sizes="140px" className="object-cover" unoptimized={requiresUnoptimizedImage(coverImageUrl)} />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-slate-300 dark:text-white/15">
+            <div className="flex h-full w-full items-center justify-center text-muted-foreground dark:text-muted-foreground">
               <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
               </svg>
@@ -246,41 +246,41 @@ export default function ReviewPanel({
               className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
                 isPublished
                   ? "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-400"
-                  : "bg-slate-100 text-slate-500 dark:bg-white/[0.06] dark:text-white/50"
+                  : "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground"
               }`}
             >
               {isPublished ? "Published" : "Draft"}
             </span>
           </div>
-          <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h2 className="author-section-title mt-2 text-xl font-medium tracking-tight text-foreground dark:text-foreground">
             {bookTitle}
           </h2>
           <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-3">
             <div>
-              <span className="text-slate-400 dark:text-white/40">Chapters</span>
-              <p className="font-semibold text-slate-800 dark:text-white/80">{chapters.length}</p>
+              <span className="text-muted-foreground dark:text-muted-foreground">Chapters</span>
+              <p className="font-semibold text-foreground dark:text-foreground">{chapters.length}</p>
             </div>
             <div>
-              <span className="text-slate-400 dark:text-white/40">Words</span>
-              <p className="font-semibold tabular-nums text-slate-800 dark:text-white/80">{totalWords.toLocaleString()}</p>
+              <span className="text-muted-foreground dark:text-muted-foreground">Words</span>
+              <p className="font-semibold tabular-nums text-foreground dark:text-foreground">{totalWords.toLocaleString()}</p>
             </div>
             <div>
-              <span className="text-slate-400 dark:text-white/40">Languages</span>
-              <p className="font-semibold text-slate-800 dark:text-white/80">{languages.length > 0 ? languages.join(", ") : "\u2014"}</p>
+              <span className="text-muted-foreground dark:text-muted-foreground">Languages</span>
+              <p className="font-semibold text-foreground dark:text-foreground">{languages.length > 0 ? languages.join(", ") : "\u2014"}</p>
             </div>
             <div>
-              <span className="text-slate-400 dark:text-white/40">Price</span>
-              <p className="font-semibold text-slate-800 dark:text-white/80">{formatPrice(priceAmountMinor, priceCurrency)}</p>
+              <span className="text-muted-foreground dark:text-muted-foreground">Price</span>
+              <p className="font-semibold text-foreground dark:text-foreground">{formatPrice(priceAmountMinor, priceCurrency)}</p>
             </div>
             <div>
-              <span className="text-slate-400 dark:text-white/40">Audio</span>
-              <p className={`font-semibold ${audioReady ? "text-emerald-600 dark:text-emerald-400" : "text-slate-800 dark:text-white/80"}`}>
+              <span className="text-muted-foreground dark:text-muted-foreground">Audio</span>
+              <p className={`font-semibold ${audioReady ? "text-emerald-600 dark:text-emerald-400" : "text-foreground dark:text-foreground"}`}>
                 {audioLabel}
               </p>
             </div>
             <div>
-              <span className="text-slate-400 dark:text-white/40">Print</span>
-              <p className="font-semibold text-slate-800 dark:text-white/80">
+              <span className="text-muted-foreground dark:text-muted-foreground">Print</span>
+              <p className="font-semibold text-foreground dark:text-foreground">
                 {podSettings.enabled ? podSettings.formats.join(", ") : "Off"}
               </p>
             </div>
@@ -295,7 +295,7 @@ export default function ReviewPanel({
             href={`/reader/books/${bookId}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-xl bg-[#0F172A] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-[#1E293B] hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] active:scale-[0.97]"
+            className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-primary/90 hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] active:scale-[0.97]"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
@@ -307,7 +307,7 @@ export default function ReviewPanel({
           <button
             type="button"
             onClick={() => onNavigate("market")}
-            className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors duration-150 ease-out hover:bg-slate-50 active:scale-[0.97] dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
+            className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors duration-150 ease-out hover:bg-background active:scale-[0.97] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 0 8.835-2.535m0 0A23.74 23.74 0 0 0 18.795 3m.38 1.125a23.91 23.91 0 0 1 1.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 0 0 1.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 0 1 0 3.46" />
@@ -338,13 +338,13 @@ export default function ReviewPanel({
             return (
               <div
                 key={ch.id}
-                className="flex items-center justify-between border-b border-black/[0.03] py-2 last:border-b-0 dark:border-white/[0.03]"
+                className="flex items-center justify-between border-b border-black/[0.03] py-2 last:border-b-0 dark:border-border"
               >
                 <div className="flex items-center gap-2 text-[13px]">
-                  <span className="w-5 text-right tabular-nums text-slate-400 dark:text-white/30">{i + 1}</span>
-                  <span className="text-slate-700 dark:text-white/70">{ch.title}</span>
+                  <span className="w-5 text-right tabular-nums text-muted-foreground dark:text-muted-foreground">{i + 1}</span>
+                  <span className="text-foreground dark:text-foreground">{ch.title}</span>
                 </div>
-                <span className={`text-[11px] tabular-nums ${words > 0 ? "text-slate-400 dark:text-white/35" : "text-amber-500"}`}>
+                <span className={`text-[11px] tabular-nums ${words > 0 ? "text-muted-foreground dark:text-muted-foreground" : "text-amber-500"}`}>
                   {words > 0 ? `${words.toLocaleString()} words` : "empty"}
                 </span>
               </div>
@@ -365,9 +365,9 @@ export default function ReviewPanel({
               const isOriginal = v.id === activeVersion?.id;
               return (
                 <div key={v.id} className="flex items-center justify-between text-[13px]">
-                  <span className={isOriginal ? "font-semibold text-[#907AFF]" : "text-slate-700 dark:text-white/70"}>
+                  <span className={isOriginal ? "font-semibold text-accent-foreground" : "text-foreground dark:text-foreground"}>
                     {getLanguageLabel(v.language_code)}
-                    {isOriginal && <span className="ml-1.5 text-[10px] font-normal text-slate-400 dark:text-white/30">(original)</span>}
+                    {isOriginal && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground dark:text-muted-foreground">(original)</span>}
                   </span>
                   <div className="flex items-center gap-2">
                     {v.error_message && (
@@ -377,7 +377,7 @@ export default function ReviewPanel({
                       className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                         v.published_at
                           ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
-                          : "bg-slate-100 text-slate-500 dark:bg-white/[0.06] dark:text-white/50"
+                          : "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground"
                       }`}
                     >
                       {v.published_at ? "Published" : "Draft"}
@@ -396,54 +396,54 @@ export default function ReviewPanel({
           <button
             type="button"
             onClick={() => onNavigate("cover")}
-            className="flex items-center gap-3 rounded-xl border border-black/[0.04] bg-slate-50/50 px-3 py-3 text-left transition-[border-color,transform] duration-150 ease-out hover:border-black/[0.08] active:scale-[0.97] dark:border-white/[0.04] dark:bg-white/[0.02] dark:hover:border-white/[0.08]"
+            className="flex items-center gap-3 rounded-xl border border-black/[0.04] bg-background/50 px-3 py-3 text-left transition-[border-color,transform] duration-150 ease-out hover:border-black/[0.08] active:scale-[0.97] dark:border-border dark:bg-card dark:hover:border-border"
           >
             {coverImageUrl ? (
               <div className="relative h-10 w-7 overflow-hidden rounded">
                 <Image src={coverImageUrl} alt="" fill sizes="28px" className="object-cover" unoptimized={requiresUnoptimizedImage(coverImageUrl)} />
               </div>
             ) : (
-              <div className="flex h-10 w-7 items-center justify-center rounded bg-slate-200/50 dark:bg-white/[0.06]">
-                <svg className="h-3.5 w-3.5 text-slate-400 dark:text-white/25" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div className="flex h-10 w-7 items-center justify-center rounded bg-muted/50 dark:bg-card">
+                <svg className="h-3.5 w-3.5 text-muted-foreground dark:text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159" />
                 </svg>
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-700 dark:text-white/70">Cover</p>
-              <p className="text-[11px] text-slate-400 dark:text-white/35">{hasCover ? "Ready" : "Missing"}</p>
+              <p className="text-xs font-semibold text-foreground dark:text-foreground">Cover</p>
+              <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">{hasCover ? "Ready" : "Missing"}</p>
             </div>
           </button>
 
           <button
             type="button"
             onClick={() => onNavigate("audiobook")}
-            className="flex items-center gap-3 rounded-xl border border-black/[0.04] bg-slate-50/50 px-3 py-3 text-left transition-[border-color,transform] duration-150 ease-out hover:border-black/[0.08] active:scale-[0.97] dark:border-white/[0.04] dark:bg-white/[0.02] dark:hover:border-white/[0.08]"
+            className="flex items-center gap-3 rounded-xl border border-black/[0.04] bg-background/50 px-3 py-3 text-left transition-[border-color,transform] duration-150 ease-out hover:border-black/[0.08] active:scale-[0.97] dark:border-border dark:bg-card dark:hover:border-border"
           >
-            <div className={`flex h-10 w-7 items-center justify-center rounded ${audioReady ? "bg-emerald-100/50 dark:bg-emerald-900/20" : "bg-slate-200/50 dark:bg-white/[0.06]"}`}>
-              <svg className={`h-3.5 w-3.5 ${audioReady ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-white/25"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className={`flex h-10 w-7 items-center justify-center rounded ${audioReady ? "bg-emerald-100/50 dark:bg-emerald-900/20" : "bg-muted/50 dark:bg-card"}`}>
+              <svg className={`h-3.5 w-3.5 ${audioReady ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground dark:text-muted-foreground"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
               </svg>
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-700 dark:text-white/70">Audiobook</p>
-              <p className="text-[11px] text-slate-400 dark:text-white/35">{audioLabel}</p>
+              <p className="text-xs font-semibold text-foreground dark:text-foreground">Audiobook</p>
+              <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">{audioLabel}</p>
             </div>
           </button>
 
           <button
             type="button"
             onClick={() => onNavigate("publish")}
-            className="flex items-center gap-3 rounded-xl border border-black/[0.04] bg-slate-50/50 px-3 py-3 text-left transition-[border-color,transform] duration-150 ease-out hover:border-black/[0.08] active:scale-[0.97] dark:border-white/[0.04] dark:bg-white/[0.02] dark:hover:border-white/[0.08]"
+            className="flex items-center gap-3 rounded-xl border border-black/[0.04] bg-background/50 px-3 py-3 text-left transition-[border-color,transform] duration-150 ease-out hover:border-black/[0.08] active:scale-[0.97] dark:border-border dark:bg-card dark:hover:border-border"
           >
-            <div className={`flex h-10 w-7 items-center justify-center rounded ${podSettings.enabled ? "bg-blue-100/50 dark:bg-blue-900/20" : "bg-slate-200/50 dark:bg-white/[0.06]"}`}>
-              <svg className={`h-3.5 w-3.5 ${podSettings.enabled ? "text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-white/25"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className={`flex h-10 w-7 items-center justify-center rounded ${podSettings.enabled ? "bg-blue-100/50 dark:bg-blue-900/20" : "bg-muted/50 dark:bg-card"}`}>
+              <svg className={`h-3.5 w-3.5 ${podSettings.enabled ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground dark:text-muted-foreground"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
               </svg>
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-slate-700 dark:text-white/70">Print</p>
-              <p className="text-[11px] text-slate-400 dark:text-white/35">
+              <p className="text-xs font-semibold text-foreground dark:text-foreground">Print</p>
+              <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">
                 {podSettings.enabled ? podSettings.formats.join(", ") : "Not configured"}
               </p>
             </div>
@@ -459,13 +459,13 @@ export default function ReviewPanel({
       >
         {campaignCount > 0 ? (
           <div className="space-y-3">
-            <p className="text-xs text-slate-600 dark:text-white/60">
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
               {campaignCount} campaign{campaignCount > 1 ? "s" : ""} generated and ready.
             </p>
             <button
               type="button"
               onClick={() => onNavigate("market")}
-              className="flex items-center gap-2 text-xs font-semibold text-[#907AFF] transition hover:text-[#7c6ae6]"
+              className="flex items-center gap-2 text-xs font-semibold text-accent-foreground transition hover:text-accent-foreground"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -475,13 +475,13 @@ export default function ReviewPanel({
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-xs text-slate-500 dark:text-white/50">
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
               No marketing campaigns yet. Generate social media posts, email copy, and more.
             </p>
             <button
               type="button"
               onClick={() => onNavigate("market")}
-              className="rounded-xl bg-[#907AFF]/10 px-4 py-2 text-xs font-semibold text-[#907AFF] transition-[background-color,transform] duration-150 ease-out hover:bg-[#907AFF]/20 active:scale-[0.97]"
+              className="rounded-xl bg-[#907AFF]/10 px-4 py-2 text-xs font-semibold text-accent-foreground transition-[background-color,transform] duration-150 ease-out hover:bg-[#907AFF]/20 active:scale-[0.97]"
             >
               Create first campaign
             </button>
@@ -496,7 +496,7 @@ export default function ReviewPanel({
             type="button"
             onClick={onPublish ?? (() => onNavigate("publish"))}
             disabled={!hasContent}
-            className="w-full rounded-2xl bg-[#0F172A] px-6 py-4 text-base font-bold text-white shadow-[0_4px_20px_rgba(15,23,42,0.30),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-[#1E293B] hover:shadow-[0_6px_28px_rgba(15,23,42,0.40)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-2xl bg-primary px-6 py-4 text-base font-bold text-primary-foreground shadow-[0_4px_20px_rgba(15,23,42,0.30),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-primary/90 hover:shadow-[0_6px_28px_rgba(15,23,42,0.40)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Publish book
           </button>

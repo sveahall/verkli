@@ -136,8 +136,8 @@ export default function TrailerPanel({
   if (!marketingEnabled) {
     return (
       <div className="mx-20 mt-10 max-w-6xl">
-        <div className="rounded-2xl border border-slate-200/80 bg-white/80 p-5 text-[13px] text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/65">
-          <p className="text-[14px] font-semibold text-slate-800 dark:text-white">
+        <div className="rounded-2xl border border-border/80 bg-white/80 p-5 text-[13px] text-muted-foreground dark:border-border dark:bg-card dark:text-muted-foreground">
+          <p className="text-[14px] font-semibold text-foreground dark:text-foreground">
             Trailers are currently disabled.
           </p>
           <p className="mt-1">
@@ -156,7 +156,7 @@ export default function TrailerPanel({
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#907AFF]/10 dark:bg-[#907AFF]/15">
             <svg
-              className="h-4 w-4 text-[#907AFF]"
+              className="h-4 w-4 text-accent-foreground"
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth={2}
@@ -170,8 +170,8 @@ export default function TrailerPanel({
             </svg>
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Book Trailer</h2>
-            <p className="mt-1 text-sm text-slate-500 dark:text-white/45">
+            <h2 className="author-section-title text-lg font-medium text-foreground dark:text-foreground">Book Trailer</h2>
+            <p className="mt-1 text-sm text-muted-foreground dark:text-muted-foreground">
               Create an AI-generated video trailer for your book
             </p>
           </div>
@@ -181,16 +181,16 @@ export default function TrailerPanel({
       {/* ── Pro Lock Overlay ── */}
       {isProLocked && (
         <div className="absolute inset-0 z-10 rounded-2xl bg-black/40 backdrop-blur-sm flex items-center justify-center">
-          <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 text-center shadow-lg">
-            <p className="text-sm font-semibold text-slate-900 dark:text-white">Pro Feature</p>
-            <p className="mt-1 text-xs text-slate-600 dark:text-white/60">Upgrade to create trailers</p>
+          <div className="rounded-xl bg-card dark:bg-card px-4 py-3 text-center shadow-lg">
+            <p className="text-sm font-semibold text-foreground dark:text-foreground">Pro Feature</p>
+            <p className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground">Upgrade to create trailers</p>
           </div>
         </div>
       )}
 
       {/* ── Video Preview (Ready State) ── */}
       {status === "ready" && url && (
-        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02]">
+        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-border dark:bg-card">
           <video
             src={url}
             controls
@@ -204,7 +204,7 @@ export default function TrailerPanel({
           <button
             type="button"
             onClick={handleRegenerate}
-            className="w-full rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.06]"
+            className="w-full rounded-xl border border-black/[0.08] bg-card px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-background dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
           >
             Regenerate Trailer
           </button>
@@ -213,7 +213,7 @@ export default function TrailerPanel({
 
       {/* ── Generation Status (Generating State) ── */}
       {status === "generating" && (
-        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-8 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] flex flex-col items-center gap-4 text-center">
+        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-8 backdrop-blur-sm dark:border-border dark:bg-card flex flex-col items-center gap-4 text-center">
           <div className="rounded-xl bg-gradient-to-br from-[#907AFF] to-[#7c6ae6] p-3 text-white shadow-sm">
             <svg
               className="h-5 w-5 animate-pulse"
@@ -230,12 +230,12 @@ export default function TrailerPanel({
             </svg>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Generating your trailer...</h3>
-            <p className="mt-1 text-xs text-slate-500 dark:text-white/50">
+            <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Generating your trailer...</h3>
+            <p className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground">
               This usually takes a few minutes. You can leave this page — we&apos;ll finish in the background.
             </p>
           </div>
-          <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-slate-100 dark:bg-white/[0.06]">
+          <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-muted dark:bg-card">
             <div className="h-full animate-pulse rounded-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5]" />
           </div>
         </div>
@@ -243,7 +243,7 @@ export default function TrailerPanel({
 
       {/* ── Generation Form (Default / Failed State) ── */}
       {!status || status === "failed" ? (
-        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] space-y-4">
+        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-border dark:bg-card space-y-4">
           {error && (
             <div className="rounded-lg border border-red-200/60 bg-red-50/60 px-3 py-2 text-xs text-red-700 dark:border-red-900/30 dark:bg-red-950/10 dark:text-red-400">
               {error}
@@ -259,14 +259,14 @@ export default function TrailerPanel({
           {/* Genre & Tone Selectors */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/40">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                 Genre
               </label>
               <select
                 value={genre}
                 onChange={(e) => setGenre(e.target.value as TrailerGenre)}
                 disabled={isProLocked}
-                className="w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-xs text-slate-700 transition dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 disabled:opacity-50"
+                className="w-full rounded-lg border border-black/[0.08] bg-card px-3 py-2 text-xs text-foreground transition dark:border-border dark:bg-card dark:text-foreground disabled:opacity-50"
               >
                 {TRAILER_GENRES.map((g) => (
                   <option key={g.value} value={g.value}>
@@ -276,14 +276,14 @@ export default function TrailerPanel({
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/40">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                 Tone
               </label>
               <select
                 value={tone}
                 onChange={(e) => setTone(e.target.value as TrailerTone)}
                 disabled={isProLocked}
-                className="w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-xs text-slate-700 transition dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 disabled:opacity-50"
+                className="w-full rounded-lg border border-black/[0.08] bg-card px-3 py-2 text-xs text-foreground transition dark:border-border dark:bg-card dark:text-foreground disabled:opacity-50"
               >
                 {TRAILER_TONES.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -296,7 +296,7 @@ export default function TrailerPanel({
 
           {/* Keywords Input */}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-white/40">
+            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
               Keywords (Optional)
             </label>
             <input
@@ -305,7 +305,7 @@ export default function TrailerPanel({
               value={keywords}
               onChange={(e) => setKeywords(e.target.value)}
               disabled={isProLocked}
-              className="w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-xs text-slate-700 placeholder-slate-400 transition dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white/70 dark:placeholder-white/20 disabled:opacity-50"
+              className="w-full rounded-lg border border-black/[0.08] bg-card px-3 py-2 text-xs text-foreground placeholder-muted-foreground transition dark:border-border dark:bg-card dark:text-foreground dark:placeholder-white/20 disabled:opacity-50"
             />
           </div>
 
@@ -314,7 +314,7 @@ export default function TrailerPanel({
             type="button"
             onClick={() => void handleGenerate()}
             disabled={isGenerating || isProLocked || !coverImage || billingLoading}
-            className="w-full rounded-lg bg-[#0F172A] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? "Generating..." : "Generate Trailer"}
           </button>

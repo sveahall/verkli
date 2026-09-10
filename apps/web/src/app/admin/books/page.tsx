@@ -216,7 +216,7 @@ export default function AdminBooksPage() {
           <div className="flex flex-col gap-1">
             <label
               htmlFor="status-filter"
-              className="text-xs font-medium text-slate-500 dark:text-white/50"
+              className="text-xs font-medium text-muted-foreground"
             >
               Status
             </label>
@@ -224,7 +224,7 @@ export default function AdminBooksPage() {
               id="status-filter"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-11 rounded-xl border border-slate-200 bg-white px-3.5 text-[15px] text-slate-900 transition-colors focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-white dark:focus:border-white/25 dark:focus:ring-white/15"
+              className="h-11 rounded-xl border border-border bg-card px-3.5 text-[15px] text-foreground transition-colors focus:border-border focus:outline-none focus:ring-2 focus:ring-ring/30 dark:focus:border-border dark:focus:ring-white/15"
             >
               <option value="">All statuses</option>
               <option value="PUBLISHED">Published</option>
@@ -262,7 +262,7 @@ export default function AdminBooksPage() {
           />
         ) : (
           <>
-            <p className="text-caption mb-3 tabular-nums text-slate-500 dark:text-white/50">
+            <p className="text-caption mb-3 tabular-nums text-muted-foreground">
               {total} book{total !== 1 ? "s" : ""} total
             </p>
             <Card className="overflow-hidden p-0">
@@ -287,19 +287,19 @@ export default function AdminBooksPage() {
                             <img
                               src={b.cover_image}
                               alt=""
-                              className="h-12 w-8 shrink-0 rounded-md border border-slate-200/80 object-cover dark:border-white/10"
+                              className="h-12 w-8 shrink-0 rounded-md border border-border object-cover"
                             />
                           ) : (
-                            <div className="flex h-12 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200/80 bg-gradient-to-br from-[#907AFF]/20 via-[#E29ED5]/20 to-[#FCC997]/20 dark:border-white/10">
+                            <div className="flex h-12 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-gradient-to-br from-[#907AFF]/20 via-[#E29ED5]/20 to-[#FCC997]/20">
                               <BookOpen
-                                className="h-3.5 w-3.5 text-slate-400 dark:text-white/40"
+                                className="h-3.5 w-3.5 text-muted-foreground"
                                 aria-hidden
                               />
                             </div>
                           )}
                           <Link
                             href={`/admin/books/${b.id}`}
-                            className="min-w-0 truncate rounded-md font-medium text-slate-800 transition-colors hover:text-[var(--brand-violet)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 dark:text-white"
+                            className="min-w-0 truncate rounded-md font-medium text-foreground transition-colors hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2"
                           >
                             {b.title}
                           </Link>
@@ -319,7 +319,7 @@ export default function AdminBooksPage() {
                         <div className="flex items-center justify-end gap-2">
                           <Link
                             href={`/admin/books/${b.id}`}
-                            className="inline-flex min-h-[36px] items-center rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 dark:border-white/[0.1] dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
+                            className="inline-flex min-h-[44px] items-center rounded-xl border border-border bg-card px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 dark:hover:bg-card dark:hover:text-foreground"
                           >
                             View
                           </Link>
@@ -371,7 +371,7 @@ export default function AdminBooksPage() {
                 >
                   Previous
                 </Button>
-                <span className="text-caption px-2 tabular-nums text-slate-500 dark:text-white/50">
+                <span className="text-caption px-2 tabular-nums text-muted-foreground">
                   Page {page}
                 </span>
                 <Button

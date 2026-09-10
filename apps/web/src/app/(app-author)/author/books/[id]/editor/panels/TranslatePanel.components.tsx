@@ -53,36 +53,36 @@ export function TranslatePreviewPanes({
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
       <div className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5 dark:ring-white/10">
-        <div className="bg-slate-100 px-5 py-3 dark:bg-white/[0.06]">
-          <p className="text-sm font-medium text-slate-700 dark:text-white/80">Original text</p>
+        <div className="bg-muted px-5 py-3 dark:bg-card">
+          <p className="text-sm font-medium text-foreground dark:text-foreground">Original text</p>
         </div>
-        <div className="h-[340px] overflow-y-auto whitespace-pre-line bg-slate-50/50 px-5 py-4 text-sm leading-relaxed text-slate-700 dark:bg-white/[0.02] dark:text-slate-200">
+        <div className="h-[340px] overflow-y-auto whitespace-pre-line bg-background/50 px-5 py-4 text-sm leading-relaxed text-foreground dark:bg-card dark:text-muted-foreground">
           {loadingPreview ? (
-            <span className="text-slate-400">Loading...</span>
+            <span className="text-muted-foreground">Loading...</span>
           ) : originalPreview ? (
             originalPreview
           ) : (
-            <span className="text-slate-400">No source text available yet.</span>
+            <span className="text-muted-foreground">No source text available yet.</span>
           )}
         </div>
       </div>
       <div className="overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/5 dark:ring-white/10">
-        <div className="bg-slate-100 px-5 py-3 dark:bg-white/[0.06]">
-          <p className="text-sm font-medium text-slate-700 dark:text-white/80">
+        <div className="bg-muted px-5 py-3 dark:bg-card">
+          <p className="text-sm font-medium text-foreground dark:text-foreground">
             {getLanguageLabel(targetLanguage)} preview
           </p>
         </div>
-        <div className="h-[340px] overflow-y-auto whitespace-pre-line bg-slate-50/50 px-5 py-4 text-sm leading-relaxed text-slate-700 dark:bg-white/[0.02] dark:text-slate-200">
+        <div className="h-[340px] overflow-y-auto whitespace-pre-line bg-background/50 px-5 py-4 text-sm leading-relaxed text-foreground dark:bg-card dark:text-muted-foreground">
           {loadingPreview ? (
-            <span className="text-slate-400">Loading...</span>
+            <span className="text-muted-foreground">Loading...</span>
           ) : translationPreview ? (
             translationPreview
           ) : previewUnavailable ? (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-white/80 px-4 py-3 text-slate-500 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-white/60">
+            <div className="rounded-xl border border-dashed border-border bg-white/80 px-4 py-3 text-muted-foreground dark:border-border dark:bg-card dark:text-muted-foreground">
               Translation preview is temporarily unavailable for this language pair.
             </div>
           ) : (
-            <span className="text-slate-400">Preview will appear here.</span>
+            <span className="text-muted-foreground">Preview will appear here.</span>
           )}
         </div>
         <div className="px-5 py-4">
@@ -90,7 +90,7 @@ export function TranslatePreviewPanes({
             type="button"
             onClick={onTranslate}
             disabled={translating || billingLoading || !sourceVersionId}
-            className="block w-full rounded-full bg-[#0F172A] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-60"
+            className="block w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {translating
               ? "Translating..."
@@ -118,12 +118,12 @@ export function TranslateMoreLanguagesCard({
   onToggleLanguage,
 }: TranslateMoreLanguagesCardProps) {
   return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5 dark:bg-white/[0.03] dark:ring-white/10">
+    <div className="overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-black/5 dark:bg-card dark:ring-white/10">
       <div className="px-6 py-6">
-        <h3 className="mb-4 text-[15px] font-semibold text-slate-900 dark:text-white">
+        <h3 className="mb-4 text-[15px] font-semibold text-foreground dark:text-foreground">
           Translate into more languages:
         </h3>
-        <ul className="max-h-[260px] divide-y divide-slate-100 overflow-y-auto text-sm dark:divide-white/[0.06]">
+        <ul className="max-h-[260px] divide-y divide-border overflow-y-auto text-sm dark:divide-border">
           {TRANSLATE_MORE_LANGUAGES.map(({ code, label }) => {
             const isSource = code === sourceLanguage;
             const supported = !isSource && isSupportedLanguage(code) && isTranslationPairSupported(sourceLanguage, code);
@@ -134,7 +134,7 @@ export function TranslateMoreLanguagesCard({
                     supported ? "cursor-pointer" : "cursor-default"
                   }`}
                 >
-                  <span className={supported || isSource ? "text-slate-700 dark:text-white/80" : "text-slate-400 dark:text-white/30"}>
+                  <span className={supported || isSource ? "text-foreground dark:text-foreground" : "text-muted-foreground dark:text-muted-foreground"}>
                     {label}
                   </span>
                   <input
@@ -145,7 +145,7 @@ export function TranslateMoreLanguagesCard({
                     }}
                     disabled={!supported}
                     aria-label={`Translate to ${label}`}
-                    className="h-4 w-4 rounded border-slate-300 accent-[#907AFF] disabled:opacity-40"
+                    className="h-4 w-4 rounded border-border accent-[#907AFF] disabled:opacity-40"
                   />
                 </label>
               </li>

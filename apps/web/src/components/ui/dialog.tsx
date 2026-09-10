@@ -65,7 +65,7 @@ export function Dialog({ open, onOpenChange, children, className }: DialogProps)
       onClose={() => onOpenChange(false)}
       onClick={handleBackdropClick}
       className={cn(
-        "dialog-backdrop fixed inset-0 m-auto w-[min(92vw,520px)] rounded-2xl border border-slate-200/80 bg-white p-0 text-slate-900 shadow-[0_24px_60px_rgba(15,23,42,0.18)] focus:outline-none dark:border-white/10 dark:bg-[#0b0b12] dark:text-white",
+        "dialog-backdrop fixed inset-0 m-auto w-[min(92vw,520px)] rounded-2xl border border-border bg-card p-0 text-foreground shadow-surface-lg focus:outline-none",
         className
       )}
     >
@@ -81,13 +81,13 @@ export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLD
 
 export function DialogTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h2 className={cn("text-[18px] font-semibold", className)} {...props} />
+    <h2 className={cn("font-display text-[22px] font-medium tracking-tight", className)} {...props} />
   );
 }
 
 export function DialogDescription({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("mt-2 text-[14px] text-slate-600 dark:text-white/60", className)} {...props} />
+    <div className={cn("mt-2 text-[14px] text-muted-foreground", className)} {...props} />
   );
 }
 

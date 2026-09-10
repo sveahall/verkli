@@ -22,29 +22,29 @@ export default function AuthorNotificationsPage() {
   return (
     <div className="mx-auto max-w-[640px] px-4 py-8 sm:px-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+        <h1 className="author-page-title text-foreground">
           Notifications
         </h1>
         <button
           type="button"
           onClick={handleMarkAllRead}
-          className="text-[13px] font-medium text-[#907AFF] hover:text-[#7058DD] transition-colors"
+          className="text-[13px] font-medium text-accent-foreground hover:text-accent-foreground transition-colors"
         >
           Mark all as read
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200/50 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900">
+      <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm dark:border-border dark:bg-card">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[#907AFF]" />
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-[#907AFF]" />
           </div>
         ) : notifications.length === 0 ? (
-          <p className="py-12 text-center text-[13px] text-slate-400 dark:text-white/40">
+          <p className="py-12 text-center text-[13px] text-muted-foreground dark:text-muted-foreground">
             No notifications yet
           </p>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-white/5">
+          <div className="divide-y divide-border dark:divide-border">
             {notifications.map((n) => (
               <NotificationItem
                 key={n.id}
@@ -69,18 +69,18 @@ export default function AuthorNotificationsPage() {
             type="button"
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
-            className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-40 dark:text-white/60 dark:hover:bg-white/10"
+            className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-accent"
           >
             Previous
           </button>
-          <span className="text-[13px] text-slate-500 dark:text-white/50">
+          <span className="text-[13px] text-muted-foreground dark:text-muted-foreground">
             {page} / {totalPages}
           </span>
           <button
             type="button"
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 disabled:opacity-40 dark:text-white/60 dark:hover:bg-white/10"
+            className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-accent"
           >
             Next
           </button>

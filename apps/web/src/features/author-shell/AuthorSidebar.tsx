@@ -147,16 +147,17 @@ function SidebarNavLink({
       href={href}
       onClick={handleClick}
       onMouseEnter={() => router.prefetch(href)}
-      className={`group/nav relative flex w-full min-h-[44px] items-center gap-3.5 rounded-xl px-5 py-2.5 text-[15px] font-normal transition-all duration-200 ${
+      aria-current={active ? "page" : undefined}
+      className={`group/nav relative flex w-full min-h-[44px] items-center gap-3 rounded-xl px-4 py-2.5 text-[13px] font-medium transition-colors duration-150 ${
         active
-          ? "bg-[#0F172A] text-white"
-          : "text-[#7A8194] hover:bg-[#F6F7FB] hover:text-[#555C70] hover:translate-x-0.5 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+          ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_0_0_0_1px_rgba(226,158,213,0.12)]"
+          : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
       }`}
     >
       {active && (
-        <span className="absolute top-1/2 h-6 w-0 -translate-y-1/2 rounded-full bg-[#907AFF] shadow-sm shadow-[#907AFF]/30" />
+        <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-[#E29ED5]" />
       )}
-      <Icon className={`h-[18px] w-[18px] flex-shrink-0 transition-transform duration-200 ${active ? "" : "group-hover/nav:scale-110"}`} />
+      <Icon className={`h-[18px] w-[18px] flex-shrink-0 transition-colors duration-150 ${active ? "text-[#E29ED5]" : ""}`} />
       <span className="truncate">{item.label}</span>
     </Link>
   );
@@ -175,9 +176,9 @@ function SwitchToReaderButton() {
         setActiveRoleCookieClient("reader");
         window.location.href = "/reader/home";
       }}
-      className="group/nav relative flex w-full min-h-[44px] items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] font-normal transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] text-[#7A8194] hover:bg-[#F6F7FB] hover:text-[#555C70] hover:translate-x-0.5 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+      className="group/nav relative flex w-full min-h-[44px] items-center gap-3 rounded-xl px-4 py-2.5 text-[13px] font-medium text-sidebar-foreground/65 transition-colors duration-150 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
     >
-      <Repeat className="h-[18px] w-[18px] flex-shrink-0 transition-transform duration-200 group-hover/nav:scale-110" />
+      <Repeat className="h-[18px] w-[18px] flex-shrink-0 transition-colors duration-150" />
       <span className="truncate">Open reader app</span>
     </button>
   );
@@ -211,7 +212,7 @@ function BookWorkflowNav({
     : BOOK_WORKFLOW_TABS;
 
   return (
-    <div className="flex flex-col gap-0.5 pb-1 pl-4">
+    <div className="ml-6 flex flex-col gap-1 border-l border-sidebar-border py-2 pl-3">
       {tabs.map((tab, i) => {
         const isActive =
           tab.panel === null
@@ -229,23 +230,24 @@ function BookWorkflowNav({
           <div key={tab.key}>
             {showDivider && (
               <div
-                className="my-1 ml-3 mr-2 h-px bg-slate-100 dark:bg-white/[0.06]"
+                className="my-1 ml-3 mr-2 h-px bg-sidebar-border"
                 aria-hidden
               />
             )}
             <Link
               href={href}
-              className={`inline-flex min-h-[34px] items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition ${
+              aria-current={isActive ? "page" : undefined}
+              className={`flex min-h-[40px] items-center gap-2.5 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors ${
                 isActive
-                  ? "bg-[#907AFF]/10 text-[#5132de] dark:bg-[#907AFF]/15 dark:text-[#cfbfff]"
-                  : "text-[#8B91A5] hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/40 dark:hover:bg-white/[0.06] dark:hover:text-white/70"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/60 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
               }`}
             >
               <Icon
                 className={`h-[14px] w-[14px] flex-shrink-0 ${
                   isActive
-                    ? "text-[#7c5cfc] dark:text-[#a78bfa]"
-                    : "text-[#B0B5C5] dark:text-white/25"
+                    ? "text-[#E29ED5]"
+                    : "text-sidebar-foreground/45"
                 }`}
               />
               <span className="truncate">{tab.label}</span>
@@ -281,11 +283,11 @@ export default function AuthorSidebar({
   return (
     <>
       {/* ── Desktop sidebar ── */}
-      <aside className="hidden border-r border-[#ECEAF5] pr-4 bg-white dark:border-white/10 dark:bg-[#070b14] lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
-        <div className="px-5 pt-7 pb-6">
+      <aside data-author-sidebar className="hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
+        <div className="px-7 pb-8 pt-8">
           <Link href="/author/home" className="inline-flex items-center">
             <Image
-              src="/logo-dark.svg"
+              src="/favicon.svg"
               alt="Verkli"
               width={120}
               height={26}
@@ -293,9 +295,10 @@ export default function AuthorSidebar({
               priority
             />
           </Link>
+          <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.2em] text-sidebar-foreground/45">Author studio</p>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3">
+        <nav aria-label="Author workspace" className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3">
           {AUTHOR_WORKFLOW_NAV.filter((item) => {
             // The Marketing entry leads to a page that offers to build a
             // campaign, while the API answers MARKETING_FEATURE_DISABLED. Gate
@@ -324,7 +327,7 @@ export default function AuthorSidebar({
                 {showWorkflowChildren && (
                   <div className="mt-1">
                     <div className="mb-1 pl-7" title={activeBook?.title ?? "Book"}>
-                      <span className="block truncate max-w-[160px] text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/30">
+                      <span className="block truncate max-w-[160px] text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/45">
                         {activeBook?.title ?? "Book"}
                       </span>
                     </div>
@@ -336,7 +339,7 @@ export default function AuthorSidebar({
           })}
         </nav>
 
-        <div className="px-3 py-5">
+        <div className="mx-3 border-t border-sidebar-border py-4">
           <div className="flex flex-col gap-1.5">
             {AUTHOR_SIDEBAR_FOOTER.map((item) =>
               item.key === "switch-to-reader" ? (
@@ -356,8 +359,9 @@ export default function AuthorSidebar({
 
       {/* ── Mobile bottom nav ── */}
       <nav
+        data-author-sidebar
         aria-label="Author navigation"
-        className="fixed bottom-0 left-0 right-0 z-[9990] border-t border-[#ECEAF5] bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#050917]/95 lg:hidden"
+        className="fixed bottom-0 left-0 right-0 z-[9990] border-t border-sidebar-border bg-sidebar/95 text-sidebar-foreground shadow-[0_-8px_24px_rgba(23,19,29,0.12)] backdrop-blur-xl lg:hidden"
       >
         <div className="mx-auto flex max-w-md items-center justify-around px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] pt-2">
           {mobileNavItems.map((item) => {
@@ -373,8 +377,8 @@ export default function AuthorSidebar({
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 ${
                     active
-                      ? "bg-[#0F172A] text-white shadow-md shadow-[#0F172A]/20"
-                      : "text-[#7A8194] group-hover:text-[#555C70] dark:text-white/40 dark:group-hover:text-white/70"
+                      ? "bg-sidebar-accent text-[#E29ED5]"
+                      : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground"
                   }`}
                 >
                   <Icon className="h-[18px] w-[18px]" />
@@ -382,8 +386,8 @@ export default function AuthorSidebar({
                 <span
                   className={`text-[10px] font-medium transition-colors ${
                     active
-                      ? "text-[#907AFF]"
-                      : "text-[#7A8194] dark:text-white/40"
+                      ? "text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/60"
                   }`}
                 >
                   {item.label}
@@ -405,8 +409,8 @@ export default function AuthorSidebar({
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 ${
                     active
-                      ? "bg-[#0F172A] text-white shadow-md shadow-[#0F172A]/20"
-                      : "text-[#7A8194] group-hover:text-[#555C70] dark:text-white/40 dark:group-hover:text-white/70"
+                      ? "bg-sidebar-accent text-[#E29ED5]"
+                      : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground"
                   }`}
                 >
                   <Icon className="h-[18px] w-[18px]" />
@@ -414,8 +418,8 @@ export default function AuthorSidebar({
                 <span
                   className={`text-[10px] font-medium transition-colors ${
                     active
-                      ? "text-[#907AFF]"
-                      : "text-[#7A8194] dark:text-white/40"
+                      ? "text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/60"
                   }`}
                 >
                   {item.label}

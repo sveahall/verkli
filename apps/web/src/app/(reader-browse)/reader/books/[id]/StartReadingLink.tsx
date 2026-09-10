@@ -46,7 +46,7 @@ export default function StartReadingLink({
 
   if (!targetChapterId) {
     return (
-      <span className="rounded-full bg-slate-200 px-6 py-3 text-[14px] font-semibold text-slate-500 dark:bg-white/10 dark:text-white/50">
+      <span className="rounded-full bg-muted px-6 py-3 text-[14px] font-semibold text-muted-foreground dark:bg-card">
         No chapters yet
       </span>
     );

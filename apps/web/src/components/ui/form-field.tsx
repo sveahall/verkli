@@ -42,7 +42,7 @@ export function FormField({
   return (
     <div className={cn("w-full space-y-1.5", className)}>
       <div className="flex items-center justify-between gap-4">
-        <label htmlFor={fieldId} className="text-[13px] font-medium text-slate-600 dark:text-white/50">
+        <label htmlFor={fieldId} className="text-[13px] font-medium text-muted-foreground">
           {label}
           {required && <span className="text-red-500"> *</span>}
         </label>

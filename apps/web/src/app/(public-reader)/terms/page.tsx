@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import styles from "@/components/public/PublicPage.module.css";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -8,16 +9,18 @@ export const metadata: Metadata = {
 
 export default function TermsOfServicePage() {
   return (
-    <main className="mx-auto max-w-[760px] px-6 py-16 md:py-24">
-      <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white md:text-4xl">
+    <main className={`${styles.page} ${styles.legal}`}>
+      <h1 className="text-foreground">
         Terms of Service
       </h1>
-      <p className="mt-2 text-sm text-slate-500 dark:text-white/40">
+      <p className="mt-2 text-sm text-muted-foreground">
         Last updated: September 5, 2026
       </p>
 
-      <div className="prose-policy mt-10 space-y-8 text-[15px] leading-[1.8] text-slate-700 dark:text-white/70">
-        <section>
+      <nav aria-label="On this page"><a href="#terms-section-1">Acceptance</a><a href="#terms-section-2">Eligibility</a><a href="#terms-section-13">Contact</a></nav>
+
+      <div className="prose-policy mt-10 space-y-8 text-[15px] leading-[1.8] text-muted-foreground">
+        <section id="terms-section-1">
           <h2>1. Acceptance</h2>
           <p>
             By creating an account or using Verkli (&quot;the platform&quot;),
@@ -26,7 +29,7 @@ export default function TermsOfServicePage() {
           </p>
         </section>
 
-        <section>
+        <section id="terms-section-2">
           <h2>2. Eligibility</h2>
           <p>
             You must be at least 16 years old to use Verkli. By using the
@@ -34,7 +37,7 @@ export default function TermsOfServicePage() {
           </p>
         </section>
 
-        <section>
+        <section id="terms-section-3">
           <h2>3. Accounts</h2>
           <ul>
             <li>You are responsible for keeping your credentials secure.</li>
@@ -52,7 +55,7 @@ export default function TermsOfServicePage() {
           </ul>
         </section>
 
-        <section>
+        <section id="terms-section-4">
           <h2>4. Author content</h2>
           <ul>
             <li>
@@ -97,7 +100,7 @@ export default function TermsOfServicePage() {
           </ul>
         </section>
 
-        <section>
+        <section id="terms-section-5">
           <h2>5. Reader conduct</h2>
           <ul>
             <li>
@@ -113,7 +116,7 @@ export default function TermsOfServicePage() {
           </ul>
         </section>
 
-        <section>
+        <section id="terms-section-6">
           <h2>6. Payments and subscriptions</h2>
           <ul>
             <li>
@@ -143,7 +146,7 @@ export default function TermsOfServicePage() {
           </ul>
         </section>
 
-        <section>
+        <section id="terms-section-7">
           <h2>7. Prohibited use</h2>
           <p>You may not use Verkli to:</p>
           <ul>
@@ -157,7 +160,7 @@ export default function TermsOfServicePage() {
           </ul>
         </section>
 
-        <section>
+        <section id="terms-section-8">
           <h2>8. Intellectual property</h2>
           <p>
             The Verkli name, logo, design, and platform code are owned by
@@ -166,7 +169,7 @@ export default function TermsOfServicePage() {
           </p>
         </section>
 
-        <section>
+        <section id="terms-section-9">
           <h2>9. Limitation of liability</h2>
           <p>
             Verkli is provided &quot;as is&quot; without warranties of any kind.
@@ -176,7 +179,7 @@ export default function TermsOfServicePage() {
           </p>
         </section>
 
-        <section>
+        <section id="terms-section-10">
           <h2>10. Termination</h2>
           <p>
             You may delete your account at any time. We may terminate or suspend
@@ -187,7 +190,7 @@ export default function TermsOfServicePage() {
           </p>
         </section>
 
-        <section>
+        <section id="terms-section-11">
           <h2>11. Governing law</h2>
           <p>
             These terms are governed by the laws of Sweden. Any disputes shall
@@ -195,7 +198,7 @@ export default function TermsOfServicePage() {
           </p>
         </section>
 
-        <section>
+        <section id="terms-section-12">
           <h2>12. Changes</h2>
           <p>
             We may update these terms from time to time. Continued use of the
@@ -204,7 +207,7 @@ export default function TermsOfServicePage() {
           </p>
         </section>
 
-        <section>
+        <section id="terms-section-13">
           <h2>13. Contact</h2>
           <p>
             Questions? Contact us at{" "}

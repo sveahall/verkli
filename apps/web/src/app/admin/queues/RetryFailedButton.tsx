@@ -79,7 +79,7 @@ export function RetryFailedButton({
         {busy ? "Retrying…" : "Retry failed"}
       </Button>
       {message ? (
-        <span className="text-[12px] text-slate-500 dark:text-white/50">{message}</span>
+        <span className="text-[12px] text-muted-foreground">{message}</span>
       ) : null}
     </div>
   );

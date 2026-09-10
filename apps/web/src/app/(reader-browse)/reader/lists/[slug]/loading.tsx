@@ -14,7 +14,7 @@ export default function ListLoading() {
       <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i}>
-            <div className="aspect-[3/4] w-full animate-pulse rounded-xl bg-slate-200 dark:bg-white/10" />
+            <div className="aspect-[3/4] w-full animate-pulse rounded-xl bg-muted dark:bg-card" />
             <div className="mt-3 space-y-2">
               <Skeleton height={16} className="w-3/4" />
               <Skeleton height={12} className="w-1/2" />

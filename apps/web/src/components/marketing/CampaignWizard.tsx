@@ -45,12 +45,12 @@ function WizardProgress({ step, totalSteps }: { step: number; totalSteps: number
             key={i}
             className={cn(
               "h-[3px] flex-1 rounded-full transition-colors duration-300",
-              i < step ? "bg-[#907AFF]" : "bg-black/[0.06] dark:bg-white/10"
+              i < step ? "bg-[#907AFF]" : "bg-black/[0.06] dark:bg-card"
             )}
           />
         ))}
       </div>
-      <span className="text-[12px] font-medium text-slate-400 dark:text-white/35">
+      <span className="text-[12px] font-medium text-muted-foreground dark:text-muted-foreground">
         {step}/{totalSteps}
       </span>
     </div>
@@ -71,10 +71,10 @@ function StepSelectBook({
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white">
+        <h3 className="text-[16px] font-semibold text-foreground dark:text-foreground">
           Which book do you want to promote?
         </h3>
-        <p className="mt-1.5 text-[14px] text-slate-500 dark:text-white/50">
+        <p className="mt-1.5 text-[14px] text-muted-foreground dark:text-muted-foreground">
           Choose the book this campaign will be about.
         </p>
       </div>
@@ -97,8 +97,8 @@ function StepSelectBook({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={book.cover_image} alt="" className="h-12 w-8 rounded-lg object-cover shadow-sm" />
               ) : (
-                <div className="flex h-12 w-8 items-center justify-center rounded-lg bg-black/[0.04] dark:bg-white/10">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-slate-400 dark:text-white/30">
+                <div className="flex h-12 w-8 items-center justify-center rounded-lg bg-black/[0.04] dark:bg-card">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-muted-foreground dark:text-muted-foreground">
                     <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </div>
@@ -106,13 +106,13 @@ function StepSelectBook({
               <div className="min-w-0 flex-1">
                 <p className={cn(
                   "truncate text-[15px] font-medium",
-                  isSelected ? "text-[#6C5CE7] dark:text-[#A99AFF]" : "text-slate-900 dark:text-white"
+                  isSelected ? "text-accent-foreground dark:text-[#A99AFF]" : "text-foreground dark:text-foreground"
                 )}>
                   {book.title ?? "Untitled book"}
                 </p>
               </div>
               {isSelected && (
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#907AFF] text-white">
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                     <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -138,10 +138,10 @@ function StepLanguages({
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white">
+        <h3 className="text-[16px] font-semibold text-foreground dark:text-foreground">
           Which languages do you want to publish in?
         </h3>
-        <p className="mt-1.5 text-[14px] text-slate-500 dark:text-white/50">
+        <p className="mt-1.5 text-[14px] text-muted-foreground dark:text-muted-foreground">
           Each post is regenerated for every language you pick.
         </p>
       </div>
@@ -159,11 +159,11 @@ function StepLanguages({
                 isSelected ? CARD_SELECTED : `${CARD_IDLE} ${CARD_HOVER}`
               )}
             >
-              <span className="block text-[12px] uppercase tracking-wider text-slate-400 dark:text-white/35">
+              <span className="block text-[12px] uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                 {code}
               </span>
               <span className={cn(
-                isSelected ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-white/70"
+                isSelected ? "text-foreground dark:text-foreground" : "text-foreground dark:text-foreground"
               )}>
                 {getLanguageLabel(code)}
               </span>
@@ -187,10 +187,10 @@ function StepContentTypes({
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white">
+        <h3 className="text-[16px] font-semibold text-foreground dark:text-foreground">
           What kind of content should we generate?
         </h3>
-        <p className="mt-1.5 text-[14px] text-slate-500 dark:text-white/50">
+        <p className="mt-1.5 text-[14px] text-muted-foreground dark:text-muted-foreground">
           Pick at least one. Trailers and podcast clips are generated on demand.
         </p>
       </div>
@@ -212,16 +212,16 @@ function StepContentTypes({
               <div className="min-w-0 flex-1">
                 <p className={cn(
                   "text-[15px] font-medium",
-                  isSelected ? "text-slate-900 dark:text-white" : "text-slate-800 dark:text-white/80"
+                  isSelected ? "text-foreground dark:text-foreground" : "text-foreground dark:text-foreground"
                 )}>
                   {opt.label}
                 </p>
-                <p className="mt-0.5 text-[13px] text-slate-500 dark:text-white/45">
+                <p className="mt-0.5 text-[13px] text-muted-foreground dark:text-muted-foreground">
                   {opt.description}
                 </p>
               </div>
               {isSelected && (
-                <div className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#907AFF] text-white">
+                <div className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                     <path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -257,19 +257,19 @@ function StepChannels({
       <div>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white">
+            <h3 className="text-[16px] font-semibold text-foreground dark:text-foreground">
               Where do you want to publish?
             </h3>
-            <p className="mt-1.5 text-[14px] text-slate-500 dark:text-white/50">
+            <p className="mt-1.5 text-[14px] text-muted-foreground dark:text-muted-foreground">
               You can select multiple platforms
             </p>
           </div>
-          <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[13px] text-slate-500 dark:text-white/50">
+          <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[13px] text-muted-foreground dark:text-muted-foreground">
             <input
               type="checkbox"
               checked={allSelected}
               onChange={onToggleAll}
-              className="h-4 w-4 rounded border-black/20 text-[#907AFF] accent-[#907AFF] dark:border-white/20"
+              className="h-4 w-4 rounded border-black/20 text-accent-foreground accent-[#907AFF] dark:border-border"
             />
             Select all
           </label>
@@ -294,7 +294,7 @@ function StepChannels({
                 </span>
                 <span className={cn(
                   "text-[13px] font-medium",
-                  isSelected ? "text-slate-900 dark:text-white" : "text-slate-600 dark:text-white/60"
+                  isSelected ? "text-foreground dark:text-foreground" : "text-muted-foreground dark:text-muted-foreground"
                 )}>
                   {channel.label}
                 </span>
@@ -305,7 +305,7 @@ function StepChannels({
       </div>
 
       <div>
-        <h3 className="text-[16px] font-semibold text-slate-900 dark:text-white">
+        <h3 className="text-[16px] font-semibold text-foreground dark:text-foreground">
           How often do you want to post per week?
         </h3>
         <div className="mt-3 flex flex-wrap gap-2.5">
@@ -365,14 +365,14 @@ function StepSchedule({
     <div className="space-y-6">
       {/* 1. Starting date */}
       <div className="flex items-start gap-3.5">
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#907AFF] text-[12px] font-bold text-white">
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-[12px] font-bold text-primary-foreground">
           1
         </span>
         <div className="flex-1">
-          <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+          <h3 className="text-[15px] font-semibold text-foreground dark:text-foreground">
             Start date
           </h3>
-          <p className="mt-0.5 text-[13px] text-slate-500 dark:text-white/50">
+          <p className="mt-0.5 text-[13px] text-muted-foreground dark:text-muted-foreground">
             Choose when your content schedule should begin
           </p>
           <div className="mt-3 flex items-center gap-3">
@@ -380,24 +380,24 @@ function StepSchedule({
               type="date"
               value={startDate}
               onChange={(e) => onSetStartDate(e.target.value)}
-              className="h-10 rounded-xl border border-black/10 bg-black/[0.02] px-3 text-[14px] text-slate-700 outline-none transition-all focus:border-[#907AFF]/50 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70"
+              className="h-10 rounded-xl border border-black/10 bg-black/[0.02] px-3 text-[14px] text-foreground outline-none transition-all focus:border-[#907AFF]/50 dark:border-border dark:bg-card dark:text-foreground"
             />
-            <span className="text-[13px] text-slate-500 dark:text-white/50">
+            <span className="text-[13px] text-muted-foreground dark:text-muted-foreground">
               {formattedDate}
             </span>
           </div>
         </div>
       </div>
 
-      <div className="ml-[42px] border-t border-black/[0.06] dark:border-white/[0.06]" />
+      <div className="ml-[42px] border-t border-black/[0.06] dark:border-border" />
 
       {/* 2. Template */}
       <div className="flex items-start gap-3.5">
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#907AFF] text-[12px] font-bold text-white">
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-[12px] font-bold text-primary-foreground">
           2
         </span>
         <div className="flex-1">
-          <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+          <h3 className="text-[15px] font-semibold text-foreground dark:text-foreground">
             Choose a weekly template
           </h3>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -422,15 +422,15 @@ function StepSchedule({
         </div>
       </div>
 
-      <div className="ml-[42px] border-t border-black/[0.06] dark:border-white/[0.06]" />
+      <div className="ml-[42px] border-t border-black/[0.06] dark:border-border" />
 
       {/* 3. Weekly schedule */}
       <div className="flex items-start gap-3.5">
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#907AFF] text-[12px] font-bold text-white">
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-[12px] font-bold text-primary-foreground">
           3
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+          <h3 className="text-[15px] font-semibold text-foreground dark:text-foreground">
             Weekly schedule
           </h3>
 
@@ -470,7 +470,7 @@ function StepSchedule({
           {/* Calendar grid */}
           <div className="mt-3 grid grid-cols-7 gap-1.5">
             {WEEKDAYS.map((day) => (
-              <div key={day} className="pb-1 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/35">
+              <div key={day} className="pb-1 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                 {WEEKDAY_LABELS[day]}
               </div>
             ))}
@@ -496,8 +496,8 @@ function StepSchedule({
                   className={cn(
                     "flex h-14 flex-col items-center justify-center gap-1 rounded-xl border transition-all duration-150 active:scale-[0.96]",
                     hasContent
-                      ? "border-black/10 bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.03]"
-                      : "border-dashed border-black/[0.08] hover:border-[#907AFF]/30 dark:border-white/[0.06]"
+                      ? "border-black/10 bg-black/[0.02] dark:border-border dark:bg-card"
+                      : "border-dashed border-black/[0.08] hover:border-[#907AFF]/30 dark:border-border"
                   )}
                 >
                   {visibleChannels.length > 0 ? (
@@ -507,7 +507,7 @@ function StepSchedule({
                       ))}
                     </div>
                   ) : (
-                    <span className="text-[10px] text-slate-300 dark:text-white/15">+</span>
+                    <span className="text-[10px] text-muted-foreground dark:text-muted-foreground">+</span>
                   )}
                 </button>
               );
@@ -765,7 +765,7 @@ function CampaignWizardInner({
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         className={cn(
-          "relative w-full max-w-[620px] rounded-3xl border border-black/10 bg-white/95 p-8 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-all duration-200 dark:border-white/10 dark:bg-[#0a0a0f]/95 dark:shadow-[0_24px_60px_rgba(0,0,0,0.4)]",
+          "relative w-full max-w-[620px] rounded-3xl border border-black/10 bg-white/95 p-8 shadow-[0_24px_60px_rgba(15,23,42,0.18)] backdrop-blur-xl transition-all duration-200 dark:border-border dark:bg-card/95 dark:shadow-[0_24px_60px_rgba(0,0,0,0.4)]",
           visible
             ? "scale-100 opacity-100"
             : "scale-[0.97] opacity-0"
@@ -776,7 +776,7 @@ function CampaignWizardInner({
         <button
           type="button"
           onClick={close}
-          className="absolute right-6 top-6 text-slate-400 transition-colors hover:text-slate-900 active:scale-[0.92] dark:text-white/40 dark:hover:text-white"
+          className="absolute right-6 top-6 text-muted-foreground transition-colors hover:text-foreground active:scale-[0.92] dark:text-muted-foreground dark:hover:text-foreground"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -784,7 +784,7 @@ function CampaignWizardInner({
         </button>
 
         {/* Title */}
-        <h2 className="text-[22px] font-semibold text-slate-900 dark:text-white">
+        <h2 className="author-section-title text-[22px] font-semibold text-foreground dark:text-foreground">
           Create campaign
         </h2>
 
@@ -871,7 +871,7 @@ function CampaignWizardInner({
             onClick={isLastStep ? handleComplete : goNext}
             disabled={!canAdvance || submitting}
             className={cn(
-              "rounded-xl bg-[#907AFF] px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:bg-[#8069EE] disabled:opacity-50",
+              "rounded-xl bg-primary px-6 py-2.5 text-[14px] font-medium text-primary-foreground transition-all hover:bg-primary/90 disabled:opacity-50",
               PRESSABLE
             )}
           >

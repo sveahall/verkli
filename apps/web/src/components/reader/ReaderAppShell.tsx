@@ -89,31 +89,32 @@ export default function ReaderAppShell({
 
   if (isImmersive) {
     return (
-      <div className="relative min-h-[100dvh] bg-[#EEEFF8] text-foreground dark:bg-[#050917]">
+      <div className="relative min-h-[100dvh] bg-background text-foreground">
         {children}
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-[100dvh] bg-[#EEEFF8] text-foreground dark:bg-[#050917] lg:grid lg:grid-cols-[220px_minmax(0,1fr)]">
+    <div className="relative min-h-[100dvh] bg-background text-foreground lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
       {/* ── Desktop sidebar ── */}
-      <div className="hidden border-r border-[#ECEAF5] bg-white dark:border-white/10 dark:bg-[#070b14] lg:block">
-      <aside className="pr-4 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">
-        <div className="px-5 pt-7 pb-6">
-          <Link href="/reader/home" className="inline-flex items-center">
+      <div className="hidden border-r border-border bg-card lg:block">
+      <aside className="lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">
+        <div className="px-7 pb-8 pt-8">
+          <Link href="/reader/home" className="inline-flex min-h-11 items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Verkli reader home">
             <Image
               src="/logo-dark.svg"
               alt="Verkli"
               width={120}
               height={26}
-              className="h-[26px] w-auto"
+              className="h-8 w-auto dark:brightness-0 dark:invert"
               priority
             />
           </Link>
+          <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Your reading space</p>
         </div>
 
-        <nav className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-3">
+        <nav aria-label="Reader workspace" className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-4">
           {navItems.map((item) => {
             const active = isPathActive(pathname, item.matchers);
             const Icon = item.icon;
@@ -121,11 +122,12 @@ export default function ReaderAppShell({
               <Link
                 key={item.label}
                 href={item.href}
+                aria-current={active ? "page" : undefined}
                 onMouseEnter={() => router.prefetch(item.href)}
-                className={`inline-flex min-h-[44px] items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] transition-colors duration-150 ease-out ${
+                className={`inline-flex min-h-[44px] items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   active
-                    ? "bg-[#907AFF]/[0.09] font-medium text-[#907AFF] dark:bg-[#907AFF]/[0.14] dark:text-[#B8AAFF]"
-                    : "font-normal text-[#8B92A5] hover:bg-black/[0.04] hover:text-[#1E2535] dark:text-white/50 dark:hover:bg-white/[0.06] dark:hover:text-white"
+                    ? "border-accent-foreground/15 bg-accent font-medium text-accent-foreground"
+                    : "border-transparent font-normal text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
                 <Icon className="h-[18px] w-[18px] flex-shrink-0" />
@@ -135,32 +137,35 @@ export default function ReaderAppShell({
           })}
         </nav>
 
-        <div className="flex-shrink-0 px-3 py-5">
+        <div className="mx-4 flex-shrink-0 border-t border-border py-5">
           <div className="flex flex-col gap-1.5">
             <Link
               href="/reader/discover"
-              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-muted-foreground aria-[current=page]:bg-accent aria-[current=page]:text-accent-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-card dark:hover:text-foreground"
             >
               <Search className="h-[18px] w-[18px] flex-shrink-0" />
               <span className="truncate">Search</span>
             </Link>
             <Link
               href="/reader/notifications"
-              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+              aria-current={pathname === "/reader/notifications" ? "page" : undefined}
+              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-muted-foreground aria-[current=page]:bg-accent aria-[current=page]:text-accent-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-card dark:hover:text-foreground"
             >
               <Bell className="h-[18px] w-[18px] flex-shrink-0" />
               <span className="truncate">Notifications</span>
             </Link>
             <Link
               href="/reader/profile"
-              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+              aria-current={pathname === "/reader/profile" ? "page" : undefined}
+              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-muted-foreground aria-[current=page]:bg-accent aria-[current=page]:text-accent-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-card dark:hover:text-foreground"
             >
               <UserCircle className="h-[18px] w-[18px] flex-shrink-0" />
               <span className="truncate">Profile</span>
             </Link>
             <Link
               href="/support"
-              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+              aria-current={pathname === "/support" ? "page" : undefined}
+              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-muted-foreground aria-[current=page]:bg-accent aria-[current=page]:text-accent-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-card dark:hover:text-foreground"
             >
               <LifeBuoy className="h-[18px] w-[18px] flex-shrink-0" />
               <span className="truncate">Support</span>
@@ -173,7 +178,7 @@ export default function ReaderAppShell({
                 setActiveRoleCookieClient("author");
                 window.location.href = "/author/home";
               }}
-              className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+              className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-muted-foreground aria-[current=page]:bg-accent aria-[current=page]:text-accent-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-card dark:hover:text-foreground"
             >
               <ArrowLeftRight className="h-[18px] w-[18px] flex-shrink-0" />
               <span className="truncate">Switch to Author</span>
@@ -182,14 +187,14 @@ export default function ReaderAppShell({
           {authorAccess === "apply" && (
             <Link
               href="/author/signup"
-              className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194] transition hover:bg-[#F6F7FB] hover:text-[#555C70] dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+              className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-muted-foreground aria-[current=page]:bg-accent aria-[current=page]:text-accent-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-card dark:hover:text-foreground"
             >
               <PenLine className="h-[18px] w-[18px] flex-shrink-0" />
               <span className="truncate">Become an Author</span>
             </Link>
           )}
           {authorAccess === "pending" && (
-            <div className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-[#7A8194]/60 dark:text-white/30">
+            <div className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-muted-foreground/60 dark:text-muted-foreground">
               <Clock className="h-[18px] w-[18px] flex-shrink-0" />
               <span className="truncate">Application Pending</span>
             </div>
@@ -200,21 +205,16 @@ export default function ReaderAppShell({
 
       {/* ── Main content ── */}
       <main
-        className={`relative isolate mx-auto min-h-screen w-full max-w-[1400px] px-4 pt-4 sm:px-5 sm:pt-6 lg:px-6 lg:pt-8 ${
+        className={`relative isolate mx-auto min-h-screen min-w-0 w-full max-w-[1360px] px-5 pt-6 sm:px-8 sm:pt-8 lg:px-10 lg:pt-10 ${
           footer ? "pb-8 lg:pb-4" : "pb-24 lg:pb-8"
         }`}
       >
-        {/* Ambient brand wash — reader surfaces get the violet→rose→amber
-            atmosphere (DESIGN.md allows decorative treatment in reader hero).
-            Static (no drift) and pointer-events-none: zero interaction or
-            reduced-motion risk, purely sets the mood behind the content. */}
+        {/* A static wash connects the workspace to the public brand. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[480px] overflow-hidden"
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72 overflow-hidden"
         >
-          <div className="absolute -top-24 left-1/2 h-[420px] w-[min(900px,90%)] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(144,122,255,0.10),rgba(226,158,213,0.06)_45%,transparent_70%)] blur-2xl dark:bg-[radial-gradient(ellipse_at_center,rgba(144,122,255,0.16),rgba(226,158,213,0.08)_45%,transparent_70%)]" />
-          <div className="absolute right-[8%] top-10 h-40 w-40 rounded-full bg-[#FCC997]/[0.14] blur-[70px] dark:bg-[#FCC997]/[0.10]" />
-          <div className="absolute left-[6%] top-32 h-32 w-32 rounded-full bg-[#907AFF]/[0.10] blur-[60px] dark:bg-[#907AFF]/[0.14]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(226,158,213,0.06),transparent_65%)]" />
         </div>
         {children}
       </main>
@@ -229,7 +229,8 @@ export default function ReaderAppShell({
       {/* ── Mobile bottom nav ── */}
       <nav
         aria-label="Reader navigation"
-        className="fixed bottom-0 left-0 right-0 z-[9990] border-t border-[#ECEAF5] bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#050917]/95 lg:hidden"
+        data-reader-mobile-nav
+        className="fixed bottom-0 left-0 right-0 z-[9990] border-t border-border bg-card/95 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur-2xl dark:bg-background/95 lg:hidden"
       >
         <div className="mx-auto flex max-w-md items-center justify-around px-6 pb-[calc(env(safe-area-inset-bottom,0)+0.5rem)] pt-2">
           {navItems.map((item) => {
@@ -240,13 +241,13 @@ export default function ReaderAppShell({
                 key={item.label}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className="group flex flex-col items-center gap-1 px-3 py-1.5"
+                className="group flex min-h-11 flex-col items-center gap-1 rounded-xl px-3 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors duration-150 ${
                     active
-                      ? "text-[#907AFF] dark:text-[#B8AAFF]"
-                      : "text-[#8B92A5] group-hover:text-[#1E2535] dark:text-white/40 dark:group-hover:text-white/70"
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground group-hover:text-foreground dark:group-hover:text-muted-foreground"
                   }`}
                 >
                   <Icon className="h-[18px] w-[18px]" />
@@ -254,8 +255,8 @@ export default function ReaderAppShell({
                 <span
                   className={`text-[11px] transition-colors duration-150 ${
                     active
-                      ? "font-semibold text-[#907AFF] dark:text-[#B8AAFF]"
-                      : "font-medium text-[#8B92A5] dark:text-white/40"
+                      ? "font-semibold text-accent-foreground "
+                      : "font-medium text-muted-foreground "
                   }`}
                 >
                   {item.label}

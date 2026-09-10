@@ -8,7 +8,7 @@ export default function StatsLoading() {
           <StatCardSkeleton key={i} />
         ))}
       </div>
-      <div className="rounded-2xl border border-slate-200/70 bg-white dark:border-white/10 dark:bg-white/5">
+      <div className="rounded-2xl border border-border/70 bg-card dark:border-border dark:bg-card">
         {Array.from({ length: 5 }).map((_, i) => (
           <TableRowSkeleton key={i} />
         ))}

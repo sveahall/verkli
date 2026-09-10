@@ -124,8 +124,8 @@ function BookCoverCard({
               className="object-cover"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-50 dark:from-white/[0.06] dark:to-white/[0.02]">
-              <BookOpen className="h-7 w-7 text-slate-200 dark:text-white/10" />
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-muted dark:from-white/[0.06] dark:to-white/[0.02]">
+              <BookOpen className="h-7 w-7 text-muted-foreground dark:text-muted-foreground" />
             </div>
           )}
 
@@ -145,7 +145,7 @@ function BookCoverCard({
               bookId={book.id}
               bookTitle={book.title}
               label=""
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-slate-400 shadow-sm transition hover:bg-red-50 hover:text-red-500 dark:bg-black/70 dark:text-white/40 dark:hover:bg-red-950/80 dark:hover:text-red-400"
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-muted-foreground shadow-sm transition hover:bg-red-50 hover:text-red-500 dark:bg-black/70 dark:text-muted-foreground dark:hover:bg-red-950/80 dark:hover:text-red-400"
             />
           </div>
 
@@ -159,7 +159,7 @@ function BookCoverCard({
               }`}
             >
               {isPublished && (
-                <span className="h-1.5 w-1.5 rounded-full bg-white" aria-hidden />
+                <span className="h-1.5 w-1.5 rounded-full bg-card" aria-hidden />
               )}
               {isPublished ? "Published" : "Draft"}
             </span>
@@ -168,10 +168,10 @@ function BookCoverCard({
 
         {/* Text below cover */}
         <div className="mt-3">
-          <h3 className="truncate text-[13px] font-semibold leading-tight tracking-[-0.01em] text-slate-800 transition-colors duration-150 group-hover:text-[#5132de] dark:text-white/90 dark:group-hover:text-[#cfbfff]">
+          <h3 className="truncate text-[13px] font-semibold leading-tight tracking-[-0.01em] text-foreground transition-colors duration-150 group-hover:text-accent-foreground dark:text-foreground dark:group-hover:text-accent-foreground">
             {book.title}
           </h3>
-          <p className="mt-0.5 text-[11px] text-slate-400 dark:text-white/30">
+          <p className="mt-0.5 text-[11px] text-muted-foreground dark:text-muted-foreground">
             {secondaryInfo}
           </p>
 
@@ -184,11 +184,11 @@ function BookCoverCard({
               <span
                 key={i}
                 className={`block h-[3px] w-[3px] rounded-full transition-colors ${
-                  done ? "bg-[#907AFF]" : "bg-slate-200 dark:bg-white/10"
+                  done ? "bg-[#907AFF]" : "bg-muted dark:bg-card"
                 }`}
               />
             ))}
-            <span className="ml-1 text-[10px] text-slate-300 dark:text-white/20">
+            <span className="ml-1 text-[10px] text-muted-foreground dark:text-muted-foreground">
               {doneCount}/6
             </span>
           </div>
@@ -214,12 +214,12 @@ function BookCoverCard({
 
 function AddBookCard({ onOpen }: { onOpen: () => void }) {
   return (
-    <button type="button" onClick={onOpen} className="group w-full text-left">
-      <div className="flex aspect-[2/3] bg-white flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-slate-200/80 transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:border-[#907AFF]/40 group-hover:bg-[#907AFF]/[0.04] group-active:scale-[0.97] dark:border-white/[0.10] dark:group-hover:border-[#907AFF]/30 dark:group-hover:bg-[#907AFF]/[0.06]">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100/80 transition-all duration-200 group-hover:bg-[#907AFF]/[0.12] dark:bg-white/[0.04] dark:group-hover:bg-[#907AFF]/[0.15]">
-          <Plus className="h-4 w-4 text-slate-400 transition-colors group-hover:text-[#907AFF] dark:text-white/25 dark:group-hover:text-[#cfbfff]" />
+    <button type="button" onClick={onOpen} className="group w-full rounded-xl text-left">
+      <div className="flex aspect-[2/3] bg-card flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/80 transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:border-[#907AFF]/40 group-hover:bg-[#907AFF]/[0.04] group-active:scale-[0.97] dark:border-border dark:group-hover:border-[#907AFF]/30 dark:group-hover:bg-[#907AFF]/[0.06]">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/80 transition-all duration-200 group-hover:bg-[#907AFF]/[0.12] dark:bg-card dark:group-hover:bg-[#907AFF]/[0.15]">
+          <Plus className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-accent-foreground dark:text-muted-foreground dark:group-hover:text-accent-foreground" />
         </div>
-        <span className="text-[12px] font-medium text-slate-400 transition-colors group-hover:text-[#907AFF] dark:text-white/30 dark:group-hover:text-[#cfbfff]">
+        <span className="text-[12px] font-medium text-muted-foreground transition-colors group-hover:text-accent-foreground dark:text-muted-foreground dark:group-hover:text-accent-foreground">
           New book
         </span>
       </div>
@@ -233,24 +233,22 @@ function AddBookCard({ onOpen }: { onOpen: () => void }) {
 function EmptyState({ onOpen }: { onOpen: () => void }) {
   const t = useTranslations("author.library");
   return (
-    <div className="flex flex-col items-center py-20 text-center">
-      {/* Atmospheric glow */}
+    <div className="flex flex-col items-center rounded-2xl border border-border bg-card px-6 py-16 text-center sm:py-20">
       <div className="relative mb-6">
-        <div className="absolute inset-0 rounded-3xl bg-[#907AFF]/10 blur-2xl" />
-        <div className="relative flex h-20 w-20 items-center justify-center rounded-3xl border border-[#907AFF]/15 bg-white shadow-sm dark:bg-white/[0.04]">
-          <PenLine className="h-9 w-9 text-[#907AFF]/60" />
+        <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-[#907AFF]/15 bg-[#907AFF]/5">
+          <PenLine className="h-7 w-7 text-accent-foreground" />
         </div>
       </div>
-      <h2 className="text-[20px] font-semibold tracking-tight text-slate-800 dark:text-white">
+      <h2 className="author-section-title text-[20px] font-medium tracking-tight text-foreground dark:text-foreground">
         {t("emptyTitle")}
       </h2>
-      <p className="mt-2 max-w-xs text-[14px] leading-relaxed text-slate-400 dark:text-white/45">
+      <p className="mt-2 max-w-xs text-[14px] leading-relaxed text-muted-foreground dark:text-muted-foreground">
         {t("emptyBody")}
       </p>
       <button
         type="button"
         onClick={onOpen}
-        className="mt-7 inline-flex items-center gap-2 rounded-full bg-[#0F172A] px-5 py-2.5 text-[13px] font-medium text-white shadow-sm shadow-[#0F172A]/25 transition-all hover:bg-[#1E293B] active:scale-[0.97]"
+        className="mt-7 inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-[13px] font-medium text-primary-foreground shadow-sm shadow-[#0F172A]/25 transition-all hover:bg-primary/90 active:scale-[0.97]"
       >
         <Plus className="h-3.5 w-3.5" />
         Write your first book
@@ -285,10 +283,10 @@ export default function LibraryWorkspace({
       <WorkspaceLayout
         header={
           <header>
-            <h1 className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="author-page-title text-foreground">
               {t("title")}
             </h1>
-            <p className="mt-0.5 text-[13px] text-slate-400 dark:text-white/40">
+            <p className="mt-0.5 text-[13px] text-muted-foreground dark:text-muted-foreground">
               {books.length > 0
                 ? `${books.length} ${books.length === 1 ? "book" : "books"}${totalChapters > 0 ? ` · ${totalChapters} chapters` : ""}`
                 : t("subtitle")}
@@ -305,7 +303,7 @@ export default function LibraryWorkspace({
               {recentBook && (
                 <Link
                   href={getBookHref(recentBook, demoModeActive)}
-                  className="ws-enter group mb-7 flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white px-5 py-3.5 shadow-[0_2px_10px_rgba(15,23,42,0.04)] transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-[#907AFF]/30 hover:shadow-[0_8px_22px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-[#907AFF]/25"
+                  className="ws-enter group mb-7 flex items-center gap-4 rounded-2xl border border-border bg-card px-5 py-4 shadow-[0_2px_10px_rgba(15,23,42,0.04)] transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-[#907AFF]/30 hover:shadow-[0_8px_22px_rgba(15,23,42,0.08)] dark:border-border dark:bg-card dark:hover:border-[#907AFF]/25"
                   style={{ animationDelay: "0ms" }}
                 >
                   {recentBook.coverImageUrl ? (
@@ -320,21 +318,21 @@ export default function LibraryWorkspace({
                     </div>
                   ) : (
                     <div className="flex h-11 w-8 shrink-0 items-center justify-center rounded-md bg-[#907AFF]/10">
-                      <BookOpen className="h-4 w-4 text-[#907AFF]/60" />
+                      <BookOpen className="h-4 w-4 text-accent-foreground/60" />
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-medium tracking-[0.02em] text-[#6D7386] dark:text-white/55">
+                    <p className="text-[11px] font-medium tracking-[0.02em] text-muted-foreground dark:text-muted-foreground">
                       Continue editing
                     </p>
-                    <p className="truncate text-[14px] font-medium text-slate-900 dark:text-white">
+                    <p className="truncate text-[14px] font-medium text-foreground dark:text-foreground">
                       {recentBook.title}
                     </p>
-                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-white/40">
+                    <p className="mt-0.5 text-[11px] text-muted-foreground dark:text-muted-foreground">
                       Last updated {formatDate(recentBook.updatedAt)}
                     </p>
                   </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-[#907AFF] dark:text-white/30" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-accent-foreground dark:text-muted-foreground" />
                 </Link>
               )}
 

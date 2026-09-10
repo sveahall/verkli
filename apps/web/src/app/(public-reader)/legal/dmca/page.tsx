@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import DmcaForm from "./DmcaForm";
+import styles from "@/components/public/PublicPage.module.css";
 
 export const metadata: Metadata = {
   title: "DMCA Takedown Notice | Verkli",
@@ -9,10 +10,10 @@ export const metadata: Metadata = {
 
 export default function DmcaPage() {
   return (
-    <main className="mx-auto max-w-3xl space-y-8 px-6 py-16">
+    <main className={`${styles.page} ${styles.legal} space-y-8`}>
       <header className="space-y-3">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Legal</p>
-        <h1 className="text-3xl font-semibold tracking-tight">DMCA Takedown Notice</h1>
+        <p className="text-sm text-muted-foreground">Copyright &amp; your work</p>
+        <h1 className="text-foreground">DMCA Takedown Notice</h1>
         <p className="text-base text-muted-foreground">
           If you believe content on Verkli infringes your copyright, you may
           submit a notice under the U.S. Digital Millennium Copyright Act (17
@@ -21,7 +22,7 @@ export default function DmcaPage() {
         </p>
       </header>
 
-      <section className="rounded-xl border border-border bg-card p-6 text-sm leading-relaxed text-muted-foreground">
+      <section className="rounded-2xl border border-border bg-accent/40 p-6 sm:p-8 text-sm leading-relaxed text-muted-foreground">
         <h2 className="mb-3 text-base font-semibold tracking-tight text-foreground">
           Before you submit
         </h2>

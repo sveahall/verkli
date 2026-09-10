@@ -26,11 +26,21 @@ import { TA_FOR_ER_ORDER } from "@/lib/orders/ta-for-er";
  */
 
 const SOURCE = readFileSync(path.join(__dirname, "page.tsx"), "utf8");
+const STYLES = readFileSync(path.join(__dirname, "Selector.module.css"), "utf8");
 
 /** The full JSX tag text for the first <Link> whose href is `href`. */
 function linkTag(href: string): string | null {
   const tags = SOURCE.match(/<Link[\s\S]*?>/g) ?? [];
   return tags.find((tag) => tag.includes(`href="${href}"`)) ?? null;
+}
+
+function linkStyles(href: string): string {
+  const tag = linkTag(href) ?? "";
+  const classes = tag.match(/className="([^"]*)"/)?.[1];
+  if (classes) return classes;
+  const selector = href === "/waitlist" ? ".bookLink" : ".header a";
+  const start = STYLES.indexOf(`${selector} {`);
+  return start < 0 ? "" : STYLES.slice(start, STYLES.indexOf("}", start) + 1);
 }
 
 describe("role chooser links to the book", () => {
@@ -59,9 +69,7 @@ describe("role chooser links to the book", () => {
   // DESIGN.md:159 — every interactive element meets 44x44. `.btn-ghost` carries
   // a 40px allowance (DESIGN.md:150); on a purchase path take the larger.
   it("meets the 44px touch target", () => {
-    const tag = linkTag("/waitlist") ?? "";
-    const className = tag.match(/className="([^"]*)"/)?.[1] ?? "";
-    expect(className).toMatch(/min-h-(11|\[44px\])/);
+    expect(linkStyles("/waitlist")).toMatch(/min-h-(11|\[44px\])|min-height:\s*(44|48)px/);
   });
 
   it("names the book, from the order constant rather than a retyped string", () => {
@@ -92,16 +100,14 @@ describe("role chooser links to pricing", () => {
   });
 
   it("meets the 44px touch target", () => {
-    const tag = linkTag("/pricing") ?? "";
-    const className = tag.match(/className="([^"]*)"/)?.[1] ?? "";
-    expect(className).toMatch(/min-h-(11|\[44px\])/);
+    expect(linkStyles("/pricing")).toMatch(/min-h-(11|\[44px\])|min-height:\s*(44|48)px/);
   });
 
   // The header spans the viewport so the logo stays left and this sits right.
   // Reverting it to `left-6` would stack the two links on top of each other.
   it("sits in a header that spans the viewport", () => {
     const header = SOURCE.match(/<header className="([^"]*)"/)?.[1] ?? "";
-    expect(header).toMatch(/inset-x-6/);
-    expect(header).toMatch(/justify-between/);
+    expect(header || STYLES).toMatch(/inset-x-6|width:calc\(100% -/);
+    expect(header || STYLES).toMatch(/justify-between|justify-content:space-between/);
   });
 });

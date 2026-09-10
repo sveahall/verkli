@@ -98,7 +98,7 @@ export default function DmcaForm() {
         />
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">I am submitting this notice as</legend>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex min-h-11 items-center gap-3 text-sm">
             <input
               type="radio"
               name="representingCapacity"
@@ -108,7 +108,7 @@ export default function DmcaForm() {
             />
             The rightsholder
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex min-h-11 items-center gap-3 text-sm">
             <input type="radio" name="representingCapacity" value="authorized_agent" />
             An authorised agent of the rightsholder
           </label>
@@ -178,7 +178,7 @@ export default function DmcaForm() {
       <button
         type="submit"
         disabled={submitting}
-        className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:opacity-90 disabled:opacity-50"
+        className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow hover:opacity-90 disabled:opacity-50"
       >
         {submitting ? "Submitting…" : "Submit DMCA notice"}
       </button>
@@ -188,7 +188,7 @@ export default function DmcaForm() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="space-y-3 rounded-xl border border-border bg-card p-4">
+    <fieldset className="space-y-3 rounded-2xl border border-border bg-card p-5 sm:p-7">
       <legend className="px-2 text-sm font-semibold tracking-tight">{title}</legend>
       {children}
     </fieldset>
@@ -212,7 +212,7 @@ function Field({ name, label, type = "text", required, maxLength }: FieldProps) 
         name={name}
         required={required}
         maxLength={maxLength}
-        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+        className="min-h-11 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary/40"
       />
     </label>
   );
@@ -237,7 +237,7 @@ function Textarea({ name, label, required, rows = 3, minLength, maxLength }: Tex
         rows={rows}
         minLength={minLength}
         maxLength={maxLength}
-        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+        className="min-h-11 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-primary/40"
       />
     </label>
   );

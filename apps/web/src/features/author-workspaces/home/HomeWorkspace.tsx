@@ -97,7 +97,7 @@ export default function HomeWorkspace({
         label: "Sales",
         value: `${formatCompactNumber(stats.sales)} ${stats.salesCurrency ?? "SEK"}`,
         icon: <Coins className="h-4 w-4" />,
-        toneClassName: "bg-[#EEF4FF] text-[#4F74E7]",
+        toneClassName: "bg-[#907AFF]/10 text-accent-foreground",
         href: "/author/analytics/sales",
         // Narrowed from "book sales, orders, and donations": this card counts
         // paid book orders only, and so does the sales drill-down it links to.
@@ -110,7 +110,7 @@ export default function HomeWorkspace({
         label: "Readers",
         value: formatCompactNumber(stats.readers),
         icon: <Users className="h-4 w-4" />,
-        toneClassName: "bg-[#F2EDFF] text-[#8A72FF]",
+        toneClassName: "bg-[#907AFF]/10 text-accent-foreground",
         href: "/author/analytics/readers",
         description: "Unique readers who have started reading your books.",
       },
@@ -118,7 +118,7 @@ export default function HomeWorkspace({
         label: "Subscribers",
         value: stats.subscribers.toLocaleString("en"),
         icon: <UserRoundPlus className="h-4 w-4" />,
-        toneClassName: "bg-[#FCEFFF] text-[#E17AD5]",
+        toneClassName: "bg-[#E29ED5]/15 text-[#99578c] dark:text-[#E29ED5]",
         href: "/author/analytics/subscribers",
         description: "Active subscribers following your newsletters.",
       },
@@ -126,7 +126,7 @@ export default function HomeWorkspace({
         label: "Comments",
         value: stats.comments.toLocaleString("en"),
         icon: <MessageSquareText className="h-4 w-4" />,
-        toneClassName: "bg-[#FFF3E8] text-[#F0A75B]",
+        toneClassName: "bg-[#FCC997]/20 text-[#a2672c] dark:text-[#FCC997]",
         href: "/author/analytics/comments",
         description: "Reader comments on your published books.",
       },
@@ -134,7 +134,7 @@ export default function HomeWorkspace({
         label: "Reviews",
         value: stats.reviews.toLocaleString("en"),
         icon: <ThumbsUp className="h-4 w-4" />,
-        toneClassName: "bg-[#FFF8DB] text-[#D8B53D]",
+        toneClassName: "bg-[#E29ED5]/15 text-[#99578c] dark:text-[#E29ED5]",
         href: "/author/analytics/reviews",
         description: "Ratings and reviews from readers.",
       },
@@ -182,20 +182,21 @@ export default function HomeWorkspace({
       <WorkspaceLayout
         header={
           <header>
-            <h1 className="text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5] dark:text-white/50">
+            <h1 className="author-page-title">
               Dashboard
             </h1>
+            <p className="mt-2 text-sm text-muted-foreground">Your stories, readers and next chapter.</p>
           </header>
         }
         headerRight={<WorkspaceHeaderActions />}
         main={
-          <div className="space-y-5">
+          <div className="space-y-6">
             <section className="flex flex-wrap items-center gap-2.5">
               <Button
                 type="button"
                 aria-label="New book"
                 onClick={openCreateDialog}
-                className="h-10 min-h-0 rounded-full border-0 bg-[#0F172A] px-5 text-[14px] font-medium text-white shadow-[0_2px_10px_rgba(15,23,42,0.04)] hover:bg-[#1E293B]"
+                className="h-11 min-h-11 rounded-full border-0 bg-primary px-5 text-[14px] font-medium text-primary-foreground shadow-[0_2px_10px_rgba(15,23,42,0.04)] hover:bg-primary/90"
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 New book
@@ -206,9 +207,9 @@ export default function HomeWorkspace({
                   bookId: primaryBook?.id ?? null,
                 })}
                 aria-label="Translate selected book"
-                className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[14px] font-medium text-[#4E5669] shadow-[0_2px_10px_rgba(15,23,42,0.04)] transition hover:bg-slate-50 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/[0.1]"
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-[14px] font-medium text-muted-foreground shadow-[0_2px_10px_rgba(15,23,42,0.04)] transition hover:bg-background dark:bg-card dark:text-foreground dark:hover:bg-accent"
               >
-                <Languages className="h-4 w-4 text-[#7C6CFF]" aria-hidden="true" />
+                <Languages className="h-4 w-4 text-accent-foreground" aria-hidden="true" />
                 Translate book
               </Link>
 
@@ -217,9 +218,9 @@ export default function HomeWorkspace({
                   bookId: primaryBook?.id ?? null,
                 })}
                 aria-label="Create audiobook for selected book"
-                className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-[14px] font-medium text-[#4E5669] shadow-[0_2px_10px_rgba(15,23,42,0.04)] transition hover:bg-slate-50 dark:bg-white/[0.06] dark:text-white/70 dark:hover:bg-white/[0.1]"
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-[14px] font-medium text-muted-foreground shadow-[0_2px_10px_rgba(15,23,42,0.04)] transition hover:bg-background dark:bg-card dark:text-foreground dark:hover:bg-accent"
               >
-                <AudioLines className="h-4 w-4 text-[#7C6CFF]" aria-hidden="true" />
+                <AudioLines className="h-4 w-4 text-accent-foreground" aria-hidden="true" />
                 Create audiobook
               </Link>
             </section>

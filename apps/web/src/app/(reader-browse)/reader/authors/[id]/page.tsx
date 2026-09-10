@@ -258,7 +258,7 @@ export default async function ReaderAuthorProfilePage({
       {/* ── Back link ── */}
       <Link
         href="/reader/authors"
-        className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#64748B] transition-colors hover:text-[#0F172A] dark:text-white/50 dark:hover:text-white"
+        className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground dark:hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         All authors
@@ -310,7 +310,7 @@ export default async function ReaderAuthorProfilePage({
               <p className="text-[11px] font-semibold uppercase tracking-widest text-white/50">
                 Author
               </p>
-              <h1 className="mt-0.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              <h1 className="mt-0.5 text-3xl font-medium tracking-tight text-white sm:text-4xl font-display">
                 {displayName}
               </h1>
               {username && (
@@ -321,7 +321,7 @@ export default async function ReaderAuthorProfilePage({
                   <Users className="h-3.5 w-3.5" />
                   {followerCount.toLocaleString()} follower{followerCount !== 1 ? "s" : ""}
                 </span>
-                <span className="h-1 w-1 rounded-full bg-white/30" />
+                <span className="h-1 w-1 rounded-full bg-card/30" />
                 <span className="flex items-center gap-1.5">
                   <BookOpen className="h-3.5 w-3.5" />
                   {books.length} book{books.length !== 1 ? "s" : ""}
@@ -367,17 +367,17 @@ export default async function ReaderAuthorProfilePage({
       {featuredBook && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-[11px] font-semibold uppercase tracking-widest text-[#64748B] dark:text-white/40">
+            <h2 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground font-display">
               Latest release
             </h2>
           </div>
 
           <Link
             href={`/reader/books/${featuredBook.id}`}
-            className="group card-base flex gap-5 overflow-hidden p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_20px_40px_-12px_rgba(144,122,255,0.15)] sm:gap-6 sm:p-6"
+            className="group card-base flex gap-5 overflow-hidden p-5 transition-[background-color,border-color,color,box-shadow] duration-300 hover:shadow-[0_20px_40px_-12px_rgba(144,122,255,0.15)] sm:gap-6 sm:p-6"
           >
             {/* Cover */}
-            <div className="relative aspect-[3/4] w-[100px] flex-shrink-0 overflow-hidden rounded-2xl border border-black/[0.06] shadow-md transition-transform duration-500 group-hover:scale-[1.03] dark:border-white/10 sm:w-[120px]">
+            <div className="relative aspect-[3/4] w-[100px] flex-shrink-0 overflow-hidden rounded-2xl border border-black/[0.06] shadow-md transition-transform duration-500 dark:border-border sm:w-[120px]">
               {featuredBook.cover_image ? (
                 <Image
                   src={featuredBook.cover_image}
@@ -388,7 +388,7 @@ export default async function ReaderAuthorProfilePage({
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#907AFF]/20 to-[#E29ED5]/20">
-                  <BookOpen className="h-6 w-6 text-[#907AFF]/40" />
+                  <BookOpen className="h-6 w-6 text-accent-foreground/40" />
                 </div>
               )}
             </div>
@@ -396,10 +396,10 @@ export default async function ReaderAuthorProfilePage({
             {/* Info */}
             <div className="min-w-0 flex-1 space-y-2.5">
               <div>
-                <h3 className="text-xl font-bold tracking-tight text-[#0F172A] transition-colors group-hover:text-[#907AFF] dark:text-white dark:group-hover:text-[#B8A8FF] sm:text-2xl">
+                <h3 className="text-xl font-medium tracking-tight text-foreground transition-colors group-hover:text-accent-foreground dark:group-hover:text-accent-foreground sm:text-2xl font-display">
                   {featuredBook.title}
                 </h3>
-                <p className="mt-0.5 text-[13px] font-medium text-[#64748B] dark:text-white/50">
+                <p className="mt-0.5 text-[13px] font-medium text-muted-foreground">
                   {displayName}
                 </p>
               </div>
@@ -410,7 +410,7 @@ export default async function ReaderAuthorProfilePage({
                   {(genreMap.get(featuredBook.id) ?? []).map((g) => (
                     <span
                       key={g}
-                      className="rounded-full border border-[#907AFF]/20 bg-[#907AFF]/[0.07] px-2.5 py-0.5 text-[11px] font-medium text-[#907AFF] dark:text-[#B8A8FF]"
+                      className="rounded-full border border-[#907AFF]/20 bg-[#907AFF]/[0.07] px-2.5 py-0.5 text-[11px] font-medium text-accent-foreground"
                     >
                       {g}
                     </span>
@@ -420,7 +420,7 @@ export default async function ReaderAuthorProfilePage({
 
               {/* Description */}
               {featuredBook.description && (
-                <p className="line-clamp-2 text-[13px] leading-relaxed text-[#64748B] dark:text-white/50 sm:line-clamp-3">
+                <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground sm:line-clamp-3">
                   {featuredBook.description}
                 </p>
               )}
@@ -428,11 +428,11 @@ export default async function ReaderAuthorProfilePage({
               {/* Meta + CTA */}
               <div className="flex flex-wrap items-center gap-3 pt-1">
                 {featuredChapterCount > 0 && (
-                  <span className="text-[12px] text-[#64748B] dark:text-white/40">
+                  <span className="text-[12px] text-muted-foreground">
                     {featuredChapterCount} chapter{featuredChapterCount !== 1 ? "s" : ""}
                   </span>
                 )}
-                <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#907AFF] dark:text-[#B8A8FF]">
+                <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-accent-foreground">
                   Start reading
                   <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                 </span>
@@ -448,10 +448,10 @@ export default async function ReaderAuthorProfilePage({
       {books.length > 1 && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-[11px] font-semibold uppercase tracking-widest text-[#64748B] dark:text-white/40">
+            <h2 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground font-display">
               All books
             </h2>
-            <span className="text-[12px] text-[#64748B] dark:text-white/40">
+            <span className="text-[12px] text-muted-foreground">
               {books.length} total
             </span>
           </div>
@@ -483,11 +483,11 @@ export default async function ReaderAuthorProfilePage({
          ══════════════════════════════════════════════════ */}
       {(bio || websiteUrl || socialLinks.twitter || socialLinks.instagram || socialLinks.tiktok) && (
         <section className="card-base space-y-4 p-6">
-          <h2 className="text-[11px] font-semibold uppercase tracking-widest text-[#64748B] dark:text-white/40">
+          <h2 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground font-display">
             About
           </h2>
           {bio && (
-            <p className="text-[14px] leading-relaxed text-[#334155] dark:text-white/70">
+            <p className="text-[14px] leading-relaxed text-foreground dark:text-muted-foreground">
               {bio}
             </p>
           )}
@@ -498,9 +498,9 @@ export default async function ReaderAuthorProfilePage({
                   href={websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 py-1.5 text-[12px] font-medium text-[#334155] transition hover:border-[#CBD5E1] hover:bg-[#F8FAFC] dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.08]"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground transition hover:border-accent-foreground/30 hover:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-card"
                 >
-                  <Globe className="h-3.5 w-3.5 text-[#64748B] dark:text-white/50" />
+                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
                   Website
                 </a>
               )}
@@ -509,9 +509,9 @@ export default async function ReaderAuthorProfilePage({
                   href={`https://x.com/${socialLinks.twitter}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 py-1.5 text-[12px] font-medium text-[#334155] transition hover:border-[#CBD5E1] hover:bg-[#F8FAFC] dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.08]"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground transition hover:border-accent-foreground/30 hover:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-card"
                 >
-                  <Twitter className="h-3.5 w-3.5 text-[#64748B] dark:text-white/50" />
+                  <Twitter className="h-3.5 w-3.5 text-muted-foreground" />
                   @{socialLinks.twitter}
                 </a>
               )}
@@ -520,9 +520,9 @@ export default async function ReaderAuthorProfilePage({
                   href={`https://instagram.com/${socialLinks.instagram}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 py-1.5 text-[12px] font-medium text-[#334155] transition hover:border-[#CBD5E1] hover:bg-[#F8FAFC] dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.08]"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground transition hover:border-accent-foreground/30 hover:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-card"
                 >
-                  <Instagram className="h-3.5 w-3.5 text-[#64748B] dark:text-white/50" />
+                  <Instagram className="h-3.5 w-3.5 text-muted-foreground" />
                   @{socialLinks.instagram}
                 </a>
               )}
@@ -531,9 +531,9 @@ export default async function ReaderAuthorProfilePage({
                   href={`https://tiktok.com/@${socialLinks.tiktok}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 py-1.5 text-[12px] font-medium text-[#334155] transition hover:border-[#CBD5E1] hover:bg-[#F8FAFC] dark:border-white/10 dark:bg-white/[0.04] dark:text-white/70 dark:hover:bg-white/[0.08]"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-foreground transition hover:border-accent-foreground/30 hover:bg-muted dark:border-border dark:text-muted-foreground dark:hover:bg-card"
                 >
-                  <Sparkles className="h-3.5 w-3.5 text-[#64748B] dark:text-white/50" />
+                  <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
                   @{socialLinks.tiktok}
                 </a>
               )}
@@ -546,12 +546,12 @@ export default async function ReaderAuthorProfilePage({
       {books.length === 0 && (
         <div className="card-base p-10 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#907AFF]/10">
-            <BookOpen className="h-5 w-5 text-[#907AFF]" />
+            <BookOpen className="h-5 w-5 text-accent-foreground" />
           </div>
-          <p className="mt-4 text-[15px] font-semibold text-[#0F172A] dark:text-white">
+          <p className="mt-4 text-[15px] font-semibold text-foreground">
             No published books yet
           </p>
-          <p className="mt-1 text-[13px] text-[#64748B] dark:text-white/50">
+          <p className="mt-1 text-[13px] text-muted-foreground">
             Check back later for new releases.
           </p>
         </div>

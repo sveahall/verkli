@@ -91,7 +91,7 @@ function AuthorAvatar({ author }: { author: CommentAuthor }) {
     .toUpperCase();
 
   return (
-    <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-black/[0.06] bg-[#F8F9FB] text-xs font-semibold text-[#64748B] dark:border-white/10 dark:bg-white/10 dark:text-white/60">
+    <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-black/[0.06] bg-muted text-xs font-semibold text-muted-foreground dark:border-border dark:bg-card">
       {author.avatarUrl ? (
         <Image src={author.avatarUrl} alt={author.name} fill sizes="36px" className="object-cover" />
       ) : (
@@ -283,27 +283,27 @@ export default function CommentsSection({
 
   return (
     <section>
-      <div className="rounded-2xl border border-black/[0.06] bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+      <div className="rounded-2xl border border-black/[0.06] bg-card p-6 shadow-sm dark:border-border">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xl font-semibold text-[#0F172A] dark:text-white">{title}</h2>
-          <span className="text-xs text-[#64748B] dark:text-white/50">
+          <h2 className="text-xl font-medium text-foreground font-display">{title}</h2>
+          <span className="text-xs text-muted-foreground">
             {nextCursor ? `${totalComments} shown` : `${totalComments} total`}
           </span>
         </div>
 
         {!isSignedIn ? (
-          <div className="mt-4 rounded-xl border border-black/[0.06] bg-[#F8F9FB] p-4 text-sm text-[#64748B] dark:border-white/10 dark:bg-white/[0.03] dark:text-white/60">
+          <div className="mt-4 rounded-xl border border-black/[0.06] bg-muted p-4 text-sm text-muted-foreground dark:border-border dark:bg-card">
             <p>Sign in to comment.</p>
             <Link
               href={signInHref}
-              className="mt-3 inline-flex items-center rounded-xl border border-black/[0.06] bg-white px-4 py-2 text-sm font-medium text-[#0F172A] transition-colors hover:bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.05] dark:text-white dark:hover:bg-white/10"
+              className="mt-3 inline-flex items-center rounded-xl border border-black/[0.06] bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-black/[0.02] dark:border-border dark:hover:bg-card"
             >
               Sign in
             </Link>
           </div>
         ) : (
-          <div className="mt-4 rounded-xl border border-black/[0.06] bg-[#F8F9FB] p-4 dark:border-white/10 dark:bg-white/[0.03]">
-            <label htmlFor="comment-body" className="text-sm font-medium text-[#64748B] dark:text-white/60">
+          <div className="mt-4 rounded-xl border border-black/[0.06] bg-muted p-4 dark:border-border dark:bg-card">
+            <label htmlFor="comment-body" className="text-sm font-medium text-muted-foreground">
               New comment
             </label>
             <Textarea
@@ -318,12 +318,12 @@ export default function CommentsSection({
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
               {!fixedChapterId ? (
                 <div className="flex items-center gap-2">
-                  <label htmlFor="comment-chapter" className="text-xs text-[#64748B] dark:text-white/50">
+                  <label htmlFor="comment-chapter" className="text-xs text-muted-foreground">
                     Chapter
                   </label>
                   <select
                     id="comment-chapter"
-                    className="min-h-11 rounded-xl border border-black/[0.06] bg-white px-3 py-1.5 text-[16px] sm:text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#907AFF]/15 dark:border-white/10 dark:bg-white/[0.05] dark:text-white/80"
+                    className="min-h-11 rounded-xl border border-black/[0.06] bg-card px-3 py-1.5 text-[16px] sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#907AFF]/15 dark:border-border"
                     value={selectedChapterId}
                     onChange={(event) => setSelectedChapterId(event.target.value)}
                   >
@@ -339,7 +339,7 @@ export default function CommentsSection({
                   </select>
                 </div>
               ) : (
-                <p className="text-xs text-[#64748B] dark:text-white/50">
+                <p className="text-xs text-muted-foreground">
                   This thread is linked to this chapter.
                 </p>
               )}
@@ -363,32 +363,32 @@ export default function CommentsSection({
 
         <div className="mt-4 space-y-4">
           {isLoading ? (
-            <p className="text-sm text-[#64748B] dark:text-white/50">Loading comments...</p>
+            <p className="text-sm text-muted-foreground">Loading comments...</p>
           ) : loadError ? (
             <p className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-500">
               {loadError}
             </p>
           ) : comments.length === 0 ? (
-            <p className="text-sm text-[#64748B] dark:text-white/50">No comments yet. Start the thread.</p>
+            <p className="text-sm text-muted-foreground">No comments yet. Start the thread.</p>
           ) : (
             comments.map((comment) => (
               <article
                 key={comment.id}
-                className="rounded-xl border border-black/[0.06] bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]"
+                className="rounded-xl border border-black/[0.06] bg-card p-4 shadow-sm dark:border-border"
               >
                 <div className="flex items-start gap-3">
                   <AuthorAvatar author={comment.author} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-semibold text-[#0F172A] dark:text-white">
+                      <p className="text-sm font-semibold text-foreground">
                         {comment.author.name}
                       </p>
                       {comment.author.username && (
-                        <span className="text-xs text-[#64748B] dark:text-white/50">
+                        <span className="text-xs text-muted-foreground">
                           @{comment.author.username}
                         </span>
                       )}
-                      <span className="text-xs text-[#64748B] dark:text-white/40">
+                      <span className="text-xs text-muted-foreground">
                         {formatTimestamp(comment.createdAt)}
                       </span>
                       {comment.chapterTitle && (
@@ -398,7 +398,7 @@ export default function CommentsSection({
                       )}
                     </div>
 
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#0F172A]/80 dark:text-white/70">
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/80 dark:text-muted-foreground">
                       {comment.body}
                     </p>
 
@@ -406,7 +406,7 @@ export default function CommentsSection({
                       {isSignedIn && (
                         <button
                           type="button"
-                          className="text-[#64748B] transition-colors hover:text-[#907AFF] dark:text-white/50 dark:hover:text-[#907AFF]"
+                          className="text-muted-foreground transition-colors hover:text-accent-foreground dark:hover:text-accent-foreground"
                           onClick={() => {
                             setReplyingToId((current) =>
                               current === comment.id ? null : comment.id
@@ -430,7 +430,7 @@ export default function CommentsSection({
                     </div>
 
                     {isSignedIn && replyingToId === comment.id && (
-                      <div className="mt-3 rounded-xl border border-black/[0.06] bg-[#F8F9FB] p-3 dark:border-white/10 dark:bg-white/[0.03]">
+                      <div className="mt-3 rounded-xl border border-black/[0.06] bg-muted p-3 dark:border-border dark:bg-card">
                         <Textarea
                           className="min-h-[90px]"
                           placeholder="Write your reply..."
@@ -470,26 +470,26 @@ export default function CommentsSection({
                     )}
 
                     {comment.replies.length > 0 && (
-                      <div className="mt-3 space-y-2 border-l-2 border-black/[0.06] pl-4 dark:border-white/10">
+                      <div className="mt-3 space-y-2 border-l-2 border-black/[0.06] pl-4 dark:border-border">
                         {comment.replies.map((reply) => (
                           <div
                             key={reply.id}
-                            className="rounded-xl bg-[#F8F9FB] p-3 dark:bg-white/[0.03]"
+                            className="rounded-xl bg-muted p-3 dark:bg-card"
                           >
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-semibold text-[#0F172A] dark:text-white">
+                              <p className="text-sm font-semibold text-foreground">
                                 {reply.author.name}
                               </p>
                               {reply.author.username && (
-                                <span className="text-xs text-[#64748B] dark:text-white/50">
+                                <span className="text-xs text-muted-foreground">
                                   @{reply.author.username}
                                 </span>
                               )}
-                              <span className="text-xs text-[#64748B] dark:text-white/40">
+                              <span className="text-xs text-muted-foreground">
                                 {formatTimestamp(reply.createdAt)}
                               </span>
                             </div>
-                            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-[#0F172A]/80 dark:text-white/70">
+                            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground/80 dark:text-muted-foreground">
                               {reply.body}
                             </p>
                             {canDeleteComment(reply.authorId) && (

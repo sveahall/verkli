@@ -94,7 +94,7 @@ export default function CreateClubDialog({
           <div className="space-y-1.5">
             <label
               htmlFor="club-name"
-              className="text-[13px] font-medium text-slate-700 dark:text-white/70"
+              className="text-[13px] font-medium text-foreground dark:text-muted-foreground"
             >
               Name
             </label>
@@ -106,14 +106,14 @@ export default function CreateClubDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Stockholm fantasy club"
-              className="min-h-[44px] w-full rounded-xl border border-slate-200/80 bg-white px-4 text-[14px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
+              className="min-h-[44px] w-full rounded-xl border border-border bg-card px-4 text-[14px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-background"
             />
           </div>
 
           <div className="space-y-1.5">
             <label
               htmlFor="club-desc"
-              className="text-[13px] font-medium text-slate-700 dark:text-white/70"
+              className="text-[13px] font-medium text-foreground dark:text-muted-foreground"
             >
               Description (optional)
             </label>
@@ -124,7 +124,7 @@ export default function CreateClubDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Tell people about the club..."
-              className="w-full rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-[14px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
+              className="w-full rounded-xl border border-border bg-card px-4 py-3 text-[14px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-background"
             />
           </div>
 
@@ -134,11 +134,11 @@ export default function CreateClubDialog({
               type="checkbox"
               checked={isPublic}
               onChange={(e) => setIsPublic(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-[#907AFF]/40 dark:border-white/20 dark:bg-white/10"
+              className="h-4 w-4 rounded border-border text-foreground focus:ring-[#907AFF]/40 dark:bg-card"
             />
             <label
               htmlFor="club-public"
-              className="text-[13px] text-slate-700 dark:text-white/70"
+              className="text-[13px] text-foreground dark:text-muted-foreground"
             >
               Public club (visible to everyone)
             </label>
@@ -147,7 +147,7 @@ export default function CreateClubDialog({
           <div className="space-y-1.5">
             <label
               htmlFor="club-max"
-              className="text-[13px] font-medium text-slate-700 dark:text-white/70"
+              className="text-[13px] font-medium text-foreground dark:text-muted-foreground"
             >
               Max members
             </label>
@@ -155,7 +155,7 @@ export default function CreateClubDialog({
               id="club-max"
               value={maxMembers}
               onChange={(e) => setMaxMembers(Number(e.target.value))}
-              className="min-h-[44px] w-full rounded-xl border border-slate-200/80 bg-white px-4 text-[14px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
+              className="min-h-[44px] w-full rounded-xl border border-border bg-card px-4 text-[14px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-background"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>

@@ -204,7 +204,7 @@ function WorldMap({ items }: { items: CountrySalesItem[] }) {
         <button
           type="button"
           onClick={handleReset}
-          className="absolute bottom-2 right-2 rounded-lg bg-white/80 px-2 py-1 text-xs font-medium text-slate-500 shadow-sm ring-1 ring-slate-200 backdrop-blur transition hover:text-slate-700 dark:bg-white/10 dark:text-white/60 dark:ring-white/10 dark:hover:text-white"
+          className="absolute bottom-2 right-2 rounded-lg bg-white/80 px-2 py-1 text-xs font-medium text-muted-foreground shadow-sm ring-1 ring-border backdrop-blur transition hover:text-foreground dark:bg-card dark:text-muted-foreground dark:ring-white/10 dark:hover:text-foreground"
         >
           Reset
         </button>
@@ -233,10 +233,10 @@ function displayCountryName(code: string): string {
 export default function CountrySalesCard({ items }: CountrySalesCardProps) {
   if (items.length === 0) {
     return (
-      <section className="rounded-2xl bg-white px-4 py-4 shadow-[0_2px_10px_rgba(15,23,42,0.04)] sm:px-7 sm:py-5 dark:bg-white/[0.04]">
-        <h2 className="text-xl font-normal text-slate-900 dark:text-white">Sales by country</h2>
+      <section className="rounded-2xl border border-border bg-card px-4 py-4 shadow-[0_2px_10px_rgba(25,23,28,0.025)] sm:px-7 sm:py-5 dark:bg-card">
+        <h2 className="author-section-title text-xl font-normal text-foreground dark:text-foreground">Sales by country</h2>
         <div className="mt-4 flex items-center justify-between gap-6">
-          <p className="text-sm text-slate-400 dark:text-white/40">
+          <p className="text-sm text-muted-foreground dark:text-muted-foreground">
             No sales yet.
           </p>
           <div className="hidden min-h-[200px] flex-1 lg:block">
@@ -253,8 +253,8 @@ export default function CountrySalesCard({ items }: CountrySalesCardProps) {
   );
 
   return (
-    <section className="rounded-2xl bg-white px-7 py-5 shadow-[0_2px_10px_rgba(15,23,42,0.04)] dark:bg-white/[0.04]">
-      <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Sales by country</h2>
+    <section className="rounded-2xl border border-border bg-card px-7 py-5 shadow-[0_2px_10px_rgba(25,23,28,0.025)] dark:bg-card">
+      <h2 className="author-section-title text-lg font-medium text-foreground dark:text-foreground">Sales by country</h2>
 
       <div className="mt-4 flex items-start justify-between gap-6">
         <ul className="flex shrink-0 flex-col gap-2.5 pt-1">
@@ -265,7 +265,7 @@ export default function CountrySalesCard({ items }: CountrySalesCardProps) {
             return (
               <li
                 key={item.country}
-                className="flex items-center justify-between gap-6 text-sm text-slate-700 dark:text-white/70"
+                className="flex items-center justify-between gap-6 text-sm text-foreground dark:text-foreground"
               >
                 <span className="inline-flex items-center gap-2.5">
                   <span

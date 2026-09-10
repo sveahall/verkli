@@ -50,10 +50,10 @@ export default function EditorOutlinePanel({ editor }: EditorOutlinePanelProps) 
   if (outline.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-8 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 dark:bg-white/5">
-          <FileText className="h-5 w-5 text-slate-400 dark:text-white/30" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted dark:bg-card">
+          <FileText className="h-5 w-5 text-muted-foreground dark:text-muted-foreground" />
         </div>
-        <p className="text-[13px] text-slate-400 dark:text-white/35">
+        <p className="text-[13px] text-muted-foreground dark:text-muted-foreground">
           Add headings to see the document outline here.
         </p>
       </div>
@@ -62,7 +62,7 @@ export default function EditorOutlinePanel({ editor }: EditorOutlinePanelProps) 
 
   return (
     <div className="p-4">
-      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/30">
+      <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:text-muted-foreground">
         Outline
       </h3>
       <nav className="space-y-0.5">
@@ -71,16 +71,16 @@ export default function EditorOutlinePanel({ editor }: EditorOutlinePanelProps) 
             key={`${item.pos}-${i}`}
             type="button"
             onClick={() => scrollToPos(item.pos)}
-            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-slate-50 dark:hover:bg-white/5"
+            className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-background dark:hover:bg-accent"
             style={{ paddingLeft: `${(item.level - 1) * 16 + 8}px` }}
           >
-            <Hash className="h-3 w-3 shrink-0 text-slate-300 dark:text-white/20" />
+            <Hash className="h-3 w-3 shrink-0 text-muted-foreground dark:text-muted-foreground" />
             <span className={`truncate text-[13px] ${
               item.level === 1
-                ? "font-semibold text-slate-700 dark:text-white/80"
+                ? "font-semibold text-foreground dark:text-foreground"
                 : item.level === 2
-                ? "font-medium text-slate-600 dark:text-white/60"
-                : "text-slate-500 dark:text-white/45"
+                ? "font-medium text-muted-foreground dark:text-muted-foreground"
+                : "text-muted-foreground dark:text-muted-foreground"
             }`}>
               {item.text}
             </span>

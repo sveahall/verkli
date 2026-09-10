@@ -27,7 +27,7 @@ export default function FollowAuthorButton({
     return (
       <Link
         href={signInHref}
-        className="inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50 dark:border-white/15 dark:bg-white/10 dark:text-white/80 dark:hover:bg-white/15"
+        className="inline-flex items-center rounded-full border border-border bg-card px-4 py-2 text-[13px] font-medium text-foreground hover:bg-muted dark:hover:bg-card"
       >
         Sign in to follow
       </Link>

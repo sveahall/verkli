@@ -7,10 +7,10 @@ export default function FeedLoading() {
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className="space-y-3 rounded-2xl border border-black/[0.06] bg-white/60 p-5 dark:border-white/[0.06] dark:bg-white/[0.02]"
+          className="space-y-3 rounded-2xl border border-black/[0.06] bg-card/60 p-5 dark:border-border dark:bg-card"
         >
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-slate-200 dark:bg-white/10 animate-pulse" />
+            <div className="h-10 w-10 rounded-full bg-muted dark:bg-card animate-pulse" />
             <div className="space-y-2">
               <Skeleton height={14} width={140} />
               <Skeleton height={10} width={80} />

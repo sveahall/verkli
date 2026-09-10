@@ -31,7 +31,7 @@ export function Skeleton({
 }: SkeletonProps) {
   return (
     <div
-      className={`animate-pulse bg-slate-200 dark:bg-white/10 ${roundedStyles[rounded]} ${className}`}
+      className={`animate-pulse bg-slate-200 ${roundedStyles[rounded]} ${className}`}
       style={{
         width: typeof width === "number" ? `${width}px` : width,
         height: typeof height === "number" ? `${height}px` : height,
@@ -67,7 +67,7 @@ export function SkeletonText({
 export function SkeletonCard({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/5 ${className}`}
+      className={`rounded-xl border border-border bg-card p-4 ${className}`}
     >
       <Skeleton height={120} className="mb-4" rounded="lg" />
       <Skeleton height={20} className="mb-2 w-3/4" />
@@ -79,7 +79,7 @@ export function SkeletonCard({ className = "" }: { className?: string }) {
 export function SkeletonBookItem({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/5 ${className}`}
+      className={`flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 ${className}`}
     >
       <div className="min-w-0 flex-1">
         <Skeleton height={18} className="mb-1.5 w-2/3" />

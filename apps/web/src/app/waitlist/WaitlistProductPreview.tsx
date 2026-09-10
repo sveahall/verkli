@@ -18,8 +18,6 @@ export default function WaitlistProductPreview() {
 
   return (
     <div className="wl-product">
-      <div className="wl-product-halo" aria-hidden="true" />
-      <div className="wl-product-label"><span /> YOUR STORY, IN EVERY DIMENSION</div>
       <div id="waitlist-product-view" className="wl-preview-art">
         {views.map(({ id, alt }) => (
           <Image

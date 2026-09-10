@@ -32,29 +32,29 @@ export default async function AuthorPublishPicker({
       <div className="mx-auto max-w-[800px] px-6 py-12">
         <Link
           href="/author/audience"
-          className="inline-flex items-center gap-2 text-sm text-slate-500 transition-colors hover:text-slate-900 dark:text-white/60 dark:hover:text-white"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground"
         >
           <span aria-hidden="true">←</span>
           Go to audience workspace
         </Link>
 
         <div className="mt-6">
-          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">
+          <h1 className="author-page-title text-foreground">
             Choose a book to publish
           </h1>
-          <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
+          <p className="mt-2 text-sm text-muted-foreground dark:text-muted-foreground">
             Audience is now the canonical publishing workspace.
           </p>
         </div>
 
         {!books || books.length === 0 ? (
-          <div className="mt-8 rounded-xl border border-slate-200 bg-slate-50/50 p-10 text-center dark:border-white/10 dark:bg-white/5">
-            <p className="text-slate-600 dark:text-white/60">
+          <div className="mt-8 rounded-xl border border-border bg-background/50 p-10 text-center dark:border-border dark:bg-card">
+            <p className="text-muted-foreground dark:text-muted-foreground">
               No books yet. Create a draft first, then publish from Audience.
             </p>
             <Link
               href="/author/library"
-              className="mt-4 inline-flex rounded-full bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/90"
+              className="mt-4 inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
             >
               Open library
             </Link>
@@ -65,16 +65,16 @@ export default async function AuthorPublishPicker({
               <li key={book.id}>
                 <Link
                   href={`/author/audience?bookId=${book.id}&surface=beta-readers`}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+                  className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3 transition hover:bg-background dark:border-border dark:bg-card dark:hover:bg-accent"
                 >
-                  <span className="font-medium text-slate-900 dark:text-white">
+                  <span className="font-medium text-foreground dark:text-foreground">
                     {book.title || "Untitled"}
                   </span>
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-medium ${
                       book.status === "PUBLISHED"
                         ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                        : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/60"
+                        : "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground"
                     }`}
                   >
                     {book.status === "PUBLISHED" ? "Published" : "Draft"}

@@ -115,8 +115,8 @@ export default function ReaderSignUp() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
-              We sent a confirmation link to <span className="font-medium text-slate-900 dark:text-white">{email}</span>.
+            <p className="text-[14px] leading-relaxed text-muted-foreground">
+              We sent a confirmation link to <span className="font-medium text-foreground">{email}</span>.
               Open it to activate your account.
             </p>
             <Link href="/reader/signin" className="mt-2 w-full">
@@ -183,18 +183,18 @@ export default function ReaderSignUp() {
         </form>
 
         <div className="my-6 flex items-center gap-4">
-          <div className="h-px flex-1 bg-slate-100 dark:bg-white/[0.06]" />
-          <span className="text-[13px] text-slate-400 dark:text-white/25">or</span>
-          <div className="h-px flex-1 bg-slate-100 dark:bg-white/[0.06]" />
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-[13px] text-muted-foreground">or</span>
+          <div className="h-px flex-1 bg-border" />
         </div>
 
         <Button type="button" variant="secondary" fullWidth onClick={handleGoogleSignIn}>
           Continue with Google
         </Button>
 
-        <p className="mt-8 text-center text-[14px] text-slate-500 dark:text-white/40">
+        <p className="mt-8 text-center text-[14px] text-muted-foreground">
           Already have an account?{" "}
-          <Link href="/reader/signin" className="font-medium text-slate-900 hover:underline dark:text-white">
+          <Link href="/reader/signin" className="font-medium text-foreground hover:underline">
             Sign in
           </Link>
         </p>

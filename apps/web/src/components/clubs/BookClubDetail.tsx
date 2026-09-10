@@ -103,13 +103,13 @@ export default function BookClubDetail({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="space-y-2">
-          <h1 className="text-page-title">{club.name}</h1>
+          <h1 className="text-page-title font-display">{club.name}</h1>
           {club.description && (
             <p className="max-w-2xl text-body">{club.description}</p>
           )}
-          <div className="flex items-center gap-3 text-[13px] text-slate-500 dark:text-white/50">
+          <div className="flex items-center gap-3 text-[13px] text-muted-foreground">
             <span>{members.length} {members.length === 1 ? "member" : "members"}</span>
-            <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-white/30" />
+            <span className="h-1 w-1 rounded-full bg-muted dark:bg-card" />
             <span>{club.is_public ? "Public" : "Private"}</span>
           </div>
         </div>
@@ -144,18 +144,18 @@ export default function BookClubDetail({
       )}
 
       <div>
-        <h2 className="mb-3 text-[15px] font-semibold text-slate-900 dark:text-white">
+        <h2 className="mb-3 text-[15px] font-medium text-foreground font-display">
           Members
         </h2>
         <div className="flex flex-wrap gap-2">
           {members.map((m) => (
             <span
               key={m.user_id}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/80 bg-white px-3 py-1.5 text-[12px] text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[12px] text-muted-foreground"
             >
               {m.display_name || m.user_id.slice(0, 8)}
                   {m.role === "owner" && (
-                    <span className="rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-white dark:text-slate-900">
+                    <span className="rounded-full bg-foreground px-1.5 py-0.5 text-[10px] font-medium text-white dark:text-background">
                       Owner
                     </span>
                   )}
@@ -166,7 +166,7 @@ export default function BookClubDetail({
 
       {isMember && (
         <div>
-          <h2 className="mb-3 text-[15px] font-semibold text-slate-900 dark:text-white">
+          <h2 className="mb-3 text-[15px] font-medium text-foreground font-display">
             Chat
           </h2>
           <ClubChat

@@ -18,7 +18,7 @@ export default function EditorCanvas({
   if (mode === "focus") {
     return (
       <div className="min-w-0 flex-1 overflow-auto p-6 sm:p-10">
-        <div className="mx-auto max-w-[760px] rounded-2xl border border-black/[0.04] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.03)] dark:border-white/[0.06] dark:bg-[#111318]">
+        <div className="mx-auto max-w-[760px] rounded-2xl border border-black/[0.04] bg-card shadow-[0_1px_4px_rgba(0,0,0,0.03)] dark:border-border dark:bg-card">
           <div className="p-6 sm:p-10">
             {header}
             <div className="mt-4">{children}</div>

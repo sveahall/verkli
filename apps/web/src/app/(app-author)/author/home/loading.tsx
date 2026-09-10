@@ -19,7 +19,7 @@ export default function AuthorHomeLoading() {
       </div>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
+          <div key={i} className="rounded-xl border border-border bg-card p-6 space-y-4">
             <Skeleton height={48} width={48} className="rounded-full" />
             <Skeleton height={14} width={120} />
             <Skeleton height={40} width={84} />
@@ -30,7 +30,7 @@ export default function AuthorHomeLoading() {
         {Array.from({ length: 2 }).map((_, cardIndex) => (
           <div
             key={cardIndex}
-            className="rounded-xl border border-slate-200 bg-white p-6 space-y-4"
+            className="rounded-xl border border-border bg-card p-6 space-y-4"
           >
             <Skeleton height={28} width={220} />
             {Array.from({ length: 4 }).map((_, rowIndex) => (
@@ -39,7 +39,7 @@ export default function AuthorHomeLoading() {
           </div>
         ))}
       </div>
-      <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
         <Skeleton height={32} width={120} />
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} height={52} className="w-full" />

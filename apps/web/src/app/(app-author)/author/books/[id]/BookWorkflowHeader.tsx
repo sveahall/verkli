@@ -51,11 +51,11 @@ function StepperContent({ bookId, activeTool, tools, compact = false, mini = fal
 
   return (
     <>
-      <div className={`flex mt-15 items-center ${mini ? "gap-2" : "gap-4"} ${mini ? "mt-0" : compact ? "mt-0" : "mt-4"}`}>
+      <div className={`flex items-center ${mini ? "gap-2" : "gap-4"} ${mini ? "mt-0" : compact ? "mt-0" : "mt-4"}`}>
         {prevTool ? (
           <Link
             href={getToolHref(bookId, prevTool)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#907AFF]/20 text-[#907AFF] transition-colors hover:border-[#907AFF]/40 hover:bg-[#907AFF]/[0.06] dark:border-[#907AFF]/25 dark:hover:bg-[#907AFF]/10"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#907AFF]/20 text-accent-foreground transition-colors hover:border-[#907AFF]/40 hover:bg-[#907AFF]/[0.06] dark:border-[#907AFF]/25 dark:hover:bg-[#907AFF]/10"
             aria-label={`Back to ${TOOL_META[prevTool].label}`}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -66,8 +66,8 @@ function StepperContent({ bookId, activeTool, tools, compact = false, mini = fal
           <div className="h-9 w-9 shrink-0" aria-hidden="true" />
         )}
 
-        <div className="min-w-0 flex-1">
-          <div className={`flex justify-between ${mini ? "" : stepperInsetClass}`}>
+        <div className="min-w-0 flex-1 overflow-x-auto px-1 py-2">
+          <div className={`flex min-w-[440px] justify-between gap-4 ${mini ? "" : stepperInsetClass}`}>
             {orderedTools.map((t, idx) => {
               const isActive = t === activeTool;
               const isDone = idx < currentIndex;
@@ -75,12 +75,13 @@ function StepperContent({ bookId, activeTool, tools, compact = false, mini = fal
                 <Link
                   key={t}
                   href={getToolHref(bookId, t)}
-                  className={`text-xs font-medium transition-colors ${
+                  aria-current={isActive ? "step" : undefined}
+                  className={`inline-flex min-h-9 items-center whitespace-nowrap text-xs font-medium transition-colors ${
                     isActive
-                      ? "font-semibold text-slate-800 dark:text-white/90"
+                      ? "font-semibold text-foreground dark:text-foreground"
                       : isDone
-                        ? "text-slate-500 hover:text-slate-700 dark:text-white/50"
-                        : "text-slate-300 hover:text-slate-500 dark:text-white/20 dark:hover:text-white/40"
+                        ? "text-muted-foreground hover:text-foreground dark:text-muted-foreground"
+                        : "text-muted-foreground hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-muted-foreground"
                   }`}
                 >
                   {TOOL_META[t].label}
@@ -89,8 +90,8 @@ function StepperContent({ bookId, activeTool, tools, compact = false, mini = fal
             })}
           </div>
 
-          <div className={`relative ${mini ? "mt-1.5" : "mt-3"} h-[2px] ${mini ? "" : stepperInsetClass}`}>
-            <div className="absolute inset-0 rounded-full bg-slate-200/70 dark:bg-white/[0.07]" />
+          <div className={`relative min-w-[440px] ${mini ? "mt-1.5" : "mt-3"} h-[2px] ${mini ? "" : stepperInsetClass}`}>
+            <div className="absolute inset-0 rounded-full bg-muted/70 dark:bg-card" />
             {stepCount > 1 && (
               <div
                 className="absolute left-0 top-0 h-full rounded-full bg-[#907AFF]"
@@ -119,7 +120,7 @@ function StepperContent({ bookId, activeTool, tools, compact = false, mini = fal
                         ? "h-3 w-3 bg-[#907AFF] ring-[3px] ring-[#907AFF]/15"
                         : isDone
                           ? "h-2.5 w-2.5 bg-[#907AFF]"
-                          : "h-2.5 w-2.5 bg-slate-300 dark:bg-white/15"
+                          : "h-2.5 w-2.5 bg-muted dark:bg-card"
                     }`}
                   />
                 </Link>
@@ -131,7 +132,7 @@ function StepperContent({ bookId, activeTool, tools, compact = false, mini = fal
         {nextTool ? (
           <Link
             href={getToolHref(bookId, nextTool)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#907AFF]/20 text-[#907AFF] transition-colors hover:border-[#907AFF]/40 hover:bg-[#907AFF]/[0.06] dark:border-[#907AFF]/25 dark:hover:bg-[#907AFF]/10"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#907AFF]/20 text-accent-foreground transition-colors hover:border-[#907AFF]/40 hover:bg-[#907AFF]/[0.06] dark:border-[#907AFF]/25 dark:hover:bg-[#907AFF]/10"
             aria-label={`Continue to ${TOOL_META[nextTool].label}`}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -156,7 +157,7 @@ export default function BookWorkflowHeader({ bookId, activeTool, tools, bare = f
   }
 
   return (
-    <header className="rounded-2xl border border-black/[0.04] bg-white px-6 pb-6 pt-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-white/[0.06] dark:bg-[#111318] dark:shadow-none">
+    <header className="rounded-2xl border border-black/[0.04] bg-card px-6 pb-6 pt-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-border dark:bg-card dark:shadow-none">
       <StepperContent bookId={bookId} activeTool={activeTool} tools={tools} />
     </header>
   );

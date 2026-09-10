@@ -138,10 +138,10 @@ export default function ClubChat({
   };
 
   return (
-    <div className="flex flex-col rounded-xl border border-slate-200/80 bg-white dark:border-white/10 dark:bg-white/5">
+    <div className="flex flex-col rounded-xl border border-border bg-card">
       <div className="flex max-h-[400px] flex-col gap-2 overflow-y-auto p-4">
         {messages.length === 0 && (
-          <p className="py-8 text-center text-[13px] text-slate-400 dark:text-white/40">
+          <p className="py-8 text-center text-[13px] text-muted-foreground">
             No messages yet. Start the conversation!
           </p>
         )}
@@ -155,16 +155,16 @@ export default function ClubChat({
               <div
                 className={`max-w-[75%] rounded-2xl px-4 py-2 text-[14px] ${
                   isOwn
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-                    : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-white/80"
+                    ? "bg-foreground text-white dark:text-background"
+                    : "bg-muted text-foreground dark:bg-card "
                 }`}
               >
                 <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                 <p
                   className={`mt-1 text-[11px] ${
                     isOwn
-                      ? "text-white/60 dark:text-slate-500"
-                      : "text-slate-400 dark:text-white/40"
+                      ? "text-white/60 dark:text-muted-foreground"
+                      : "text-muted-foreground "
                   }`}
                 >
                   {formatTime(msg.created_at)}
@@ -178,7 +178,7 @@ export default function ClubChat({
 
       <form
         onSubmit={handleSend}
-        className="flex items-center gap-2 border-t border-slate-200/80 p-3 dark:border-white/10"
+        className="flex items-center gap-2 border-t border-border p-3"
       >
         <input
           type="text"
@@ -186,7 +186,7 @@ export default function ClubChat({
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Write a message..."
           maxLength={2000}
-          className="min-h-[44px] flex-1 rounded-full border border-slate-200/80 bg-white/90 px-4 text-[14px] text-slate-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus-visible:ring-offset-[#0b0b12]"
+          className="min-h-[44px] flex-1 rounded-full border border-border bg-card/90 px-4 text-[14px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-card dark:focus-visible:ring-offset-background"
         />
         <Button
           type="submit"

@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 function BookCardSkeleton() {
   return (
     <div className="w-[180px] flex-shrink-0 animate-pulse">
-      <div className="aspect-[3/4] w-full rounded-xl bg-slate-200 dark:bg-white/10" />
+      <div className="aspect-[3/4] w-full rounded-xl bg-muted dark:bg-card" />
       <div className="mt-3 space-y-2">
         <Skeleton height={16} className="w-3/4" />
         <Skeleton height={12} className="w-1/2" />
@@ -16,7 +16,7 @@ function FeaturedSkeleton() {
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 p-8 dark:from-slate-800 dark:to-slate-900">
       <div className="flex flex-col gap-6 md:flex-row md:items-center">
-        <div className="aspect-[3/4] w-[180px] flex-shrink-0 rounded-xl bg-slate-300/50 dark:bg-white/10" />
+        <div className="aspect-[3/4] w-[180px] flex-shrink-0 rounded-xl bg-muted/50 dark:bg-card" />
         <div className="flex-1 space-y-4">
           <Skeleton height={12} width={80} rounded="full" />
           <Skeleton height={28} width={300} />

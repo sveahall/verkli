@@ -67,15 +67,15 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
   return (
     <section
       aria-label="Demo production façade"
-      className="relative isolate overflow-hidden rounded-3xl ring-1 ring-slate-200/70 dark:ring-white/[0.08]"
+      className="relative isolate overflow-hidden rounded-3xl ring-1 ring-border/70 dark:ring-white/[0.08]"
     >
       <div className="relative flex flex-col gap-6 p-6 sm:p-10">
         {/* ── Hero header ─────────────────────────────────────────── */}
         <header className="relative flex flex-col items-center gap-3 text-center">
-          <h2 className="text-[26px] font-semibold leading-[1.1] tracking-[-0.02em] text-slate-900 sm:text-[32px]">
+          <h2 className="author-section-title text-[26px] font-medium leading-[1.1] tracking-[-0.02em] text-foreground sm:text-[32px]">
             Produce everything.
           </h2>
-          <p className="max-w-[44ch] text-[14px] leading-relaxed text-slate-500">
+          <p className="max-w-[44ch] text-[14px] leading-relaxed text-muted-foreground">
             One click. The audiobook narrates with your cloned voice and the
             book translates into every language you pick — all in parallel.
           </p>
@@ -83,7 +83,7 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
             <button
               type="button"
               onClick={reset}
-              className="absolute right-0 top-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-600 hover:bg-slate-50"
+              className="absolute right-0 top-0 rounded-full border border-border bg-card px-3 py-1.5 text-[12px] font-medium text-muted-foreground hover:bg-background"
             >
               Reset
             </button>
@@ -94,10 +94,10 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
         <div className="flex flex-col gap-6 sm:flex-row sm:flex-wrap sm:items-stretch sm:justify-center">
           {/* Audiobook card */}
           <label
-            className={`group flex cursor-pointer items-center justify-center gap-3 rounded-2xl border bg-white p-4 transition-colors sm:w-[460px] ${
+            className={`group flex cursor-pointer items-center justify-center gap-3 rounded-2xl border bg-card p-4 transition-colors sm:w-[460px] ${
               audiobookEnabled
                 ? "border-[var(--brand-violet)]/30"
-                : "border-slate-100 hover:border-slate-200"
+                : "border-border hover:border-border"
             } ${isProducing ? "cursor-not-allowed opacity-60" : ""}`}
           >
             <input
@@ -110,35 +110,35 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
             <span
               className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl ${
                 audiobookEnabled
-                  ? "bg-[var(--brand-violet)] text-white"
-                  : "bg-slate-100 text-slate-500"
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-muted text-muted-foreground"
               }`}
             >
               <Headphones className="h-4 w-4" aria-hidden />
             </span>
             <span className="min-w-0">
-              <span className="flex items-center gap-2 text-[14px] font-semibold text-slate-900">
+              <span className="flex items-center gap-2 text-[14px] font-semibold text-foreground">
                 Audiobook
                 {audiobookEnabled ? (
                   <Check className="h-3.5 w-3.5 text-[var(--brand-violet)]" aria-hidden />
                 ) : null}
               </span>
-              <span className="text-[12px] text-slate-500">
+              <span className="text-[12px] text-muted-foreground">
                 Cloned voice, every language.
               </span>
             </span>
           </label>
 
           {/* Language picker */}
-          <div className="rounded-2xl border border-slate-100 bg-white p-4 sm:w-[460px]">
+          <div className="rounded-2xl border border-border bg-card p-4 sm:w-[460px]">
             <div className="flex items-center justify-between gap-3">
-              <span className="flex items-center gap-2 text-[14px] font-medium text-slate-900">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+              <span className="flex items-center gap-2 text-[14px] font-medium text-foreground">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                   <Languages className="h-3.5 w-3.5" aria-hidden />
                 </span>
                 Translate to
               </span>
-              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">
+              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                 {selectedLanguages.length} / {DEMO_LANGUAGES.length}
               </span>
             </div>
@@ -156,8 +156,8 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
                     title={LANGUAGE_NAMES[lang]}
                     className={`flex h-9 w-9 items-center justify-center rounded-full text-[16px] transition-all duration-200 disabled:cursor-not-allowed ${
                       selected
-                        ? "bg-white ring-1 ring-[var(--brand-violet)]"
-                        : "border border-slate-100 bg-white hover:border-[var(--brand-violet)]/30"
+                        ? "bg-card ring-1 ring-[var(--brand-violet)]"
+                        : "border border-border bg-card hover:border-[var(--brand-violet)]/30"
                     }`}
                   >
                     <span aria-hidden>{LANGUAGE_FLAGS[lang]}</span>
@@ -174,7 +174,7 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
             type="button"
             onClick={start}
             disabled={isProducing}
-            className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-[#0F172A] px-6 py-3 text-[14px] font-medium text-white transition-colors duration-200 hover:bg-[#1E293B] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+            className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-primary px-6 py-3 text-[14px] font-medium text-primary-foreground transition-colors duration-200 hover:bg-primary/90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
           >
             <span
               aria-hidden
@@ -185,18 +185,18 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
               {isProducing ? "Producing…" : "Produce everything"}
             </span>
           </button>
-          <p className="text-[12px] text-slate-500">
+          <p className="text-[12px] text-muted-foreground">
             No queue · no payments · 13 seconds end-to-end
           </p>
-          <p className="text-[11px] font-medium text-slate-400">
-            <span className="text-slate-300 line-through">Traditional pipeline: 3–6 weeks · ~$3,800</span>
+          <p className="text-[11px] font-medium text-muted-foreground">
+            <span className="text-muted-foreground line-through">Traditional pipeline: 3–6 weeks · ~$3,800</span>
             <span className="ml-2 text-[var(--brand-violet)]">→ 13 seconds · $0</span>
           </p>
         </div>
 
         {/* ── Live status ─────────────────────────────────────────── */}
         {state.status !== "idle" ? (
-          <div className="rounded-2xl border border-slate-100 bg-white p-5">
+          <div className="rounded-2xl border border-border bg-card p-5">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-baseline gap-3">
                 {/* Big swelling counter — the focal point during the 17 s
@@ -205,7 +205,7 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
                 <span
                   key={readyCount}
                   className={`tabular-nums text-[28px] font-semibold leading-none tracking-[-0.02em] sm:text-[32px] ${
-                    isDone ? "text-[var(--brand-violet)]" : "text-slate-900"
+                    isDone ? "text-[var(--brand-violet)]" : "text-foreground"
                   }`}
                   style={{
                     animation: "demoCountPop 320ms cubic-bezier(0.34, 1.56, 0.64, 1)",
@@ -213,12 +213,12 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
                 >
                   {readyCount}
                 </span>
-                <span className="text-[18px] font-medium text-slate-400">/ {selectedLanguages.length}</span>
+                <span className="text-[18px] font-medium text-muted-foreground">/ {selectedLanguages.length}</span>
                 <div className="ml-3 flex flex-col gap-0.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-violet)]">
                     {isDone ? "Live" : "Producing"}
                   </p>
-                  <p className="text-[14px] font-medium text-slate-700">
+                  <p className="text-[14px] font-medium text-foreground">
                     {isDone ? "languages ready" : "languages in flight"}
                   </p>
                 </div>
@@ -243,13 +243,13 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
                     className={`flex items-center justify-between rounded-xl border px-3 py-2 transition-colors duration-300 ${
                       ready
                         ? "border-[var(--brand-violet)]/30 bg-[var(--brand-violet)]/[0.06]"
-                        : "border-slate-100 bg-white"
+                        : "border-border bg-card"
                     }`}
                     style={{
                       opacity: ready ? 1 : 0.6,
                     }}
                   >
-                    <span className="flex items-center gap-2.5 text-[13px] font-medium text-slate-800">
+                    <span className="flex items-center gap-2.5 text-[13px] font-medium text-foreground">
                       <span className="text-[16px]" aria-hidden>{LANGUAGE_FLAGS[lang]}</span>
                       {LANGUAGE_NAMES[lang]}
                     </span>
@@ -259,7 +259,7 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
                           type="button"
                           onClick={() => pausePlayback()}
                           aria-label={`Pause ${LANGUAGE_NAMES[lang]} audiobook`}
-                          className="inline-flex items-center gap-1 rounded-full bg-[var(--brand-violet)] px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:opacity-90 active:scale-[0.97]"
+                          className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground transition-colors hover:opacity-90 active:scale-[0.97]"
                         >
                           <Pause className="h-3 w-3" aria-hidden />
                           Pause
@@ -271,7 +271,7 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
                             void playLanguage(lang);
                           }}
                           aria-label={`Play ${LANGUAGE_NAMES[lang]} audiobook`}
-                          className="inline-flex items-center gap-1 rounded-full bg-[#0F172A] px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-[#1E293B] active:scale-[0.97]"
+                          className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 active:scale-[0.97]"
                         >
                           <Play className="ml-0.5 h-3 w-3" aria-hidden />
                           Play
@@ -281,7 +281,7 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
                       <Check className="h-4 w-4 text-[var(--brand-violet)]" aria-label="ready" />
                     ) : (
                       <span className="flex h-4 w-4 items-center justify-center" aria-hidden>
-                        <span className="block h-1.5 w-1.5 rounded-full bg-slate-300" />
+                        <span className="block h-1.5 w-1.5 rounded-full bg-muted" />
                       </span>
                     )}
                   </li>
@@ -297,12 +297,12 @@ export default function ProductionFacade({ bookId }: ProductionFacadeProps) {
               <div className="mt-6 flex flex-col items-center gap-2">
                 <Link
                   href={`/author/books/${bookId}?panel=distribute`}
-                  className="group inline-flex items-center gap-2 rounded-full bg-[var(--brand-violet)] px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_8px_22px_-6px_rgba(124,92,252,0.55)] transition hover:scale-[1.02] hover:bg-[var(--brand-violet-hover)] active:scale-[0.98]"
+                  className="group inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-[0_8px_22px_-6px_rgba(124,92,252,0.55)] transition hover:scale-[1.02] hover:bg-primary/90 active:scale-[0.98]"
                 >
                   Next · Launch globally
                   <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
                 </Link>
-                <p className="text-[11px] text-slate-400">Press 3 to jump · 4 to skip POD</p>
+                <p className="text-[11px] text-muted-foreground">Press 3 to jump · 4 to skip POD</p>
               </div>
             ) : null}
           </div>
@@ -338,7 +338,7 @@ function ProgressRing({ value }: { value: number }) {
 function AudiobookPulsing({ audiobookReady }: { audiobookReady: boolean }) {
   return (
     <div
-      className="mt-5 flex items-center gap-3 rounded-xl border border-dashed border-slate-200 bg-white/60 px-4 py-3"
+      className="mt-5 flex items-center gap-3 rounded-xl border border-dashed border-border bg-white/60 px-4 py-3"
       aria-live="polite"
     >
       <div className="flex items-end gap-1" aria-hidden>
@@ -353,7 +353,7 @@ function AudiobookPulsing({ audiobookReady }: { audiobookReady: boolean }) {
           />
         ))}
       </div>
-      <span className="text-[13px] text-slate-600">
+      <span className="text-[13px] text-muted-foreground">
         {audiobookReady ? "Audiobook ready · narrating in every language…" : "Audiobook narrating…"}
       </span>
       <style>{`
@@ -369,7 +369,7 @@ function AudiobookPulsing({ audiobookReady }: { audiobookReady: boolean }) {
 function CheckmarkPop() {
   return (
     <span
-      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[var(--brand-violet)] text-white"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-foreground"
       style={{ animation: "demoCheckPop 220ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
       aria-label="all done"
     >

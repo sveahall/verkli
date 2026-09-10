@@ -91,19 +91,19 @@ export default function NotificationItem({
     <button
       type="button"
       onClick={handleClick}
-      className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-100 dark:hover:bg-white/5 ${
-        !read ? "bg-slate-50 dark:bg-white/5" : ""
+      className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted dark:hover:bg-card ${
+        !read ? "bg-muted dark:bg-card" : ""
       }`}
     >
-      <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#907AFF]/10 text-[#907AFF]">
+      <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#907AFF]/10 text-accent-foreground">
         <TypeIcon type={type} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-medium text-slate-900 dark:text-white">{title}</p>
+        <p className="text-[13px] font-medium text-foreground">{title}</p>
         {body && (
-          <p className="mt-0.5 text-[12px] text-slate-500 dark:text-white/50 line-clamp-2">{body}</p>
+          <p className="mt-0.5 text-[12px] text-muted-foreground line-clamp-2">{body}</p>
         )}
-        <p className="mt-1 text-[11px] text-slate-400 dark:text-white/30">{relativeTime(createdAt)}</p>
+        <p className="mt-1 text-[11px] text-muted-foreground">{relativeTime(createdAt)}</p>
       </div>
       {!read && (
         <div className="mt-2 h-2 w-2 flex-shrink-0 rounded-full bg-[#907AFF]" />

@@ -87,7 +87,7 @@ export default function OrderPhysicalCopyButton({ bookId, formats }: Props) {
               className={`inline-flex min-h-11 items-center rounded-full px-4 text-[13px] font-medium transition ${
                 selectedFormat === f.format
                   ? "bg-[#907AFF] text-white"
-                  : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-white/60 dark:hover:bg-white/10"
+                  : "bg-muted text-muted-foreground hover:bg-muted dark:bg-card dark:hover:bg-card"
               }`}
             >
               {f.label}

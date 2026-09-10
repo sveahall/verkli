@@ -11,7 +11,7 @@ export default function DashboardLoading() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="rounded-2xl border border-black/[0.06] bg-white/60 p-5 dark:border-white/[0.06] dark:bg-white/[0.02] space-y-3"
+            className="rounded-2xl border border-black/[0.06] bg-white/60 p-5 dark:border-border dark:bg-card space-y-3"
           >
             <Skeleton height={12} width={80} />
             <Skeleton height={28} width={60} />
@@ -22,9 +22,9 @@ export default function DashboardLoading() {
         {Array.from({ length: 3 }).map((_, i) => (
           <div
             key={i}
-            className="flex gap-4 rounded-2xl border border-black/[0.06] bg-white/60 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]"
+            className="flex gap-4 rounded-2xl border border-black/[0.06] bg-white/60 p-4 dark:border-border dark:bg-card"
           >
-            <div className="h-20 w-14 flex-shrink-0 rounded-lg bg-slate-200 dark:bg-white/10 animate-pulse" />
+            <div className="h-20 w-14 flex-shrink-0 rounded-lg bg-muted dark:bg-card animate-pulse" />
             <div className="flex-1 space-y-2">
               <Skeleton height={16} width={200} />
               <Skeleton height={12} width={140} />

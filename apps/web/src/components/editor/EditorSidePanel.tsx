@@ -45,13 +45,13 @@ export default function EditorSidePanel({
 
   if (!open) {
     return (
-      <div className="flex w-12 flex-col items-center gap-2 border-l border-slate-100 bg-slate-50/50 py-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+      <div className="flex w-full items-center justify-center gap-2 border-t border-border bg-background/50 py-2 lg:w-12 lg:flex-col lg:justify-start lg:border-l lg:border-t-0 lg:py-4 dark:border-border dark:bg-card">
         {TAB_CONFIG.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => { setTab(t.id); onToggle(); }}
-            className="flex h-10 w-10 flex-col items-center justify-center gap-0.5 rounded-xl text-slate-400 transition hover:bg-white hover:text-[#907AFF] hover:shadow-sm dark:text-white/30 dark:hover:bg-white/5 dark:hover:text-[#907AFF]"
+            className="flex h-10 w-10 flex-col items-center justify-center gap-0.5 rounded-xl text-muted-foreground transition hover:bg-card hover:text-accent-foreground hover:shadow-sm dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-accent-foreground"
             title={t.label}
           >
             <t.icon className="h-5 w-5" />
@@ -62,25 +62,25 @@ export default function EditorSidePanel({
   }
 
   return (
-    <aside className="flex w-[280px] shrink-0 flex-col border-l border-slate-100 bg-white dark:border-white/[0.06] dark:bg-[#111318]">
+    <aside className="flex w-full shrink-0 flex-col border-t lg:w-[280px] lg:border-l lg:border-t-0 border-border bg-card dark:border-border dark:bg-card">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-white/[0.06]">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3 dark:border-border">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onToggle}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-50 hover:text-slate-700 dark:text-white/30 dark:hover:bg-white/5"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-background hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <h2 className="text-[14px] font-semibold text-slate-800 dark:text-white">
+          <h2 className="text-[14px] font-semibold text-foreground dark:text-foreground">
             {TAB_CONFIG.find((t) => t.id === tab)?.label}
           </h2>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-100 dark:border-white/[0.06]">
+      <div className="flex border-b border-border dark:border-border">
         {TAB_CONFIG.map((t) => (
           <button
             key={t.id}
@@ -88,8 +88,8 @@ export default function EditorSidePanel({
             onClick={() => setTab(t.id)}
             className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-[12px] font-semibold transition ${
               tab === t.id
-                ? "border-b-2 border-[#907AFF] text-[#907AFF]"
-                : "text-slate-400 hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60"
+                ? "border-b-2 border-[#907AFF] text-accent-foreground"
+                : "text-muted-foreground hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-muted-foreground"
             }`}
           >
             <t.icon className="h-3.5 w-3.5" />

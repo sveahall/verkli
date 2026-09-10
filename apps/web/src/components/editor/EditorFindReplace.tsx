@@ -118,17 +118,17 @@ export default function EditorFindReplace({ editor, onClose }: EditorFindReplace
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/30">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:text-muted-foreground">
           Find and replace
         </h3>
-        <button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-600 dark:hover:bg-white/5">
+        <button type="button" onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-background hover:text-muted-foreground dark:hover:bg-accent">
           <X className="h-4 w-4" />
         </button>
       </div>
 
       {/* Find */}
       <div>
-        <label className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-white/40">Find</label>
+        <label className="mb-1 block text-[11px] font-medium text-muted-foreground dark:text-muted-foreground">Find</label>
         <div className="flex gap-1.5">
           <input
             ref={findRef}
@@ -136,17 +136,17 @@ export default function EditorFindReplace({ editor, onClose }: EditorFindReplace
             value={findQuery}
             onChange={(e) => setFindQuery(e.target.value)}
             placeholder="Search..."
-            className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] text-slate-700 outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+            className="flex-1 rounded-lg border border-border bg-card px-3 py-2 text-[14px] text-foreground outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-border dark:bg-card dark:text-foreground"
           />
-          <button type="button" onClick={() => goToMatch("prev")} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5" title="Previous (Shift+Enter)">
+          <button type="button" onClick={() => goToMatch("prev")} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-background dark:border-border dark:hover:bg-accent" title="Previous (Shift+Enter)">
             <ArrowUp className="h-4 w-4" />
           </button>
-          <button type="button" onClick={() => goToMatch("next")} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5" title="Next (Enter)">
+          <button type="button" onClick={() => goToMatch("next")} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-background dark:border-border dark:hover:bg-accent" title="Next (Enter)">
             <ArrowDown className="h-4 w-4" />
           </button>
         </div>
         {findQuery && (
-          <p className="mt-1.5 text-[12px] text-slate-400 dark:text-white/30">
+          <p className="mt-1.5 text-[12px] text-muted-foreground dark:text-muted-foreground">
             {matches.length === 0 ? "No matches" : `${matchIndex + 1} of ${matches.length}`}
           </p>
         )}
@@ -154,19 +154,19 @@ export default function EditorFindReplace({ editor, onClose }: EditorFindReplace
 
       {/* Replace */}
       <div>
-        <label className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-white/40">Replace</label>
+        <label className="mb-1 block text-[11px] font-medium text-muted-foreground dark:text-muted-foreground">Replace</label>
         <input
           type="text"
           value={replaceQuery}
           onChange={(e) => setReplaceQuery(e.target.value)}
           placeholder="Replace with..."
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[14px] text-slate-700 outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-[14px] text-foreground outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-border dark:bg-card dark:text-foreground"
         />
         <div className="mt-2 flex gap-2">
-          <button type="button" onClick={replaceCurrent} disabled={matches.length === 0} className="rounded-lg border border-slate-200 px-3 py-1.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-white/10 dark:text-white/60 dark:hover:bg-white/5">
+          <button type="button" onClick={replaceCurrent} disabled={matches.length === 0} className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition hover:bg-background disabled:opacity-40 dark:border-border dark:text-muted-foreground dark:hover:bg-accent">
             Replace
           </button>
-          <button type="button" onClick={replaceAll} disabled={matches.length === 0} className="rounded-lg border border-slate-200 px-3 py-1.5 text-[13px] font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 dark:border-white/10 dark:text-white/60 dark:hover:bg-white/5">
+          <button type="button" onClick={replaceAll} disabled={matches.length === 0} className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition hover:bg-background disabled:opacity-40 dark:border-border dark:text-muted-foreground dark:hover:bg-accent">
             Replace all
           </button>
         </div>
@@ -174,15 +174,15 @@ export default function EditorFindReplace({ editor, onClose }: EditorFindReplace
 
       {/* Options */}
       <div>
-        <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/30">
+        <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:text-muted-foreground">
           Options
         </h4>
-        <label className="flex items-center gap-2 text-[13px] text-slate-600 dark:text-white/50">
+        <label className="flex items-center gap-2 text-[13px] text-muted-foreground dark:text-muted-foreground">
           <input
             type="checkbox"
             checked={caseSensitive}
             onChange={(e) => setCaseSensitive(e.target.checked)}
-            className="h-4 w-4 rounded border-slate-300 accent-[#907AFF]"
+            className="h-4 w-4 rounded border-border accent-[#907AFF]"
           />
           Match case
         </label>

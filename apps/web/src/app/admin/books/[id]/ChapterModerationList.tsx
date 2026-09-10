@@ -66,7 +66,7 @@ export function ChapterModerationList({ bookId, chapters }: Props) {
         return (
           <li
             key={chapter.id}
-            className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white dark:border-white/10 dark:bg-white/[0.02]"
+            className="overflow-hidden rounded-2xl border border-border bg-card"
           >
             <button
               type="button"
@@ -78,12 +78,12 @@ export function ChapterModerationList({ bookId, chapters }: Props) {
                   current === chapter.id ? null : chapter.id
                 )
               }
-              className="flex w-full min-h-[44px] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-inset dark:hover:bg-white/5"
+              className="flex w-full min-h-[44px] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-inset dark:hover:bg-card"
             >
-              <span className="text-caption w-8 shrink-0 tabular-nums text-slate-400 dark:text-white/40">
+              <span className="text-caption w-8 shrink-0 tabular-nums text-muted-foreground">
                 {chapter.order + 1}
               </span>
-              <span className="min-w-0 flex-1 truncate text-body font-medium text-slate-800 dark:text-white">
+              <span className="min-w-0 flex-1 truncate text-body font-medium text-foreground">
                 {chapter.title || "Untitled chapter"}
               </span>
               {chapter.languageCode && (
@@ -101,7 +101,7 @@ export function ChapterModerationList({ bookId, chapters }: Props) {
               )}
               <ChevronDown
                 className={cn(
-                  "h-4 w-4 shrink-0 text-slate-400 transition-transform duration-150 dark:text-white/40",
+                  "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150 ",
                   isExpanded && "rotate-180"
                 )}
                 aria-hidden
@@ -113,15 +113,15 @@ export function ChapterModerationList({ bookId, chapters }: Props) {
                 id={panelId}
                 role="region"
                 aria-labelledby={triggerId}
-                className="border-t border-slate-200/80 px-4 py-5 dark:border-white/10"
+                className="border-t border-border px-4 py-5"
               >
                 {hasText ? (
                   <TiptapRenderer
                     content={renderContent}
-                    className="text-slate-700 dark:text-white/80"
+                    className="text-foreground"
                   />
                 ) : (
-                  <p className="text-caption text-slate-400 dark:text-white/40">
+                  <p className="text-caption text-muted-foreground">
                     This chapter has no text content.
                   </p>
                 )}

@@ -1,0 +1,41 @@
+.shell {
+  font-family: var(--font-inter), Inter, sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.shell :global(.author-page-title) {
+  font-family: var(--font-montserrat-alternates), sans-serif;
+  font-size: clamp(1.35rem, 1.05rem + 0.65vw, 1.9rem);
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+  color: var(--foreground);
+}
+
+.shell :global(.author-section-title) {
+  font-family: var(--font-montserrat-alternates), sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.shell :where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell :global(.ws-enter) {
+    animation: none;
+  }
+}
+
+.shell [data-author-sidebar] {
+  --sidebar: #17131d;
+  --sidebar-foreground: #f7f3f8;
+  --sidebar-accent: #30243b;
+  --sidebar-accent-foreground: #eadcf4;
+  --sidebar-border: #302638;
+}

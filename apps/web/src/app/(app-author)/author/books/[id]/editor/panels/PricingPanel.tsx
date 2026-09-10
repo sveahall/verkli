@@ -39,12 +39,12 @@ export default function PricingPanel({
 }: PricingPanelProps) {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <h2 className="text-[clamp(20px,2.5vw,24px)] font-bold tracking-[-0.02em] text-slate-900 dark:text-white">Pricing and distribution</h2>
+      <h2 className="author-section-title text-[clamp(20px,2.5vw,24px)] font-medium tracking-[-0.02em] text-foreground dark:text-foreground">Pricing and distribution</h2>
 
-      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none space-y-4">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Price and currency</h3>
+      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-border dark:bg-card dark:shadow-none space-y-4">
+        <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Price and currency</h3>
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm text-slate-700 dark:text-white/80">Free</span>
+          <span className="text-sm text-foreground dark:text-foreground">Free</span>
           <button
             type="button"
             role="switch"
@@ -52,7 +52,7 @@ export default function PricingPanel({
             aria-label="Book free or paid"
             onClick={() => setPriceAmountMinor(priceAmountMinor > 0 ? 0 : 4900)}
             className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 ${
-              priceAmountMinor > 0 ? "bg-[#907AFF]" : "bg-slate-200 dark:bg-slate-600"
+              priceAmountMinor > 0 ? "bg-[#907AFF]" : "bg-muted dark:bg-muted"
             }`}
           >
             <span
@@ -61,12 +61,12 @@ export default function PricingPanel({
               }`}
             />
           </button>
-          <span className="text-sm text-slate-700 dark:text-white/80">Paid</span>
+          <span className="text-sm text-foreground dark:text-foreground">Paid</span>
         </div>
         {priceAmountMinor > 0 && (
           <div className="flex flex-wrap gap-4 pt-2">
             <div>
-              <label htmlFor="price-amount" className="mb-1 block text-xs text-slate-500 dark:text-white/50">{pricingModel === "per_chapter" ? "Price per chapter" : "Price (shown to readers)"}</label>
+              <label htmlFor="price-amount" className="mb-1 block text-xs text-muted-foreground dark:text-muted-foreground">{pricingModel === "per_chapter" ? "Price per chapter" : "Price (shown to readers)"}</label>
               <input
                 id="price-amount"
                 type="number"
@@ -79,17 +79,17 @@ export default function PricingPanel({
                   setPriceAmountMinor(Math.round(v * 100));
                 }}
                 aria-label="Price in currency"
-                className="w-28 rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
+                className="w-28 rounded-xl border border-black/[0.08] bg-card px-3 py-2 text-sm text-foreground focus:border-border focus:outline-none dark:border-border dark:bg-card dark:text-foreground"
               />
             </div>
             <div>
-              <label htmlFor="price-currency" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Currency</label>
+              <label htmlFor="price-currency" className="mb-1 block text-xs text-muted-foreground dark:text-muted-foreground">Currency</label>
               <select
                 id="price-currency"
                 value={priceCurrency}
                 onChange={(e) => setPriceCurrency(e.target.value)}
                 aria-label="Currency"
-                className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-white"
+                className="rounded-xl border border-black/[0.08] bg-card px-3 py-2 text-sm text-foreground focus:border-border focus:outline-none dark:border-border dark:bg-card dark:text-foreground"
               >
                 <option value="SEK">SEK</option>
                 <option value="EUR">EUR</option>
@@ -98,23 +98,23 @@ export default function PricingPanel({
             </div>
           </div>
         )}
-        <p className="text-xs text-slate-500 dark:text-white/50">Price is stored in minor units (cents/ore). Here it is shown as whole currency units.</p>
+        <p className="text-xs text-muted-foreground dark:text-muted-foreground">Price is stored in minor units (cents/ore). Here it is shown as whole currency units.</p>
       </div>
 
-      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none space-y-3">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Sales model</h3>
+      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-border dark:bg-card dark:shadow-none space-y-3">
+        <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Sales model</h3>
         <button
           type="button"
           onClick={() => setPricingModel("book_only")}
           className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition ${
             pricingModel === "book_only"
               ? "border-[#907AFF]/30 bg-[#907AFF]/10 dark:bg-[#907AFF]/15"
-              : "border-black/[0.06] bg-slate-50/50 hover:border-black/[0.12] dark:border-white/[0.06] dark:bg-white/5 dark:hover:border-white/[0.12]"
+              : "border-black/[0.06] bg-background/50 hover:border-black/[0.12] dark:border-border dark:bg-card dark:hover:border-border"
           }`}
         >
-          <span className={`text-sm ${pricingModel === "book_only" ? "font-medium text-slate-900 dark:text-white" : "text-slate-600 dark:text-white/60"}`}>Full book</span>
+          <span className={`text-sm ${pricingModel === "book_only" ? "font-medium text-foreground dark:text-foreground" : "text-muted-foreground dark:text-muted-foreground"}`}>Full book</span>
           {pricingModel === "book_only" && (
-            <span className="rounded-full bg-[#907AFF]/20 px-2 py-0.5 text-xs font-medium text-[#5c4bb8] dark:text-[#b8a9ff]">Selected</span>
+            <span className="rounded-full bg-[#907AFF]/20 px-2 py-0.5 text-xs font-medium text-accent-foreground dark:text-accent-foreground">Selected</span>
           )}
         </button>
         <button
@@ -123,30 +123,30 @@ export default function PricingPanel({
           className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition ${
             pricingModel === "per_chapter"
               ? "border-[#907AFF]/30 bg-[#907AFF]/10 dark:bg-[#907AFF]/15"
-              : "border-black/[0.06] bg-slate-50/50 hover:border-black/[0.12] dark:border-white/[0.06] dark:bg-white/5 dark:hover:border-white/[0.12]"
+              : "border-black/[0.06] bg-background/50 hover:border-black/[0.12] dark:border-border dark:bg-card dark:hover:border-border"
           }`}
         >
-          <span className={`text-sm ${pricingModel === "per_chapter" ? "font-medium text-slate-900 dark:text-white" : "text-slate-600 dark:text-white/60"}`}>Chapter</span>
+          <span className={`text-sm ${pricingModel === "per_chapter" ? "font-medium text-foreground dark:text-foreground" : "text-muted-foreground dark:text-muted-foreground"}`}>Chapter</span>
           {pricingModel === "per_chapter" && (
-            <span className="rounded-full bg-[#907AFF]/20 px-2 py-0.5 text-xs font-medium text-[#5c4bb8] dark:text-[#b8a9ff]">Selected</span>
+            <span className="rounded-full bg-[#907AFF]/20 px-2 py-0.5 text-xs font-medium text-accent-foreground dark:text-accent-foreground">Selected</span>
           )}
         </button>
-        <p className="text-xs text-slate-500 dark:text-white/50">
+        <p className="text-xs text-muted-foreground dark:text-muted-foreground">
           {pricingModel === "book_only"
             ? "Readers buy the complete book at the price above."
             : "Readers buy chapters individually at the price above. First chapter is always free."}
         </p>
         {pricingModel === "per_chapter" && chapters.length > 0 && (
           <div className="mt-2 space-y-1">
-            <p className="text-xs font-medium text-slate-600 dark:text-white/60">Chapter pricing preview</p>
-            <div className="max-h-48 overflow-y-auto rounded-lg border border-black/[0.06] dark:border-white/[0.06]">
+            <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">Chapter pricing preview</p>
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-black/[0.06] dark:border-border">
               {chapters.map((ch, i) => {
                 const isFree = i === 0;
                 const displayPrice = priceAmountMinor > 0 ? `${(priceAmountMinor / 100).toFixed(priceAmountMinor % 100 === 0 ? 0 : 2)} ${priceCurrency}` : "Free";
                 return (
-                  <div key={ch.id} className={`flex items-center justify-between px-3 py-1.5 text-xs ${i > 0 ? "border-t border-black/[0.04] dark:border-white/[0.04]" : ""}`}>
-                    <span className="truncate text-slate-700 dark:text-white/70">{ch.title || `Chapter ${i + 1}`}</span>
-                    <span className={`ml-2 shrink-0 ${isFree ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-white/50"}`}>
+                  <div key={ch.id} className={`flex items-center justify-between px-3 py-1.5 text-xs ${i > 0 ? "border-t border-black/[0.04] dark:border-border" : ""}`}>
+                    <span className="truncate text-foreground dark:text-foreground">{ch.title || `Chapter ${i + 1}`}</span>
+                    <span className={`ml-2 shrink-0 ${isFree ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground dark:text-muted-foreground"}`}>
                       {isFree ? "Free" : displayPrice}
                     </span>
                   </div>
@@ -157,9 +157,9 @@ export default function PricingPanel({
         )}
       </div>
 
-      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.02] dark:shadow-none">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">Visibility and access</h3>
-        <p className="text-sm text-slate-700 dark:text-white/80">
+      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-border dark:bg-card dark:shadow-none">
+        <h3 className="text-sm font-semibold text-foreground dark:text-foreground mb-2">Visibility and access</h3>
+        <p className="text-sm text-foreground dark:text-foreground">
           {priceAmountMinor <= 0
             ? "Free - everyone can read the book."
             : pricingModel === "per_chapter"
@@ -187,7 +187,7 @@ export default function PricingPanel({
           onClick={handleSavePricing}
           disabled={pricingSaving || !pricingDirty}
           aria-label="Save pricing"
-          className="rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-slate-900"
+          className="rounded-xl bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {pricingSaving ? "Saving..." : "Save"}
         </button>

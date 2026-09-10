@@ -273,7 +273,7 @@ export default function AuthorSignUp() {
     return (
       <AuthShell backHref="/author" backLabel="Back to Verkli">
         <AuthCard title="Preparing author access" subtitle="One moment">
-          <p className="text-center text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
+          <p className="text-center text-[14px] leading-relaxed text-muted-foreground">
             Checking your account status...
           </p>
         </AuthCard>
@@ -287,7 +287,7 @@ export default function AuthorSignUp() {
 
     if (isApproved) {
       return (
-        <AuthShell backHref="/reader/home" backLabel="Back to reader home">
+        <AuthShell audience="author" backHref="/reader/home" backLabel="Back to reader home">
           <AuthCard title="Author access approved" subtitle="You're ready to publish">
             {applicationError && (
               <div role="alert" className="mb-5 rounded-xl border border-red-200/80 bg-red-50/60 px-4 py-3 text-[14px] text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
@@ -295,8 +295,8 @@ export default function AuthorSignUp() {
               </div>
             )}
             <div className="flex flex-col gap-4">
-              <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
-                Signed in as <span className="font-medium text-slate-900 dark:text-white">{loggedInEmail}</span>. Your author access is already approved.
+              <p className="text-[14px] leading-relaxed text-muted-foreground">
+                Signed in as <span className="font-medium text-foreground">{loggedInEmail}</span>. Your author access is already approved.
               </p>
               <Button fullWidth isLoading={applicationLoading} loadingText="Opening author home..." onClick={async () => { setApplicationLoading(true); await switchToAuthorMode(); setApplicationLoading(false); }}>
                 Open author home
@@ -309,7 +309,7 @@ export default function AuthorSignUp() {
 
     if (isPending) {
       return (
-        <AuthShell backHref="/reader/home" backLabel="Back to reader home">
+        <AuthShell audience="author" backHref="/reader/home" backLabel="Back to reader home">
           <AuthCard title="Thank you for your application!" subtitle="We'll be in touch">
             <div className="flex flex-col items-center gap-4 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50/60 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
@@ -317,7 +317,7 @@ export default function AuthorSignUp() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
+              <p className="text-[14px] leading-relaxed text-muted-foreground">
                 {hasPublishedBefore
                   ? "Thank you for your application! We'll review your information and get back to you soon."
                   : "Thank you for your application! We'll get back to you shortly about whether you can join."}
@@ -333,7 +333,7 @@ export default function AuthorSignUp() {
 
     // Multi-step questionnaire
     return (
-      <AuthShell backHref="/reader/home" backLabel="Back to reader home">
+      <AuthShell audience="author" backHref="/reader/home" backLabel="Back to reader home">
         <AuthCard
           title={
             step === "info" ? "Apply to become an author"
@@ -356,8 +356,8 @@ export default function AuthorSignUp() {
 
           {step === "info" && (
             <div className="flex flex-col gap-4">
-              <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
-                Signed in as <span className="font-medium text-slate-900 dark:text-white">{loggedInEmail}</span>
+              <p className="text-[14px] leading-relaxed text-muted-foreground">
+                Signed in as <span className="font-medium text-foreground">{loggedInEmail}</span>
               </p>
 
               <FormField label="First name" error={stepErrors.firstName}>
@@ -380,7 +380,7 @@ export default function AuthorSignUp() {
 
           {step === "background" && (
             <div className="flex flex-col gap-4">
-              <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
+              <p className="text-[14px] leading-relaxed text-muted-foreground">
                 Help us get to know you as a writer. A few sentences for each is plenty.
               </p>
 
@@ -416,7 +416,7 @@ export default function AuthorSignUp() {
                 Continue
               </Button>
 
-              <button type="button" onClick={() => setStep("info")} className="mt-1 text-[13px] text-slate-400 transition hover:text-slate-600 dark:text-white/40 dark:hover:text-white/60">
+              <button type="button" onClick={() => setStep("info")} className="mt-1 min-h-11 text-[13px] text-slate-400 transition hover:text-muted-foreground dark:hover:text-white/60">
                 Go back
               </button>
             </div>
@@ -424,7 +424,7 @@ export default function AuthorSignUp() {
 
           {step === "published" && (
             <div className="flex flex-col gap-4">
-              <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
+              <p className="text-[14px] leading-relaxed text-muted-foreground">
                 Have you published books before?
               </p>
 
@@ -437,7 +437,7 @@ export default function AuthorSignUp() {
                 </Button>
               </div>
 
-              <button type="button" onClick={() => setStep("background")} className="mt-1 text-[13px] text-slate-400 transition hover:text-slate-600 dark:text-white/40 dark:hover:text-white/60">
+              <button type="button" onClick={() => setStep("background")} className="mt-1 min-h-11 text-[13px] text-slate-400 transition hover:text-muted-foreground dark:hover:text-white/60">
                 Go back
               </button>
             </div>
@@ -445,7 +445,7 @@ export default function AuthorSignUp() {
 
           {step === "link" && (
             <div className="flex flex-col gap-4">
-              <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
+              <p className="text-[14px] leading-relaxed text-muted-foreground">
                 Where can we find your published books? Add a link so we can check them out.
               </p>
 
@@ -457,7 +457,7 @@ export default function AuthorSignUp() {
                 Submit application
               </Button>
 
-              <button type="button" onClick={() => setStep("published")} className="mt-1 text-[13px] text-slate-400 transition hover:text-slate-600 dark:text-white/40 dark:hover:text-white/60">
+              <button type="button" onClick={() => setStep("published")} className="mt-1 min-h-11 text-[13px] text-slate-400 transition hover:text-muted-foreground dark:hover:text-white/60">
                 Go back
               </button>
             </div>
@@ -477,8 +477,8 @@ export default function AuthorSignUp() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-[14px] leading-relaxed text-slate-500 dark:text-white/50">
-              We sent a confirmation link to <span className="font-medium text-slate-900 dark:text-white">{email}</span>.
+            <p className="text-[14px] leading-relaxed text-muted-foreground">
+              We sent a confirmation link to <span className="font-medium text-foreground">{email}</span>.
               Open it to activate your account.
             </p>
             <Link href="/author/signin" className="mt-2 w-full">
@@ -545,18 +545,18 @@ export default function AuthorSignUp() {
         </form>
 
         <div className="my-6 flex items-center gap-4">
-          <div className="h-px flex-1 bg-slate-100 dark:bg-white/[0.06]" />
-          <span className="text-[13px] text-slate-400 dark:text-white/25">or</span>
-          <div className="h-px flex-1 bg-slate-100 dark:bg-white/[0.06]" />
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-[13px] text-muted-foreground">or</span>
+          <div className="h-px flex-1 bg-border" />
         </div>
 
         <Button type="button" variant="secondary" fullWidth onClick={handleGoogleSignIn}>
           Continue with Google
         </Button>
 
-        <p className="mt-8 text-center text-[14px] text-slate-500 dark:text-white/40">
+        <p className="mt-8 text-center text-[14px] text-muted-foreground">
           Already have an account?{" "}
-          <Link href="/author/signin" className="font-medium text-slate-900 hover:underline dark:text-white">
+          <Link href="/author/signin" className="font-medium text-foreground hover:underline">
             Sign in
           </Link>
         </p>

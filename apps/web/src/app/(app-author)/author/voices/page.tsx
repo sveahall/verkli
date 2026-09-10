@@ -39,7 +39,7 @@ export default async function AuthorVoicesPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-6 py-10">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Voice library</h1>
+        <h1 className="author-page-title">Voice library</h1>
         <p className="text-sm text-muted-foreground">
           Voices you have cloned in ElevenLabs. Deleting a voice removes it
           from ElevenLabs as well (GDPR right-to-erasure).
@@ -48,7 +48,7 @@ export default async function AuthorVoicesPage() {
 
       {voices.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-8 text-center">
-          <h2 className="text-lg font-semibold tracking-tight">No voices yet</h2>
+          <h2 className="author-section-title text-lg font-medium tracking-tight">No voices yet</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Voice cloning recorder ships in the next iteration. For now, you
             can clone voices via the ElevenLabs dashboard and they will appear

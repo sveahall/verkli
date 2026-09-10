@@ -18,7 +18,7 @@ export function Card({ className, variant = "default", ...props }: CardProps) {
 }
 
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("border-b border-slate-200/80 px-6 py-4 dark:border-white/10", className)} {...props} />;
+  return <div className={cn("border-b border-border px-6 py-4", className)} {...props} />;
 }
 
 export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
@@ -26,5 +26,5 @@ export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDi
 }
 
 export function CardFooter({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("border-t border-slate-200/80 px-6 py-4 dark:border-white/10", className)} {...props} />;
+  return <div className={cn("border-t border-border px-6 py-4", className)} {...props} />;
 }
