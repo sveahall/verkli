@@ -11,7 +11,7 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getStripeCheckoutSession } from "@/lib/payments/stripe";
+import { getStripeCheckoutSession, type StripeCheckoutSession } from "@/lib/payments/stripe";
 import { TA_FOR_ER_DOWNLOAD_BUCKET, TA_FOR_ER_EBOOK_FORMATS } from "./ta-for-er";
 
 export type TaForErFormat = (typeof TA_FOR_ER_EBOOK_FORMATS)[number];
@@ -26,15 +26,27 @@ export type TaForErFormat = (typeof TA_FOR_ER_EBOOK_FORMATS)[number];
 export async function sessionEntitlesDownload(sessionId: string): Promise<boolean> {
   if (!sessionId) return false;
   try {
-    const session = await getStripeCheckoutSession(sessionId);
-    return (
-      session.payment_status === "paid" &&
-      session.metadata?.payment_kind === "book_order" &&
-      session.metadata?.order_variant === "ebook"
-    );
+    const session = await getStripeCheckoutSession(sessionId, { expandPayment: true });
+    return checkoutEntitlesDownload(session);
   } catch {
     return false;
   }
+}
+
+/** Shared by the confirmation page and the download route. */
+export function checkoutEntitlesDownload(session: StripeCheckoutSession): boolean {
+  const intent = session.payment_intent;
+  const charge = intent && typeof intent === "object" ? intent.latest_charge : null;
+  // A checkout's historical "paid" status does not revoke a refunded order.
+  // Check the current charge on every new download, matching the platform's
+  // full-refund/dispute rule. Stripe keeps refunded=false for partial refunds.
+  return (
+    session.payment_status === "paid" &&
+    session.metadata?.payment_kind === "book_order" &&
+    session.metadata?.order_variant === "ebook" &&
+    !!charge && typeof charge === "object" &&
+    charge.paid === true && charge.refunded === false && charge.disputed === false
+  );
 }
 
 /**

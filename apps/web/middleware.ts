@@ -37,6 +37,17 @@ const BETA_LOCK_AUTH_PATHS: ReadonlySet<string> = new Set([
   '/author/forgot-password',
 ])
 
+// These GET handlers enforce admin/ops access themselves. Site-access gates
+// must not prevent monitoring (or Stripe's own signature verifier) from running.
+const HEALTH_READ_PATHS: ReadonlySet<string> = new Set([
+  '/api/health',
+  '/api/health/workers',
+  '/api/health/workers/crashes',
+  '/api/health/queue',
+  '/api/health/metrics/queue',
+])
+const PUBLIC_BUYER_PATHS: ReadonlySet<string> = new Set(['/privacy', '/terms', '/support'])
+
 /**
  * Products whose order routes are public by design and must survive BOTH site
  * locks. The book sale is the point of the waitlist page and is deliberately
@@ -178,6 +189,18 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Stripe has no browser session. Only the exact POST route is exempt, and
+  // it still rejects missing/invalid HMAC signatures in its route handler.
+  if (
+    (method === 'POST' && request.nextUrl.pathname === '/api/stripe/webhook') ||
+    // The public support form needs to work for visitors awaiting an invite.
+    // CSRF has already run; the handler validates and rate-limits submissions.
+    (method === 'POST' && request.nextUrl.pathname === '/api/feedback') ||
+    (method === 'GET' && HEALTH_READ_PATHS.has(request.nextUrl.pathname))
+  ) {
+    return NextResponse.next()
+  }
+
   const waitlistOnly = process.env.NEXT_PUBLIC_WAITLIST_ONLY === 'true'
 
   if (waitlistOnly) {
@@ -242,7 +265,7 @@ export async function middleware(request: NextRequest) {
     const isHealth = p === '/api/health'
 
     const allowed =
-      isWaitlist || isApiWaitlist || isOrder || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth
+      isWaitlist || isApiWaitlist || isOrder || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth || PUBLIC_BUYER_PATHS.has(p)
     if (!allowed) {
       const url = request.nextUrl.clone()
       url.pathname = '/waitlist'
@@ -325,7 +348,7 @@ export async function middleware(request: NextRequest) {
     const isAuthEntry = BETA_LOCK_AUTH_PATHS.has(p)
     // Publish the author landing page and its explanation CTA during beta.
     // Exact matches keep /author/home and all other workspace routes gated.
-    const isPublicMarketing = p === '/author' || p === '/how-it-works'
+    const isPublicMarketing = ['/author', '/how-it-works', '/product', '/pricing', '/faq'].includes(p) || PUBLIC_BUYER_PATHS.has(p)
 
     // BETA_LOCK restricts the *platform* to invited users; the book sale is not
     // part of the platform. Without this an order POST 403s the moment the lock
@@ -388,6 +411,7 @@ export async function middleware(request: NextRequest) {
       }
       const url = request.nextUrl.clone()
       url.pathname = '/waitlist'
+      if (user) url.searchParams.set('access', 'pending')
       return NextResponse.redirect(url, 307)
     }
   }
