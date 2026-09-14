@@ -5,6 +5,26 @@
 > executed). Keep that file for the Fly runbook if we ever move; this file is what
 > production actually uses.
 
+## 14 September 2026 — worker runtime incident
+
+An import attempted at 12:16 UTC failed twice with `Node.js detected but native WebSocket not found`. Every worker Dockerfile still used Node 20, below the repository's Node 22.12 minimum. Supabase client construction failed before the import's error handler, leaving its database row pending at 0% with no error message. A running container was therefore not proof that imports worked.
+
+The runtime hotfix is based on the exact deployed revision `154a3531`, separate from the unshipped translation quality branch. All worker images now use `node:22-alpine`, matching the web image. Every worker image runs `infra/docker/check-worker-runtime.cjs` after installing dependencies: it requires native WebSocket support and constructs the actual Supabase client with dummy values, without a network request. The reproduced Node 20 failure passes on Node 22.
+
+The import and audiobook images built successfully on Railway; the image check reported Node `v22.23.2` and successful Supabase initialization. Both services then logged startup on their production queues. Initial hotfix deployment IDs: import `ff08acb9-71f3-4e46-9957-18bda3e94900`, audiobook `8c521ab0-423f-4e12-ada6-fd713d02b160`.
+
+The identified stuck upload was recovered with its original Supabase file through the corrected local import worker, using the same production database and with translation auto-enqueue disabled. It completed at 100% and persisted three chapters. Its old failed production queue entry was not bulk-retried or removed. This recovery verifies real extraction and persistence; it is distinct from a fresh job consumed by the newly deployed production container. No audiobook generation or listening test was performed in this incident pass.
+
+Verification: the deployed revision's 1,744 tests and lint passed. Local Node 20 reproduced the same Supabase construction failure; Node 22 passed. The Docker image build check prevents that mismatch from deploying again.
+
+Operator QA:
+1. Check the build logs for `[worker runtime] Supabase client initialized` and Node 22 or later.
+2. Check deployment startup for `book-import-extract` / `audiobook-generation` on the production Redis, with no WebSocket error.
+3. Reload the recovered import in the author library: it must show completed, 100%, and three saved chapters.
+4. Submit a new short authorized test import; verify production logs and saved chapters, then separately generate and listen to a short authorized audio sample before claiming full audio QA.
+
+Older sections below describe earlier deployment phases; their Node/Opus assumptions do not supersede the incident evidence above.
+
 ## What runs where
 
 | Concern | Platform | Notes |

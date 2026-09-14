@@ -1,9 +1,8 @@
 # Next.js web app — the Vercel replacement.
 # Build from repo root:  docker build -f infra/docker/Dockerfile.web .
 #
-# Node 22, not the node:20-alpine the worker images use: the root package.json
-# declares `engines: { node: ">=22.12.0" }`. The workers predate that bump and
-# are technically running under their declared floor; do not copy them here.
+# Node 22 matches the worker images and the root package.json requirement
+# `engines: { node: ">=22.12.0" }`. Supabase requires native WebSocket support.
 #
 # THE ONE THING THAT WILL BITE YOU: every NEXT_PUBLIC_* value is inlined into
 # the client bundle at BUILD time, not read at runtime. Setting them only as
