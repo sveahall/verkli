@@ -418,6 +418,7 @@ export default function WaitlistPage() {
   });
   // Detect client mount via useSyncExternalStore instead of useEffect + setState
   const hydrated = useSyncExternalStore(_subNoop, () => true, () => false);
+  const accessPending = hydrated && new URLSearchParams(window.location.search).get("access") === "pending";
 
   const handleSuccess = (position: number) => {
     setQueuePosition(position);
@@ -484,6 +485,17 @@ export default function WaitlistPage() {
           <a href="#join-waitlist" className="wl-nav-cta">Get early access <ArrowUpRight size={14} aria-hidden="true" /></a>
         </nav>
       </header>
+
+      {accessPending && (
+        <aside className="wl-shell mt-6 rounded-2xl border border-border bg-accent px-6 py-5" role="status">
+          <p className="font-medium">You’re signed in. This account is waiting for early access.</p>
+          <p className="mt-2 text-sm text-muted-foreground">An account and a beta invitation are separate. Already invited? Sign in with the email address that received your invitation.</p>
+          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            <a href="/author/signin" className="underline underline-offset-4">Use another account</a>
+            <a href="/support" className="underline underline-offset-4">Contact support</a>
+          </div>
+        </aside>
+      )}
 
       <section className="wl-hero wl-shell" aria-labelledby="waitlist-heading">
         <div className="wl-hero-copy">

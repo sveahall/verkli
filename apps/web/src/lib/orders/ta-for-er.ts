@@ -43,9 +43,8 @@ export const TA_FOR_ER_PRODUCT_NAME = `${TA_FOR_ER_ORDER.bookTitle} — ${TA_FOR
  * never claim something is in the post.
  *
  * Delivery is a short-lived signed URL from a PRIVATE storage bucket, issued
- * only after Stripe confirms the session is paid. Nothing is emailed yet, so
- * the success page is currently the only way to the file — see the note in
- * api/order/ta-for-er/download/route.ts.
+ * only after Stripe confirms the session is paid. The paid-order webhook
+ * emails a return link to the success page, where fresh URLs are issued.
  */
 export const TA_FOR_ER_EBOOK = {
   /** Price in minor units (öre). 75 kr, no shipping. */
