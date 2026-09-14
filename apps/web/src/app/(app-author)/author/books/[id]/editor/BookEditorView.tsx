@@ -517,6 +517,7 @@ export default function BookEditorView({
       )}
       <WorkspaceLayout
         asideLabel="AI Assistant"
+        asideId="book-ai-assistant"
         asideOpen={assistantOpen}
         onAsideClose={() => setAssistantOpen(false)}
         aside={
@@ -524,6 +525,7 @@ export default function BookEditorView({
             bookId={book.id}
             chapterId={selectedChapterId}
             variant="dock"
+            activeTool={tool}
             onClose={() => setAssistantOpen(false)}
             pendingRequest={pendingAiRequest}
             onPendingRequestHandled={() => setPendingAiRequest(null)}
@@ -563,7 +565,8 @@ export default function BookEditorView({
             <button
               type="button"
               onClick={() => setAssistantOpen((open) => !open)}
-              aria-pressed={assistantOpen}
+              aria-expanded={assistantOpen}
+              aria-controls="book-ai-assistant"
               title="AI Assistant (⌘I)"
               className={`inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition ${
                 assistantOpen

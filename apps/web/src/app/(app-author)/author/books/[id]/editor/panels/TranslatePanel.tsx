@@ -409,7 +409,7 @@ export default function TranslatePanel({
       </div>
 
       {/* Two cards */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 @min-[760px]/book-panel:grid-cols-2">
         <div className="overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-black/5 dark:bg-card dark:ring-white/10">
           <div className="space-y-5 px-6 py-6">
             <div>

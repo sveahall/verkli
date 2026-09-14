@@ -111,7 +111,7 @@ export default function BookEditorPanelContent({
   demoMode = false,
 }: BookEditorPanelContentProps) {
   return (
-    <div className="w-full overflow-hidden rounded-2xl border border-black/[0.04] bg-card shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-border dark:bg-card dark:shadow-none">
+    <div className="@container/book-panel w-full min-w-0 rounded-2xl border border-border bg-card shadow-surface-sm">
       <BookWorkflowHeader
         bookId={bookId}
         activeTool={tool}
@@ -119,7 +119,7 @@ export default function BookEditorPanelContent({
         bare
         compact
       />
-      <div className="min-h-[calc(100vh-14rem)] px-6 pb-10 pt-4 sm:px-10">
+      <div className="min-w-0 px-4 pb-8 pt-6 @min-[680px]/book-panel:px-8 @min-[680px]/book-panel:pt-8">
 
         {tool === "cover" && (
           <CoverPanel

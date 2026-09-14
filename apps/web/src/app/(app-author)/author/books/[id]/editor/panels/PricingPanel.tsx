@@ -39,7 +39,7 @@ export default function PricingPanel({
 }: PricingPanelProps) {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <h2 className="author-section-title text-[clamp(20px,2.5vw,24px)] font-medium tracking-[-0.02em] text-foreground dark:text-foreground">Pricing and distribution</h2>
+      <h2 className="font-display text-[clamp(24px,3vw,32px)] font-medium tracking-tight text-foreground dark:text-foreground">Pricing and distribution</h2>
 
       <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-border dark:bg-card dark:shadow-none space-y-4">
         <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Price and currency</h3>

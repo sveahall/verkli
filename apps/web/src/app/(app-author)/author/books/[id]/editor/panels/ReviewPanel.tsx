@@ -227,7 +227,7 @@ export default function ReviewPanel({
   return (
     <div className="mx-auto max-w-4xl space-y-5">
       {/* ── Hero: Book identity ── */}
-      <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-border dark:bg-card sm:grid-cols-[140px_1fr]">
+      <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-border dark:bg-card @min-[600px]/book-panel:grid-cols-[140px_1fr]">
         <div className="relative mx-auto aspect-[3/4] w-[140px] overflow-hidden rounded-xl border border-black/[0.06] bg-background shadow-sm dark:border-border dark:bg-card sm:mx-0">
           {coverImageUrl ? (
             <Image src={coverImageUrl} alt="Book cover" fill sizes="140px" className="object-cover" unoptimized={requiresUnoptimizedImage(coverImageUrl)} />
@@ -255,7 +255,7 @@ export default function ReviewPanel({
           <h2 className="author-section-title mt-2 text-xl font-medium tracking-tight text-foreground dark:text-foreground">
             {bookTitle}
           </h2>
-          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-3">
+          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-xs @min-[600px]/book-panel:grid-cols-3">
             <div>
               <span className="text-muted-foreground dark:text-muted-foreground">Chapters</span>
               <p className="font-semibold text-foreground dark:text-foreground">{chapters.length}</p>
@@ -392,7 +392,7 @@ export default function ReviewPanel({
 
       {/* ── Assets ── */}
       <Section title="Assets">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 @min-[600px]/book-panel:grid-cols-3">
           <button
             type="button"
             onClick={() => onNavigate("cover")}

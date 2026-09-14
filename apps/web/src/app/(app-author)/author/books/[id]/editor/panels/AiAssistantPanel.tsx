@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowUpRight, MessageSquareText } from "lucide-react";
+import type { Tool } from "../bookEditor.shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { InlineAiAction } from "@/features/book-workspace/types";
@@ -35,6 +37,7 @@ export type AiAssistantPanelProps = {
    */
   variant?: "page" | "dock";
   onClose?: () => void;
+  activeTool?: Tool;
 };
 
 type ChatMessage = {
@@ -66,17 +69,26 @@ const ACTION_PROMPTS: Partial<Record<InlineAiAction, string>> = {
  */
 const MAX_SELECTION_CHARS = 2000;
 
-const QUICK_PROMPTS = [
+const WRITING_PROMPTS = [
   "How can I make this chapter open stronger?",
   "Where does the pacing sag?",
   "Give me three alternative titles for this book.",
 ] as const;
+
+const PANEL_PROMPTS: Partial<Record<Tool, readonly string[]>> = {
+  cover: ["Suggest three visual directions for this book cover.", "Help me write a cover image prompt that fits the story.", "What mood and color palette would suit this book?"],
+  audiobook: ["Which passages may be difficult to read aloud?", "Help me prepare a pronunciation checklist.", "What should I listen for when reviewing the narration?"],
+  translate: ["Which names and terms should stay consistent in translation?", "Describe the author's voice for a translator.", "Which cultural references need special attention?"],
+  publish: ["Help me write a description based on this manuscript.", "Suggest keywords that fit this story.", "Help me check my book description for spoilers."],
+  review: ["Help me check my book description for spoilers.", "What should I check before publishing?", "Help me prepare a final manuscript review."],
+};
 
 export default function AiAssistantPanel({
   bookId,
   chapterId,
   variant = "page",
   onClose,
+  activeTool = "edit",
   pendingRequest,
   onPendingRequestHandled,
 }: AiAssistantPanelProps) {
@@ -84,7 +96,8 @@ export default function AiAssistantPanel({
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const transcriptEndRef = useRef<HTMLDivElement | null>(null);
+  const transcriptRef = useRef<HTMLDivElement | null>(null);
+  const quickPrompts = PANEL_PROMPTS[activeTool] ?? WRITING_PROMPTS;
 
   const send = useCallback(
     async (message: string, selectedText: string | null) => {
@@ -173,7 +186,8 @@ export default function AiAssistantPanel({
   }, [pendingRequest, send, onPendingRequestHandled]);
 
   useEffect(() => {
-    transcriptEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const transcript = transcriptRef.current;
+    if (transcript) transcript.scrollTop = transcript.scrollHeight;
   }, [messages.length, sending]);
 
   const handleSubmit = () => {
@@ -222,7 +236,7 @@ export default function AiAssistantPanel({
                 AI Assistant
               </h2>
               <p className="mt-0.5 text-[13px] leading-snug text-muted-foreground dark:text-muted-foreground">
-                Select text in the editor for targeted suggestions.
+                {activeTool === "edit" ? "Select a passage for focused writing feedback." : "Explore ideas using your book as context."}
               </p>
             </div>
             {onClose ? (
@@ -240,30 +254,36 @@ export default function AiAssistantPanel({
           </div>
         ) : null}
         <div
+          ref={transcriptRef}
+          role="log"
+          aria-label="Conversation"
+          aria-live="polite"
           className={
             isDock
-              ? "min-h-0 flex-1 space-y-4 overflow-y-auto p-4"
+              ? "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4"
               : "max-h-[420px] min-h-[220px] space-y-4 overflow-y-auto p-5"
           }
         >
           {messages.length === 0 && !sending && (
             <div className={isDock ? "space-y-2.5 py-2" : "space-y-3 py-6 text-center"}>
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
-                Nothing asked yet. Try one of these:
-              </p>
+              <div className="pb-4 pt-3">
+                <MessageSquareText className="mb-4 h-6 w-6 text-accent-foreground" strokeWidth={1.5} aria-hidden />
+                <h3 className="font-display text-xl text-foreground">A fresh perspective.</h3>
+                <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">Start with a question, or explore one of these ideas.</p>
+              </div>
               <div className={isDock ? "flex flex-col gap-2" : "flex flex-wrap justify-center gap-2"}>
-                {QUICK_PROMPTS.map((prompt) => (
+                {quickPrompts.map((prompt) => (
                   <button
                     key={prompt}
                     type="button"
-                    onClick={() => send(prompt, null)}
+                    onClick={() => { setInput(prompt); document.getElementById(`assistant-input-${bookId}`)?.focus(); }}
                     className={
                       isDock
-                        ? "w-full rounded-xl border border-border/80 bg-card px-3 py-2.5 text-left text-[13px] leading-snug text-muted-foreground transition-colors hover:border-[#907AFF]/40 hover:text-foreground dark:border-border dark:bg-card dark:text-foreground dark:hover:text-foreground"
+                        ? "flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-border/80 bg-background/50 px-3 py-3 text-left text-[13px] leading-snug text-muted-foreground transition-colors hover:border-[#907AFF]/40 hover:text-foreground dark:border-border dark:bg-card dark:text-foreground dark:hover:text-foreground"
                         : "rounded-full border border-black/[0.06] bg-white/70 px-3 py-1.5 text-[13px] text-muted-foreground transition-colors hover:border-[#907AFF]/40 hover:text-foreground dark:border-border dark:bg-card dark:text-foreground dark:hover:text-foreground"
                     }
                   >
-                    {prompt}
+                    <span>{prompt}</span><ArrowUpRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
                   </button>
                 ))}
               </div>
@@ -279,7 +299,7 @@ export default function AiAssistantPanel({
                   : "mr-auto max-w-[85%] rounded-2xl rounded-bl-md bg-muted px-4 py-3 text-[15px] leading-relaxed text-foreground dark:bg-card dark:text-foreground"
               }
             >
-              <p className="whitespace-pre-wrap">{message.content}</p>
+              <p className="whitespace-pre-wrap break-words">{message.content}</p>
               {message.role === "assistant" && message.source === "template" && (
                 <p className="mt-2 text-[11px] font-medium text-muted-foreground dark:text-muted-foreground">
                   Canned reply — the AI model was unavailable.
@@ -297,7 +317,6 @@ export default function AiAssistantPanel({
             </div>
           )}
 
-          <div ref={transcriptEndRef} />
         </div>
 
         <div className={`shrink-0 border-t border-black/[0.05] dark:border-border ${isDock ? "p-4" : "p-5"}`}>
@@ -310,15 +329,16 @@ export default function AiAssistantPanel({
             </p>
           )}
           <Textarea
+            id={`assistant-input-${bookId}`}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 handleSubmit();
               }
             }}
-            placeholder="Ask the assistant about your manuscript…"
+            placeholder="Ask about your book…"
             aria-label="Message to the AI assistant"
             className={isDock ? "min-h-[64px]" : "min-h-[88px]"}
             maxLength={2000}

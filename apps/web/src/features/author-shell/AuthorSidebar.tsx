@@ -287,13 +287,14 @@ export default function AuthorSidebar({
         <div className="px-7 pb-8 pt-8">
           <Link href="/author/home" className="inline-flex items-center">
             <Image
-              src="/favicon.svg"
+              src="/logo-dark.svg"
               alt="Verkli"
               width={120}
               height={26}
-              className="h-[26px] w-auto"
+              className="h-[26px] w-auto dark:hidden"
               priority
             />
+            <Image src="/favicon.svg" alt="Verkli" width={120} height={26} className="hidden h-[26px] w-auto dark:block" />
           </Link>
           <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.2em] text-sidebar-foreground/45">Author studio</p>
         </div>

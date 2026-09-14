@@ -175,7 +175,7 @@ export default function PublishPanel({
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       {/* ── Hero card: book info + status ── */}
-      <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-border dark:bg-card sm:grid-cols-[120px_1fr]">
+      <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-border dark:bg-card @min-[600px]/book-panel:grid-cols-[120px_1fr]">
         {/* Cover thumbnail */}
         <div className="relative mx-auto aspect-[3/4] w-[120px] overflow-hidden rounded-xl border border-black/[0.06] bg-background shadow-sm dark:border-border dark:bg-card sm:mx-0">
           {coverImageUrl ? (
@@ -286,7 +286,7 @@ export default function PublishPanel({
       {/* ── Visibility selector ── */}
       <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
         <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">Visibility</h3>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 @min-[600px]/book-panel:grid-cols-3">
           {VISIBILITY_OPTIONS.map((option) => {
             const selected = publishVisibility === option.value;
             return (

@@ -114,7 +114,7 @@ export default function AudiobookPanel({
 }: AudiobookPanelProps) {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <h2 className="author-section-title text-[13px] font-medium uppercase tracking-[0.08em] text-foreground dark:text-foreground">AUDIOBOOK PREVIEW</h2>
+      <header><h2 className="font-display text-[clamp(24px,3vw,32px)] font-medium tracking-tight text-foreground">Give your words a voice.</h2><p className="mt-2 text-sm leading-relaxed text-muted-foreground">Create your audiobook, listen back, and review each chapter before publishing.</p></header>
 
       {/*
         Language badge (read-only — tied to the active book version).
@@ -143,7 +143,7 @@ export default function AudiobookPanel({
       />
 
       {/* Two cards side by side */}
-      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+      <div className="grid gap-6 @min-[760px]/book-panel:grid-cols-2 @min-[760px]/book-panel:items-start">
         {/* Left card: Generate audiobook */}
         <div className="rounded-2xl border border-border bg-card p-6 dark:border-border dark:bg-card">
           <h3 className="text-xl font-semibold text-foreground dark:text-foreground">Increase your sales</h3>
