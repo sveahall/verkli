@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
   let query = admin
     .from("profiles")
-    .select("user_id, role, display_name, username, created_at, preferences", { count: "exact" })
+    .select("user_id, role, display_name, username, created_at", { count: "exact" })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -40,6 +40,25 @@ export async function GET(request: Request) {
   const userIds = (data ?? []).map((p) => p.user_id as string);
   const emailMap = await getUserEmailMap(userIds);
 
+  // Read beta access from the same table used by the grant path and middleware.
+  // Surface read failures instead of incorrectly showing users as disabled.
+  const betaEnabledIds = new Set<string>();
+  if (userIds.length > 0) {
+    const { data: flags, error: flagsError } = await admin
+      .from("user_flags")
+      .select("user_id, beta_enabled")
+      .in("user_id", userIds);
+
+    if (flagsError) {
+      console.error("[admin/users] beta flag load failed:", flagsError.message);
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+
+    for (const row of flags ?? []) {
+      if (row.beta_enabled === true) betaEnabledIds.add(row.user_id as string);
+    }
+  }
+
   const users = (data ?? []).map((p) => ({
     user_id: p.user_id,
     email: emailMap.get(p.user_id as string) ?? null,
@@ -47,7 +66,7 @@ export async function GET(request: Request) {
     display_name: p.display_name,
     username: p.username,
     created_at: p.created_at,
-    beta_enabled: ((p.preferences as Record<string, unknown> | null)?.beta_enabled as boolean) ?? false,
+    beta_enabled: betaEnabledIds.has(p.user_id as string),
   }));
 
   return NextResponse.json({ users, total: count ?? 0, page, limit });

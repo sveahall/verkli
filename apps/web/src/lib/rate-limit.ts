@@ -77,6 +77,24 @@ function getSharedRedis(): Redis | null {
 }
 
 export function createPerUserRateLimiter(opts: {
+  /**
+   * Stable, unique identifier for THIS limiter, used as the Redis key prefix.
+   *
+   * Required, because the key used to be `rl:<userId>:<max>` — which carries no
+   * route identity, so every limiter sharing a `maxPerMinute` value shared one
+   * bucket per user. With Redis up, ~20 routes at max 5 (billing/checkout,
+   * billing/portal, donations, credits, order/ta-for-er, feedback,
+   * author-applications, audiobook + translate generation) drew from a single
+   * 5-per-minute allowance: generating an audiobook spent the budget for
+   * paying, and for contacting support.
+   *
+   * It never showed up locally: the in-memory fallback below allocates its own
+   * Map per limiter, so the buckets are isolated exactly when Redis is absent —
+   * i.e. in dev and in tests, and nowhere else.
+   *
+   * Keep these values unique and stable; changing one resets its counters once.
+   */
+  name: string;
   maxPerMinute: number;
   windowMs?: number;
 }) {
@@ -115,7 +133,7 @@ export function createPerUserRateLimiter(opts: {
   }
 
   async function checkRedis(redis: Redis, userId: string): Promise<RateLimitResult> {
-    const key = `rl:${userId}:${max}`;
+    const key = `rl:${opts.name}:${userId}`;
 
     try {
       // Atomic INCR + EXPIRE via Lua script to avoid TOCTOU race condition.

@@ -46,7 +46,7 @@ export function buildEmailShell(opts: {
                 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
                   <tr>
                     <td align="center" style="padding-bottom:32px;">
-                      <img src="https://www.verkli.com/logo-dark.svg" width="90" height="22" alt="Verkli" style="display:block;" />
+                      <img src="https://www.verkli.com/logo-verkli.png?v=20260915" width="90" height="25" alt="Verkli" style="display:block;" />
                     </td>
                   </tr>
                   <tr>

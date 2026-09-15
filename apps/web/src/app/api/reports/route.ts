@@ -17,7 +17,7 @@ export const runtime = "nodejs";
 // partial-unique index on (reporter, target) stops accidental duplicates on
 // its own, but a per-user token bucket also keeps a malicious user from
 // spamming distinct targets.
-const reportLimiter = createPerUserRateLimiter({ maxPerMinute: 10 });
+const reportLimiter = createPerUserRateLimiter({ name: "reports", maxPerMinute: 10 });
 
 const TARGET_TYPES = ["comment", "review", "book", "message", "user", "other"] as const;
 const REASON_CODES = [

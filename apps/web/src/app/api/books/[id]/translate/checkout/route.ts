@@ -17,7 +17,7 @@ import {
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors"
 
-const checkoutLimiter = createPerUserRateLimiter({ maxPerMinute: 5 })
+const checkoutLimiter = createPerUserRateLimiter({ name: "books-translate-checkout", maxPerMinute: 5 })
 
 export const runtime = "nodejs"
 

@@ -5,8 +5,8 @@
 .lift { display:block; transform:rotate(-8deg); transform-style:preserve-3d; }
 .mark { display:block; width:100%; overflow:visible; filter:drop-shadow(0 12px 18px #07020b50); }
 .left,.right { transform-box:view-box; }
-.left { transform-origin:104px 144px; }
-.right { transform-origin:108px 142px; }
+.left { transform-origin:316px 390px; }
+.right { transform-origin:331px 390px; }
 .butterfly[data-visible=true] .left { animation:leftWing 1.6s cubic-bezier(.45,0,.25,1) 2; }
 .butterfly[data-visible=true] .right { animation:rightWing 1.6s cubic-bezier(.45,0,.25,1) 2; }
 .butterfly[data-flying=true] .lift { animation:takeFlight 1.7s cubic-bezier(.23,1,.32,1) both; }

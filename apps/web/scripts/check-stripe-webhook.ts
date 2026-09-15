@@ -2,8 +2,8 @@
  * Verify the live Stripe webhook endpoint is subscribed to exactly the events
  * the code handles.
  *
- *   npm run check:stripe-webhook              # report only, exit 0
- *   npm run check:stripe-webhook -- --strict  # exit 1 on any error
+ *   npm run check:stripe-webhook              # fail on errors; missing inputs skip
+ *   npm run check:stripe-webhook -- --strict  # also fail on skipped checks
  *
  * Why this exists
  * ---------------
@@ -93,6 +93,7 @@ async function main() {
   const all = (body.data ?? []) as StripeEndpoint[];
   const ours = all.filter((e) => e.url.endsWith(WEBHOOK_PATH));
   let compared = 0;
+  let wildcard = 0;
 
   console.log(`\n══ Stripe webhook subscription check — ${mode.toUpperCase()} mode ══\n`);
 
@@ -132,6 +133,7 @@ async function main() {
       console.log(
         "   ⚠ a wildcard delivers events with no handler too; those are answered 200 and dropped."
       );
+      wildcard++;
       continue;
     }
 
@@ -164,17 +166,18 @@ async function main() {
   if (errors.length > 0) {
     console.error(`❌  ${errors.length} problem${errors.length === 1 ? "" : "s"}:\n`);
     for (const e of errors) console.error(`   • ${e}\n`);
-    if (!strict) console.log("Reporting only — pass --strict to fail on these.\n");
-  } else if (compared === 0) {
+  } else if (compared === 0 && wildcard === 0) {
     // No endpoint was actually compared, so there is nothing to certify. Saying
     // "everything is subscribed" here would be the same lie the launch gate told
     // about STRIPE_SECRET_KEY: green because it never looked.
-    console.log("⏭  Nothing compared — no endpoint to check in this mode.\n");
+    skip("no endpoint to check in this mode");
+  } else if (wildcard > 0) {
+    console.log("✔  Every handled event is subscribed; wildcard endpoints also receive unhandled events.\n");
   } else {
     console.log("✔  Every handled event is subscribed, and nothing arrives without a handler.\n");
   }
 
-  process.exit(strict && errors.length > 0 ? 1 : 0);
+  process.exit(errors.length > 0 ? 1 : 0);
 }
 
 main().catch((err) => {

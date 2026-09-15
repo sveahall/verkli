@@ -375,7 +375,7 @@ export default function GlobalNavbar({
                 className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus:ring-offset-background"
               >
                 <Image
-                  src="/logo-dark.svg"
+                  src="/logo-dark.svg?v=20260915"
                   alt="Verkli"
                   width={796}
                   height={221}
@@ -383,7 +383,7 @@ export default function GlobalNavbar({
                   priority
                 />
                 <Image
-                  src="/favicon.svg"
+                  src="/favicon.svg?v=20260915"
                   alt="Verkli"
                   width={796}
                   height={221}

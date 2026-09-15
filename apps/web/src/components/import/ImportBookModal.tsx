@@ -46,12 +46,16 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   const isVisible = useDocumentVisible();
   const [importsList, setImportsList] = useState<ImportItem[]>([]);
   const [uploading, setUploading] = useState(false);
+  const uploadInFlightRef = useRef(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [statusLoaded, setStatusLoaded] = useState(false);
   const attestation = useRightsAttestation();
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [redisHint, setRedisHint] = useState(false);
   const [pendingImportIds, setPendingImportIds] = useState<string[]>([]);
+  const [unseenImportIds, setUnseenImportIds] = useState<string[]>([]);
   const [openedAtMs, setOpenedAtMs] = useState<number | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
 
@@ -69,19 +73,22 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
       const res = await fetch("/api/books/imports?limit=20", {
         signal: controller.signal,
       });
-      if (res.ok) {
-        const data = await res.json();
-        const normalized = ((data.imports as ImportItem[] | undefined) ?? []).map((item) => ({
-          ...item,
-          status: toImportStatus(item.status),
-        }));
-        setImportsList(normalized);
-      }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return;
-      }
-      setImportsList([]);
+      if (!res.ok) throw new Error("Import status request failed");
+      const data = await res.json();
+      if (!Array.isArray(data.imports)) throw new Error("Invalid import status response");
+      const normalized = (data.imports as ImportItem[]).map((item) => ({
+        ...item,
+        status: toImportStatus(item.status),
+      }));
+      // Aborted requests can still finish parsing; only the current read may win.
+      if (controller.signal.aborted || fetchAbortRef.current !== controller) return;
+      setImportsList(normalized);
+      setUnseenImportIds((ids) => ids.filter((id) => !normalized.some((item) => item.id === id)));
+      setStatusLoaded(true);
+      setStatusError(null);
+    } catch {
+      if (controller.signal.aborted || fetchAbortRef.current !== controller) return;
+      setStatusError("Could not refresh import status. We will try again, or you can retry now.");
     } finally {
       if (fetchAbortRef.current === controller) {
         fetchAbortRef.current = null;
@@ -94,8 +101,11 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
       fetchAbortRef.current?.abort();
       fetchAbortRef.current = null;
       setPendingImportIds([]);
+      setUnseenImportIds([]);
       setOpenedAtMs(null);
       setImportsList([]);
+      setStatusLoaded(false);
+      setStatusError(null);
       return;
     }
 
@@ -103,22 +113,25 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
     setSuccessMessage(null);
     setRedisHint(false);
     setPendingImportIds([]);
+    setUnseenImportIds([]);
     setOpenedAtMs(Date.now());
     fetchImports();
-  }, [open, fetchImports]);
-
-  useEffect(() => {
-    if (!open) return;
-    if (!isVisible) return;
-    const hasPending = importsList.some((i) => isJobActiveStatus(i.status));
-    if (!hasPending) return;
-    const t = setInterval(fetchImports, POLL_INTERVAL_MS);
     return () => {
-      clearInterval(t);
       fetchAbortRef.current?.abort();
       fetchAbortRef.current = null;
     };
-  }, [open, importsList, fetchImports, isVisible]);
+  }, [open, fetchImports]);
+
+  // Once observed, an old job falling outside the newest-20 window is not pending.
+  const shouldPoll = !statusLoaded || Boolean(statusError) || unseenImportIds.length > 0 || importsList.some((i) => isJobActiveStatus(i.status));
+  useEffect(() => {
+    if (!open || !isVisible || !shouldPoll) return;
+    const t = setInterval(() => {
+      // Do not continually abort a slow but healthy response.
+      if (!fetchAbortRef.current) void fetchImports();
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(t);
+  }, [open, shouldPoll, fetchImports, isVisible]);
 
   useEffect(() => {
     if (!open || !onImportComplete) return;
@@ -139,6 +152,8 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
   }, [open, importsList, onImportComplete, pendingImportIds, openedAtMs]);
 
   const handleFile = async (file: File) => {
+    // A ref also blocks two drops before React commits the disabled input.
+    if (uploadInFlightRef.current) return;
     // This modal uploads the moment a file lands, so the attestation has to
     // gate the drop itself rather than a submit button. The dropzone is also
     // disabled until it is complete; this is the belt for that brace.
@@ -159,6 +174,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
       setError("File is too large. Maximum size is 50 MB.");
       return;
     }
+    uploadInFlightRef.current = true;
     setError(null);
     setSuccessMessage(null);
     setRedisHint(false);
@@ -183,7 +199,11 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
       setSuccessMessage("Import started. Your file will be processed shortly.");
       const importId = data.id;
       if (importId) {
+        // An older status snapshot must not erase the just-accepted upload.
+        fetchAbortRef.current?.abort();
+        fetchAbortRef.current = null;
         setPendingImportIds((prev) => [...prev, importId]);
+        setUnseenImportIds((prev) => [...prev, importId]);
         setImportsList((prev) => [
           {
             id: importId,
@@ -214,6 +234,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
         err instanceof Error ? err.message : "Upload failed. Try again."
       );
     } finally {
+      uploadInFlightRef.current = false;
       setUploading(false);
     }
   };
@@ -334,7 +355,14 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
 
         <div className="p-6">
           <h3 className="mb-3 text-[14px] font-semibold text-foreground">Import status</h3>
-          {importsList.length === 0 ? (
+          {statusError && (
+            <div className="mb-3 space-y-2">
+              <p role="alert" className="text-sm text-red-700 dark:text-red-300">{statusError}</p>
+              <button type="button" className="btn-secondary" onClick={() => void fetchImports()}>Retry status</button>
+            </div>
+          )}
+          {!statusLoaded && !statusError && importsList.length === 0 && <p role="status" className="text-sm text-muted-foreground">Loading import status…</p>}
+          {importsList.length === 0 && statusLoaded && !statusError ? (
             <p className="text-[13px] text-muted-foreground">No imports yet.</p>
           ) : (
             <ul className="space-y-2">

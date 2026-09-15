@@ -34,7 +34,7 @@ function makeSupabaseMock(options?: {
     { id: "book-1", title: "North Star" },
   ];
   const audiobookAssets = options?.audiobookAssets ?? [
-    { book_id: "book-1", audio_path: "north-star/output.mp3", audio_bucket: "audiobooks", created_at: "2026-03-17T10:00:00.000Z" },
+    { book_id: "book-1", audio_path: "book-1/audiobook-1770000000000.mp3", audio_bucket: "audiobooks", created_at: "2026-03-17T10:00:00.000Z" },
   ];
   const audiobookJobs = options?.audiobookJobs ?? [
     {
@@ -176,11 +176,11 @@ describe("GET /api/author/jobs", () => {
       kind: "audiobook",
       bookId: "book-1",
       bookTitle: "North Star",
-      previewUrl: "https://signed.example.com/north-star/output.mp3",
+      previewUrl: "https://signed.example.com/book-1/audiobook-1770000000000.mp3",
     });
     expect(body.jobs[0].logSummary).toContain("Chapter 4");
     expect(body.jobs[0].meta).toMatchObject({
-      assetAudioUrl: "https://signed.example.com/north-star/output.mp3",
+      assetAudioUrl: "https://signed.example.com/book-1/audiobook-1770000000000.mp3",
       assetManifestUrl: null,
     });
     expect(body.jobs[1]).toMatchObject({
@@ -221,7 +221,7 @@ describe("GET /api/author/jobs", () => {
         audiobookAssets: [
           {
             book_id: "book-1",
-            audio_path: "north-star/audiobook-manifest.json",
+            audio_path: "book-1/audiobook-manifest-1770000000000.json",
             audio_bucket: "audiobooks",
             created_at: "2026-03-17T10:00:00.000Z",
           },
@@ -256,8 +256,8 @@ describe("GET /api/author/jobs", () => {
       previewUrl: null,
     });
     expect(body.jobs[0].meta).toMatchObject({
-      manifestUrl: "https://signed.example.com/north-star/audiobook-manifest.json",
-      assetManifestUrl: "https://signed.example.com/north-star/audiobook-manifest.json",
+      manifestUrl: "https://signed.example.com/book-1/audiobook-manifest-1770000000000.json",
+      assetManifestUrl: "https://signed.example.com/book-1/audiobook-manifest-1770000000000.json",
       assetAudioUrl: null,
     });
   });

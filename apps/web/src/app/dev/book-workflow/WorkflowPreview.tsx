@@ -9,11 +9,63 @@ import CoverPanel from "@/app/(app-author)/author/books/[id]/editor/panels/Cover
 import AiAssistantPanel from "@/app/(app-author)/author/books/[id]/editor/panels/AiAssistantPanel";
 import { COVER_TEMPLATES } from "@/app/(app-author)/author/books/[id]/editor/BookEditorView.helpers";
 import { Button } from "@/components/ui/button";
+import { ImportBookModal, type ImportItem } from "@/components/import/ImportBookModal";
+import PricingPanel from "@/app/(app-author)/author/books/[id]/editor/panels/PricingPanel";
+import PublishPanel from "@/app/(app-author)/author/books/[id]/editor/panels/PublishPanel";
 
 const PREVIEW_BOOK = "workflow-preview";
 
+function AuthorDetailsPreview() {
+  const [ready, setReady] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [price, setPrice] = useState(4900);
+  const [currency, setCurrency] = useState("SEK");
+  const [model, setModel] = useState<"book_only" | "per_chapter">("book_only");
+  const [saved, setSaved] = useState("");
+  useEffect(() => {
+    const originalFetch = window.fetch;
+    const imports: ImportItem[] = [];
+    // Install before mounting the forms: even blur/autosave stays local.
+    window.fetch = async (input, init) => {
+      const requestUrl = new URL(input instanceof Request ? input.url : String(input), location.origin);
+      if (requestUrl.pathname === "/api/books/imports") return Response.json({ imports });
+      if (requestUrl.pathname === "/api/books/import") {
+        const file = init?.body instanceof FormData ? init.body.get("file") : null;
+        const item: ImportItem = { id: crypto.randomUUID(), file_name: file instanceof File ? file.name : "Sample.txt", status: "pending", progress: 0, error: null, book_id: null, created_at: new Date().toISOString() };
+        imports.unshift(item);
+        return Response.json(item);
+      }
+      if (requestUrl.pathname.startsWith("/rest/v1/")) return Response.json([]);
+      return originalFetch(input, init);
+    };
+    const readyTimer = window.setTimeout(() => setReady(true), 0);
+    return () => { window.clearTimeout(readyTimer); window.fetch = originalFetch; };
+  }, []);
+  if (!ready) return <p role="status">Preparing local forms…</p>;
+  return (
+    <section aria-label="F1 component preview" className="mx-auto max-w-4xl space-y-6 px-4 py-8">
+      <p className="text-sm text-muted-foreground">F1 component preview · Synthetic data and mocked writes. No import worker, database save or publication.</p>
+      <Button onClick={() => setImportOpen(true)}>Preview import</Button>
+      <ImportBookModal open={importOpen} onClose={() => setImportOpen(false)} />
+      <PricingPanel chapters={[]} priceAmountMinor={price} setPriceAmountMinor={setPrice} priceCurrency={currency} setPriceCurrency={setCurrency}
+        pricingModel={model} setPricingModel={setModel} pricingSaving={false} pricingDirty
+        pricingError={null} pricingSaved={false} handleSavePricing={() => setSaved(`${price} ${currency} ${model}`)}
+        isPublished={false} stripeConfigured={false} currentVisibility="private" />
+      <output aria-label="Mock saved pricing">{saved}</output>
+      <Button variant="secondary" onClick={() => setPrice(2750)}>Reload sample price</Button>
+      <PublishPanel bookId={PREVIEW_BOOK} bookTitle="F1 sample book" bookDescription="Sample description" authorDisplayName="Sample author"
+        coverImageUrl={null} chapters={[]} selectedChapterId={null} bookVersions={[]} isPublished={false} publishVisibility="private"
+        publishedChapterCount={0} missingPublishRequirements={["Add a chapter before publishing."]} publishDisabled chapterPublishDisabled
+        selectedChapterAlreadyPublished={false} visibilityChanged={false} isPublishing={false} publishError={null} confirmPublishAction={null} confirmCopy={null}
+        onVisibilityChange={() => {}} onPublishFull={() => {}} onPublishChapter={() => {}} onUpdateSettings={() => {}} onUnpublish={() => {}}
+        onConfirm={() => {}} onCancelConfirm={() => {}} onChapterPublishToggle={() => {}} onSelectChapter={() => {}} onOpenCover={() => {}} />
+    </section>
+  );
+}
+
 /** Local component fixture. No credentials, provider requests or book writes. */
 export default function WorkflowPreview() {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [template, setTemplate] = useState<string | null>(COVER_TEMPLATES[0].id);
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -53,8 +105,8 @@ export default function WorkflowPreview() {
   return (
     <div className="grid min-h-screen bg-background text-foreground lg:grid-cols-[232px_minmax(0,1fr)]">
       <aside className="hidden h-screen border-r border-sidebar-border bg-sidebar p-6 text-sidebar-foreground lg:sticky lg:top-0 lg:block">
-        <Image src="/logo-dark.svg" alt="Verkli" width={132} height={36} className="mb-12 h-9 w-auto dark:hidden" />
-        <Image src="/favicon.svg" alt="Verkli" width={132} height={36} className="mb-12 hidden h-9 w-auto dark:block" />
+        <Image src="/logo-dark.svg?v=20260915" alt="Verkli" width={132} height={36} className="mb-12 h-9 w-auto dark:hidden" />
+        <Image src="/favicon.svg?v=20260915" alt="Verkli" width={132} height={36} className="mb-12 hidden h-9 w-auto dark:block" />
         <div className="mb-6 flex items-center gap-3 text-sm"><Library size={18} /> Library</div>
         <p className="mb-5 truncate text-xs text-sidebar-foreground/60">Den sista färjan</p>
         {[{ label: "Write", icon: PenLine }, { label: "AI Assistant", icon: Sparkles }, { label: "Cover", icon: ImageIcon }, { label: "Audio", icon: Headphones }, { label: "Publish", icon: BookOpen }].map(({ label, icon: Icon }) => (
@@ -88,6 +140,8 @@ export default function WorkflowPreview() {
             </div>
           </div>}
         />
+        <div className="px-4 py-6"><Button variant="secondary" onClick={() => setDetailsOpen(!detailsOpen)} aria-expanded={detailsOpen}>F1 details</Button></div>
+        {detailsOpen && <AuthorDetailsPreview />}
       </div>
     </div>
   );

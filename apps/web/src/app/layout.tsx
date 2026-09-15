@@ -42,10 +42,10 @@ export const metadata: Metadata = {
   description: "Verkli — the platform for authors and readers.",
   icons: {
     icon: [
-      { url: "/favi.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/favi.svg?v=20260915", type: "image/svg+xml" },
+      { url: "/favicon.ico?v=20260915", sizes: "32x32" },
     ],
-    apple: "/apple-touch-icon.png",
+    apple: "/apple-touch-icon.png?v=20260915",
   },
   openGraph: {
     siteName: "Verkli",

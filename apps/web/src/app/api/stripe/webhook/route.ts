@@ -2,6 +2,7 @@ import { STRIPE_API_VERSION } from "@/lib/payments/stripe";
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendBookDownloadEmail } from "@/lib/payments/book-download-email";
 import {
   apiError,
   E_GENERIC_ERROR,
@@ -91,6 +92,21 @@ export async function POST(request: Request) {
   }
 
   if (eventState === "duplicate") {
+    // A claim may survive a failed send/rollback or process exit. Recover only
+    // paid standalone e-book email; never replay generic payment side effects.
+    const session = asRecord(event.data?.object);
+    if (session && (type === "checkout.session.completed" || type === "checkout.session.async_payment_succeeded")) {
+      try {
+        await sendBookDownloadEmail(admin, session);
+      } catch (error) {
+        console.error("[stripe.webhook] duplicate book delivery failed", {
+          eventId,
+          type,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return apiError(E_GENERIC_ERROR, 500);
+      }
+    }
     return NextResponse.json({ received: true, duplicate: true });
   }
 

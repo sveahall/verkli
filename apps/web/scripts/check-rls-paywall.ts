@@ -1,8 +1,8 @@
 /**
  * Fail if the chapters paywall can be read around.
  *
- *   npm run check:rls-paywall              # report only, exit 0
- *   npm run check:rls-paywall -- --strict  # exit 1 on any error
+ *   npm run check:rls-paywall              # fail on errors; missing inputs skip
+ *   npm run check:rls-paywall -- --strict  # also fail on skipped checks
  *
  * Why this exists
  * ---------------
@@ -26,7 +26,7 @@
  *      exist.
  *   2. Behaviour — the anon key cannot read chapters of any published paid
  *      book. Catches a policy that is single but wrong. Skipped with a clear
- *      message when nothing paid is published, which is the normal state.
+ *      message when no published paid book with a chapter is available.
  *
  * A skip is not a pass: without credentials it reports SKIPPED and, under
  * --strict, exits 1.
@@ -95,15 +95,14 @@ async function main() {
   });
 
   if (!invRes.ok) {
-    const body = await invRes.text();
     if (invRes.status === 404) {
-      skip(
+      console.error(
         "public.policy_inventory() is missing — run `cd apps/web && npx supabase db push` " +
           "(migration 20260910150000)"
       );
     }
-    console.error(`✖  policy_inventory failed: HTTP ${invRes.status} ${body.slice(0, 200)}\n`);
-    process.exit(strict ? 1 : 0);
+    console.error(`✖  policy_inventory failed: HTTP ${invRes.status}\n`);
+    process.exit(1);
   }
 
   const policies = (await invRes.json()) as PolicyRow[];
@@ -154,41 +153,72 @@ async function main() {
     `${SUPABASE_URL}/rest/v1/books?select=id,title,price_amount&published=is.true&price_amount=gt.0&limit=1`,
     { headers: svc }
   );
-  const paidBooks = paidRes.ok ? ((await paidRes.json()) as Array<{ id: string; title: string }>) : [];
+  if (!paidRes.ok) throw new Error(`Published paid-book lookup failed: HTTP ${paidRes.status}`);
+  const paidBooks = (await paidRes.json()) as Array<{ id: string; title: string }>;
+  if (!Array.isArray(paidBooks)) throw new Error("Published paid-book lookup returned a non-array response");
+  let behaviourSkipped: string | null = null;
 
   if (paidBooks.length === 0) {
-    console.log(`\nbehaviour check: no published paid book exists, so there is nothing to probe.`);
-    console.log(`   (the shape check above is what guards the paywall in this state)`);
+    behaviourSkipped = "behaviour check: no published paid book exists, so there is nothing to probe";
   } else {
     const book = paidBooks[0];
-    const leak = await fetch(
-      `${SUPABASE_URL}/rest/v1/chapters?select=id&book_id=eq.${book.id}&limit=1`,
-      { headers: anon }
-    );
-    const rows = leak.ok ? ((await leak.json()) as unknown[]) : [];
-    if (rows.length > 0) {
-      problems.push(
-        `anon read a chapter of the published PAID book "${book.title}" (${book.id}). ` +
-          `The paywall is open right now.`
-      );
+    if (!book || typeof book.id !== "string" || !book.id) throw new Error("Paid-book lookup returned no valid book id");
+    const chaptersUrl = `${SUPABASE_URL}/rest/v1/chapters?select=id&book_id=eq.${encodeURIComponent(book.id)}&limit=1`;
+    const chapterRes = await fetch(chaptersUrl, { headers: svc });
+    if (!chapterRes.ok) throw new Error(`Paid-book chapter lookup failed: HTTP ${chapterRes.status}`);
+    const chapters = (await chapterRes.json()) as unknown[];
+    if (!Array.isArray(chapters)) throw new Error("Paid-book chapter lookup returned a non-array response");
+    if (chapters.length === 0) {
+      behaviourSkipped = `behaviour check: the paid book "${book.title}" has no chapter to probe`;
     } else {
-      console.log(`\nbehaviour check: anon reads 0 chapters of the paid book "${book.title}" ✓`);
+      const leak = await fetch(chaptersUrl, { headers: anon });
+      if (!leak.ok) {
+        const denial = await leak.json();
+        // Auth/gateway failures do not prove isolation. Accept only Postgres'
+        // chapter-table denial, with a readable public-book control for this key.
+        if ((leak.status !== 401 && leak.status !== 403) || denial?.code !== "42501" ||
+            denial?.message !== "permission denied for table chapters") {
+          throw new Error(`Anonymous chapter probe failed: HTTP ${leak.status}; access was not verified`);
+        }
+        const control = await fetch(
+          `${SUPABASE_URL}/rest/v1/books?select=id&id=eq.${encodeURIComponent(book.id)}&limit=1`,
+          { headers: anon }
+        );
+        if (!control.ok) throw new Error(`Anonymous book control failed: HTTP ${control.status}`);
+        const visibleBooks = await control.json();
+        if (!Array.isArray(visibleBooks) || !visibleBooks.some((row) => row?.id === book.id)) {
+          throw new Error("Anonymous book control did not return the published paid book; access was not verified");
+        }
+        console.log(`\nbehaviour check: anon can read book metadata but is denied chapter-table access ✓`);
+      } else {
+        const rows = (await leak.json()) as unknown[];
+        if (!Array.isArray(rows)) throw new Error("Anonymous chapter probe returned a non-array response");
+        if (rows.length > 0) {
+          problems.push(
+            `anon read a chapter of the published PAID book "${book.title}" (${book.id}). ` +
+              `The paywall is open right now.`
+          );
+        } else {
+          console.log(`\nbehaviour check: anon reads 0 chapters of the paid book "${book.title}" ✓`);
+        }
+      }
     }
   }
 
   // ── Verdict ───────────────────────────────────────────────────────────────
   if (problems.length === 0) {
+    if (behaviourSkipped) skip(`${behaviourSkipped}; only policy shape was checked`);
     console.log(`\n✅ paywall intact\n`);
     process.exit(0);
   }
 
   console.log(`\n❌ ${problems.length} problem${problems.length === 1 ? "" : "s"}:\n`);
   for (const p of problems) console.log(`   • ${p}\n`);
-  if (!strict) console.log(`Reporting only — pass --strict to fail on these.\n`);
-  process.exit(strict ? 1 : 0);
+  if (behaviourSkipped) console.log(`⚠  SKIPPED — ${behaviourSkipped}\n`);
+  process.exit(1);
 }
 
 main().catch((err) => {
-  console.error(`\n✖  check crashed: ${err instanceof Error ? err.message : String(err)}\n`);
-  process.exit(strict ? 1 : 0);
+  console.error(`\n✖  check:rls-paywall crashed: ${err instanceof Error ? err.message : String(err)}\n`);
+  process.exit(1);
 });

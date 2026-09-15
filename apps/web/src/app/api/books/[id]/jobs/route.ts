@@ -9,20 +9,13 @@ import { resolveSanitizedJobError, sanitizeJobError } from "@/lib/sanitize-job-e
 import { getBookAsOwner } from "@/lib/books/service";
 import { apiError, E_BOOK_NOT_FOUND, E_DATABASE_ERROR, E_JOB_FETCH_FAILED, E_INVALID_BOOK_ID, isValidUuid } from "@/lib/api-errors";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
+import { validateAudiobookStoragePath } from "@/lib/tts/validate-storage-path";
 import { isCancelStale } from "@/lib/audiobook-stale-cancel";
 import type { Json } from "@/lib/supabase/types";
 import { asJsonObject } from "@/lib/supabase/json-object";
 
 type JobKind = "import" | "translation" | "audiobook";
 const SIGNED_URL_TTL_SECONDS = 60 * 15;
-
-function normalizeStoragePath(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (/^https?:\/\//i.test(trimmed)) return null;
-  return trimmed;
-}
 
 async function signAudioPath(
   admin: ReturnType<typeof createAdminClient>,
@@ -35,9 +28,7 @@ async function signAudioPath(
     .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
   if (error || !data?.signedUrl) {
     console.error("[books.jobs] failed to sign audio path", {
-      bucket,
-      path,
-      message: error?.message ?? "missing signedUrl",
+      message: error ? "Storage signing failed" : "Storage response missing signed URL",
     });
     return null;
   }
@@ -361,23 +352,14 @@ export async function GET(
           const totalChapters = toSafeChapterCount(output.totalChapters);
           const completedChapters = toSafeChapterCount(output.completedChapters);
           const controlState = typeof output.controlState === "string" ? output.controlState : null;
-          const audioPath = normalizeStoragePath(output.audioPath);
-          const audioBucket =
-            typeof output.audioBucket === "string" && output.audioBucket.trim().length > 0
-              ? output.audioBucket.trim()
-              : defaultBucket;
-          const manifestPath = normalizeStoragePath(output.manifestPath);
-          const manifestBucket =
-            typeof output.manifestBucket === "string" && output.manifestBucket.trim().length > 0
-              ? output.manifestBucket.trim()
-              : defaultBucket;
-          const generatedChapterAudioPath =
-            normalizeStoragePath(output.generatedChapterAudioPath);
-          const generatedChapterAudioBucket =
-            typeof output.generatedChapterAudioBucket === "string" &&
-            output.generatedChapterAudioBucket.trim().length > 0
-              ? output.generatedChapterAudioBucket.trim()
-              : defaultBucket;
+          const audioBucket = defaultBucket;
+          const manifestBucket = defaultBucket;
+          const generatedChapterAudioBucket = defaultBucket;
+          const audioPath = validateAudiobookStoragePath(output.audioPath, output.audioBucket, bookId, "[books.jobs]");
+          const manifestPath = validateAudiobookStoragePath(output.manifestPath, output.manifestBucket, bookId, "[books.jobs]");
+          const generatedChapterAudioPath = validateAudiobookStoragePath(
+            output.generatedChapterAudioPath, output.generatedChapterAudioBucket, bookId, "[books.jobs]"
+          );
           const [audioUrl, manifestUrl, generatedChapterAudioUrl] = await Promise.all([
             signAudioPath(admin, audioPath, audioBucket),
             signAudioPath(admin, manifestPath, manifestBucket),
