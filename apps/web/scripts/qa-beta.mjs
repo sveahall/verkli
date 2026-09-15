@@ -217,23 +217,19 @@ run("English-default check", "4/11", "npx tsx scripts/check-english-default.ts")
 run("No-placeholders check", "5/11", "npm run check:no-placeholders");
 run("Dead-code check", "6/11", "npm run check:dead-code");
 // Asks Stripe whether the catalog's price ids actually exist in the mode the
-// configured key talks to. Not --strict here: without credentials the check
-// skips, and a local qa:beta run must not fail for lacking production secrets.
-// The launch gate is the place for --strict (which turns a skip into a
-// failure) — see scripts/check-billing-catalog.ts.
-run("Billing catalog check", "7/11", "npx tsx scripts/check-billing-catalog.ts");
+// configured key talks to. Release checks are strict: missing inputs or probe
+// coverage must not produce ALL PASSED. Run individual checks for diagnostics.
+run("Billing catalog check", "7/11", "npx tsx scripts/check-billing-catalog.ts --strict");
 // Compares the events the dispatch switch handles against what the live Stripe
-// endpoint is subscribed to. Not --strict here, same reason as above.
-run("Stripe webhook subscription check", "8/11", "npx tsx scripts/check-stripe-webhook.ts");
-// Asks Redis which queues actually have a worker attached. Not --strict: a
-// developer without the worker processes running is not a release blocker.
-run("Queue consumer check", "9/11", "npx tsx scripts/check-queue-consumers.ts");
+// endpoint is subscribed to.
+run("Stripe webhook subscription check", "8/11", "npx tsx scripts/check-stripe-webhook.ts --strict");
+// Asks Redis which queues actually have a worker attached.
+run("Queue consumer check", "9/11", "npx tsx scripts/check-queue-consumers.ts --strict");
 // Counts the PERMISSIVE SELECT policies on `chapters` and, when a paid book is
 // published, probes it with the anon key. Both are needed: on 2026-09-10 the
 // policy in git was correct and anon still read a 49 kr book, because two
-// dashboard-written policies OR'd it open. Not --strict here, same reason as
-// the checks above — no service-role key locally means a skip, not a failure.
-run("RLS paywall check", "10/11", "npx tsx scripts/check-rls-paywall.ts");
+// dashboard-written policies OR'd it open.
+run("RLS paywall check", "10/11", "npx tsx scripts/check-rls-paywall.ts --strict");
 run("Build (next build)", "11/11", "npx next build");
 
 console.log("\n══════════════════════════════════════");
