@@ -13,7 +13,7 @@ import {
 import { isBookClubsEnabled } from "@/lib/flags";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 
-const clubRateLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const clubRateLimiter = createPerUserRateLimiter({ name: "book-clubs", maxPerMinute: 5 });
 
 const createClubBodySchema = z.object({
   name: z.string().min(1).max(100),

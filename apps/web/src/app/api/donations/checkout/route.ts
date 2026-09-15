@@ -13,7 +13,7 @@ import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { getRequestBaseUrl } from "@/lib/request-url";
 import { isDonationsEnabled } from "@/lib/flags";
 
-const checkoutLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const checkoutLimiter = createPerUserRateLimiter({ name: "donations-checkout", maxPerMinute: 5 });
 
 export const runtime = "nodejs";
 

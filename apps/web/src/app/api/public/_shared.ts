@@ -7,6 +7,7 @@ import { createPerUserRateLimiter } from "@/lib/rate-limit";
  * Exported so tests can call `_reset()` between cases.
  */
 export const publicApiRateLimiter = createPerUserRateLimiter({
+  name: "public-api",
   maxPerMinute: 60,
 });
 

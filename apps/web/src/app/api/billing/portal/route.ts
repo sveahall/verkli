@@ -25,7 +25,7 @@ import {
 
 export const runtime = "nodejs";
 
-const portalLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const portalLimiter = createPerUserRateLimiter({ name: "billing-portal", maxPerMinute: 5 });
 
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 

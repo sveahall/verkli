@@ -31,7 +31,7 @@ export const runtime = "nodejs";
 // uploads that follow.
 export const maxDuration = 60;
 
-const coverLimiter = createPerUserRateLimiter({ maxPerMinute: 3 });
+const coverLimiter = createPerUserRateLimiter({ name: "books-cover-generate", maxPerMinute: 3 });
 
 const coverGenerateSchema = z.object({
   prompt: z.string().max(2000),

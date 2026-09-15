@@ -24,7 +24,7 @@ import {
 
 export const maxDuration = 300;
 
-const rateLimiter = createPerUserRateLimiter({ maxPerMinute: 3 });
+const rateLimiter = createPerUserRateLimiter({ name: "books-trailer-generate", maxPerMinute: 3 });
 const FREE_TRAILER_LIMIT_PER_MONTH = 1;
 const PRO_TRAILER_LIMIT_PER_MONTH = 5;
 

@@ -32,7 +32,7 @@ export const runtime = "nodejs";
 
 const SCENE_DURATION_SECONDS = 5;
 const MAX_SCENES = 3;
-const rateLimiter = createPerUserRateLimiter({ maxPerMinute: 1 });
+const rateLimiter = createPerUserRateLimiter({ name: "books-trailer-build", maxPerMinute: 1 });
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type BookRow = {

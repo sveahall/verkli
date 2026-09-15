@@ -25,7 +25,7 @@ import {
 
 export const maxDuration = 300;
 
-const rateLimiter = createPerUserRateLimiter({ maxPerMinute: 3 });
+const rateLimiter = createPerUserRateLimiter({ name: "books-content-generate", maxPerMinute: 3 });
 
 export async function POST(
   req: Request,

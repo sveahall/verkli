@@ -34,7 +34,7 @@ import { evaluateDemoGuard } from "@/lib/demo-guard";
 import type { Json } from "@/lib/supabase/types";
 import { asJsonObject } from "@/lib/supabase/json-object";
 
-const audiobookLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const audiobookLimiter = createPerUserRateLimiter({ name: "books-audiobook-generate", maxPerMinute: 5 });
 const AI_JOB_KIND = "audiobook_generation";
 
 // Narrator metadata persisted with jobs/cache keys.

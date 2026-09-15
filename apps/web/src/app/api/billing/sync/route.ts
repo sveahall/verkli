@@ -25,7 +25,7 @@ import {
 
 export const runtime = "nodejs";
 
-const syncLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const syncLimiter = createPerUserRateLimiter({ name: "billing-sync", maxPerMinute: 5 });
 
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 

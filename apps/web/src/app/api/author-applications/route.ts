@@ -15,7 +15,7 @@ import {
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 
-const applicationLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const applicationLimiter = createPerUserRateLimiter({ name: "author-applications", maxPerMinute: 5 });
 
 // Trim strings and collapse empties to null so the optional questionnaire
 // columns stay nullable.
