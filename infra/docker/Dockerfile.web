@@ -255,5 +255,10 @@ RUN mkdir -p /tmp/sharp-install \
 RUN node -e "const s=require('/app/node_modules/sharp'); if(typeof s!=='function'&&typeof s!=='object'){process.exit(1)} console.log('sharp loads: ok')"
 
 USER nextjs
+# Exercise the assembled image, not the builder's full node_modules tree.
+# A missing metadata dependency can break every page while /api/health is 200.
+COPY apps/web/scripts/check-web-image.mjs /tmp/check-web-image.mjs
+RUN node /tmp/check-web-image.mjs
+
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]

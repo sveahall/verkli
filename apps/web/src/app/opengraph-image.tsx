@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import sharp from "sharp";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 export const runtime = "nodejs";
@@ -8,9 +8,9 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function OgImage() {
-  // Rasterize at build time: the social-image renderer does not resolve the
-  // embedded image references in our SVG compatibility wordmark.
-  const wordmark = await sharp(join(process.cwd(), "public/favicon.svg")).resize(876).png().toBuffer();
+  // Use the raster wordmark directly. Importing a native image processor here
+  // also loads it for every page that resolves this root metadata module.
+  const wordmark = await readFile(join(process.cwd(), "public/logo-verkli-light.png"));
   const logo = `data:image/png;base64,${wordmark.toString("base64")}`;
   return new ImageResponse(
     (
