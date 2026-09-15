@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminRole } from "@/lib/admin-auth";
 import { resolveNarratorVoiceId } from "@/lib/tts/tts-provider";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
+import { validateAudiobookStoragePath } from "@/lib/tts/validate-storage-path";
 import { canUserReadBook, type SupabaseLikeClient } from "@/lib/books/access";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
 import { shouldResumeAt } from "@/lib/analytics/listen";
@@ -213,15 +214,23 @@ export async function GET(
     return apiError(E_DATABASE_ERROR, 500);
   }
 
-  const audioPath = typeof cache?.audio_path === "string" ? cache.audio_path.trim() : "";
-
-  if (!audioPath) {
+  if (cache?.audio_path == null || (typeof cache.audio_path === "string" && !cache.audio_path.trim())) {
     return NextResponse.json({ audioUrl: null });
   }
 
-  // Reject http URLs stored in DB — only storage object paths are valid.
-  if (/^https?:\/\//i.test(audioPath)) {
-    console.warn("[audiobook play] rejected http URL in audio_path", { chapterId: chapterRow.id, audioPath: audioPath.slice(0, 80) });
+  // Cache rows have no bucket metadata; only the server configuration chooses it.
+  const audioPath = validateAudiobookStoragePath(cache.audio_path, undefined, bookRow.id, "[audiobook play]");
+  if (!audioPath) return apiError(E_AUDIO_PATH_INVALID, 500);
+
+  // Bind the cache object to the authorized chapter as well as the book, so a
+  // poisoned row cannot expose an unpublished sibling chapter or the full book.
+  const cachePrefix = `cache/${bookRow.id}/${chapterRow.id}-`;
+  if (!audioPath.startsWith(cachePrefix) || !/^[a-f0-9]{16}\.(?:wav|mp3)$/.test(audioPath.slice(cachePrefix.length))) {
+    console.warn("[audiobook play] rejected audiobook storage reference", {
+      bookId: bookRow.id,
+      chapterId: chapterRow.id,
+      reason: "path does not match authorized chapter output",
+    });
     return apiError(E_AUDIO_PATH_INVALID, 500);
   }
 
@@ -232,10 +241,9 @@ export async function GET(
 
   if (signedError || !signed?.signedUrl) {
     console.error("[audiobook play] signed URL failed", {
-      bucket,
-      audioPath,
+      bookId: bookRow.id,
       chapterId: chapterRow.id,
-      error: signedError?.message ?? "missing signedUrl",
+      message: signedError ? "Storage signing failed" : "Storage response missing signed URL",
     });
     return apiError(E_AUDIO_SIGN_FAILED, 500);
   }

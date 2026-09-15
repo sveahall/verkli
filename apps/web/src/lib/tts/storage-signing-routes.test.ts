@@ -136,7 +136,10 @@ describe.each(routes)("$name storage signing", (route) => {
       expect(storageFrom).not.toHaveBeenCalled();
       expect(sign).not.toHaveBeenCalled();
       expect(console.warn).toHaveBeenCalled();
-      expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain("private-token");
+      const logs = JSON.stringify(vi.mocked(console.warn).mock.calls);
+      expect(logs).not.toContain("private-token");
+      expect(logs).not.toContain(path);
+      expect(logs).not.toContain("book-downloads");
     });
   }
 
@@ -153,12 +156,18 @@ describe.each(routes)("$name storage signing", (route) => {
     expect(storageFrom).toHaveBeenCalledExactlyOnceWith("private-audiobooks");
   });
 
-  it("does not expose a storage error containing a private signed URL in logs", async () => {
-    sign.mockResolvedValue({ data: null, error: { message: "Failed https://private.invalid/file?token=private-token" } });
+  it.each([
+    { data: null, error: { message: "Failed https://private.invalid/file?token=private-token" } },
+    { data: null, error: null },
+  ])("does not expose storage references or provider payloads on a signing failure: %j", async (result) => {
+    sign.mockResolvedValue(result);
     setupData({ audioPath: paths.audio, audioBucket: "audiobooks" });
     expect((await route.get()).status).toBe(200);
     expect(console.error).toHaveBeenCalled();
-    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("private-token");
+    const logs = JSON.stringify(vi.mocked(console.error).mock.calls);
+    expect(logs).not.toContain("private-token");
+    expect(logs).not.toContain(paths.audio);
+    expect(logs).not.toContain("audiobooks");
   });
 
   if (route.name === "author jobs") {

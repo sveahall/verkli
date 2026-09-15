@@ -49,7 +49,6 @@ async function signStoragePath(
   if (error || !data?.signedUrl) {
     console.error(logPrefix, {
       ...logMeta,
-      bucket,
       message: error ? "Storage signing failed" : "Storage response missing signed URL",
     });
     return null;

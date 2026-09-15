@@ -11,20 +11,21 @@ import {
 /* ── mocks ─────────────────────────────────────────────────── */
 
 const mockGetUser = vi.fn();
-const { createClient, createAdminClient, canUserReadBook, requireAdminRole, logAnalyticsEvent } =
+const { createClient, createAdminClient, canUserReadBook, requireAdminRole, logAnalyticsEvent, getAudiobookStorageBucket } =
   vi.hoisted(() => ({
     createClient: vi.fn(),
     createAdminClient: vi.fn(),
     canUserReadBook: vi.fn(),
     requireAdminRole: vi.fn(),
     logAnalyticsEvent: vi.fn(),
+    getAudiobookStorageBucket: vi.fn(),
   }));
 
 vi.mock("@/lib/supabase/server", () => ({ createClient }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient }));
 vi.mock("@/lib/books/access", () => ({ canUserReadBook }));
 vi.mock("@/lib/admin-auth", () => ({ requireAdminRole }));
-vi.mock("@/lib/tts/storage", () => ({ getAudiobookStorageBucket: () => "audiobooks" }));
+vi.mock("@/lib/tts/storage", () => ({ getAudiobookStorageBucket }));
 vi.mock("@/lib/analytics/events", () => ({ logAnalyticsEvent }));
 
 /* ── helpers ───────────────────────────────────────────────── */
@@ -83,7 +84,8 @@ function adminWith(tables: Record<string, ChainableQuery>, storage?: { signedUrl
 }
 
 const BOOK_ID = "00000000-0000-4000-8000-000000000001";
-const CHAPTER_ID = "ch-1";
+const OTHER_BOOK_ID = "00000000-0000-4000-8000-000000000002";
+const CHAPTER_ID = "00000000-0000-4000-8000-000000000003";
 const AUTHOR_ID = "author-1";
 const READER_ID = "reader-1";
 
@@ -94,7 +96,7 @@ const chapter = { id: CHAPTER_ID, book_id: BOOK_ID, order: 0, book_version_id: "
 const versionAllPublished = { published_at: "2025-01-01", published_chapter_count: null };
 const versionPartial = { published_at: "2025-01-01", published_chapter_count: 0 }; // chapter 0 NOT published
 
-const cache = { audio_path: "books/book-1/ch-1.wav", created_at: "2025-01-01" };
+const cache = { audio_path: `cache/${BOOK_ID}/${CHAPTER_ID}-0123456789abcdef.wav`, created_at: "2025-01-01" };
 
 function makeRequest() {
   return new Request(`http://localhost/api/books/${BOOK_ID}/audiobook/play?chapterId=${CHAPTER_ID}`);
@@ -120,10 +122,12 @@ describe("GET /api/books/[id]/audiobook/play", () => {
     // Default: caller is not an admin. Admin-specific tests override this.
     requireAdminRole.mockResolvedValue({ ok: false });
     logAnalyticsEvent.mockResolvedValue(undefined);
+    getAudiobookStorageBucket.mockReturnValue("audiobooks");
   });
 
   afterEach(() => {
     process.env = { ...savedEnv };
+    vi.restoreAllMocks();
   });
 
   it("returns 503 when feature flag is off", async () => {
@@ -154,7 +158,7 @@ describe("GET /api/books/[id]/audiobook/play", () => {
     expect(res.status).toBe(200);
     expect(body.audioUrl).toBe("https://signed");
     expect(admin.storage.from).toHaveBeenCalledWith("audiobooks");
-    expect(admin.__createSignedUrl).toHaveBeenCalledWith("books/book-1/ch-1.wav", 60 * 15);
+    expect(admin.__createSignedUrl).toHaveBeenCalledWith(cache.audio_path, 60 * 15);
   });
 
   it("admin moderator can preview audio on a DRAFT book they don't own", async () => {
@@ -362,6 +366,84 @@ describe("GET /api/books/[id]/audiobook/play", () => {
 
     expect(res.status).toBe(500);
     expect(body.error).toBe(E_AUDIO_PATH_INVALID);
+  });
+
+  it.each([
+    ["another book in the same bucket", cache.audio_path.replace(BOOK_ID, OTHER_BOOK_ID)],
+    ["book prefix collision", cache.audio_path.replace(BOOK_ID, `${BOOK_ID}-extra`)],
+    ["another chapter in this book", cache.audio_path.replace(CHAPTER_ID, "unpublished-chapter")],
+    ["chapter prefix collision", cache.audio_path.replace(CHAPTER_ID, `${CHAPTER_ID}-extra`)],
+    ["whole-book output bypassing chapter access", `${BOOK_ID}/audiobook-1770000000000.mp3`],
+    ["path traversal", `cache/${BOOK_ID}/../${OTHER_BOOK_ID}/${CHAPTER_ID}-0123456789abcdef.wav`],
+    ["encoded traversal", `cache/${BOOK_ID}/%2e%2e/${OTHER_BOOK_ID}/${CHAPTER_ID}-0123456789abcdef.wav`],
+    ["absolute URL", "https://private.invalid/file?token=private-token"],
+    ["malformed path", { path: "private-token" }],
+  ])("rejects %s without signing, logging references or emitting a listen event", async (_name, audioPath) => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: READER_ID } } });
+    canUserReadBook.mockResolvedValue(true);
+    const admin = adminWith({
+      chapters: fakeQuery(chapter),
+      books: fakeQuery(publishedBook),
+      book_versions: fakeQuery(versionAllPublished),
+      chapter_audio_cache: fakeQuery({ ...cache, audio_path: audioPath }),
+    });
+    createAdminClient.mockReturnValue(admin);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const res = await (await import("./route")).GET(makeRequest(), params());
+
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe(E_AUDIO_PATH_INVALID);
+    expect(admin.storage.from).not.toHaveBeenCalled();
+    expect(admin.__createSignedUrl).not.toHaveBeenCalled();
+    expect(logAnalyticsEvent).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalled();
+    const logs = JSON.stringify(warn.mock.calls);
+    expect(logs).not.toContain(typeof audioPath === "string" ? audioPath : "private-token");
+    expect(logs).not.toContain("audiobooks");
+  });
+
+  it.each(["wav", "mp3"])("signs an owned %s cache path using the configured bucket", async (extension) => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: AUTHOR_ID } } });
+    getAudiobookStorageBucket.mockReturnValue("private-audiobooks");
+    const audioPath = cache.audio_path.replace(/wav$/, extension);
+    const admin = adminWith({
+      chapters: fakeQuery(chapter),
+      books: fakeQuery(draftBook),
+      chapter_audio_cache: fakeQuery({ ...cache, audio_path: ` ${audioPath} ` }),
+    });
+    createAdminClient.mockReturnValue(admin);
+
+    const res = await (await import("./route")).GET(makeRequest(), params());
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).audioUrl).toBe("https://signed");
+    expect(admin.storage.from).toHaveBeenCalledExactlyOnceWith("private-audiobooks");
+    expect(admin.__createSignedUrl).toHaveBeenCalledExactlyOnceWith(audioPath, 900);
+  });
+
+  it.each([
+    { error: "Failed https://private.invalid/file?token=private-token" },
+    { signedUrl: "" },
+  ])("does not expose storage references or provider payloads on a signing failure: %j", async (storage) => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: AUTHOR_ID } } });
+    createAdminClient.mockReturnValue(adminWith({
+      chapters: fakeQuery(chapter),
+      books: fakeQuery(draftBook),
+      chapter_audio_cache: fakeQuery(cache),
+    }, storage));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await (await import("./route")).GET(makeRequest(), params());
+
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe(E_AUDIO_SIGN_FAILED);
+    expect(error).toHaveBeenCalled();
+    const logs = JSON.stringify(error.mock.calls);
+    expect(logs).not.toContain(cache.audio_path);
+    expect(logs).not.toContain("audiobooks");
+    expect(logs).not.toContain("private-token");
+    expect(logAnalyticsEvent).not.toHaveBeenCalled();
   });
 
   /* ── WP-03: server-side listen chokepoint + resume position ─────────────── */

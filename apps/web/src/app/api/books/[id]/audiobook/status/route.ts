@@ -33,7 +33,6 @@ async function signAudioPath(
     .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
   if (error || !data?.signedUrl) {
     console.error("[audiobook status] failed to sign audio path", {
-      bucket,
       message: error ? "Storage signing failed" : "Storage response missing signed URL",
     });
     return null;
