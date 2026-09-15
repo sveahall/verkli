@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { Chapter } from "../BookEditorView.types";
 
 interface PricingPanelProps {
@@ -37,6 +38,24 @@ export default function PricingPanel({
   stripeConfigured,
   currentVisibility,
 }: PricingPanelProps) {
+  const [paid, setPaid] = useState(priceAmountMinor > 0);
+  const [priceDraft, setPriceDraft] = useState(String(priceAmountMinor / 100));
+  const [lastAmount, setLastAmount] = useState(priceAmountMinor);
+  // Match the pricing hook's prop reset, without replacing our own input echo.
+  if (lastAmount !== priceAmountMinor) {
+    setLastAmount(priceAmountMinor);
+    setPriceDraft(String(priceAmountMinor / 100));
+    setPaid(priceAmountMinor > 0);
+  }
+  const draftNumber = /^(?:\d+(?:[.,]\d*)?|[.,]\d+)$/.test(priceDraft) ? Number(priceDraft.replace(",", ".")) : NaN;
+  const draftMinor = Math.round(draftNumber * 100);
+  const draftInvalid = paid && (!Number.isFinite(draftMinor) || draftMinor <= 0);
+
+  function updateAmount(amount: number) {
+    setLastAmount(amount);
+    setPriceAmountMinor(amount);
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <h2 className="font-display text-[clamp(24px,3vw,32px)] font-medium tracking-tight text-foreground dark:text-foreground">Pricing and distribution</h2>
@@ -48,38 +67,45 @@ export default function PricingPanel({
           <button
             type="button"
             role="switch"
-            aria-checked={priceAmountMinor > 0}
+            aria-checked={paid}
             aria-label="Book free or paid"
-            onClick={() => setPriceAmountMinor(priceAmountMinor > 0 ? 0 : 4900)}
+            onClick={() => {
+              const amount = paid ? 0 : 4900;
+              setPaid(!paid);
+              setPriceDraft(String(amount / 100));
+              updateAmount(amount);
+            }}
             className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 ${
-              priceAmountMinor > 0 ? "bg-[#907AFF]" : "bg-muted dark:bg-muted"
+              paid ? "bg-[#907AFF]" : "bg-muted dark:bg-muted"
             }`}
           >
             <span
               className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                priceAmountMinor > 0 ? "translate-x-5" : "translate-x-1"
+                paid ? "translate-x-5" : "translate-x-1"
               }`}
             />
           </button>
           <span className="text-sm text-foreground dark:text-foreground">Paid</span>
         </div>
-        {priceAmountMinor > 0 && (
+        {paid && (
           <div className="flex flex-wrap gap-4 pt-2">
             <div>
               <label htmlFor="price-amount" className="mb-1 block text-xs text-muted-foreground dark:text-muted-foreground">{pricingModel === "per_chapter" ? "Price per chapter" : "Price (shown to readers)"}</label>
               <input
                 id="price-amount"
-                type="number"
-                min={0}
-                step={1}
-                value={priceAmountMinor / 100}
+                type="text"
+                inputMode="decimal"
+                value={priceDraft}
                 onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  if (!Number.isFinite(v) || v < 0) return;
-                  setPriceAmountMinor(Math.round(v * 100));
+                  const draft = e.target.value;
+                  setPriceDraft(draft);
+                  const amount = /^(?:\d+(?:[.,]\d*)?|[.,]\d+)$/.test(draft) ? Math.round(Number(draft.replace(",", ".")) * 100) : NaN;
+                  if (Number.isFinite(amount) && amount > 0) updateAmount(amount);
                 }}
                 aria-label="Price in currency"
-                className="w-28 rounded-xl border border-black/[0.08] bg-card px-3 py-2 text-sm text-foreground focus:border-border focus:outline-none dark:border-border dark:bg-card dark:text-foreground"
+                aria-invalid={draftInvalid}
+                aria-describedby={draftInvalid ? "price-draft-error" : undefined}
+                className="w-28 min-h-11 rounded-xl border border-black/[0.08] bg-card px-3 py-2 text-base sm:text-sm text-foreground focus:border-border focus:outline-none dark:border-border dark:bg-card dark:text-foreground"
               />
             </div>
             <div>
@@ -98,6 +124,7 @@ export default function PricingPanel({
             </div>
           </div>
         )}
+        {draftInvalid && <p id="price-draft-error" role="alert" className="text-sm text-red-600 dark:text-red-400">Enter a price greater than 0, or choose Free.</p>}
         <p className="text-xs text-muted-foreground dark:text-muted-foreground">Price is stored in minor units (cents/ore). Here it is shown as whole currency units.</p>
       </div>
 
@@ -184,15 +211,15 @@ export default function PricingPanel({
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={handleSavePricing}
-          disabled={pricingSaving || !pricingDirty}
+          onClick={() => { if (!draftInvalid) handleSavePricing(); }}
+          disabled={pricingSaving || !pricingDirty || draftInvalid}
           aria-label="Save pricing"
           className="rounded-xl bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {pricingSaving ? "Saving..." : "Save"}
         </button>
         {pricingError && <p className="text-sm text-red-600 dark:text-red-400" role="alert">{pricingError}</p>}
-        {pricingSaved && <p className="text-sm text-emerald-600 dark:text-emerald-400" role="status">Saved.</p>}
+        {pricingSaved && !draftInvalid && <p className="text-sm text-emerald-600 dark:text-emerald-400" role="status">Saved.</p>}
       </div>
     </div>
   );
