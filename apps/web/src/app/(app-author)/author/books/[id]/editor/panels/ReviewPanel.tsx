@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import EditorialReviewPanel, { type ApplyReview } from "./EditorialReviewPanel";
 import { useMemo, useState } from "react";
 import { getLanguageLabel } from "@/lib/languages";
 import { getAudiobookStatusLabel } from "../bookEditor.shared";
@@ -55,6 +56,8 @@ export type ReviewPanelProps = {
   marketingCampaigns: MarketingCampaignRow[];
   onNavigate: (panel: Tool) => void;
   onPublish?: () => void;
+  onApplyReview: ApplyReview;
+  saveBlocked: boolean;
 };
 
 /* ── Copy-to-clipboard helper ── */
@@ -187,6 +190,8 @@ export default function ReviewPanel({
   marketingCampaigns,
   onNavigate,
   onPublish,
+  onApplyReview,
+  saveBlocked,
 }: ReviewPanelProps) {
   const totalWords = useMemo(
     () => chapters.reduce((sum, ch) => sum + countWords(ch.content), 0),
@@ -226,6 +231,7 @@ export default function ReviewPanel({
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
+      <EditorialReviewPanel key={activeVersion?.id ?? bookId} bookId={bookId} chapters={chapters} activeVersionId={activeVersion?.id ?? null} bookVersions={bookVersions} onApplyReview={onApplyReview} saveBlocked={saveBlocked} />
       {/* ── Hero: Book identity ── */}
       <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-border dark:bg-card @min-[600px]/book-panel:grid-cols-[140px_1fr]">
         <div className="relative mx-auto aspect-[3/4] w-[140px] overflow-hidden rounded-xl border border-black/[0.06] bg-background shadow-sm dark:border-border dark:bg-card sm:mx-0">

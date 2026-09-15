@@ -654,6 +654,8 @@ export default function BookEditorView({
             {/* All non-edit panels */}
             {tool !== "edit" && tool !== "dashboard" && (
               <BookEditorPanelContent
+                onApplyReview={chapterCrud.handleApplyReview}
+                reviewSaveBlocked={chapterCrud.isSaving || chapterCrud.hasUnsavedChanges}
                 bookId={book.id}
                 bookTitle={bookTitle}
                 demoMode={isDemoEditorView}
