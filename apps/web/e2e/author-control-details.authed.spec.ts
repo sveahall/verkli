@@ -114,3 +114,62 @@ test("reader settings dismiss with Escape and restore focus without changing pre
   await trigger.click();
   await expect(lineSpacing).toHaveValue(previousValue);
 });
+
+// F1: install all write interceptions before opening the real editor.
+test("F1 price drafts keep focus and block invalid saves", async ({ page }) => {
+  const writes: unknown[] = [];
+  await page.route("**/api/books/*", (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    writes.push(route.request().postDataJSON());
+    return route.fulfill({ json: { ok: true } });
+  });
+  await page.goto("/author/library");
+  const fixture = page.getByRole("link", { name: /Automated test book/i });
+  await expect(fixture).toBeVisible();
+  const url = new URL((await fixture.getAttribute("href"))!, page.url());
+  url.searchParams.set("panel", "pricing");
+  await page.goto(url.toString());
+  const toggle = page.getByRole("switch", { name: "Book free or paid", exact: true });
+  if (!(await toggle.isChecked())) await toggle.click();
+  const price = page.getByLabel("Price in currency");
+  const save = page.getByRole("button", { name: "Save pricing", exact: true });
+  await price.fill("");
+  await expect(price).toHaveValue("");
+  await expect(price).toBeFocused();
+  await expect(save).toBeDisabled();
+  await price.fill("0");
+  await expect(price).toBeFocused();
+  await expect(toggle).toBeChecked();
+  await expect(save).toBeDisabled();
+  await price.fill("12.75");
+  // Make the candidate different even if this happens to be the saved fixture price.
+  const amount = await save.isEnabled() ? 1275 : 1350;
+  if (amount === 1350) await price.fill("13.50");
+  await save.click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0]).toMatchObject({ price_amount: amount });
+});
+
+test("F1 publish description has a mobile label and preserves blur saving", async ({ page }) => {
+  const writes: unknown[] = [];
+  await page.route("**/rest/v1/**", (route) => {
+    if (route.request().method() === "GET") return route.continue();
+    writes.push(route.request().postDataJSON());
+    return route.fulfill({ json: [] });
+  });
+  await page.goto("/author/library");
+  const fixture = page.getByRole("link", { name: /Automated test book/i });
+  await expect(fixture).toBeVisible();
+  const url = new URL((await fixture.getAttribute("href"))!, page.url());
+  url.searchParams.set("panel", "publish");
+  await page.goto(url.toString());
+  await page.setViewportSize({ width: 390, height: 844 });
+  const description = page.getByRole("textbox", { name: "Description", exact: true });
+  await page.locator("label").filter({ hasText: /^Description$/ }).click();
+  await expect(description).toBeFocused();
+  await expect.poll(() => description.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+  await description.fill("F1 synthetic description");
+  await description.press("Tab");
+  await expect.poll(() => writes).toContainEqual({ description: "F1 synthetic description" });
+  await expect(description).toHaveValue("F1 synthetic description");
+});

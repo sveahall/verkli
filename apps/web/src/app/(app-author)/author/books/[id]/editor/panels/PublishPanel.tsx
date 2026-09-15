@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useRef, useState, useCallback } from "react";
+import { useId, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getLanguageLabel } from "@/lib/languages";
 import { useToastHelpers } from "@/components/ui/toast";
@@ -135,6 +135,7 @@ export default function PublishPanel({
   const router = useRouter();
   const toast = useToastHelpers();
   const requirementsRef = useRef<HTMLDivElement>(null);
+  const descriptionId = useId();
   const liveCount = publishedChapterCount ?? (isPublished ? chapters.length : 0);
   const totalCount = chapters.length;
   const livePercent = totalCount > 0 ? Math.round((liveCount / totalCount) * 100) : 0;
@@ -223,17 +224,18 @@ export default function PublishPanel({
           <p className="text-sm text-muted-foreground dark:text-muted-foreground">{authorDisplayName}</p>
           {/* Description */}
           <div className="mt-3">
-            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
+            <label htmlFor={descriptionId} className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
               Description
             </label>
             <div className="relative">
               <textarea
+                id={descriptionId}
                 value={descDraft}
                 onChange={(e) => setDescDraft(e.target.value)}
                 onBlur={() => void handleSaveDescription()}
                 placeholder="A short description shown to readers…"
                 rows={3}
-                className="w-full resize-none rounded-xl border border-black/[0.07] bg-background/60 px-3 py-2.5 text-[13px] leading-relaxed text-foreground placeholder-muted-foreground outline-none transition-all focus:border-[#907AFF]/40 focus:bg-card dark:border-border dark:bg-card dark:text-foreground dark:placeholder-white/20 dark:focus:border-[#907AFF]/30 dark:focus:bg-card"
+                className="w-full resize-none rounded-xl border border-black/[0.07] bg-background/60 px-3 py-2.5 text-[16px] sm:text-[13px] leading-relaxed text-foreground placeholder-muted-foreground outline-none transition-all focus:border-[#907AFF]/40 focus:bg-card dark:border-border dark:bg-card dark:text-foreground dark:placeholder-white/20 dark:focus:border-[#907AFF]/30 dark:focus:bg-card"
               />
               {descSaving && (
                 <span className="absolute bottom-2.5 right-3 text-[11px] text-muted-foreground dark:text-muted-foreground">
