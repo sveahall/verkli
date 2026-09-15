@@ -339,30 +339,40 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
     [coverUploading, demoFallbackEnabled, applyDemoLocalCover, handleCoverFileSelect, toast]
   );
 
-  const handleCoverAIGenerate = useCallback(async () => {
-    if (coverAIGenerating) return;
+  const coverGenerationBusy = useRef(false);
+  const coverRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => coverRequest.current?.abort(), []);
+  const handleCoverAIGenerate = useCallback(async (overrides?: { prompt: string; style: string }) => {
+    if (coverGenerationBusy.current || coverUploading) return false;
     let prompt: string;
-    if (coverAITemplate) {
+    if (typeof overrides?.prompt === "string") {
+      prompt = overrides.prompt.trim();
+    } else if (coverAITemplate) {
       prompt = buildTemplatePrompt(coverAITemplate, coverAITemplateFields) ?? "";
     } else {
       prompt = coverAIPrompt.trim();
     }
     if (!prompt) {
       setCoverAIError(resolveErrorMessage("PROMPT_TEXT_REQUIRED"));
-      return;
+      return false;
     }
     setCoverAIError(null);
     setCoverError(null);
+    coverGenerationBusy.current = true;
     setCoverAIGenerating(true);
     setCoverAIGeneratedUrls([]);
     setCoverAIGeneratedSource(null);
     setCoverAIPhase(demoFallbackEnabled ? "analyzing" : "idle");
 
+    const controller = new AbortController();
+    coverRequest.current = controller;
+    const deadline = setTimeout(() => controller.abort(), 180_000);
     const liveCall = async (): Promise<string[] | null> => {
       const res = await fetch(`/api/books/${book.id}/cover/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, style: coverAIStyle }),
+        signal: controller.signal,
+        body: JSON.stringify({ prompt, style: typeof overrides?.style === "string" ? overrides.style : coverAIStyle }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -438,11 +448,13 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
           if (!coverAIError) {
             setCoverAIError("Could not generate cover options. Try again.");
           }
-          return;
+          return false;
         }
         setCoverAIGeneratedUrls(images);
         setCoverAIGeneratedSource("live");
+        return true;
       }
+      return false; // Demo fallbacks are not a completed agent generation.
     } catch {
       if (demoFallbackEnabled) {
         // Even on unexpected throws, show the fallback in demo mode so
@@ -452,10 +464,14 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
       } else {
         setCoverAIError("Could not generate cover options. Try again.");
       }
+      return false;
     } finally {
+      clearTimeout(deadline);
+      coverRequest.current = null;
+      coverGenerationBusy.current = false;
       setCoverAIGenerating(false);
     }
-  }, [book.id, coverAIGenerating, coverAIPrompt, coverAIStyle, coverAITemplate, coverAITemplateFields, coverAIError, demoFallbackEnabled]);
+  }, [book.id, coverUploading, coverAIPrompt, coverAIStyle, coverAITemplate, coverAITemplateFields, coverAIError, demoFallbackEnabled]);
 
   const handleCoverSetFromGenerated = useCallback(
     async (url: string) => {

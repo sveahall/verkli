@@ -53,6 +53,7 @@ type SimplifiedEditViewProps = {
   selectedChapterId: string | null;
   selectedChapter: Chapter | null;
   preset: string;
+  onAgentEditorReady?: (editor: Editor | null, chapterId: string) => void;
   onPresetChange?: (value: string) => void;
   focusMode: boolean;
   isPublished?: boolean;
@@ -103,6 +104,7 @@ export default function SimplifiedEditView({
   selectedChapter,
   preset,
   onPresetChange,
+  onAgentEditorReady,
   focusMode,
   isPublished = false,
   activeTool,
@@ -187,7 +189,13 @@ export default function SimplifiedEditView({
   const toggleSidePanel = () => setSidePanelOverride(!sidePanelOpen);
   const [tiptapEditor, setTiptapEditor] = useState<Editor | null>(null);
   const [liveWordCount, setLiveWordCount] = useState(0);
-  const handleEditorReady = useCallback((ed: Editor) => setTiptapEditor(ed), []);
+  const handleEditorReady = useCallback((ed: Editor) => {
+    setTiptapEditor(ed);
+    if (selectedChapterId) onAgentEditorReady?.(ed, selectedChapterId);
+  }, [selectedChapterId, onAgentEditorReady]);
+  useEffect(() => () => {
+    if (selectedChapterId) onAgentEditorReady?.(null, selectedChapterId);
+  }, [selectedChapterId, onAgentEditorReady]);
   const handleWordCountWrapped = useCallback((count: number) => { setLiveWordCount(count); onWordCount(count); }, [onWordCount]);
 
   // Stable ref for onAutoSave to prevent TiptapEditor re-renders
