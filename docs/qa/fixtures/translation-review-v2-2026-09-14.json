@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "corpusVersion": "sv-en-v1",
+  "corpusFingerprint": "ebe0b497cdd88d4354114cdce78812bc8ebe2dd566dadbdc8c0767ef598e9341",
+  "attemptedModel": "claude-sonnet-5",
+  "rubricVersion": "author-voice-v2",
+  "createdAt": "2026-09-14T11:38:10.085Z",
+  "mode": "live",
+  "results": [
+    {
+      "caseId": "negation-clean",
+      "outcome": "matched",
+      "review": {
+        "issues": [],
+        "usage": {
+          "inputTokens": 3253,
+          "outputTokens": 268
+        },
+        "model": "claude-sonnet-5",
+        "rubricVersion": "author-voice-v2"
+      },
+      "errorCode": null,
+      "elapsedMs": 3389
+    },
+    {
+      "caseId": "negation-defect",
+      "outcome": "matched",
+      "review": {
+        "issues": [
+          {
+            "reviewer": "fidelity",
+            "severity": "critical",
+            "segment": 0,
+            "sourceQuote": "Jag öppnade inte brevet.",
+            "targetQuote": "I opened the letter.",
+            "explanation": "The source sentence contains a negation ('inte' = 'not'), meaning the narrator did NOT open the letter. The translation omits this negation entirely, reversing the central fact of the sentence and creating a direct contradiction with the following sentence about the letter still lying beside the salt.",
+            "suggestion": "Change to 'I did not open the letter.'"
+          }
+        ],
+        "usage": {
+          "inputTokens": 3251,
+          "outputTokens": 720
+        },
+        "model": "claude-sonnet-5",
+        "rubricVersion": "author-voice-v2"
+      },
+      "errorCode": null,
+      "elapsedMs": 5404
+    },
+    {
+      "caseId": "omission-agency-clean",
+      "outcome": "matched",
+      "review": {
+        "issues": [],
+        "usage": {
+          "inputTokens": 3303,
+          "outputTokens": 871
+        },
+        "model": "claude-sonnet-5",
+        "rubricVersion": "author-voice-v2"
+      },
+      "errorCode": null,
+      "elapsedMs": 5766
+    },
+    {
+      "caseId": "omission-agency-defect",
+      "outcome": "matched",
+      "review": {
+        "issues": [
+          {
+            "reviewer": "fidelity",
+            "severity": "major",
+            "segment": 0,
+            "sourceQuote": "because I asked her to",
+            "targetQuote": "Mara lade nyckeln under den blå koppen.",
+            "explanation": "The translation omits the causal clause 'because I asked her to', which establishes the narrator's agency and reason behind Mara's action. This is a factual omission that changes the meaning of the event.",
+            "suggestion": "Add the causal clause, e.g. 'Mara lade nyckeln under den blå koppen eftersom jag bad henne om det.'"
+          },
+          {
+            "reviewer": "style",
+            "severity": "major",
+            "segment": 0,
+            "sourceQuote": "Mara put the key under the blue cup because I asked her to.",
+            "targetQuote": "Mara lade nyckeln under den blå koppen.",
+            "explanation": "The clause 'because I asked her to' is dropped, which not only removes information but eliminates the first-person narrator's presence and agency in the sentence, flattening the 'matter-of-fact first-person narration' voice and breaking the profiled rhythm of a longer sentence followed by a short one (the first sentence is now short like the second).",
+            "suggestion": "Restore the causal clause, e.g. 'Mara lade nyckeln under den blå koppen eftersom jag bad henne.'"
+          }
+        ],
+        "usage": {
+          "inputTokens": 3283,
+          "outputTokens": 864
+        },
+        "model": "claude-sonnet-5",
+        "rubricVersion": "author-voice-v2"
+      },
+      "errorCode": null,
+      "elapsedMs": 6793
+    },
+    {
+      "caseId": "repetition-fragments-clean",
+      "outcome": "matched",
+      "review": {
+        "issues": [],
+        "usage": {
+          "inputTokens": 3277,
+          "outputTokens": 189
+        },
+        "model": "claude-sonnet-5",
+        "rubricVersion": "author-voice-v2"
+      },
+      "errorCode": null,
+      "elapsedMs": 2799
+    },
+    {
+      "caseId": "repetition-fragments-defect",
+      "outcome": "matched",
+      "review": {
+        "issues": [
+          {
+            "reviewer": "fidelity",
+            "severity": "major",
+            "segment": 0,
+            "sourceQuote": "Ett steg. Ett steg. Ett steg.",
+            "targetQuote": "Three steps.",
+            "explanation": "The source repeats the fragment 'Ett steg.' (One step.) three times as separate sentences, creating a deliberate halting rhythm per the author's style (short fragments, repeated words). The translation collapses this into a single sentence 'Three steps.', eliminating the repetition entirely and changing the event from three discrete one-step actions to a single summary statement of distance covered.",
+            "suggestion": "Translate literally to preserve the repetition and rhythm: 'One step. One step. One step.'"
+          },
+          {
+            "reviewer": "style",
+            "severity": "major",
+            "segment": 0,
+            "sourceQuote": "Ett steg. Ett steg. Ett steg.",
+            "targetQuote": "Three steps.",
+            "explanation": "The source repeats the fragment 'Ett steg' (One step) three times as separate sentences, creating the measured, halting beat the profile calls out as central to the voice. The translation collapses this into a single summarizing sentence 'Three steps,' eliminating the deliberate repetition and fragment rhythm entirely.",
+            "suggestion": "Restore the repeated fragment structure, e.g. 'One step. One step. One step.'"
+          }
+        ],
+        "usage": {
+          "inputTokens": 3269,
+          "outputTokens": 1262
+        },
+        "model": "claude-sonnet-5",
+        "rubricVersion": "author-voice-v2"
+      },
+      "errorCode": null,
+      "elapsedMs": 7445
+    },
+    {
+      "caseId": "dialogue-register-clean",
+      "outcome": "matched",
+      "review": {
+        "issues": [],
+        "usage": {
+          "inputTokens": 3337,
+          "outputTokens": 632
+        },
+        "model": "claude-sonnet-5",
+        "rubricVersion": "author-voice-v2"
+      },
+      "errorCode": null,
+      "elapsedMs": 5430
+    },
+    {
+      "caseId": "dialogue-register-defect",
+      "outcome": "matched",
+      "review": {
+        "issues": [
+          {
+            "reviewer": "fidelity",
+            "severity": "critical",
+            "segment": 0,
+            "sourceQuote": "“Gimme the bag. Yeah, that one,” Liv said.",
+            "targetQuote": "”Överlämna väskan till mig. Ja, det åsyftade exemplaret”, sa Liv.",
+            "explanation": "The source is casual, compressed spoken language ('Gimme', 'that one') establishing an informal, quick demand. The translation uses highly formal, bureaucratic Swedish ('Överlämna', 'det åsyftade exemplaret' — roughly 'the aforementioned specimen'), which inverts the character's voice from casual to officious/legalistic. This is not a stylistic nuance but a meaning-level change to characterization and register that the profile explicitly requires to remain casual and colloquial.",
+            "suggestion": "Use colloquial Swedish, e.g. \"Ge mig väskan. Ja, den där\", sa Liv. to preserve the casual, compressed spoken tone."
+          },
+          {
+            "reviewer": "style",
+            "severity": "major",
+            "segment": 0,
+            "sourceQuote": "“Gimme the bag. Yeah, that one,” Liv said.",
+            "targetQuote": "”Överlämna väskan till mig. Ja, det åsyftade exemplaret”, sa Liv.",
+            "explanation": "The source is casual, compressed spoken speech (‘Gimme’, ‘that one’) per the profile's colloquial dialogue guidance. The translation uses formal, bureaucratic/legalistic Swedish (‘Överlämna’ = ‘hand over/surrender’, ‘det åsyftade exemplaret’ = ‘the aforementioned/referenced specimen’), which completely reverses the casual register into stiff formal language, losing the intended voice.",
+            "suggestion": "Use colloquial Swedish, e.g. ”Ge mig väskan. Ja, den där”, sa Liv."
+          }
+        ],
+        "usage": {
+          "inputTokens": 3361,
+          "outputTokens": 1551
+        },
+        "model": "claude-sonnet-5",
+        "rubricVersion": "author-voice-v2"
+      },
+      "errorCode": null,
+      "elapsedMs": 10802
+    },
+    {
+      "caseId": "term-consistency-clean",
+      "outcome": "matched",
+      "review": {
+        "issues": [],
+        "usage": {
+          "inputTokens": 3305,
+          "outputTokens": 178
+        },
+        "model": "claude-sonnet-5",
+        "rubricVersion": "author-voice-v2"
+      },
+      "errorCode": null,
+      "elapsedMs": 2974
+    },
+    {
+      "caseId": "term-consistency-defect",
+      "outcome": "matched",
+      "review": {
+        "issues": [
+          {
+            "reviewer": "fidelity",
+            "severity": "major",
+            "segment": 1,
+            "sourceQuote": "Jag lade minnesstenen i fickan.",
+            "targetQuote": "I put the memory coin in my pocket.",
+            "explanation": "The source uses 'minnesstenen' (the memory stone), the same object introduced in segment 0 and confirmed by the glossary ('minnessten' = 'memory stone'). The translation instead calls it a 'memory coin', introducing an inconsistent object identity and contradicting the glossary term used correctly in segment 0.",
+            "suggestion": "Change 'memory coin' to 'memory stone' to match the glossary and maintain object consistency with segment 0."
+          },
+          {
+            "reviewer": "style",
+            "severity": "major",
+            "segment": 1,
+            "sourceQuote": "minnesstenen",
+            "targetQuote": "memory coin",
+            "explanation": "The source reuses the same word 'minnessten' from segment 0, creating deliberate repetition that treats the object as a fixed, familiar item. The translation switches to 'memory coin', breaking that intentional consistency and altering the object's identity, undermining the plain, familiar voice.",
+            "suggestion": "Use 'memory stone' to match the term established in segment 0."
+          }
+        ],
+        "usage": {
+          "inputTokens": 3305,
+          "outputTokens": 816
+        },
+        "model": "claude-sonnet-5",
+        "rubricVersion": "author-voice-v2"
+      },
+      "errorCode": null,
+      "elapsedMs": 5268
+    }
+  ],
+  "summary": {
+    "total": 10,
+    "evaluated": 10,
+    "notRun": 0,
+    "matched": 10,
+    "missed": 0,
+    "overflagged": 0,
+    "errors": 0,
+    "allDecisionsMatched": true,
+    "reportedInputTokens": 32944,
+    "reportedOutputTokens": 7351,
+    "usageIncomplete": false
+  }
+}

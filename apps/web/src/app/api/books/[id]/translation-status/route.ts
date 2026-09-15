@@ -47,7 +47,7 @@ export async function GET(
 
   let query = supabase
     .from("book_versions")
-    .select("id, language_code, status, created_at, updated_at")
+    .select("id, language_code, status, error_message, created_at, updated_at")
     .eq("book_id", bookId)
     .in("status", ["translating", "done", "failed"])
     .order("updated_at", { ascending: false })
@@ -81,6 +81,7 @@ export async function GET(
       rawStatus: row.status,
       status,
       progress: toTranslationProgress(row.status),
+      error: row.error_message ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

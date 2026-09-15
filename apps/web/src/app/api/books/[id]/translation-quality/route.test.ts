@@ -1,0 +1,155 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { hashTranslationSource, hashTranslationTarget } from "@/lib/translation-quality-report";
+
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), client: vi.fn(), source: vi.fn(), translate: vi.fn(), limit: vi.fn(), queue: vi.fn(), budget: vi.fn(), release: vi.fn() }));
+vi.mock("@/lib/workers/budget", async (original) => ({ ...await original<object>(), checkBudget: mocks.budget, releaseBudget: mocks.release }));
+vi.mock("@/lib/auth/require-author", () => ({ requireAuthorRoleForApi: mocks.auth }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => mocks.client() }));
+vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.client }));
+vi.mock("@/lib/book-translation", async (original) => ({ ...await original<object>(), resolveTranslationSourceContext: mocks.source }));
+vi.mock("@/lib/ai/translation-quality/anthropic", () => ({ translateWithQuality: mocks.translate }));
+vi.mock("@/lib/translation-queue", () => ({ getTranslationQueue: mocks.queue }));
+vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: mocks.limit }) }));
+
+const { POST, GET } = await import("./route");
+const { BudgetExceededError } = await import("@/lib/workers/budget");
+const id = "00000000-0000-4000-8000-000000000001";
+const sourceId = "00000000-0000-4000-8000-000000000002";
+const params = { params: Promise.resolve({ id }) };
+let owner: string;
+let sourceContent: string;
+let writeError: boolean;
+let failureWriteThrows: boolean;
+let queryFilters: unknown[][];
+let savedRows: unknown[];
+const report = { status: "needs_review", profile: { voice: "Spare", rhythm: "Short sentences", dialogue: "Dashes", preserve: [], glossary: [] }, issues: [], revisionCount: 1, reviewRounds: 2, model: "test", rubricVersion: "1", usage: { inputTokens: 1, outputTokens: 2 } };
+
+function request(body: unknown = { targetLanguage: "en", sourceVersionId: sourceId }) {
+  return new Request(`http://localhost/api/books/${id}/translation-quality`, {
+    method: "POST", headers: { "Content-Type": "application/json", Origin: "http://localhost" }, body: JSON.stringify(body),
+  });
+}
+
+beforeEach(() => {
+  vi.clearAllMocks(); owner = "author"; sourceContent = "Hej.\n\nVänta."; writeError = false; failureWriteThrows = false; queryFilters = []; savedRows = [];
+  mocks.auth.mockResolvedValue({ user: { id: "author" }, response: null });
+  mocks.limit.mockResolvedValue({ allowed: true });
+  mocks.budget.mockResolvedValue({}); mocks.release.mockResolvedValue(0);
+  mocks.source.mockResolvedValue({ sourceVersionId: sourceId, sourceLanguage: "sv" });
+  mocks.translate.mockResolvedValue({ translations: ["Hello.\n\nWait."], report });
+  mocks.client.mockReturnValue({ from: (table: string) => {
+    let writing = false;
+    const result = () => ({ data: table === "books" ? { id, author_id: owner } : table === "chapters" ? [{ id: "chapter", title: "One", content: sourceContent, order: 0 }] : savedRows, error: writing && writeError ? { message: "DB unavailable" } : null });
+    const chain = {
+      select: () => chain, eq: (...args: unknown[]) => { queryFilters.push(args); return chain; }, in: (...args: unknown[]) => { queryFilters.push(args); return chain; }, order: () => chain, limit: () => chain,
+      insert: () => { writing = true; return chain; }, update: () => { if (failureWriteThrows) throw new Error("Storage offline"); writing = true; return chain; },
+      maybeSingle: async () => result(), then: (resolve: (value: unknown) => void) => Promise.resolve(result()).then(resolve),
+    };
+    return chain;
+  } });
+});
+
+describe("scoped queue completion", () => {
+  it.each([false, true])("compares saved review fingerprints with the current text (edited: %s)", async (edited) => {
+    const snapshot = [{ id: "chapter", title: "One", content: sourceContent, order: 0 }];
+    savedRows = [{ id: "review", status: "completed", created_at: "2026-09-14T10:00:00Z", output: {
+      formatVersion: 1, scope: "book", sourceVersionId: sourceId, targetVersionId: "target",
+      sourceHash: hashTranslationSource(snapshot), targetHash: hashTranslationTarget(snapshot), status: "checks_passed", batches: [],
+    } }];
+    if (edited) sourceContent = "An edited manuscript.";
+    const res = await GET(new Request(`http://localhost/api/books/${id}/translation-quality?scope=book`), params);
+    expect((await res.json()).jobs[0].stale).toBe(edited);
+  });
+  it("reports a completed chapter separately from the book version", async () => {
+    mocks.queue.mockReturnValue({ getJob: async () => ({ data: { bookId: id, chapterId: "chapter-1" }, getState: async () => "completed" }) });
+    const res = await GET(new Request(`http://localhost/api/books/${id}/translation-quality?queueJobId=job`), params);
+    expect(await res.json()).toEqual({ queue: { status: "completed", chapterId: "chapter-1" } });
+  });
+  it("does not expose jobs for another book", async () => {
+    mocks.queue.mockReturnValue({ getJob: async () => ({ data: { bookId: "other" } }) });
+    expect((await GET(new Request(`http://localhost/api/books/${id}/translation-quality?queueJobId=job`), params)).status).toBe(404);
+  });
+});
+
+describe("translation quality authorization and failure handling", () => {
+  it("enforces the daily allowance before paying for a sample", async () => {
+    mocks.budget.mockRejectedValue(new BudgetExceededError({ userId: "author", pipeline: "translation", day: "2026-09-14", key: "test", current: 500000, limit: 500000, jobId: null }));
+    const res = await POST(request(), params);
+    expect(res.status).toBe(429); expect(await res.text()).toContain("daily AI allowance");
+    expect(mocks.translate).not.toHaveBeenCalled();
+  });
+  it("reserves separately for each sample and retains spent allowance after a provider failure", async () => {
+    await POST(request(), params); await POST(request(), params);
+    const calls = mocks.budget.mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(calls[0][0]).toMatchObject({ userId: "author", pipeline: "translation", units: expect.any(Number) });
+    expect(calls[0][0].jobId).not.toBe(calls[1][0].jobId);
+    mocks.translate.mockRejectedValue(new Error("upstream"));
+    await POST(request(), params);
+    expect(mocks.release).not.toHaveBeenCalled();
+  });
+  it("forwards auth failures without reading a manuscript", async () => {
+    mocks.auth.mockResolvedValue({ response: new Response(null, { status: 401 }) });
+    expect((await POST(request(), params)).status).toBe(401);
+    expect(mocks.client).not.toHaveBeenCalled();
+  });
+  it("rejects another author's book before source/model access", async () => {
+    owner = "other";
+    expect((await POST(request(), params)).status).toBe(404);
+    expect(mocks.translate).not.toHaveBeenCalled(); expect(mocks.source).not.toHaveBeenCalled();
+  });
+  it("rejects excessive guidance and unsupported languages", async () => {
+    expect((await POST(request({ targetLanguage: "en", authorGuidance: "x".repeat(2001) }), params)).status).toBe(400);
+    expect((await POST(request({ targetLanguage: "xx" }), params)).status).toBe(400);
+    expect(mocks.translate).not.toHaveBeenCalled();
+  });
+  it("rejects cross-origin requests", async () => {
+    const req = request(); req.headers.set("Origin", "https://unrelated.example");
+    expect((await POST(req, params)).status).toBe(403);
+    expect(mocks.translate).not.toHaveBeenCalled();
+  });
+  it("rate limits before model calls", async () => {
+    mocks.limit.mockResolvedValue({ allowed: false, retryAfterSeconds: 60 });
+    expect((await POST(request(), params)).status).toBe(429);
+    expect(mocks.translate).not.toHaveBeenCalled();
+  });
+  it("rejects a missing or foreign source version", async () => {
+    mocks.source.mockResolvedValue({ sourceVersionId: null, sourceLanguage: null });
+    expect((await POST(request(), params)).status).toBe(422);
+    expect(mocks.translate).not.toHaveBeenCalled();
+  });
+  it("uses stored current content, preserving paragraphs, and passes the requested source version", async () => {
+    const res = await POST(request(), params); const body = await res.json();
+    expect(res.status).toBe(200); expect(body.report.status).toBe("needs_review");
+    expect(body.originalText).toBe(sourceContent);
+    expect(mocks.source).toHaveBeenCalledWith(expect.objectContaining({ requestedSourceVersionId: sourceId }));
+    expect(mocks.translate).toHaveBeenCalledWith(expect.objectContaining({ texts: [sourceContent], sourceLanguage: "sv", targetLanguage: "en" }));
+    expect(queryFilters).toContainEqual(["book_version_id", sourceId]);
+  });
+  it("does not claim a saved review when persistence fails", async () => {
+    writeError = true;
+    expect((await POST(request(), params)).status).toBe(503);
+  });
+  it("returns a safe failure, not a pass or provider response body", async () => {
+    mocks.translate.mockRejectedValue(new Error("private upstream text"));
+    const res = await POST(request(), params); expect(res.status).toBe(503);
+    expect(await res.text()).not.toContain("private upstream text");
+  });
+  it("keeps the safe model failure when failure-status storage throws", async () => {
+    failureWriteThrows = true;
+    mocks.translate.mockRejectedValue(new Error("private upstream text"));
+    const res = await POST(request(), params);
+    expect(res.status).toBe(503);
+    expect(await res.text()).toContain("No quality decision was made");
+    expect(mocks.release).not.toHaveBeenCalled();
+  });
+  it("does not send empty chapters to the model", async () => {
+    sourceContent = "";
+    expect((await POST(request(), params)).status).toBe(422); expect(mocks.translate).not.toHaveBeenCalled();
+  });
+  it("filters saved reports by authenticated owner and book", async () => {
+    const res = await GET(new Request(`http://localhost/api/books/${id}/translation-quality?targetLanguage=en&scope=book`), params);
+    expect(res.status).toBe(200); expect(queryFilters).toContainEqual(["user_id", "author"]); expect(queryFilters).toContainEqual(["book_id", id]);
+    expect(queryFilters).toContainEqual(["input->>scope", ["book", "chapter"]]);
+  });
+});
