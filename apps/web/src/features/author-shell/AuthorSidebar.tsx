@@ -287,7 +287,7 @@ export default function AuthorSidebar({
         <div className="px-7 pb-8 pt-8">
           <Link href="/author/home" className="inline-flex items-center">
             <Image
-              src="/favicon.svg?v=20260915"
+              src="/favicon.svg?v=20260915-white"
               alt="Verkli"
               width={120}
               height={26}

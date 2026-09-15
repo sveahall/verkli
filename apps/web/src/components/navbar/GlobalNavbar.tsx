@@ -383,7 +383,7 @@ export default function GlobalNavbar({
                   priority
                 />
                 <Image
-                  src="/favicon.svg?v=20260915"
+                  src="/favicon.svg?v=20260915-white"
                   alt="Verkli"
                   width={796}
                   height={221}

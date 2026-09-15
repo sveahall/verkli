@@ -18,7 +18,7 @@ export default function Footer({ variant = "reader" }: { variant?: FooterVariant
         <div className="space-y-5">
           <Link href="/" className="inline-block">
             <Image src="/logo-dark.svg?v=20260915" alt="Verkli" width={158} height={36} className="h-9 w-auto dark:hidden" />
-            <Image src="/favicon.svg?v=20260915" alt="Verkli" width={158} height={36} className="hidden h-9 w-auto dark:block" />
+            <Image src="/favicon.svg?v=20260915-white" alt="Verkli" width={158} height={36} className="hidden h-9 w-auto dark:block" />
           </Link>
           <p className="max-w-[280px] text-[15px] leading-[1.7] text-muted-foreground ">
             One story. Every possibility. Writing, translation, audiobooks and publishing, together in Verkli.

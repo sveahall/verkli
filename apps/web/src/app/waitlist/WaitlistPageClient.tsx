@@ -5,6 +5,7 @@ import Image from "next/image";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { ArrowDown, ArrowRight, ArrowUpRight, AudioLines, FileText, Globe2, Languages, Plus } from "lucide-react";
 import AuthorButterfly from "@/features/author/AuthorButterfly";
+import AgentTeam from "@/features/ai-team/AgentTeam";
 import { AuthorScrollStatement, UnfoldSection } from "@/features/author/AuthorLandingMotion";
 import WaitlistProductPreview from "./WaitlistProductPreview";
 import "./waitlist.css";
@@ -475,7 +476,7 @@ export default function WaitlistPageClient({ accessPending }: { accessPending: b
     <main className="waitlist-page" id="top">
       <header className="wl-nav wl-shell">
         <a href="#top" className="wl-logo" aria-label="Verkli home">
-          <Image src="/logo-dark.svg?v=20260915" alt="Verkli" width={144} height={40} className="dark:hidden" priority /><Image src="/favicon.svg?v=20260915" alt="Verkli" width={144} height={40} className="hidden dark:block" priority />
+          <Image src="/logo-dark.svg?v=20260915" alt="Verkli" width={144} height={40} className="dark:hidden" priority /><Image src="/favicon.svg?v=20260915-white" alt="Verkli" width={144} height={40} className="hidden dark:block" priority />
 
         </a>
         <nav className="wl-nav-links" aria-label="Main navigation">
@@ -554,6 +555,7 @@ export default function WaitlistPageClient({ accessPending }: { accessPending: b
         <a href="#publishing" className="wl-capability"><Globe2 size={17} aria-hidden="true" /> Publish <ArrowUpRight size={13} aria-hidden="true" /></a>
       </div>
 
+      <div className="wl-shell"><AgentTeam /></div>
       <div className="wl-statement wl-shell"><AuthorScrollStatement /></div>
 
       <section className="wl-how wl-shell" id="how-it-works" aria-labelledby="how-heading">
@@ -591,7 +593,7 @@ export default function WaitlistPageClient({ accessPending }: { accessPending: b
         <BookOrderSection />
       </div>
       <footer className="wl-footer wl-shell">
-        <a href="#top" className="wl-logo" aria-label="Verkli home"><Image src="/logo-dark.svg?v=20260915" alt="Verkli" width={144} height={40} className="dark:hidden" /><Image src="/favicon.svg?v=20260915" alt="Verkli" width={144} height={40} className="hidden dark:block" /></a>
+        <a href="#top" className="wl-logo" aria-label="Verkli home"><Image src="/logo-dark.svg?v=20260915" alt="Verkli" width={144} height={40} className="dark:hidden" /><Image src="/favicon.svg?v=20260915-white" alt="Verkli" width={144} height={40} className="hidden dark:block" /></a>
         <p>Built for the stories only you can tell.</p>
         <a href="#join-waitlist">Be part of the next chapter <ArrowRight size={14} aria-hidden="true" /></a>
       </footer>

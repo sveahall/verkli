@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowUpRight, MessageSquareText } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
+import AgentAvatar from "@/features/ai-team/AgentAvatar";
+import AgentCompanion from "@/features/ai-team/AgentCompanion";
 import type { Tool } from "../bookEditor.shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -212,9 +214,7 @@ export default function AiAssistantPanel({
     >
       {isDock ? null : (
         <div>
-          <h2 className="author-section-title text-[clamp(20px,2.5vw,24px)] font-medium tracking-[-0.02em] text-foreground dark:text-foreground">
-            AI Assistant
-          </h2>
+          <AgentCompanion agent="edith" />
           <p className="mt-1 text-sm text-muted-foreground dark:text-muted-foreground">
             Ask about craft, pacing, or dialogue. Select text in the editor first
             for targeted suggestions.
@@ -231,9 +231,10 @@ export default function AiAssistantPanel({
       >
         {isDock ? (
           <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border/80 px-4 py-3 dark:border-border">
+            <AgentAvatar agent="edith" size={44} />
             <div className="min-w-0">
               <h2 className="author-section-title text-sm font-medium text-foreground dark:text-foreground">
-                AI Assistant
+                Edith <span className="ml-1 font-sans text-xs font-normal text-muted-foreground">/ AI editor</span>
               </h2>
               <p className="mt-0.5 text-[13px] leading-snug text-muted-foreground dark:text-muted-foreground">
                 {activeTool === "edit" ? "Select a passage for focused writing feedback." : "Explore ideas using your book as context."}
@@ -266,10 +267,10 @@ export default function AiAssistantPanel({
         >
           {messages.length === 0 && !sending && (
             <div className={isDock ? "space-y-2.5 py-2" : "space-y-3 py-6 text-center"}>
-              <div className="pb-4 pt-3">
-                <MessageSquareText className="mb-4 h-6 w-6 text-accent-foreground" strokeWidth={1.5} aria-hidden />
-                <h3 className="font-display text-xl text-foreground">A fresh perspective.</h3>
-                <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">Start with a question, or explore one of these ideas.</p>
+              <div className="pb-4 pt-1">
+                <div className="mx-auto mb-4 w-28"><AgentAvatar agent="edith" portrait /></div>
+                <h3 className="font-display text-xl text-foreground">Let’s make it yours.</h3>
+                <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">I’m Edith, your AI editor. Bring a question or a passage. You decide which suggestions to keep.</p>
               </div>
               <div className={isDock ? "flex flex-col gap-2" : "flex flex-wrap justify-center gap-2"}>
                 {quickPrompts.map((prompt) => (
@@ -299,6 +300,7 @@ export default function AiAssistantPanel({
                   : "mr-auto max-w-[85%] rounded-2xl rounded-bl-md bg-muted px-4 py-3 text-[15px] leading-relaxed text-foreground dark:bg-card dark:text-foreground"
               }
             >
+              {message.role === "assistant" && <div className="mb-2 flex items-center gap-2 text-xs font-medium"><AgentAvatar agent="edith" size={24} /><span>Edith</span></div>}
               <p className="whitespace-pre-wrap break-words">{message.content}</p>
               {message.role === "assistant" && message.source === "template" && (
                 <p className="mt-2 text-[11px] font-medium text-muted-foreground dark:text-muted-foreground">
@@ -310,9 +312,9 @@ export default function AiAssistantPanel({
 
           {sending && (
             <div className="mr-auto flex max-w-[85%] items-center gap-2 rounded-2xl rounded-bl-md bg-muted px-4 py-3 dark:bg-card">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-[#907AFF]" />
+              <AgentAvatar agent="edith" size={28} />
               <span className="text-sm text-muted-foreground dark:text-muted-foreground">
-                Thinking…
+                Edith is thinking…
               </span>
             </div>
           )}
@@ -338,7 +340,7 @@ export default function AiAssistantPanel({
                 handleSubmit();
               }
             }}
-            placeholder="Ask about your book…"
+            placeholder="Ask Edith about your book…"
             aria-label="Message to the AI assistant"
             className={isDock ? "min-h-[64px]" : "min-h-[88px]"}
             maxLength={2000}

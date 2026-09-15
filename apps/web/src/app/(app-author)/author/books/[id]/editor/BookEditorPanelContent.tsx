@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import GenreSelector from "@/components/books/GenreSelector";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
+import AgentCompanion from "@/features/ai-team/AgentCompanion";
+import { getAgentForPanel } from "@/features/ai-team/agents";
 import { getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
 import { type SupportedLanguage } from "@/lib/languages";
 import BookWorkflowHeader from "../BookWorkflowHeader";
@@ -110,6 +112,7 @@ export default function BookEditorPanelContent({
   bookTrailerUrl,
   demoMode = false,
 }: BookEditorPanelContentProps) {
+  const companion = getAgentForPanel(tool);
   return (
     <div className="@container/book-panel w-full min-w-0 rounded-2xl border border-border bg-card shadow-surface-sm">
       <BookWorkflowHeader
@@ -120,6 +123,7 @@ export default function BookEditorPanelContent({
         compact
       />
       <div className="min-w-0 px-4 pb-8 pt-6 @min-[680px]/book-panel:px-8 @min-[680px]/book-panel:pt-8">
+        {companion && <AgentCompanion agent={companion.id} />}
 
         {tool === "cover" && (
           <CoverPanel
