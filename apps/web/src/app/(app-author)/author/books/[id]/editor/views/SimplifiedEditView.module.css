@@ -1,0 +1,112 @@
+.workspace {
+  min-width: 0;
+  color: var(--foreground);
+}
+
+.workspace button:focus-visible,
+.workspace input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+.workspace button:disabled { cursor: not-allowed; opacity: .45; }
+.bookHeader { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 2px 0 24px; }
+.bookIdentity { flex: 1; min-width: 0; }
+.bookMeta { display: flex; align-items: center; gap: 9px; color: var(--muted-foreground); font-size: 13px; margin-bottom: 9px; }
+.stateDot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-foreground); }
+.stateDot[data-published="true"] { background: #318761; }
+.bookTitle, .bookTitleInput { font-family: var(--font-montserrat-alternates), sans-serif; font-size: clamp(25px, 2.5vw, 36px); font-weight: 400; line-height: 1.25; letter-spacing: -.045em; }
+.bookTitle button { display: flex; align-items: center; gap: 14px; text-align: left; max-width: 100%; min-height: 44px; }
+.bookTitle button span { overflow-wrap: anywhere; }
+.bookTitle svg { flex-shrink: 0; color: var(--muted-foreground); opacity: .6; }
+.bookTitleInput { width: 100%; padding: 0 8px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+.headerActions { display: flex; align-items: center; gap: 20px; }
+.saveLabel { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted-foreground); white-space: nowrap; }
+.saveLabel[data-error="true"] { color: var(--destructive); }
+.focusButton { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 0 18px; border: 1px solid var(--border); border-radius: 99px; font-size: 13px; font-weight: 500; background: var(--card); }
+.focusButton:hover { background: var(--accent); }
+.workflow { margin-bottom: 18px; border-block: 1px solid var(--border); }
+.workflow > div { padding: 8px 0; border: 0; background: transparent; }
+.workflow nav > div[aria-hidden] { display: none; }
+.workflow nav > div:not([aria-hidden]) { padding: 2px; }
+.workflow a[aria-current="step"] { box-shadow: none; }
+.canvas { border: 1px solid var(--border); border-radius: 18px; background: var(--card); }
+.editingHeader { position: sticky; top: 0; z-index: 20; border-radius: 18px 18px 0 0; background: var(--card); }
+.chapterBar { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 8px 16px; border-bottom: 1px solid var(--border); }
+.chapterNavigation { display: flex; align-items: center; flex: 1; min-width: 0; gap: 3px; }
+.chapterScroller { display: flex; gap: 4px; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding: 3px; }
+.chapterTab { display: flex; align-items: center; flex-shrink: 0; gap: 9px; min-height: 44px; border: 1px solid transparent; border-radius: 8px; padding: 0 13px; color: var(--muted-foreground); font-size: 13px; }
+.chapterTab:hover { color: var(--foreground); background: var(--background); }
+.chapterTab[aria-current] { color: var(--foreground); background: var(--background); border-color: var(--border); }
+.chapterNumber { font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+.chapterTab[aria-current] .chapterNumber { color: var(--accent-foreground); }
+.chapterName { max-width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.addChapter, .toolsButton { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 0 12px; border-radius: 8px; font-size: 13px; color: var(--muted-foreground); }
+.addChapter:hover, .toolsButton:hover, .iconButton:hover { background: var(--background); color: var(--foreground); }
+.addChapter { border-left: 1px solid var(--border); border-radius: 0; }
+.iconButton { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex-shrink: 0; border-radius: 8px; color: var(--muted-foreground); }
+.toolbarRow { display: flex; align-items: center; min-width: 0; gap: 8px; padding: 2px 16px; border-bottom: 1px solid var(--border); }
+.toolbarTarget { min-width: 0; flex: 1; }
+.toolbarTarget > div { padding-inline: 0; }
+.toolsButton[aria-expanded="true"] { color: var(--accent-foreground); background: var(--accent); }
+.writingLayout { display: flex; min-height: 520px; }
+.manuscript { min-width: 0; flex: 1; padding: 32px clamp(20px, 3.2vw, 52px) 12px; }
+.chapterHeading { display: flex; align-items: center; justify-content: space-between; min-width: 0; gap: 8px; margin-bottom: 12px; }
+.renameLabel { font-size: 12px; color: var(--muted-foreground); }
+.chapterTitleInput { min-width: 0; flex: 1; min-height: 44px; padding: 0 10px; font-size: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+.chapterActions { position: relative; flex-shrink: 0; }
+.chapterActions summary { display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer; border-radius: 8px; color: var(--muted-foreground); list-style: none; }
+.chapterActions summary::-webkit-details-marker { display: none; }
+.chapterActions summary:hover { background: var(--background); color: var(--foreground); }
+.chapterActions summary:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.chapterActionMenu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; width: 190px; padding: 5px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); box-shadow: 0 8px 24px #19171c12; }
+.chapterActionMenu button { display: flex; align-items: center; gap: 10px; min-height: 44px; width: 100%; padding: 0 12px; border-radius: 7px; text-align: left; font-size: 13px; }
+.chapterActionMenu button:hover { background: var(--background); }
+/* Keep the author's font, size, spacing and selected measure from the editor. */
+.manuscript :global(.verkli-content .ProseMirror) { min-width: 0; padding: 0 0 40px; }
+.manuscript :global(.ProseMirror > :first-child) { margin-top: 0; }
+.sidePanel { display: flex; flex-shrink: 0; min-width: 0; }
+.sidePanel[data-open="true"] { width: 280px; }
+.sidePanel[data-open="false"] { width: 56px; }
+.sidePanel > aside, .sidePanel > div { align-self: stretch; }
+.statusBar { overflow: hidden; border-top: 1px solid var(--border); border-radius: 0 0 18px 18px; }
+.emptyState { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; min-height: 360px; text-align: center; }
+.emptyState h2 { font: 400 24px/1.4 var(--font-montserrat-alternates), sans-serif; letter-spacing: -.03em; }
+.emptyState p { color: var(--muted-foreground); font-size: 14px; line-height: 1.6; }
+
+@media (max-width: 1199px) {
+  .saveLabel { display: none; }
+  .manuscript { padding-inline: 24px; }
+}
+
+@media (max-width: 1023px) {
+  .writingLayout { flex-direction: column; }
+  .sidePanel { order: -1; }
+  .sidePanel[data-open] { width: 100%; }
+  .sidePanel[data-open="false"] { display: none; }
+  .sidePanel[data-open="true"] { max-height: 360px; max-height: 42dvh; overflow-y: auto; border-bottom: 1px solid var(--border); }
+  .sidePanel > aside { width: 100%; border-top: 0; }
+}
+
+@media (max-width: 639px) {
+  .bookHeader { align-items: flex-start; gap: 12px; padding-bottom: 18px; }
+  .bookMeta { font-size: 12px; margin-bottom: 5px; }
+  .bookTitle, .bookTitleInput { font-size: 25px; }
+  .bookTitle svg { display: none; }
+  .headerActions { padding-top: 20px; }
+  .focusButton { padding-inline: 13px; }
+  .headerActions .focusButton span { display: none; }
+  .workflow { margin-bottom: 12px; }
+  .workflow a { padding-inline: 12px; }
+  .canvas { border-radius: 12px; }
+  .editingHeader { border-radius: 12px 12px 0 0; }
+  .chapterBar { gap: 4px; padding: 6px; }
+  .chapterTab { padding-inline: 10px; }
+  .chapterName { max-width: 130px; }
+  .addChapter span, .toolsButton span { display: none; }
+  .toolbarRow { gap: 4px; padding-inline: 8px; }
+  .manuscript { padding: 24px 20px; }
+  .chapterHeading { margin-bottom: 6px; }
+  .statusBar { border-radius: 0 0 12px 12px; }
+  .statusBar > div { padding-right: 56px; }
+}

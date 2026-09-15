@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useId } from "react";
 import {
   Bold,
   Italic,
@@ -39,11 +39,14 @@ function FormatButton({
     <button
       type="button"
       aria-label={label}
+      aria-pressed={active}
+      title={label}
       onMouseDown={(e) => { e.preventDefault(); onClick(); }}
-      className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
+      onClick={(event) => { if (event.detail === 0) onClick(); }}
+      className={`flex h-11 w-11 items-center justify-center rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
         active
-          ? "bg-[#907AFF]/10 text-accent-foreground"
-          : "text-muted-foreground hover:bg-background hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
+          ? "bg-accent text-accent-foreground"
+          : "text-muted-foreground hover:bg-card hover:text-foreground"
       }`}
     >
       {children}
@@ -56,6 +59,7 @@ export default function EditorFormatPanel({
   preset,
   onPresetChange,
 }: EditorFormatPanelProps) {
+  const fieldId = useId();
   const setHeading = useCallback(
     (level: 1 | 2 | 3) => editor.chain().focus().toggleHeading({ level }).run(),
     [editor]
@@ -68,19 +72,21 @@ export default function EditorFormatPanel({
     <div className="space-y-6 p-4">
       {/* Section: TEXT */}
       <section>
-        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:text-muted-foreground">
+        <h3 className="mb-4 text-[13px] font-medium text-foreground">
           Text
         </h3>
 
         {/* Block type */}
+        <label htmlFor={`${fieldId}-block`} className="mb-1.5 block text-[12px] text-muted-foreground">Text style</label>
         <select
+          id={`${fieldId}-block`}
           value={currentHeading ? `h${currentHeading}` : "p"}
           onChange={(e) => {
             const val = e.target.value;
             if (val === "p") editor.chain().focus().setParagraph().run();
             else setHeading(Number(val.replace("h", "")) as 1 | 2 | 3);
           }}
-          className="mb-3 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-[14px] font-medium text-foreground outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-border dark:bg-card dark:text-foreground"
+          className="mb-4 min-h-11 w-full rounded-xl border border-border bg-card px-3 py-2 text-[16px] text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-[14px]"
         >
           <option value="p">Paragraph</option>
           <option value="h1">Heading 1</option>
@@ -89,13 +95,15 @@ export default function EditorFormatPanel({
         </select>
 
         {/* Font family */}
+        <label htmlFor={`${fieldId}-font`} className="mb-1.5 block text-[12px] text-muted-foreground">Font family</label>
         <select
+          id={`${fieldId}-font`}
           value={currentFont}
           onChange={(e) => {
             if (e.target.value) editor.chain().focus().setFontFamily(e.target.value).run();
             else editor.chain().focus().unsetFontFamily().run();
           }}
-          className="mb-3 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-[14px] font-medium text-foreground outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-border dark:bg-card dark:text-foreground"
+          className="mb-4 min-h-11 w-full rounded-xl border border-border bg-card px-3 py-2 text-[16px] text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-[14px]"
         >
           <option value="">Default font</option>
           <option value="Georgia, serif">Georgia</option>
@@ -107,10 +115,12 @@ export default function EditorFormatPanel({
         </select>
 
         {/* Preset */}
+        <label htmlFor={`${fieldId}-preset`} className="mb-1.5 block text-[12px] text-muted-foreground">Writing preset</label>
         <select
+          id={`${fieldId}-preset`}
           value={preset}
           onChange={(e) => onPresetChange(e.target.value)}
-          className="mb-3 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-[14px] font-medium text-foreground outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-border dark:bg-card dark:text-foreground"
+          className="mb-4 min-h-11 w-full rounded-xl border border-border bg-card px-3 py-2 text-[16px] text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-[14px]"
         >
           {Object.keys(WRITING_PRESETS).map((key) => (
             <option key={key} value={key}>{key.charAt(0).toUpperCase() + key.slice(1)}</option>
@@ -120,7 +130,7 @@ export default function EditorFormatPanel({
 
       {/* Section: STYLING */}
       <section>
-        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:text-muted-foreground">
+        <h3 className="mb-3 text-[13px] font-medium text-foreground">
           Styling
         </h3>
         <div className="grid grid-cols-4 gap-1">
@@ -156,7 +166,7 @@ export default function EditorFormatPanel({
 
       {/* Section: ALIGNMENT */}
       <section>
-        <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:text-muted-foreground">
+        <h3 className="mb-3 text-[13px] font-medium text-foreground">
           Alignment
         </h3>
         <div className="grid grid-cols-4 gap-1">

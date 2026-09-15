@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import type { Editor } from "@tiptap/react";
 
@@ -11,42 +11,45 @@ type EditorFindReplaceProps = {
 
 type Match = { from: number; to: number };
 
-function findAllMatches(editor: Editor, query: string, caseSensitive: boolean): Match[] {
+export function findAllMatches(editor: Editor, query: string, caseSensitive: boolean): Match[] {
   if (!query) return [];
   const matches: Match[] = [];
-  const doc = editor.state.doc;
-  const text = doc.textBetween(0, doc.content.size, "\n");
-  const search = caseSensitive ? query : query.toLowerCase();
-  const hay = caseSensitive ? text : text.toLowerCase();
-
-  let index = 0;
-  while (index < hay.length) {
-    const found = hay.indexOf(search, index);
-    if (found === -1) break;
-    // Map text offset → doc position (account for nodes)
-    let docPos = 0;
-    let charsSeen = 0;
-    doc.descendants((node, pos) => {
-      if (charsSeen <= found && node.isText) {
-        const nodeText = node.text ?? "";
-        const startChars = charsSeen;
-        charsSeen += nodeText.length;
-        if (startChars <= found && found < charsSeen) {
-          docPos = pos + (found - startChars);
+  // ProseMirror positions include block boundaries; plain-text offsets do not.
+  // Map each text block directly, retaining positions across inline marks.
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(escapedQuery, caseSensitive ? "g" : "gi");
+  editor.state.doc.descendants((block, blockPos) => {
+    if (!block.isTextblock) return;
+    let text = "";
+    const positions: number[] = [];
+    block.descendants((node, offset) => {
+      if (node.isText && node.text) {
+        text += node.text;
+        for (let index = 0; index < node.text.length; index++) {
+          positions.push(blockPos + 1 + offset + index);
         }
-      } else if (node.isBlock && charsSeen <= found) {
-        charsSeen += 1; // for the \n separator
+      } else if (node.isLeaf) {
+        // A hard break or inline image must not join two separate words.
+        text += "\uFFFC";
+        positions.push(-1);
       }
     });
-    if (docPos > 0) {
-      matches.push({ from: docPos, to: docPos + query.length });
+    pattern.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+      const from = positions[match.index];
+      const last = positions[match.index + match[0].length - 1];
+      if (from >= 0 && last >= 0 && !positions.slice(match.index, match.index + match[0].length).includes(-1)) {
+        matches.push({ from, to: last + 1 });
+      }
     }
-    index = found + 1;
-  }
+    return false;
+  });
   return matches;
 }
 
 export default function EditorFindReplace({ editor, onClose }: EditorFindReplaceProps) {
+  const fieldId = useId();
   const [findQuery, setFindQuery] = useState("");
   const [replaceQuery, setReplaceQuery] = useState("");
   const [caseSensitive, setCaseSensitive] = useState(false);
@@ -68,6 +71,16 @@ export default function EditorFindReplace({ editor, onClose }: EditorFindReplace
     // Defer to avoid setState-in-effect lint rule
     const frame = requestAnimationFrame(update);
     return () => cancelAnimationFrame(frame);
+  }, [editor, findQuery, caseSensitive]);
+
+  useEffect(() => {
+    const refresh = () => {
+      const found = findAllMatches(editor, findQuery, caseSensitive);
+      setMatches(found);
+      setMatchIndex((current) => Math.min(current, Math.max(0, found.length - 1)));
+    };
+    editor.on("update", refresh);
+    return () => { editor.off("update", refresh); };
   }, [editor, findQuery, caseSensitive]);
 
   const goToMatch = useCallback(
@@ -108,8 +121,10 @@ export default function EditorFindReplace({ editor, onClose }: EditorFindReplace
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      if (e.key === "Enter" && !e.shiftKey) goToMatch("next");
-      if (e.key === "Enter" && e.shiftKey) goToMatch("prev");
+      if (e.key === "Enter" && e.target === findRef.current) {
+        e.preventDefault();
+        goToMatch(e.shiftKey ? "prev" : "next");
+      }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -118,35 +133,37 @@ export default function EditorFindReplace({ editor, onClose }: EditorFindReplace
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:text-muted-foreground">
+        <h3 className="text-[13px] font-medium text-foreground">
           Find and replace
         </h3>
-        <button type="button" onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-background hover:text-muted-foreground dark:hover:bg-accent">
-          <X className="h-4 w-4" />
+        <button type="button" onClick={onClose} aria-label="Close find and replace" className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
 
       {/* Find */}
       <div>
-        <label className="mb-1 block text-[11px] font-medium text-muted-foreground dark:text-muted-foreground">Find</label>
-        <div className="flex gap-1.5">
+        <label htmlFor={`${fieldId}-find`} className="mb-1.5 block text-[12px] text-muted-foreground">Find</label>
+        <div className="flex gap-1">
           <input
             ref={findRef}
+            id={`${fieldId}-find`}
             type="text"
             value={findQuery}
             onChange={(e) => setFindQuery(e.target.value)}
             placeholder="Search..."
-            className="flex-1 rounded-lg border border-border bg-card px-3 py-2 text-[14px] text-foreground outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-border dark:bg-card dark:text-foreground"
+            aria-describedby={findQuery ? `${fieldId}-matches` : undefined}
+            className="min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-card px-3 py-2 text-[16px] text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-[14px]"
           />
-          <button type="button" onClick={() => goToMatch("prev")} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-background dark:border-border dark:hover:bg-accent" title="Previous (Shift+Enter)">
-            <ArrowUp className="h-4 w-4" />
+          <button type="button" onClick={() => goToMatch("prev")} aria-label="Previous match" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" title="Previous (Shift+Enter)">
+            <ArrowUp className="h-4 w-4" aria-hidden="true" />
           </button>
-          <button type="button" onClick={() => goToMatch("next")} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-background dark:border-border dark:hover:bg-accent" title="Next (Enter)">
-            <ArrowDown className="h-4 w-4" />
+          <button type="button" onClick={() => goToMatch("next")} aria-label="Next match" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring" title="Next (Enter)">
+            <ArrowDown className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
         {findQuery && (
-          <p className="mt-1.5 text-[12px] text-muted-foreground dark:text-muted-foreground">
+          <p id={`${fieldId}-matches`} role="status" className="mt-2 text-[12px] text-muted-foreground">
             {matches.length === 0 ? "No matches" : `${matchIndex + 1} of ${matches.length}`}
           </p>
         )}
@@ -154,19 +171,20 @@ export default function EditorFindReplace({ editor, onClose }: EditorFindReplace
 
       {/* Replace */}
       <div>
-        <label className="mb-1 block text-[11px] font-medium text-muted-foreground dark:text-muted-foreground">Replace</label>
+        <label htmlFor={`${fieldId}-replace`} className="mb-1.5 block text-[12px] text-muted-foreground">Replace</label>
         <input
+          id={`${fieldId}-replace`}
           type="text"
           value={replaceQuery}
           onChange={(e) => setReplaceQuery(e.target.value)}
           placeholder="Replace with..."
-          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-[14px] text-foreground outline-none focus:border-[#907AFF]/50 focus:ring-2 focus:ring-[#907AFF]/20 dark:border-border dark:bg-card dark:text-foreground"
+          className="min-h-11 w-full rounded-xl border border-border bg-card px-3 py-2 text-[16px] text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-[14px]"
         />
         <div className="mt-2 flex gap-2">
-          <button type="button" onClick={replaceCurrent} disabled={matches.length === 0} className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition hover:bg-background disabled:opacity-40 dark:border-border dark:text-muted-foreground dark:hover:bg-accent">
+          <button type="button" onClick={replaceCurrent} disabled={matches.length === 0} className="min-h-11 rounded-full border border-border px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-40">
             Replace
           </button>
-          <button type="button" onClick={replaceAll} disabled={matches.length === 0} className="rounded-lg border border-border px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition hover:bg-background disabled:opacity-40 dark:border-border dark:text-muted-foreground dark:hover:bg-accent">
+          <button type="button" onClick={replaceAll} disabled={matches.length === 0} className="min-h-11 rounded-full border border-border px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-40">
             Replace all
           </button>
         </div>
@@ -174,15 +192,15 @@ export default function EditorFindReplace({ editor, onClose }: EditorFindReplace
 
       {/* Options */}
       <div>
-        <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:text-muted-foreground">
+        <h4 className="mb-1 text-[13px] font-medium text-foreground">
           Options
         </h4>
-        <label className="flex items-center gap-2 text-[13px] text-muted-foreground dark:text-muted-foreground">
+        <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-[13px] text-muted-foreground">
           <input
             type="checkbox"
             checked={caseSensitive}
             onChange={(e) => setCaseSensitive(e.target.checked)}
-            className="h-4 w-4 rounded border-border accent-[#907AFF]"
+            className="h-4 w-4 rounded border-border accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           />
           Match case
         </label>

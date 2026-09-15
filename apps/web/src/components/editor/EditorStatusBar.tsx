@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import { Clock, FileText, PanelRight, Maximize2, Minimize2, Save } from "lucide-react";
+import { AlertCircle, Clock, FileText, PanelRight, Maximize2, Minimize2, Save } from "lucide-react";
 
 type EditorStatusBarProps = {
   wordCount: number;
   isSaving: boolean;
+  saveError?: boolean;
   hasUnsavedChanges: boolean;
   lastSaved: Date | null;
   focusMode: boolean;
@@ -26,6 +27,7 @@ function formatLastSaved(date: Date | null): string {
 export default function EditorStatusBar({
   wordCount,
   isSaving,
+  saveError = false,
   hasUnsavedChanges,
   lastSaved,
   focusMode,
@@ -38,30 +40,32 @@ export default function EditorStatusBar({
     return `${minutes} min read`;
   }, [wordCount]);
 
-  const saveStatus = isSaving
+  const saveStatus = saveError
+    ? "Could not save. Your changes are still unsaved."
+    : isSaving
     ? "Saving..."
     : hasUnsavedChanges
     ? "Unsaved changes"
     : formatLastSaved(lastSaved);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-background/60 px-5 py-2.5 text-[13px] text-muted-foreground dark:bg-card dark:text-muted-foreground">
+    <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 bg-background px-5 py-2 text-[12px] text-muted-foreground">
       {/* Left: stats */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span className="inline-flex items-center gap-1.5 tabular-nums">
-          <FileText className="h-3.5 w-3.5" />
+          <FileText className="h-3.5 w-3.5" aria-hidden="true" />
           {wordCount.toLocaleString()} words
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <Clock className="h-3.5 w-3.5" />
+          <Clock className="h-3.5 w-3.5" aria-hidden="true" />
           {readingTime}
         </span>
       </div>
 
       {/* Center: save status */}
-      <div className="flex items-center gap-1.5">
-        {isSaving && <Save className="h-3 w-3 animate-pulse" />}
-        <span className={isSaving ? "animate-pulse" : hasUnsavedChanges ? "text-amber-500 dark:text-amber-400" : ""}>
+      <div role={saveError ? "alert" : "status"} className={`flex items-center gap-1.5 ${saveError ? "text-red-700 dark:text-red-300" : ""}`}>
+        {saveError ? <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" /> : isSaving && <Save className="h-3.5 w-3.5" aria-hidden="true" />}
+        <span className={!saveError && !isSaving && hasUnsavedChanges ? "text-amber-700 dark:text-amber-300" : ""}>
           {saveStatus}
         </span>
       </div>
@@ -71,25 +75,25 @@ export default function EditorStatusBar({
         <button
           type="button"
           onClick={onToggleSidePanel}
-          className={`flex h-10 min-w-10 items-center justify-center gap-1 rounded-lg px-2 transition ${
+          className={`flex h-11 min-w-11 items-center justify-center gap-1 rounded-lg px-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
             sidePanelOpen
-              ? "bg-[#907AFF]/10 text-accent-foreground"
-              : "hover:bg-background hover:text-muted-foreground dark:hover:bg-accent"
+              ? "bg-accent text-accent-foreground"
+              : "hover:bg-card hover:text-foreground"
           }`}
           title="Toggle side panel"
           aria-label="Toggle side panel"
           aria-pressed={sidePanelOpen}
         >
-          <PanelRight className="h-3.5 w-3.5" />
+          <PanelRight className="h-4 w-4" aria-hidden="true" />
         </button>
         <button
           type="button"
           onClick={onToggleFocusMode}
-          className="flex h-10 min-w-10 items-center justify-center gap-1 rounded-lg px-2 transition hover:bg-background hover:text-muted-foreground dark:hover:bg-accent"
+          className="flex h-11 min-w-11 items-center justify-center gap-1 rounded-lg px-2 transition-colors hover:bg-card hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           title={focusMode ? "Exit focus mode" : "Focus mode"}
           aria-label={focusMode ? "Exit focus mode" : "Focus mode"}
         >
-          {focusMode ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          {focusMode ? <Minimize2 className="h-4 w-4" aria-hidden="true" /> : <Maximize2 className="h-4 w-4" aria-hidden="true" />}
         </button>
       </div>
     </div>
