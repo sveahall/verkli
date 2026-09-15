@@ -7,7 +7,7 @@ import ProductionStudio from "@/features/book-production/ProductionStudio";
 import { createProductionSettings, type ProductionSettings } from "@/features/book-production/model";
 import type { ArtworkMap, ArtworkSide, ProductionArtwork } from "@/features/book-production/ProductionCover";
 
-import { localDraftSchema } from "./local-draft";
+import { localDraftSchema, readPrintArtwork } from "@/features/book-production/browser-draft";
 
 const STORAGE_KEY = "verkli-book-production-local-preview-v1";
 const chapters = [
@@ -52,12 +52,7 @@ export default function ProductionPreview() {
   }, []);
   async function upload(side: ArtworkSide, file: File): Promise<ProductionArtwork> {
     if (failure) throw new Error("Simulated upload failure. The previous artwork is still in place.");
-    const bitmap = await createImageBitmap(file);
-    const width = bitmap.width; const height = bitmap.height; bitmap.close();
-    if (width > 20000 || height > 20000 || width * height > 50_000_000) throw new Error("This image is too large to preview. Choose an image below 50 megapixels.");
-    const url = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("Could not read this image.")); reader.readAsDataURL(file); });
-    const artwork = { path: `preview/${side}-${crypto.randomUUID()}.jpg`, url, width, height };
-    return artwork;
+    return readPrintArtwork(side, file);
   }
   function reset() { localStorage.removeItem(STORAGE_KEY); setRestoreError(null); const settings = sampleSettings(); setAssets({}); setInitial(settings); setInstance((value) => value + 1); }
   return <main className="min-h-screen bg-background text-foreground">

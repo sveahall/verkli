@@ -32,6 +32,7 @@ const MarketPanel = dynamic(() => import("./panels/MarketPanel"));
 const TrailerPanel = dynamic(() => import("./panels/TrailerPanel"));
 const StatisticsPanel = dynamic(() => import("./panels/StatisticsPanel"));
 const AudiobookPanel = dynamic(() => import("./panels/AudiobookPanel"));
+const BookCoverWorkspace = dynamic(() => import("@/features/book-production/BookCoverWorkspace"));
 const CoverPanel = dynamic(() => import("./panels/CoverPanel"));
 const PricingPanel = dynamic(() => import("./panels/PricingPanel"));
 const ProductionFacade = dynamic(() => import("./panels/ProductionFacade"));
@@ -39,6 +40,7 @@ const DistributionFacade = dynamic(() => import("./panels/DistributionFacade"));
 
 interface BookEditorPanelContentProps {
   bookId: string;
+  bookOwnerId?: string;
   bookTitle: string;
   bookDescription: string | null;
   bookOriginalUrl: string | null;
@@ -79,6 +81,7 @@ interface BookEditorPanelContentProps {
 
 export default function BookEditorPanelContent({
   bookId,
+  bookOwnerId,
   bookTitle,
   bookDescription,
   bookOriginalUrl,
@@ -128,6 +131,16 @@ export default function BookEditorPanelContent({
         {companion && <AgentCompanion agent={companion.id} onTalk={onTalkToAgent} role={tool === "cover" ? "Cover collaborator" : undefined} note={tool === "cover" ? "Describe your idea. Explore new cover options together." : undefined} />}
 
         {tool === "cover" && (
+          <BookCoverWorkspace
+            key={`${bookId}:${activeVersion?.id ?? "none"}`}
+            bookId={bookId}
+            ownerId={bookOwnerId}
+            versionId={activeVersion?.id ?? null}
+            title={bookTitle}
+            author={authorDisplayName}
+            chapters={chapters}
+            onOpenWriting={() => onNavigateToPanel("edit")}
+          >
           <CoverPanel
             coverInputRef={cover.coverInputRef}
             coverUploading={cover.coverUploading}
@@ -169,6 +182,7 @@ export default function BookEditorPanelContent({
             bookTitle={bookTitle}
             authorName={authorDisplayName}
           />
+          </BookCoverWorkspace>
         )}
 
         {tool === "production" && <ProductionFacade bookId={bookId} />}

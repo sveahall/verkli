@@ -34,7 +34,17 @@ Available now: `http://localhost:3067/dev/book-production`. Synthetic manuscript
 4. Simulate a save failure, recover, save locally and reload.
 5. Check 390/1440 px, both themes and keyboard tabs.
 
-## Future integration and PDF acceptance (pending approval)
+## Production integration candidate
+
+The authenticated book editor now exposes **Cover → Print & book layout**. Owner identity comes from the existing server-authorized book record; browser draft keys include owner, book and active edition. The dev fixture remains unavailable in production.
+
+This release deliberately includes browser-local saving only, labelled at the top of the studio. Unsaved/incomplete edits survive client-side navigation in memory, with unload protection outside Cover. Interrupted image reads are cancelled on unmount, retain previous artwork and show a recovery message. A successful save or explicit keep-previous-artwork action clears that message.
+
+No dependencies, database schema, cloud storage, print ordering or PDF exports are introduced. PDF generation and private account sync remain separate work requiring the pending approvals above.
+
+Integration fixture: `http://localhost:3067/dev/book-production?workspace=1&layout=print`.
+
+## Future PDF acceptance (pending approval)
 
 1. Open Cover → Print & book layout; switch front/back/spread and upload separate artwork.
 2. Add a foreword and author biography, change order, disable a part and inspect the contents list.
