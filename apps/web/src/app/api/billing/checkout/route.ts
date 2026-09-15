@@ -22,7 +22,7 @@ import {
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 
-const checkoutLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const checkoutLimiter = createPerUserRateLimiter({ name: "billing-checkout", maxPerMinute: 5 });
 
 export const runtime = "nodejs";
 

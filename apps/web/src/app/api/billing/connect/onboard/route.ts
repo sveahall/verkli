@@ -10,7 +10,7 @@ import {
 } from "@/lib/payments/stripe-connect";
 import { apiError, E_GENERIC_ERROR, E_RATE_LIMIT_EXCEEDED } from "@/lib/api-errors";
 
-const onboardLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const onboardLimiter = createPerUserRateLimiter({ name: "billing-connect-onboard", maxPerMinute: 5 });
 
 export const runtime = "nodejs";
 

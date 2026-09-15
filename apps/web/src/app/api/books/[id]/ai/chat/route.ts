@@ -33,7 +33,7 @@ const bodySchema = z.object({
   history: z.array(z.unknown()).max(50).optional(),
 });
 
-const chatLimiter = createPerUserRateLimiter({ maxPerMinute: 20 });
+const chatLimiter = createPerUserRateLimiter({ name: "books-ai-chat", maxPerMinute: 20 });
 
 export async function POST(
   request: NextRequest,

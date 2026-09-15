@@ -43,7 +43,7 @@ export const runtime = "nodejs";
  * payment and issues fresh signed URLs, so the storage URL can safely expire.
  */
 
-const downloadLimiter = createPerUserRateLimiter({ maxPerMinute: 20 });
+const downloadLimiter = createPerUserRateLimiter({ name: "order-ta-for-er-download", maxPerMinute: 20 });
 
 const SIGNED_URL_TTL_SECONDS = 3600;
 

@@ -62,7 +62,7 @@ import type { TablesInsert } from "@/lib/supabase/types";
  * magnitude of headroom for a reader scrubbing around, while still capping what
  * a scripted client can push into `analytics_events`.
  */
-const limiter = createPerUserRateLimiter({ maxPerMinute: 40 });
+const limiter = createPerUserRateLimiter({ name: "books-audiobook-progress", maxPerMinute: 40 });
 
 /** Longest plausible chapter, as a sanity bound on client-reported numbers. */
 const MAX_POSITION_SECONDS = 24 * 60 * 60;
