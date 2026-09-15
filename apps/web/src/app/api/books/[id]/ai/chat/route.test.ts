@@ -393,4 +393,76 @@ describe("POST /api/books/[id]/ai/chat conversational actions", () => {
     expect(body).toMatchObject({ content: "Try a shorter opening.", source: "llm", provider: "anthropic", chapterId });
     expect(body).not.toHaveProperty("actions");
   });
+
+  describe("bounded validation recovery", () => {
+    const invalid = { content: "PRIVATE_INVALID_MODEL_RESPONSE", provider: "anthropic", model: "test-model", usage: { promptTokens: 100, completionTokens: 20, totalTokens: 120 } };
+    const valid = { content: JSON.stringify({ content: "Review this correction.", actions: [edit] }), provider: "nvidia-nim", model: "fallback-model", usage: { promptTokens: 30, completionTokens: 5, totalTokens: 35 } };
+
+    it("regenerates once against identical owned context and aggregates usage", async () => {
+      const queries = database();
+      mocks.generateWritingAssistantReply.mockResolvedValueOnce(invalid).mockResolvedValueOnce(valid);
+      const history = [{ role: "user", content: "Only fix spelling." }];
+      const body = await (await post({ ...actionBody, history, draftText: "On teh boat." })).json();
+      expect(body).toMatchObject({ source: "llm", provider: "nvidia-nim", model: "fallback-model", actions: [edit], context: { chapterId, chapterText: "On teh boat." }, usage: { promptTokens: 130, completionTokens: 25, totalTokens: 155 } });
+      expect(mocks.generateWritingAssistantReply).toHaveBeenCalledTimes(2);
+      const [first, retry] = mocks.generateWritingAssistantReply.mock.calls.map(([input]) => input);
+      expect(retry).toEqual({ ...first, validationRetry: true });
+      expect(first.history).toEqual(history);
+      expect(JSON.stringify(retry)).not.toContain(invalid.content);
+      expect(queries).toHaveLength(2);
+      expect(mocks.requireAuthorRoleForApi).toHaveBeenCalledTimes(1);
+      expect(mocks.check).toHaveBeenCalledTimes(1);
+    });
+
+    it("fails closed after two invalid responses", async () => {
+      mocks.generateWritingAssistantReply.mockResolvedValue(invalid);
+      const body = await (await post(actionBody)).json();
+      expect(mocks.generateWritingAssistantReply).toHaveBeenCalledTimes(2);
+      expect(body).toMatchObject({ actions: [], source: "template", failureReason: "invalid_proposal" });
+      expect(body.content).not.toContain(invalid.content);
+    });
+
+    it.each([8000, 9000])("does not regenerate when the initial response took %i ms", async (elapsed) => {
+      const now = vi.spyOn(Date, "now").mockReturnValue(1000);
+      mocks.generateWritingAssistantReply.mockImplementationOnce(async () => {
+        now.mockReturnValue(1000 + elapsed);
+        return invalid;
+      });
+      const body = await (await post(actionBody)).json();
+      expect(mocks.generateWritingAssistantReply).toHaveBeenCalledTimes(1);
+      expect(body).toMatchObject({ actions: [], failureReason: "invalid_proposal" });
+    });
+
+    it("does not retry a provider outage and distinguishes unavailability", async () => {
+      mocks.generateWritingAssistantReply.mockRejectedValue(new Error("Provider offline"));
+      const body = await (await post(actionBody)).json();
+      expect(mocks.generateWritingAssistantReply).toHaveBeenCalledTimes(1);
+      expect(body).toMatchObject({ actions: [], failureReason: "unavailable" });
+    });
+
+    it("stops when the single regeneration encounters a provider outage", async () => {
+      mocks.generateWritingAssistantReply.mockResolvedValueOnce(invalid).mockRejectedValueOnce(new Error("Provider offline"));
+      const body = await (await post(actionBody)).json();
+      expect(mocks.generateWritingAssistantReply).toHaveBeenCalledTimes(2);
+      expect(body).toMatchObject({ actions: [], failureReason: "unavailable" });
+    });
+
+    it.each([
+      { content: "PRIVATE_INVALID_MODEL_RESPONSE", reason: "invalid_json" },
+      { content: JSON.stringify({ content: "PRIVATE_INVALID_MODEL_RESPONSE", actions: [{ kind: "PRIVATE_INVALID_MODEL_RESPONSE" }] }), reason: "invalid_structure" },
+      { content: JSON.stringify({ content: "PRIVATE_INVALID_MODEL_RESPONSE", actions: [{ ...edit, original: "PRIVATE_INVALID_MODEL_RESPONSE" }] }), reason: "invalid_context" },
+    ])("logs only the $reason diagnostic and safe provider metadata", async ({ content, reason }) => {
+      mocks.generateWritingAssistantReply.mockResolvedValue({ ...invalid, content });
+      await post(actionBody);
+      expect(console.warn).toHaveBeenCalledWith("[ai.chat] invalid action proposal", { reason, provider: "anthropic", model: "test-model", tool: "edit", attempt: 1 });
+      expect(console.warn).toHaveBeenCalledWith("[ai.chat] invalid action proposal", { reason, provider: "anthropic", model: "test-model", tool: "edit", attempt: 2 });
+      expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain("PRIVATE_INVALID_MODEL_RESPONSE");
+    });
+
+    it("does not allow the request body to enable trusted regeneration guidance", async () => {
+      await post({ ...actionBody, validationRetry: true });
+      expect(mocks.generateWritingAssistantReply).toHaveBeenCalledTimes(1);
+      expect(mocks.generateWritingAssistantReply.mock.calls[0][0].validationRetry).not.toBe(true);
+    });
+  });
 });

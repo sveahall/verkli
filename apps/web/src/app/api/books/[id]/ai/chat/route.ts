@@ -9,6 +9,7 @@ import { assistantToolSchema, extractAgentChapterText, parseAgentReply } from "@
 import {
   generateWritingAssistantReply,
   WritingAssistantError,
+  type WritingAssistantResult,
 } from "@/lib/ai/writing-assistant";
 import {
   apiError,
@@ -43,6 +44,18 @@ const bodySchema = z.object({
 });
 
 const chatLimiter = createPerUserRateLimiter({ name: "books-ai-chat", maxPerMinute: 20 });
+const VALIDATION_RETRY_WINDOW_MS = 8000;
+
+function combineUsage(first: WritingAssistantResult["usage"], second: WritingAssistantResult["usage"]): WritingAssistantResult["usage"] {
+  if (!first) return second;
+  if (!second) return first;
+  const sum = (a?: number, b?: number) => a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0);
+  return {
+    promptTokens: sum(first.promptTokens, second.promptTokens),
+    completionTokens: sum(first.completionTokens, second.completionTokens),
+    totalTokens: sum(first.totalTokens, second.totalTokens),
+  };
+}
 
 export async function POST(
   request: NextRequest,
@@ -154,13 +167,14 @@ export async function POST(
     translationsEnabled: isTranslationsEnabled(),
   };
   let fallbackMessage = "The AI conversation is unavailable right now. No changes have been made. You can continue using the workspace tools or try again later.";
+  let failureReason: "invalid_proposal" | "unavailable" = "unavailable";
 
   // Try LLM when enabled and at least one provider key is set (Anthropic
   // primary, NVIDIA NIM fallback). Fall back to templates on any provider
   // failure so the editor never breaks on a transient outage.
   if (isAiChatEnabled()) {
     try {
-      const llm = await generateWritingAssistantReply({
+      const input = {
         message,
         selectedText: selectedText ?? null,
         bookTitle,
@@ -172,29 +186,40 @@ export async function POST(
         marketingEnabled: actionContext.marketingEnabled,
         audiobookEnabled: actionContext.audiobookEnabled,
         translationsEnabled: actionContext.translationsEnabled,
-      });
-      let proposal;
-      if (actionMode) {
-        try {
-          proposal = parseAgentReply(llm.content, actionContext);
-        } catch {
-          // Do not echo malformed provider text: it can claim success or contain unvalidated actions.
-          fallbackMessage = "I could not validate the assistant's suggestion. No changes have been made. Please ask again with a specific passage or change.";
-          throw new WritingAssistantError("Assistant returned an invalid action proposal", "PROVIDER_FAILED");
+      };
+      const startedAt = Date.now();
+      let usage: WritingAssistantResult["usage"];
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        // Only rejected proposals reach the second attempt. Provider failures escape immediately.
+        const llm = await generateWritingAssistantReply({ ...input, ...(attempt === 2 ? { validationRetry: true } : {}) });
+        usage = combineUsage(usage, llm.usage);
+        let proposal;
+        if (actionMode) {
+          try {
+            proposal = parseAgentReply(llm.content, actionContext);
+          } catch (err) {
+            const reason = err instanceof SyntaxError ? "invalid_json" : err instanceof z.ZodError ? "invalid_structure" : "invalid_context";
+            // Syntax and schema error messages can contain manuscript/model text. Log codes only.
+            console.warn("[ai.chat] invalid action proposal", { reason, provider: llm.provider, model: llm.model, tool, attempt });
+            if (attempt === 1 && Date.now() - startedAt < VALIDATION_RETRY_WINDOW_MS) continue;
+            fallbackMessage = "I could not validate the assistant's suggestion. No changes have been made. Please try the request again.";
+            failureReason = "invalid_proposal";
+            throw new WritingAssistantError("Assistant returned an invalid action proposal", "PROVIDER_FAILED");
+          }
         }
+        return NextResponse.json({
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: proposal?.content ?? llm.content,
+          ...(actionMode ? { actions: proposal?.actions ?? [], context } : {}),
+          bookId,
+          chapterId: chapterId ?? null,
+          source: "llm",
+          provider: llm.provider,
+          model: llm.model,
+          usage: usage ?? null,
+        });
       }
-      return NextResponse.json({
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: proposal?.content ?? llm.content,
-        ...(actionMode ? { actions: proposal?.actions ?? [], context } : {}),
-        bookId,
-        chapterId: chapterId ?? null,
-        source: "llm",
-        provider: llm.provider,
-        model: llm.model,
-        usage: llm.usage ?? null,
-      });
     } catch (err) {
       const code = err instanceof WritingAssistantError ? err.code : "PROVIDER_FAILED";
       console.warn("[ai.chat] LLM fallback to templates", {
@@ -213,7 +238,7 @@ export async function POST(
     id: crypto.randomUUID(),
     role: "assistant",
     content: response,
-    ...(actionMode ? { actions: [], context, provider: null } : {}),
+    ...(actionMode ? { actions: [], context, provider: null, failureReason } : {}),
     bookId,
     chapterId: chapterId ?? null,
     source: "template",

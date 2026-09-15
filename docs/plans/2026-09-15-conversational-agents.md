@@ -56,3 +56,11 @@ Editor changes use exact ProseMirror ranges, explicitly retain target marks, pre
 3. In Audio, Talk to August and describe an incorrectly pronounced word. Review the spoken form and play the short sample. The written manuscript stays unchanged; this does not yet save a full-book pronunciation rule.
 4. In Cover, ask Stella for a new visual direction, refine it in a follow-up and generate options. Choose the cover yourself. In Pricing, ask Ernst for a draft; it remains editable until the existing Save action.
 5. Switch specialists, close/reopen the dock, and test a narrow screen in light/dark themes. Drafts and in-session conversations must remain separate, with clear retry states if a request fails.
+
+### Production follow-up: invalid proposal recovery
+
+The first release (`d546ff25`, PR #44) passed authenticated production checks for Edith's correction, Undo and persistence, Stella's four generated cover options, and Ernst's editable 99 SEK draft. One actual August reply was refused by strict validation; the two direct provider reproductions were valid, so no specific malformed field is claimed as the cause.
+
+The follow-up permits one regeneration only when the first proposal fails validation within eight seconds. The same owned chapter context and strict parser are retained. Rejected model content is not reused as instructions or written into diagnostics. Logs classify JSON, structure and context failures using fixed codes. Provider outages and slow responses are not retried. The interface distinguishes an invalid suggestion from an unavailable service.
+
+Verification: 193 files / 2,206 unit tests, full lint, production build and all six isolated browser journeys passed. New recovery tests prove the attempt cap, deadline, strict rejection, combined usage and safe diagnostics; the browser fixture covers both invalid-proposal and outage messages. Independent review found no blockers. The external release report records the follow-up SHA and post-deploy August result.
