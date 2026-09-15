@@ -3,8 +3,9 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
-import { isAiChatEnabled } from "@/lib/flags";
+import { isAiChatEnabled, isAudiobookEnabled, isMarketingEnabled, isTranslationsEnabled } from "@/lib/flags";
 import { contentToPlainText } from "@/lib/tiptap-content";
+import { assistantToolSchema, extractAgentChapterText, parseAgentReply } from "@/lib/ai/agent-actions";
 import {
   generateWritingAssistantReply,
   WritingAssistantError,
@@ -14,6 +15,7 @@ import {
   E_BOOK_NOT_FOUND,
   E_FORBIDDEN,
   E_INVALID_JSON,
+  E_INVALID_CHAPTER_ID,
   E_INVALID_REQUEST_BODY,
   E_RATE_LIMIT_EXCEEDED,
   E_VALIDATION_FAILED,
@@ -29,8 +31,15 @@ const bodySchema = z.object({
   message: z.string().trim().min(1).max(2000),
   chapterId: z.string().uuid().optional().nullable(),
   selectedText: z.string().max(4000).optional().nullable(),
-  // history is accepted for forward-compatibility but ignored for now
-  history: z.array(z.unknown()).max(50).optional(),
+  mode: z.enum(["advice", "actions"]).default("advice"),
+  tool: assistantToolSchema.default("edit"),
+  history: z.array(z.object({
+    role: z.enum(["user", "assistant"]),
+    content: z.string().trim().min(1).max(4000),
+  })).max(12).optional(),
+  draftText: z.string().max(60000).optional(),
+}).refine((body) => body.draftText === undefined || Boolean(body.chapterId), {
+  message: "A chapterId is required for draftText.", path: ["chapterId"],
 });
 
 const chatLimiter = createPerUserRateLimiter({ name: "books-ai-chat", maxPerMinute: 20 });
@@ -63,9 +72,11 @@ export async function POST(
 
   const parsedBody = bodySchema.safeParse(rawBody);
   if (!parsedBody.success) {
+    console.warn("[ai.chat] invalid request body", { bookId, fields: parsedBody.error.issues.map((issue) => issue.path.join(".")) });
     return apiError(E_INVALID_REQUEST_BODY, 400);
   }
-  const { message, chapterId, selectedText } = parsedBody.data;
+  const { message, chapterId, selectedText, mode, tool, history, draftText } = parsedBody.data;
+  const actionMode = mode === "actions";
 
   // Verify the book exists AND the caller owns it (RLS normally enforces this,
   // but an explicit check returns a clean error and defends against policy drift).
@@ -80,6 +91,7 @@ export async function POST(
     .maybeSingle();
 
   if (bookError || !book) {
+    console.warn("[ai.chat] book unavailable", { bookId, reason: bookError?.message ?? "not found" });
     return apiError(E_BOOK_NOT_FOUND, 404);
   }
   if (book.author_id !== user.id) {
@@ -98,6 +110,7 @@ export async function POST(
   // beside the panel. Reported 2026-09-02.
   let chapterTitle: string | null = null;
   let chapterText: string | null = null;
+  let resolvedChapterId: string | null = null;
 
   if (chapterId) {
     const { data: chapter, error: chapterError } = await supabase
@@ -111,22 +124,36 @@ export async function POST(
       .maybeSingle();
 
     if (chapterError || !chapter) {
-      // Not fatal — the assistant still answers, just without the manuscript.
-      // Logged because silently losing this context is the bug being fixed.
       console.warn("[ai.chat] chapter context unavailable", {
         bookId,
         chapterId,
         reason: chapterError?.message ?? "not found for this book",
       });
+      if (actionMode) {
+        return apiError(E_INVALID_CHAPTER_ID, 404, { detail: "The chapter is not available in this book. Reopen the chapter before asking for changes." });
+      }
     } else {
+      resolvedChapterId = chapter.id;
       const title = (chapter as { title?: unknown }).title;
       chapterTitle = typeof title === "string" && title.trim() ? title : null;
-      const text = contentToPlainText(
-        (chapter as { content?: string | null }).content ?? null
-      );
-      chapterText = text.trim() ? text : null;
+      const storedContent = (chapter as { content?: string | null }).content ?? null;
+      if (actionMode) {
+        chapterText = draftText ?? extractAgentChapterText(storedContent);
+      } else {
+        const text = contentToPlainText(storedContent);
+        chapterText = text.trim() ? text : null;
+      }
     }
   }
+
+  const context = { chapterId: resolvedChapterId, chapterText };
+  const actionContext = {
+    tool, chapterText,
+    marketingEnabled: isMarketingEnabled(),
+    audiobookEnabled: isAudiobookEnabled(),
+    translationsEnabled: isTranslationsEnabled(),
+  };
+  let fallbackMessage = "The AI conversation is unavailable right now. No changes have been made. You can continue using the workspace tools or try again later.";
 
   // Try LLM when enabled and at least one provider key is set (Anthropic
   // primary, NVIDIA NIM fallback). Fall back to templates on any provider
@@ -139,11 +166,28 @@ export async function POST(
         bookTitle,
         chapterTitle,
         chapterText,
+        mode,
+        tool,
+        history,
+        marketingEnabled: actionContext.marketingEnabled,
+        audiobookEnabled: actionContext.audiobookEnabled,
+        translationsEnabled: actionContext.translationsEnabled,
       });
+      let proposal;
+      if (actionMode) {
+        try {
+          proposal = parseAgentReply(llm.content, actionContext);
+        } catch {
+          // Do not echo malformed provider text: it can claim success or contain unvalidated actions.
+          fallbackMessage = "I could not validate the assistant's suggestion. No changes have been made. Please ask again with a specific passage or change.";
+          throw new WritingAssistantError("Assistant returned an invalid action proposal", "PROVIDER_FAILED");
+        }
+      }
       return NextResponse.json({
         id: crypto.randomUUID(),
         role: "assistant",
-        content: llm.content,
+        content: proposal?.content ?? llm.content,
+        ...(actionMode ? { actions: proposal?.actions ?? [], context } : {}),
         bookId,
         chapterId: chapterId ?? null,
         source: "llm",
@@ -163,12 +207,13 @@ export async function POST(
     }
   }
 
-  const response = buildTemplateReply(message, selectedText);
+  const response = actionMode ? fallbackMessage : `${fallbackMessage}\n\n${buildTemplateReply(message, selectedText)}`;
 
   return NextResponse.json({
     id: crypto.randomUUID(),
     role: "assistant",
     content: response,
+    ...(actionMode ? { actions: [], context, provider: null } : {}),
     bookId,
     chapterId: chapterId ?? null,
     source: "template",

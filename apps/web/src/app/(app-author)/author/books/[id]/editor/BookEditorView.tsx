@@ -14,6 +14,7 @@ import { useBookWorkspaceCommandPalette } from "./workspace/BookWorkspaceCommand
 import { useBookWorkspaceController } from "./hooks/useBookWorkspaceController";
 import { useChapterSelection } from "./hooks/useChapterSelection";
 import { useBookPricing } from "./hooks/useBookPricing";
+import { useAgentExecution } from "./hooks/useAgentExecution";
 import { useBookCover } from "./hooks/useBookCover";
 import { useBookRename } from "./hooks/useBookRename";
 import { useChapterCrud } from "./hooks/useChapterCrud";
@@ -167,6 +168,7 @@ export default function BookEditorView({
   // Docked beside the manuscript rather than replacing it, so asking a question
   // no longer costs the author their place in the text. `?panel=ai` and the
   // sidebar entry both open it; neither navigates away any more.
+  const [assistantTool, setAssistantTool] = useState<Tool | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -189,12 +191,13 @@ export default function BookEditorView({
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "i") {
         event.preventDefault();
+        setAssistantTool(tool);
         setAssistantOpen((open) => !open);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [tool]);
 
   // ── Jobs & billing ────────────────────────────────────────────────────────
   const { jobs: allJobs, loading: jobLoading, error: jobError, refetch: refetchBookJob, settled: jobsSettled } = useBookJobs(book.id);
@@ -301,12 +304,15 @@ export default function BookEditorView({
     // `ai` is no longer a page. The sidebar entry and any existing ?panel=ai
     // link now open the dock and leave the author on the manuscript.
     if (requestedPanel === "ai") {
+      setAssistantTool("edit");
       setAssistantOpen(true);
       setTool("edit");
       // Drop the param so the URL describes what is actually on screen: the
       // manuscript, with the dock open. Leaving it would also make a refresh
       // re-open a dock the author had since closed.
-      router.replace(`/author/books/${book.id}`, { scroll: false });
+      const query = new URLSearchParams(searchParams?.toString());
+      query.delete("panel");
+      router.replace(`/author/books/${book.id}${query.size ? `?${query}` : ""}`, { scroll: false });
       return;
     }
     if (requestedPanel && (effectiveTools.includes(requestedPanel as Tool) || ALL_TOOLS.includes(requestedPanel as Tool))) {
@@ -314,7 +320,7 @@ export default function BookEditorView({
     } else if (!requestedPanel) {
       setTool("edit");
     }
-  }, [book.id, effectiveTools, panelParam, router, setTool]);
+  }, [book.id, effectiveTools, panelParam, router, setTool, searchParams]);
 
   useEffect(() => {
     if (tool === "publish") {
@@ -346,8 +352,10 @@ export default function BookEditorView({
     onAiPanelRequest: handleAiPanelRequest,
   });
 
+  const agentExecution = useAgentExecution({ bookId: book.id, chapter: selectedChapter,
+    navigate: navigateToPanel, cover, pricing, demo: isDemoEditorView });
   useEffect(() => {
-    if (pendingAiRequest) setAssistantOpen(true);
+    if (pendingAiRequest) { setAssistantTool("edit"); setAssistantOpen(true); }
   }, [pendingAiRequest]);
 
   // ── Write-only workspace context sync ─────────────────────────────────────
@@ -525,7 +533,10 @@ export default function BookEditorView({
             bookId={book.id}
             chapterId={selectedChapterId}
             variant="dock"
-            activeTool={tool}
+            activeTool={assistantTool ?? tool}
+            chapterTitle={selectedChapter?.title}
+            getDraftText={agentExecution.getDraftText}
+            onExecuteAction={agentExecution.execute}
             onClose={() => setAssistantOpen(false)}
             pendingRequest={pendingAiRequest}
             onPendingRequestHandled={() => setPendingAiRequest(null)}
@@ -564,7 +575,7 @@ export default function BookEditorView({
             )}
             <button
               type="button"
-              onClick={() => setAssistantOpen((open) => !open)}
+              onClick={() => { if (!assistantOpen) setAssistantTool(tool); setAssistantOpen((open) => !open); }}
               aria-expanded={assistantOpen}
               aria-controls="book-ai-assistant"
               title="AI Assistant (⌘I)"
@@ -618,6 +629,7 @@ export default function BookEditorView({
                 selectedChapter={selectedChapter}
                 preset={preset}
                 onPresetChange={setPreset}
+                onAgentEditorReady={agentExecution.onEditorReady}
                 focusMode={focusMode}
                 isPublished={publishing.isPublished}
                 activeTool={tool}
@@ -679,6 +691,7 @@ export default function BookEditorView({
                 printOnDemandSettings={printOnDemandSettings}
                 onSavePrintOnDemandSettings={handleSavePrintOnDemandSettings}
                 onNavigateToPanel={navigateToPanel}
+                onTalkToAgent={() => { setAssistantTool(tool); setAssistantOpen(true); }}
                 onSetSelectedChapterId={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
                 onResetSessionWords={() => setSessionStartWords(null)}
                 cover={cover}

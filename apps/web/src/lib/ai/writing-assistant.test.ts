@@ -155,6 +155,46 @@ describe("generateWritingAssistantReply", () => {
     expect(anthropicCreate).not.toHaveBeenCalled();
   });
 
+  it("sends bounded real conversation history to Anthropic", async () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    anthropicCreate.mockResolvedValue(anthropicReply("Let's use the second option."));
+    await generateWritingAssistantReply({ ...INPUT, history: [
+      { role: "user", content: "Give me two openings." },
+      { role: "assistant", content: "First: rain. Second: ferry." },
+    ] });
+    expect(anthropicCreate.mock.calls[0][0].messages).toEqual([
+      { role: "user", content: "Give me two openings." },
+      { role: "assistant", content: "First: rain. Second: ferry." },
+      { role: "user", content: expect.stringContaining(INPUT.message) },
+    ]);
+  });
+
+  it("sends NIM history and an action-specific role without promoting the book title to system instructions", async () => {
+    process.env.NVIDIA_NIM_API_KEY = "nim-test";
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(nimReply('{"content":"Review the brief.","actions":[]}'));
+    const result = await generateWritingAssistantReply({ ...INPUT, mode: "actions", tool: "cover", bookTitle: "UNTRUSTED TITLE", history: [
+      { role: "user", content: "Make it blue." },
+      { role: "assistant", content: "A blue harbour?" },
+    ] });
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string);
+    expect(body.messages[0].content).toContain("Stella");
+    expect(body.messages[0].content).toContain("cover_brief");
+    expect(body.messages[0].content).not.toContain("UNTRUSTED TITLE");
+    expect(body.messages[1]).toEqual({ role: "user", content: "Make it blue." });
+    expect(body.messages.at(-1).content).toContain("UNTRUSTED TITLE");
+    expect(result.content).toBe('{"content":"Review the brief.","actions":[]}');
+  });
+
+  it("keeps at most 12 recent history messages capped to 4000 characters", async () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    anthropicCreate.mockResolvedValue(anthropicReply("Fine."));
+    await generateWritingAssistantReply({ ...INPUT, history: Array.from({ length: 15 }, (_, i) => ({ role: "user" as const, content: `${i}: ${"x".repeat(5000)}` })) });
+    const messages = anthropicCreate.mock.calls[0][0].messages;
+    expect(messages).toHaveLength(13);
+    expect(messages[0].content).toMatch(/^3: /);
+    expect(messages[0].content).toHaveLength(4000);
+  });
+
   // The reported failure: the author asked "how can I make this chapter open
   // stronger?" with the chapter on screen beside the panel, and the assistant
   // replied "paste the passage you want to strengthen". The route accepted a

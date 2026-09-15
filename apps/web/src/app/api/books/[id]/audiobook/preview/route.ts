@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { evaluateDemoGuard } from "@/lib/demo-guard";
 import { createClient } from "@/lib/supabase/server";
@@ -6,14 +7,20 @@ import { isAudiobookEnabled } from "@/lib/flags";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { ElevenLabsTtsProvider } from "@/lib/tts/elevenlabs-tts-provider";
 import { resolveNarratorVoiceId } from "@/lib/tts/tts-provider";
+import { extractAgentChapterText } from "@/lib/ai/agent-actions";
+import { buildPronunciationPreview, pronunciationRuleSchema } from "@/lib/ai/pronunciation-preview";
 import {
   apiError,
   isValidUuid,
   E_AUDIOBOOK_FEATURE_DISABLED,
   E_AUDIOBOOK_VOICE_UNCONFIGURED,
   E_BOOK_NOT_FOUND,
+  E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE,
   E_INVALID_BOOK_ID,
+  E_INVALID_CHAPTER_ID,
   E_RATE_LIMIT_EXCEEDED,
+  E_SOURCE_LANGUAGE_MISSING,
+  E_TTS_PREVIEW_INVALID_INPUT,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
 import { extractTextFromTiptapNode } from "@/lib/tiptap-content";
@@ -23,6 +30,10 @@ const previewLimiter = createPerUserRateLimiter({ name: "books-audiobook-preview
 /** Max characters for preview to keep ElevenLabs costs tiny */
 const MAX_PREVIEW_CHARS = 200;
 const DEFAULT_PREVIEW_TEXT = "This is a preview of how your audiobook will sound. The full version will narrate your entire book with this voice.";
+const pronunciationPreviewSchema = z.object({
+  chapterId: z.string().uuid(),
+  pronunciation: pronunciationRuleSchema,
+}).strict();
 
 export async function POST(
   request: Request,
@@ -49,34 +60,78 @@ export async function POST(
 
   // Verify book ownership
   const supabase = await createClient();
-  const { data: book } = await supabase
+  const { data: book, error: bookError } = await supabase
     .from("books")
-    .select("id, author_id")
+    .select("id, author_id, language, original_language")
     .eq("id", bookId)
     .eq("author_id", user.id)
     .maybeSingle();
 
-  if (!book) return apiError(E_BOOK_NOT_FOUND, 404);
+  if (bookError || !book) {
+    console.warn("[audiobook preview] book unavailable", { bookId, reason: bookError?.message ?? "not found for this author" });
+    return apiError(E_BOOK_NOT_FOUND, 404);
+  }
 
   // Parse optional text from body, fall back to first chapter snippet or default
   let previewText = DEFAULT_PREVIEW_TEXT;
+  let previewLanguage = book.original_language || book.language || "en";
+  let body: unknown;
   try {
-    const body = await request.json();
-    if (typeof body?.text === "string" && body.text.trim()) {
-      previewText = body.text.trim().slice(0, MAX_PREVIEW_CHARS);
-    }
+    body = await request.json();
   } catch {
     // No body or invalid JSON — use default
   }
+  const scopedPronunciation = Boolean(body && typeof body === "object" && ("pronunciation" in body || "chapterId" in body));
+  if (scopedPronunciation) {
+    const parsed = pronunciationPreviewSchema.safeParse(body);
+    if (!parsed.success) {
+      console.warn("[audiobook preview] invalid pronunciation request", { bookId });
+      return apiError(E_TTS_PREVIEW_INVALID_INPUT, 400, { detail: "Choose a chapter and provide a pronunciation word, spoken form and sample within the preview limits." });
+    }
+    const { chapterId, pronunciation } = parsed.data;
+    const { data: chapter, error: chapterError } = await supabase.from("chapters")
+      .select("id, book_id, book_version_id, content")
+      .eq("id", chapterId).eq("book_id", bookId).maybeSingle();
+    if (chapterError || !chapter || chapter.book_id !== bookId) {
+      console.warn("[audiobook preview] chapter unavailable", { bookId, chapterId, reason: chapterError?.message ?? "not found for this book" });
+      return apiError(E_INVALID_CHAPTER_ID, 404, { detail: "The selected chapter is not available in this book. Reopen it before previewing." });
+    }
+    const { data: version, error: versionError } = await supabase.from("book_versions")
+      .select("id, book_id, language_code")
+      .eq("id", chapter.book_version_id).eq("book_id", bookId).maybeSingle();
+    if (versionError || !version || version.book_id !== bookId) {
+      console.warn("[audiobook preview] chapter edition unavailable", { bookId, chapterId, reason: versionError?.message ?? "not found for this book" });
+      return apiError(E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE, 404, { detail: "The chapter's edition is not available in this book." });
+    }
+    if (!version.language_code?.trim()) {
+      console.warn("[audiobook preview] chapter edition has no language", { bookId, chapterId });
+      return apiError(E_SOURCE_LANGUAGE_MISSING, 400, { detail: "Set a language for this edition before previewing pronunciation." });
+    }
+    if (!extractAgentChapterText(chapter.content).includes(pronunciation.word)) {
+      console.warn("[audiobook preview] pronunciation target is stale", { bookId, chapterId });
+      return apiError(E_TTS_PREVIEW_INVALID_INPUT, 409, { detail: "The pronunciation word is no longer in the saved chapter. Save the chapter and ask for a new suggestion." });
+    }
+    try {
+      previewText = buildPronunciationPreview(pronunciation);
+    } catch {
+      console.warn("[audiobook preview] pronunciation sample is invalid", { bookId, chapterId });
+      return apiError(E_TTS_PREVIEW_INVALID_INPUT, 400, { detail: "The preview sample must contain the pronunciation word and a spoken form of at most 200 characters." });
+    }
+    previewLanguage = version.language_code;
+  } else if (body && typeof body === "object" && "text" in body && typeof body.text === "string" && body.text.trim()) {
+    previewText = body.text.trim().slice(0, MAX_PREVIEW_CHARS);
+  }
 
   // If no custom text, try to grab first chapter content
-  if (previewText === DEFAULT_PREVIEW_TEXT) {
+  if (!scopedPronunciation && previewText === DEFAULT_PREVIEW_TEXT) {
+    const { data: version } = await supabase.from("book_versions")
+      .select("id, language_code").eq("book_id", bookId)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    previewLanguage = version?.language_code || previewLanguage;
     const { data: chapters } = await supabase
       .from("chapters")
       .select("content")
-      .eq("book_version_id", (
-        await supabase.from("book_versions").select("id").eq("book_id", bookId).order("created_at", { ascending: false }).limit(1).maybeSingle()
-      ).data?.id ?? "")
+      .eq("book_version_id", version?.id ?? "")
       .order("order", { ascending: true })
       .limit(1);
 
@@ -120,7 +175,7 @@ export async function POST(
     const modelId = (process.env.ELEVENLABS_MODEL_ID ?? "").trim();
 
     const result = await tts.synthesize(previewText, {
-      language: "en",
+      language: previewLanguage,
       voiceId,
       modelId: modelId || "eleven_multilingual_v2",
       timeoutMs: 30_000,
@@ -141,4 +196,3 @@ export async function POST(
     return apiError(E_VALIDATION_FAILED, 502, { detail: "Voice preview unavailable. Check TTS configuration." });
   }
 }
-

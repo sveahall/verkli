@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useEffect, type Dispatch, type SetStateAction } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   WRITE_INLINE_AI_EVENT,
   type InlineAiAction,
@@ -35,17 +35,20 @@ export function useBookEditorNavigation({
   onAiPanelRequest,
 }: UseBookEditorNavigationOptions) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const currentQuery = searchParams?.toString() ?? "";
 
   const navigateToPanel = useCallback(
     (panel: Tool) => {
       setTool(panel);
-      const href =
-        panel === "edit"
-          ? `/author/books/${bookId}`
-          : `/author/books/${bookId}?panel=${panel}`;
+      // Retain the selected edition when a reviewed correction opens Write.
+      const query = new URLSearchParams(currentQuery);
+      if (panel === "edit") query.delete("panel");
+      else query.set("panel", panel);
+      const href = `/author/books/${bookId}${query.size ? `?${query}` : ""}`;
       router.push(href, { scroll: false });
     },
-    [bookId, router, setTool]
+    [bookId, router, setTool, currentQuery]
   );
 
   const openProductionWorkspace = useCallback(

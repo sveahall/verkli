@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import GenreSelector from "@/components/books/GenreSelector";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
 import AgentCompanion from "@/features/ai-team/AgentCompanion";
-import { getAgentForPanel } from "@/features/ai-team/agents";
+import { getAgent, getAgentForPanel } from "@/features/ai-team/agents";
 import { getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
 import { type SupportedLanguage } from "@/lib/languages";
 import BookWorkflowHeader from "../BookWorkflowHeader";
@@ -61,6 +61,7 @@ interface BookEditorPanelContentProps {
   printOnDemandSettings: PrintOnDemandSettings;
   onSavePrintOnDemandSettings: (settings: PrintOnDemandSettings) => Promise<{ ok: true } | { ok: false; message: string }>;
   onNavigateToPanel: (panel: Tool) => void;
+  onTalkToAgent?: () => void;
   onSetSelectedChapterId: (id: string) => void;
   onResetSessionWords: () => void;
   cover: ReturnType<typeof useBookCover>;
@@ -97,6 +98,7 @@ export default function BookEditorPanelContent({
   printOnDemandSettings,
   onSavePrintOnDemandSettings,
   onNavigateToPanel,
+  onTalkToAgent,
   onSetSelectedChapterId,
   onResetSessionWords,
   cover,
@@ -112,7 +114,7 @@ export default function BookEditorPanelContent({
   bookTrailerUrl,
   demoMode = false,
 }: BookEditorPanelContentProps) {
-  const companion = getAgentForPanel(tool);
+  const companion = tool === "cover" ? getAgent("stella") : getAgentForPanel(tool);
   return (
     <div className="@container/book-panel w-full min-w-0 rounded-2xl border border-border bg-card shadow-surface-sm">
       <BookWorkflowHeader
@@ -123,7 +125,7 @@ export default function BookEditorPanelContent({
         compact
       />
       <div className="min-w-0 px-4 pb-8 pt-6 @min-[680px]/book-panel:px-8 @min-[680px]/book-panel:pt-8">
-        {companion && <AgentCompanion agent={companion.id} />}
+        {companion && <AgentCompanion agent={companion.id} onTalk={onTalkToAgent} role={tool === "cover" ? "Cover collaborator" : undefined} note={tool === "cover" ? "Describe your idea. Explore new cover options together." : undefined} />}
 
         {tool === "cover" && (
           <CoverPanel
