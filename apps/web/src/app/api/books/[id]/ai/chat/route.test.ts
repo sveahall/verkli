@@ -25,7 +25,10 @@ const mocks = vi.hoisted(() => ({
   isTranslationsEnabled: vi.fn(),
   generateWritingAssistantReply: vi.fn(),
   check: vi.fn(),
+  getLocale: vi.fn(),
 }));
+
+vi.mock("next-intl/server", () => ({ getLocale: mocks.getLocale }));
 
 vi.mock("@/lib/auth/require-author", () => ({
   requireAuthorRoleForApi: mocks.requireAuthorRoleForApi,
@@ -392,6 +395,26 @@ describe("POST /api/books/[id]/ai/chat conversational actions", () => {
     const body = await (await post({ message: "What do you think?", chapterId })).json();
     expect(body).toMatchObject({ content: "Try a shorter opening.", source: "llm", provider: "anthropic", chapterId });
     expect(body).not.toHaveProperty("actions");
+    expect(mocks.getLocale).not.toHaveBeenCalled();
+    expect(mocks.generateWritingAssistantReply.mock.calls[0][0]).not.toHaveProperty("replyLanguage");
+  });
+
+  it.each(["en", "sv"])("passes the existing %s locale to action replies without translating chapter context", async (locale) => {
+    mocks.getLocale.mockResolvedValue(locale);
+    const draftText = "Mira sa bonjor.";
+    const action = { ...edit, original: "bonjor", replacement: "bonjour" };
+    reply([action]);
+    const body = await (await post({ ...actionBody, draftText })).json();
+    expect(mocks.generateWritingAssistantReply).toHaveBeenCalledWith(expect.objectContaining({ replyLanguage: locale, chapterText: draftText }));
+    expect(body.actions).toEqual([action]);
+    expect(body.context.chapterText).toBe(draftText);
+    expect(mocks.getLocale).toHaveBeenCalledTimes(1);
+  });
+
+  it("defaults unknown locales to English and ignores body-supplied language overrides", async () => {
+    mocks.getLocale.mockResolvedValue("fr");
+    await post({ ...actionBody, replyLanguage: "sv" });
+    expect(mocks.generateWritingAssistantReply.mock.calls[0][0].replyLanguage).toBe("en");
   });
 
   describe("bounded validation recovery", () => {
@@ -399,6 +422,7 @@ describe("POST /api/books/[id]/ai/chat conversational actions", () => {
     const valid = { content: JSON.stringify({ content: "Review this correction.", actions: [edit] }), provider: "nvidia-nim", model: "fallback-model", usage: { promptTokens: 30, completionTokens: 5, totalTokens: 35 } };
 
     it("regenerates once against identical owned context and aggregates usage", async () => {
+      mocks.getLocale.mockResolvedValue("sv");
       const queries = database();
       mocks.generateWritingAssistantReply.mockResolvedValueOnce(invalid).mockResolvedValueOnce(valid);
       const history = [{ role: "user", content: "Only fix spelling." }];
@@ -408,6 +432,7 @@ describe("POST /api/books/[id]/ai/chat conversational actions", () => {
       const [first, retry] = mocks.generateWritingAssistantReply.mock.calls.map(([input]) => input);
       expect(retry).toEqual({ ...first, validationRetry: true });
       expect(first.history).toEqual(history);
+      expect(first.replyLanguage).toBe("sv");
       expect(JSON.stringify(retry)).not.toContain(invalid.content);
       expect(queries).toHaveLength(2);
       expect(mocks.requireAuthorRoleForApi).toHaveBeenCalledTimes(1);

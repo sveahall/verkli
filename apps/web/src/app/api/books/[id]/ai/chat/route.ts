@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { getLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
@@ -9,6 +10,7 @@ import { assistantToolSchema, extractAgentChapterText, parseAgentReply } from "@
 import {
   generateWritingAssistantReply,
   WritingAssistantError,
+  type WritingAssistantInput,
   type WritingAssistantResult,
 } from "@/lib/ai/writing-assistant";
 import {
@@ -174,13 +176,14 @@ export async function POST(
   // failure so the editor never breaks on a transient outage.
   if (isAiChatEnabled()) {
     try {
-      const input = {
+      const input: WritingAssistantInput = {
         message,
         selectedText: selectedText ?? null,
         bookTitle,
         chapterTitle,
         chapterText,
         mode,
+        ...(actionMode ? { replyLanguage: (await getLocale()) === "sv" ? "sv" : "en" } : {}),
         tool,
         history,
         marketingEnabled: actionContext.marketingEnabled,

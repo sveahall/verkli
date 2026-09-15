@@ -211,6 +211,45 @@ describe("generateWritingAssistantReply", () => {
     expect(first.system).not.toContain("The previous proposal failed validation");
   });
 
+  it.each([
+    { provider: "anthropic", replyLanguage: "en", languageName: "English" },
+    { provider: "anthropic", replyLanguage: "sv", languageName: "Swedish" },
+    { provider: "nvidia-nim", replyLanguage: "en", languageName: "English" },
+    { provider: "nvidia-nim", replyLanguage: "sv", languageName: "Swedish" },
+  ] as const)("sends explicit $languageName instructions to $provider while preserving manuscript and action text", async ({ provider, replyLanguage, languageName }) => {
+    const output = JSON.stringify({ content: "Review this correction.", actions: [{ kind: "edit_text", original: "bonjor", replacement: "bonjour", reason: "Fix spelling." }] });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(nimReply(output));
+    if (provider === "anthropic") {
+      process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+      anthropicCreate.mockResolvedValue(anthropicReply(output));
+    } else {
+      process.env.NVIDIA_NIM_API_KEY = "nim-test";
+    }
+    const chapterText = "Mira dit bonjor.";
+    const result = await generateWritingAssistantReply({ ...INPUT, mode: "actions", replyLanguage, chapterText, selectedText: "bonjor", validationRetry: true });
+    const request = provider === "anthropic" ? anthropicCreate.mock.calls[0][0] : JSON.parse(fetchSpy.mock.calls[0][1]?.body as string);
+    const system = provider === "anthropic" ? request.system : request.messages[0].content;
+    expect(system).toContain(`Response language: ${languageName} (${replyLanguage})`);
+    expect(system).toContain("content and every action reason");
+    expect(system).toContain("latest author request explicitly asks to switch");
+    expect(system).toContain("Preserve manuscript quotations and action text in their original or explicitly requested language");
+    expect(system).not.toContain("Respond in the language the author uses");
+    expect(system).not.toContain("Keep the response in the language of the author's request");
+    expect(request.messages.at(-1).content).toContain(chapterText);
+    expect(request.messages.at(-1).content).toContain("bonjor");
+    expect(result.content).toBe(output);
+  });
+
+  it("keeps legacy advice language inference and defaults action replies to English", async () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    anthropicCreate.mockResolvedValue(anthropicReply("Review the passage."));
+    await generateWritingAssistantReply(INPUT);
+    await generateWritingAssistantReply({ ...INPUT, mode: "actions" });
+    expect(anthropicCreate.mock.calls[0][0].system).toContain("Respond in the language the author uses");
+    expect(anthropicCreate.mock.calls[0][0].system).not.toContain("Response language:");
+    expect(anthropicCreate.mock.calls[1][0].system).toContain("Response language: English (en)");
+  });
+
   // The reported failure: the author asked "how can I make this chapter open
   // stronger?" with the chapter on screen beside the panel, and the assistant
   // replied "paste the passage you want to strengthen". The route accepted a
