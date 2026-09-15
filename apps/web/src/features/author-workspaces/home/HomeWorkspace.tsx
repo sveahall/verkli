@@ -13,6 +13,7 @@ import {
   UserRoundPlus,
 } from "lucide-react";
 import CreateBookDialog from "@/components/books/CreateBookDialog";
+import AgentTeam from "@/features/ai-team/AgentTeam";
 import { Button } from "@/components/ui/button";
 import { resolveCommandHref } from "@/features/author-shell/command-registry";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
@@ -224,6 +225,8 @@ export default function HomeWorkspace({
                 Create audiobook
               </Link>
             </section>
+
+            <AgentTeam workspace bookId={primaryBook?.id} bookTitle={primaryBook?.title} onCreateBook={openCreateDialog} />
 
             <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
               {statCards.map((stat) => (

@@ -7,6 +7,7 @@ import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import AuthorLandingSections from "./AuthorLandingSections";
+import AgentTeam from "@/features/ai-team/AgentTeam";
 import { AuthorStoryProvider, AuthorStudioExperience } from "./AuthorStoryExperience";
 import styles from "./AuthorLandingSections.module.css";
 
@@ -22,6 +23,7 @@ function LandingPage() {
         </div>
         <AuthorStudioExperience />
       </section>
+      <div className="mx-auto max-w-[1560px] px-5 sm:px-8 lg:px-14"><AgentTeam /></div>
       <AuthorLandingSections />
     </main>
   </AuthorStoryProvider>;
