@@ -617,6 +617,7 @@ export default function BookEditorView({
                 selectedChapterId={selectedChapterId}
                 selectedChapter={selectedChapter}
                 preset={preset}
+                onPresetChange={setPreset}
                 focusMode={focusMode}
                 isPublished={publishing.isPublished}
                 activeTool={tool}
