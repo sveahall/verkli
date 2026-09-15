@@ -47,6 +47,7 @@ export type MarketingCampaignRow = {
 
 export type Book = {
   id: string;
+  author_id?: string;
   title: string;
   description: string | null;
   cover_image: string | null;

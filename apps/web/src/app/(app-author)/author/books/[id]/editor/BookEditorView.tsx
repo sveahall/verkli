@@ -667,6 +667,7 @@ export default function BookEditorView({
             {/* All non-edit panels */}
             {tool !== "edit" && tool !== "dashboard" && (
               <BookEditorPanelContent
+                bookOwnerId={book.author_id}
                 bookId={book.id}
                 bookTitle={bookTitle}
                 demoMode={isDemoEditorView}
