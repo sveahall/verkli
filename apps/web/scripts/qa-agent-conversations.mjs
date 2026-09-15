@@ -121,6 +121,12 @@ const cases=[
    await send(page,'Edith','Check the chapter.');
    await expect(page.getByRole('log')).toContainText('AI service is unavailable');
    await expect(page.getByRole('button',{name:'Apply to chapter',exact:true})).toHaveCount(0);
+   await page.getByRole('button',{name:'Close AI assistant',exact:true}).click();
+   await page.getByRole('combobox',{name:'Response mode'}).selectOption('invalid');
+   await page.getByRole('button',{name:'Talk to Edith',exact:true}).click();
+   await send(page,'Edith','Try a different correction.');
+   await expect(page.getByRole('log')).toContainText('This suggestion failed validation. No changes were applied.');
+   await expect(page.getByRole('button',{name:'Apply to chapter',exact:true})).toHaveCount(0);
  }],
 ];
 try {

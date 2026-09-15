@@ -24,7 +24,7 @@ export type AiAssistantPanelProps = {
 };
 type ChatMessage = {
   id: string; role: "user" | "assistant"; content: string;
-  source?: "llm" | "template"; failed?: boolean; actions?: AgentAction[]; context?: ProposalContext;
+  source?: "llm" | "template"; failureReason?: "invalid_proposal" | "unavailable"; failed?: boolean; actions?: AgentAction[]; context?: ProposalContext;
 };
 type Retry = { id: string; message: string; selectedText: string | null; chapterId: string | null };
 type Thread = { messages: ChatMessage[]; draft: string; sending: boolean; error: string | null; retry?: Retry };
@@ -97,7 +97,7 @@ export default function AiAssistantPanel({ bookId, chapterId, chapterTitle, vari
       if (context.chapterId !== chapterId) throw new Error("The reply refers to a different chapter. Please ask again.");
       updateThread(threadKey, (previous) => ({ ...previous, messages: [...previous.messages, {
         id: crypto.randomUUID(), role: "assistant", content: reply.content,
-        source: json.source === "llm" ? "llm" : "template", actions: reply.actions, context,
+        source: json.source === "llm" ? "llm" : "template", failureReason: json.failureReason === "invalid_proposal" ? "invalid_proposal" : "unavailable", actions: reply.actions, context,
       }] }));
     } catch (error) {
       if (!mounted.current) return;
@@ -189,7 +189,7 @@ export default function AiAssistantPanel({ bookId, chapterId, chapterTitle, vari
         {message.role === "assistant" && <div className={styles.byline}><AgentAvatar agent={persona.agent} size={26} /><span>{agent.name}</span></div>}
         <div className={styles.message}>{message.content}</div>
         {message.failed && <p className={styles.meta}>Not sent. You can retry below.</p>}
-        {message.source === "template" && <p className={styles.meta}>The AI service is unavailable. This is general guidance, without changes to apply.</p>}
+        {message.source === "template" && <p className={styles.meta}>{message.failureReason === "invalid_proposal" ? "This suggestion failed validation. No changes were applied." : "The AI service is unavailable. This is general guidance, without changes to apply."}</p>}
         {message.context && message.actions?.map((action, index) => {
           const id = `${threadKey}:${message.id}:${index}`;
           return <AgentProposalCard key={id} action={action} state={results[id]} onExecute={() => { void execute(id, action, message.context!); }} />;

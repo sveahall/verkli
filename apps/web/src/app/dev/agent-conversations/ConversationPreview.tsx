@@ -69,7 +69,7 @@ function Preview() {
           : body.tool === "audiobook" ? {kind:"pronunciation",word:"Mira",spokenAs:"Mee-rah",sampleText:"Mira heard a sound beside the boat.",reason:"Try this spoken form without changing the written name."}
           : body.tool === "pricing" ? {kind:"pricing_draft",amount:99,currency:"SEK",reason:"Your requested price, ready for review."}
           : text.includes("wierd") ? {kind:"edit_text",original:"Mira heard a wierd sound beside the boat.",replacement:"Mira heard a weird sound beside the boat.",reason:"Correct the spelling while keeping the sentence and its emphasis."} : null;
-        return Response.json({content: body.history?.length ? "We can build on that. Review this next suggestion." : "Here is a precise suggestion for your review.",source:modeRef.current === "fallback" ? "template" : "llm",actions:proposal && modeRef.current !== "fallback" ? [proposal] : [],context:{chapterId:body.chapterId,chapterText:text}});
+        return Response.json({content: body.history?.length ? "We can build on that. Review this next suggestion." : "Here is a precise suggestion for your review.",source:["fallback","invalid"].includes(modeRef.current) ? "template" : "llm",failureReason:modeRef.current === "invalid" ? "invalid_proposal" : "unavailable",actions:proposal && !["fallback","invalid"].includes(modeRef.current) ? [proposal] : [],context:{chapterId:body.chapterId,chapterText:text}});
       }
       if (url.pathname.endsWith("/audiobook/preview")) return new Response(silentWav(),{headers:{"content-type":"audio/wav"}});
       if (url.pathname.endsWith("/cover/generate")) return Response.json({images:["/demo-assets/covers/01.jpg","/demo-assets/covers/02.jpg","/demo-assets/covers/03.jpg","/demo-assets/covers/04.jpg"]});
@@ -90,7 +90,7 @@ function Preview() {
       {(["edit","translate","audiobook","cover","pricing"] as Tool[]).map((value) => <button className="rounded-lg border border-border px-4 py-3" type="button" key={value} onClick={() => {setTool(value);setAssistantTool(value);setOpen(true);}}>{value}</button>)}
       <button type="button" className="rounded-lg border border-border px-4 py-3" onClick={() => setChapterIndex((value) => 1-value)}>Switch chapter</button>
       <button type="button" className="rounded-lg border border-border px-4 py-3" onClick={() => document.documentElement.classList.toggle("dark")}>Toggle theme</button>
-      <label>Response <select aria-label="Response mode" value={mode} onChange={(event) => setMode(event.target.value)}>{["normal","failure","delay","fallback"].map((value) => <option key={value}>{value}</option>)}</select></label>
+      <label>Response <select aria-label="Response mode" value={mode} onChange={(event) => setMode(event.target.value)}>{["normal","failure","delay","fallback","invalid"].map((value) => <option key={value}>{value}</option>)}</select></label>
     </div>
     <WorkspaceLayout header={<h1 className="font-display text-2xl">The harbour</h1>} asideOpen={open} onAsideClose={() => setOpen(false)} asideLabel="Book specialist"
       aside={<AiAssistantPanel bookId={BOOK_ID} chapterId={chapter.id} chapterTitle={chapter.title} activeTool={assistantTool} variant="dock" onClose={() => setOpen(false)} getDraftText={execution.getDraftText} onExecuteAction={execution.execute} />}

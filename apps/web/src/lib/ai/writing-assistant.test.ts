@@ -195,6 +195,22 @@ describe("generateWritingAssistantReply", () => {
     expect(messages[0].content).toHaveLength(4000);
   });
 
+  it("adds trusted validation recovery guidance without changing conversation messages", async () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    anthropicCreate.mockResolvedValue(anthropicReply('{"content":"Review the pronunciation.","actions":[]}'));
+    const input = { ...INPUT, mode: "actions" as const, tool: "audiobook" as const, audiobookEnabled: true };
+    await generateWritingAssistantReply(input);
+    await generateWritingAssistantReply({ ...input, validationRetry: true });
+    const first = anthropicCreate.mock.calls[0][0];
+    const retry = anthropicCreate.mock.calls[1][0];
+    expect(retry.messages).toEqual(first.messages);
+    expect(retry.system).toContain("The previous proposal failed validation");
+    expect(retry.system).toContain("strict JSON");
+    expect(retry.system).toContain("sampleText must contain the original written word");
+    expect(retry.system).toContain("spokenAs only");
+    expect(first.system).not.toContain("The previous proposal failed validation");
+  });
+
   // The reported failure: the author asked "how can I make this chapter open
   // stronger?" with the chapter on screen beside the panel, and the assistant
   // replied "paste the passage you want to strengthen". The route accepted a
