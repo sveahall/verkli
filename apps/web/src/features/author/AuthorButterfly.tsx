@@ -5,9 +5,9 @@ import { motion, useInView, useSpring } from "motion/react";
 import { useStudioMotionPreference } from "./useStudioMotionPreference";
 import styles from "./AuthorButterfly.module.css";
 
-/** The two original favi.svg paths, hinged where the wings meet. */
+/** The approved butterfly artwork, clipped into two independently hinged wings. */
 export default function AuthorButterfly() {
-  const gradient = useId();
+  const wingClip = useId();
   const ref = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inView = useInView(ref, { amount: 0.5 });
@@ -38,10 +38,13 @@ export default function AuthorButterfly() {
     <span className={styles.shadow} aria-hidden="true" />
     <motion.span className={styles.body} style={reduceMotion ? undefined : { rotateX, rotateY }} aria-hidden="true">
       <span key={flight} className={styles.lift}>
-        <svg viewBox="0 0 205 185" fill="none" className={styles.mark}>
-          <defs><radialGradient id={gradient} cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(10 184.14) rotate(-43.3375) scale(268.106 235.584)"><stop stopColor="#907AFF" /><stop offset=".360577" stopColor="#E29ED5" /><stop offset=".697115" stopColor="#FCC997" /><stop offset="1" stopColor="#FEE9A3" /></radialGradient></defs>
-          <g data-wing="left" className={styles.left}><path d="M76.046 40.1399C57.9009 23.6626 46.6315 14.7511 18.648 14.7517C-38.2622 14.7528 51.7416 172.163 67.8022 181.843C82.1942 190.517 93.5933 166.672 103.362 145.849C109.833 132.057 107.611 68.8039 76.046 40.1399Z" fill={`url(#${gradient})`} /></g>
-          <g data-wing="right" className={styles.right}><path d="M187.086 1.82939C163.315 13.3853 144.269 34.1931 128.362 63.3496C113.124 91.2805 108.362 142.33 108.362 142.33C108.514 150.258 113.068 165.617 122.883 177.95C161.741 226.774 239.551 -23.6764 187.086 1.82939Z" fill={`url(#${gradient})`} /></g>
+        <svg viewBox="0 0 588 500" fill="none" className={styles.mark}>
+          <defs>
+            <clipPath id={`${wingClip}-left`}><rect width="324" height="500" /></clipPath>
+            <clipPath id={`${wingClip}-right`}><rect x="324" width="264" height="500" /></clipPath>
+          </defs>
+          <g data-wing="left" className={styles.left}><image href="/verkli-mark.png?v=20260915" width="588" height="500" clipPath={`url(#${wingClip}-left)`} /></g>
+          <g data-wing="right" className={styles.right}><image href="/verkli-mark.png?v=20260915" width="588" height="500" clipPath={`url(#${wingClip}-right)`} /></g>
         </svg>
       </span>
     </motion.span>

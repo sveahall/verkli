@@ -475,7 +475,7 @@ export default function WaitlistPageClient({ accessPending }: { accessPending: b
     <main className="waitlist-page" id="top">
       <header className="wl-nav wl-shell">
         <a href="#top" className="wl-logo" aria-label="Verkli home">
-          <Image src="/logo-dark.svg" alt="Verkli" width={144} height={40} className="dark:hidden" priority /><Image src="/favicon.svg" alt="Verkli" width={144} height={40} className="hidden dark:block" priority />
+          <Image src="/logo-dark.svg?v=20260915" alt="Verkli" width={144} height={40} className="dark:hidden" priority /><Image src="/favicon.svg?v=20260915" alt="Verkli" width={144} height={40} className="hidden dark:block" priority />
 
         </a>
         <nav className="wl-nav-links" aria-label="Main navigation">
@@ -591,7 +591,7 @@ export default function WaitlistPageClient({ accessPending }: { accessPending: b
         <BookOrderSection />
       </div>
       <footer className="wl-footer wl-shell">
-        <a href="#top" className="wl-logo" aria-label="Verkli home"><Image src="/logo-dark.svg" alt="Verkli" width={144} height={40} className="dark:hidden" /><Image src="/favicon.svg" alt="Verkli" width={144} height={40} className="hidden dark:block" /></a>
+        <a href="#top" className="wl-logo" aria-label="Verkli home"><Image src="/logo-dark.svg?v=20260915" alt="Verkli" width={144} height={40} className="dark:hidden" /><Image src="/favicon.svg?v=20260915" alt="Verkli" width={144} height={40} className="hidden dark:block" /></a>
         <p>Built for the stories only you can tell.</p>
         <a href="#join-waitlist">Be part of the next chapter <ArrowRight size={14} aria-hidden="true" /></a>
       </footer>

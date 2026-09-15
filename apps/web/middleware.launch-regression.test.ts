@@ -33,6 +33,12 @@ describe.each([
     vi.stubEnv("NEXT_PUBLIC_WAITLIST_ONLY", waitlist);
   });
 
+  it("serves the public brand preview image while the platform is locked", async () => {
+    const response = await middleware(new NextRequest("https://www.verkli.com/opengraph-image?v=20260915"));
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(response.headers.get("location")).toBeNull();
+  });
+
   it("lets Stripe POST reach its signature verifier without browser auth", async () => {
     mocks.getUser.mockRejectedValue(new Error("Auth service unavailable"));
     const response = await middleware(new NextRequest("https://www.verkli.com/api/stripe/webhook", {
@@ -71,7 +77,7 @@ describe.each([
     expect(response.headers.get("x-middleware-next")).toBeNull();
   });
 
-  it.each(["/api/stripe/webhook/private", "/api/stripe/webhooks", "/api/health/private", "/api/health/workers/private", "/api/feedback", "/privacy/private", "/author/home"])(
+  it.each(["/opengraph-image/private", "/opengraph-images", "/api/stripe/webhook/private", "/api/stripe/webhooks", "/api/health/private", "/api/health/workers/private", "/api/feedback", "/privacy/private", "/author/home"])(
     "does not exempt the lookalike or workspace route %s", async (path) => {
       const response = await middleware(new NextRequest(`https://www.verkli.com${path}`));
       expect(response.headers.get("x-middleware-next")).toBeNull();

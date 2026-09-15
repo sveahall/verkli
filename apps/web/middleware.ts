@@ -236,7 +236,7 @@ export async function middleware(request: NextRequest) {
     // return page have to come through the lock or the buy button dies silently.
     const isOrder = isPublicOrderPath(p)
     const isNext = p.startsWith('/_next/')
-    const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt'].includes(p)
+    const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt', '/opengraph-image'].includes(p)
     const isRootAssetWithExt = /^\/[^/]+\.[a-z0-9]+$/i.test(p)
     // Static files in SUBDIRECTORIES of /public, which the check above misses.
     //
@@ -317,7 +317,7 @@ export async function middleware(request: NextRequest) {
     const isApiWaitlist = p === '/api/waitlist' || p.startsWith('/api/waitlist/')
     const isApiAuth = p === '/api/auth' || p.startsWith('/api/auth/')
     const isNext = p.startsWith('/_next/')
-    const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt'].includes(p)
+    const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt', '/opengraph-image'].includes(p)
     const isRootAssetWithExt = /^\/[^/]+\.[a-z0-9]+$/i.test(p)
     // Static files in SUBDIRECTORIES of /public, which the check above misses.
     //
