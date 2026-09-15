@@ -756,7 +756,7 @@ export default function TiptapEditor({
 function MenuButton({
   label,
   onClick,
-  active = false,
+  active,
   children,
 }: {
   label: string;
@@ -768,11 +768,13 @@ function MenuButton({
     <button
       type="button"
       aria-label={label}
+      aria-pressed={active}
       onMouseDown={(event) => {
         event.preventDefault();
         onClick();
       }}
-      className={`inline-flex h-10 min-w-10 shrink-0 items-center justify-center rounded-xl px-2.5 text-xs font-medium transition ${
+      onClick={(event) => { if (event.detail === 0) onClick(); }}
+      className={`inline-flex h-11 min-w-11 shrink-0 items-center justify-center rounded-xl px-2.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
         active
           ? "bg-accent text-accent-foreground"
           : "text-muted-foreground hover:bg-muted hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
@@ -806,7 +808,7 @@ function ItalicIcon() {
 function ToolbarButton({
   label,
   onClick,
-  active = false,
+  active,
   children,
 }: {
   label: string;
@@ -818,11 +820,13 @@ function ToolbarButton({
     <button
       type="button"
       aria-label={label}
+      aria-pressed={active}
       onMouseDown={(event) => {
         event.preventDefault();
         onClick();
       }}
-      className={`inline-flex h-9 min-w-9 shrink-0 items-center justify-center rounded-lg px-2 text-xs font-medium transition ${
+      onClick={(event) => { if (event.detail === 0) onClick(); }}
+      className={`inline-flex h-11 min-w-11 shrink-0 items-center justify-center rounded-lg px-2 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
         active
           ? "bg-accent text-accent-foreground"
           : "text-muted-foreground hover:bg-muted hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
