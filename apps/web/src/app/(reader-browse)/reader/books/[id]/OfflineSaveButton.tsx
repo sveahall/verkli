@@ -1,28 +1,9 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useBillingState } from "@/hooks/useBillingState";
-import { resolveErrorMessage } from "@/lib/error-messages";
-import { getOfflineReadingEnabled } from "@/lib/flags";
-import {
-  clearOfflineForUser,
-  getOfflineManifestForBook,
-  hasOfflineBook,
-  pruneOfflineChaptersForBook,
-  putOfflineBookmarks,
-  removeOfflineBook,
-  saveOfflineManifest,
-  upsertOfflineChapters,
-} from "@/lib/offline/idb";
-import {
-  cacheOfflineUrls,
-  clearAllOfflineContentUrls,
-  clearOfflineUrls,
-} from "@/lib/offline/service-worker";
-import type { OfflineChaptersResponse, OfflineManifestResponse } from "@/lib/offline/types";
-
-const CHAPTER_BATCH_SIZE = 20;
+import { useState } from "react";
+import { OFFLINE_UNAVAILABLE_MESSAGE } from "@/lib/offline/availability";
+import { clearOfflineDatabase } from "@/lib/offline/idb";
+import { clearAllOfflineContentUrls } from "@/lib/offline/service-worker";
 
 type Props = {
   bookId: string;
@@ -30,334 +11,35 @@ type Props = {
   languageCode: string;
 };
 
-type BookmarkRow = {
-  id: string;
-  book_id: string;
-  created_at?: string | null;
-};
-
-function chunk<T>(items: T[], size: number): T[][] {
-  const output: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    output.push(items.slice(index, index + size));
-  }
-  return output;
-}
-
-async function readJson<T>(response: Response): Promise<T> {
-  const body = (await response.json().catch(() => ({}))) as T;
-  return body;
-}
-
-async function syncBookmarksSnapshot(userId: string, bookId: string): Promise<void> {
-  const response = await fetch("/api/bookmarks", {
-    method: "GET",
-    credentials: "include",
-    cache: "no-store",
-  });
-  if (!response.ok) return;
-
-  const body = await readJson<{ bookmarks?: BookmarkRow[] }>(response);
-  const bookmarks = (body.bookmarks ?? []).filter((bookmark) => bookmark.book_id === bookId);
-  await putOfflineBookmarks(userId, bookId, bookmarks);
-}
-
-export default function OfflineSaveButton({ bookId, userId, languageCode }: Props) {
-  const offlineEnabled = useMemo(() => getOfflineReadingEnabled(), []);
-  const { isPlusActive, loading: billingLoading } = useBillingState();
-
-  const [isSaved, setIsSaved] = useState(false);
+export default function OfflineSaveButton(props: Props) {
+  void props;
   const [isBusy, setIsBusy] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [statusText, setStatusText] = useState<string | null>(null);
-  const [errorText, setErrorText] = useState<string | null>(null);
-  const [isOnline, setIsOnline] = useState(true);
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const refreshSavedState = useCallback(async () => {
-    try {
-      const saved = await hasOfflineBook(userId, bookId);
-      setIsSaved(saved);
-    } catch {
-      // Non-fatal; UI remains interactive.
-    }
-  }, [userId, bookId]);
-
-  useEffect(() => {
-    if (!offlineEnabled) return;
-    const updateOnlineState = () => setIsOnline(navigator.onLine);
-    updateOnlineState();
-    window.addEventListener("online", updateOnlineState);
-    window.addEventListener("offline", updateOnlineState);
-    return () => {
-      window.removeEventListener("online", updateOnlineState);
-      window.removeEventListener("offline", updateOnlineState);
-    };
-  }, [offlineEnabled]);
-
-  useEffect(() => {
-    if (!offlineEnabled) return;
-    void refreshSavedState();
-  }, [offlineEnabled, refreshSavedState]);
-
-  const saveOffline = useCallback(async () => {
+  const clearSavedCopies = async () => {
     setIsBusy(true);
-    setProgress(2);
-    setErrorText(null);
-    setStatusText("Fetching offline manifest...");
-
+    setStatus(null);
+    setError(null);
     try {
-      const manifestResponse = await fetch(
-        `/api/offline/books/${bookId}/manifest?lang=${encodeURIComponent(languageCode)}`,
-        {
-          method: "GET",
-          credentials: "include",
-          cache: "no-store",
-        }
-      );
-      const manifestBody = await readJson<OfflineManifestResponse & { error?: string }>(manifestResponse);
-      if (!manifestResponse.ok) {
-        throw new Error(resolveErrorMessage(manifestBody.error ?? null));
-      }
-      const manifest = manifestBody as OfflineManifestResponse;
-      if (!manifest.chapters?.length) {
-        throw new Error("This book has no chapters available to save offline.");
-      }
-
-      const previousManifest = await getOfflineManifestForBook(userId, bookId);
-      const previousHashes = previousManifest?.chapterHashes ?? {};
-      const chaptersToFetch = manifest.chapters.filter(
-        (chapter) => previousHashes[chapter.id] !== chapter.contentHash
-      );
-      const chapterBatches = chunk(chaptersToFetch, CHAPTER_BATCH_SIZE);
-
-      setProgress(10);
-
-      let fetched = 0;
-      for (const batch of chapterBatches) {
-        setStatusText(
-          `Loading chapters ${Math.min(fetched + 1, chaptersToFetch.length)}-${Math.min(
-            fetched + batch.length,
-            chaptersToFetch.length
-          )} of ${chaptersToFetch.length}...`
-        );
-
-        const chapterResponse = await fetch(manifest.chapterBatchUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          cache: "no-store",
-          body: JSON.stringify({
-            bookVersionId: manifest.bookVersionId,
-            chapterIds: batch.map((chapter) => chapter.id),
-          }),
-        });
-        const chapterBody = await readJson<OfflineChaptersResponse & { error?: string }>(chapterResponse);
-        if (!chapterResponse.ok) {
-          throw new Error(resolveErrorMessage(chapterBody.error ?? null));
-        }
-
-        const chapterPayload = chapterBody as OfflineChaptersResponse;
-        await upsertOfflineChapters(
-          chapterPayload.chapters.map((chapter) => ({
-            userId,
-            bookId: manifest.bookId,
-            bookVersionId: manifest.bookVersionId,
-            chapterId: chapter.id,
-            title: chapter.title,
-            order: chapter.order,
-            content: chapter.content,
-            contentHash: chapter.contentHash,
-            readerUrl: chapter.readerUrl,
-            updatedAt: chapter.updatedAt ? Date.parse(chapter.updatedAt) : Date.now(),
-          }))
-        );
-
-        fetched += batch.length;
-        const progressPercent =
-          chaptersToFetch.length === 0
-            ? 80
-            : 10 + Math.round((fetched / chaptersToFetch.length) * 70);
-        setProgress(Math.min(85, progressPercent));
-      }
-
-      setStatusText("Syncing offline data...");
-      await pruneOfflineChaptersForBook(
-        userId,
-        manifest.bookId,
-        manifest.chapters.map((chapter) => chapter.id)
-      );
-      await syncBookmarksSnapshot(userId, manifest.bookId);
-
-      const nextUrls = [manifest.bookUrl, ...manifest.chapters.map((chapter) => chapter.readerUrl)];
-      await cacheOfflineUrls(nextUrls);
-      const staleUrls = (previousManifest?.chapterReaderUrls ?? []).filter((url) => !nextUrls.includes(url));
-      if (staleUrls.length > 0) {
-        await clearOfflineUrls(staleUrls);
-      }
-      // A manifest is the saved-state marker. Write it only after the worker
-      // confirms all reader pages are available, including after a retry.
-      await saveOfflineManifest({
-        userId,
-        bookId: manifest.bookId,
-        bookVersionId: manifest.bookVersionId,
-        languageCode: manifest.languageCode,
-        manifestHash: manifest.manifestHash,
-        chapterHashes: Object.fromEntries(
-          manifest.chapters.map((chapter) => [chapter.id, chapter.contentHash])
-        ),
-        chapterReaderUrls: manifest.chapters.map((chapter) => chapter.readerUrl),
-        bookUrl: manifest.bookUrl,
-        chapterCount: manifest.chapters.length,
-        updatedAt: Date.now(),
-      });
-      setProgress(100);
-      setStatusText("Saved offline");
-      setIsSaved(true);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : resolveErrorMessage(null);
-      setErrorText(message);
-      setStatusText(null);
-    } finally {
-      setIsBusy(false);
-      setTimeout(() => {
-        setProgress(0);
-      }, 1000);
-    }
-  }, [bookId, languageCode, userId]);
-
-  const removeBookOffline = useCallback(async () => {
-    setIsBusy(true);
-    setErrorText(null);
-    setStatusText("Clearing offline data...");
-    try {
-      const existingManifest = await getOfflineManifestForBook(userId, bookId);
-      if (existingManifest) {
-        await clearOfflineUrls([existingManifest.bookUrl, ...existingManifest.chapterReaderUrls]);
-      }
-      await removeOfflineBook(userId, bookId);
-      setIsSaved(false);
-      setStatusText("Offline data removed");
-    } catch {
-      setErrorText("Could not clear offline data for this book.");
-      setStatusText(null);
+      await Promise.all([clearAllOfflineContentUrls(), clearOfflineDatabase()]);
+      setStatus("Previously saved copies have been removed from this device.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not remove saved copies. Close other Verkli tabs and try again.");
     } finally {
       setIsBusy(false);
     }
-  }, [bookId, userId]);
-
-  const clearAllOffline = useCallback(async () => {
-    setIsBusy(true);
-    setErrorText(null);
-    setStatusText("Clearing all offline data...");
-    try {
-      await clearAllOfflineContentUrls();
-      await clearOfflineForUser(userId);
-      setIsSaved(false);
-      setStatusText("All offline data cleared");
-    } catch {
-      setErrorText("Could not clear all offline data.");
-      setStatusText(null);
-    } finally {
-      setIsBusy(false);
-    }
-  }, [userId]);
-
-  if (!offlineEnabled) {
-    return null;
-  }
-
-  if (billingLoading) {
-    return (
-      <button
-        type="button"
-        disabled
-        className="rounded-full border border-border bg-muted px-6 py-3 text-[14px] font-semibold text-muted-foreground dark:bg-card"
-      >
-        Checking Plus...
-      </button>
-    );
-  }
-
-  if (!isPlusActive) {
-    return (
-      <div className="max-w-md rounded-xl border border-[#907AFF]/20 bg-[#907AFF]/5 px-4 py-3 text-sm text-foreground">
-        <p className="font-semibold text-foreground">Offline reading is included in Verkli Plus.</p>
-        <p className="mt-1 text-muted-foreground">Upgrade to save books and read without a connection.</p>
-        <Link
-          href="/reader/billing"
-          className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-[#907AFF]/15 px-3 text-[13px] font-semibold text-accent-foreground transition hover:bg-[#907AFF]/25 dark:text-[#B8A9FF] dark:hover:bg-[#907AFF]/20"
-        >
-          Upgrade to Plus
-        </Link>
-      </div>
-    );
-  }
-
-  const saveButtonLabel = isSaved ? "Update offline copy" : "Save offline";
-  const cannotSave = isBusy || !isOnline;
+  };
 
   return (
-    <div className="min-w-[220px]">
-      <p className="mb-2 text-[12px] text-muted-foreground">Saves chapter text on this device. Audio needs an internet connection.</p>
-      <button
-        type="button"
-        onClick={() => void saveOffline()}
-        disabled={cannotSave}
-        className="rounded-full border border-border bg-card px-6 py-3 text-[14px] font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-card"
-      >
-        {cannotSave && !isOnline ? "Currently offline" : saveButtonLabel}
+    <div className="max-w-md text-sm">
+      <p className="text-muted-foreground">{OFFLINE_UNAVAILABLE_MESSAGE}</p>
+      <p className="mt-1 text-xs text-muted-foreground">Previously saved copies are no longer available. You can remove their stored data below.</p>
+      <button type="button" disabled={isBusy} onClick={() => void clearSavedCopies()} className="mt-2 min-h-11 rounded-lg border border-border px-3 text-foreground disabled:opacity-60">
+        {isBusy ? "Removing saved copies..." : "Remove previously saved copies"}
       </button>
-
-      {(isBusy || progress > 0) && (
-        <div className="mt-3 w-full rounded-full border border-black/10 bg-black/[0.04] p-1 dark:border-border dark:bg-card">
-          <div
-            role="progressbar"
-            aria-label="Saving offline chapters"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.min(100, Math.max(0, progress))}
-            className="h-1.5 rounded-full bg-[#907AFF] transition-[background-color,border-color,color,box-shadow]"
-            style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
-          />
-        </div>
-      )}
-
-      {statusText && (
-        <p role="status" className="mt-2 text-[12px] text-muted-foreground">
-          {statusText}
-        </p>
-      )}
-      {errorText && (
-        <p role="alert" className="mt-2 text-[12px] text-rose-700 dark:text-rose-300">
-          {errorText}
-        </p>
-      )}
-      {!isOnline && isSaved && (
-        <p className="mt-2 text-[12px] text-amber-700 dark:text-amber-300">
-          You are offline. Saved chapters can be read without a connection.
-        </p>
-      )}
-
-      {isSaved && (
-        <div className="mt-3 flex gap-2 text-[12px]">
-          <button
-            type="button"
-            onClick={() => void removeBookOffline()}
-            disabled={isBusy}
-            className="inline-flex min-h-11 items-center rounded-full border border-border px-3 font-medium text-foreground transition hover:bg-muted disabled:opacity-60 dark:hover:bg-card"
-          >
-            Clear this book
-          </button>
-          <button
-            type="button"
-            onClick={() => void clearAllOffline()}
-            disabled={isBusy}
-            className="inline-flex min-h-11 items-center rounded-full border border-rose-400/50 px-3 font-medium text-rose-700 transition hover:bg-rose-500/10 disabled:opacity-60 dark:text-rose-300"
-          >
-            Clear all
-          </button>
-        </div>
-      )}
+      {status && <p role="status" className="mt-2 text-xs text-muted-foreground">{status}</p>}
+      {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
     </div>
   );
 }
