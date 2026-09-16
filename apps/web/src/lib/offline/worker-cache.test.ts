@@ -22,11 +22,36 @@ function worker() {
 }
 
 describe("retired offline worker", () => {
-  it("purges old HTML caches on activation before claiming existing tabs", async () => {
+  it("claims existing tabs before purging old HTML caches on activation", async () => {
     const w = worker(); await w.dispatch("activate");
     expect(w.remove.mock.calls).toEqual([["verkli-static-v1"], ["verkli-content-v1"]]);
     expect(w.claim).toHaveBeenCalledTimes(1);
+    expect(w.claim.mock.invocationCallOrder[0]).toBeLessThan(w.remove.mock.invocationCallOrder[0]);
     expect(w.open).not.toHaveBeenCalled();
+  });
+  it("acknowledges retirement only after claiming all tabs and purging caches", async () => {
+    const w = worker(); const reply = vi.fn();
+    await w.dispatch("message", { data: { type: "OFFLINE_RETIRE" }, ports: [{ postMessage: reply }] });
+    expect(reply).toHaveBeenCalledWith({ ok: true, version: "v3-retired" });
+    expect(w.claim.mock.invocationCallOrder[0]).toBeLessThan(w.remove.mock.invocationCallOrder[0]);
+    expect(w.remove.mock.invocationCallOrder.at(-1)).toBeLessThan(reply.mock.invocationCallOrder[0]);
+  });
+  it("waits for asynchronous client takeover before purging or acknowledging", async () => {
+    const w = worker(); const reply = vi.fn();
+    let finishClaim!: () => void;
+    w.claim.mockReturnValue(new Promise<void>((resolve) => { finishClaim = resolve; }));
+    const retirement = w.dispatch("message", { data: { type: "OFFLINE_RETIRE" }, ports: [{ postMessage: reply }] });
+    await Promise.resolve();
+    expect(w.remove).not.toHaveBeenCalled(); expect(reply).not.toHaveBeenCalled();
+    finishClaim(); await retirement;
+    expect(reply).toHaveBeenCalledWith({ ok: true, version: "v3-retired" });
+  });
+  it("refuses a retirement acknowledgement if taking over other tabs fails", async () => {
+    const w = worker(); const reply = vi.fn();
+    w.claim.mockRejectedValue(new Error("claim failed"));
+    await w.dispatch("message", { data: { type: "OFFLINE_RETIRE" }, ports: [{ postMessage: reply }] });
+    expect(reply).toHaveBeenCalledWith({ ok: false });
+    expect(w.remove).not.toHaveBeenCalled();
   });
   it("never precaches an authenticated app shell during installation", async () => {
     const w = worker(); await w.dispatch("install");
