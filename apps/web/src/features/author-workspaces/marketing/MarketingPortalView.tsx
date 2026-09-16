@@ -120,10 +120,11 @@ export default function MarketingPortalView({
     const body = (await res.json().catch(() => ({}))) as {
       campaign?: { id: string };
       error?: string;
+      detail?: unknown;
     };
 
     if (!res.ok || !body.campaign) {
-      const msg = body.error ?? "Could not create campaign.";
+      const msg = typeof body.detail === "string" ? body.detail : body.error ?? "Could not create campaign.";
       setError(msg);
       throw new Error(msg);
     }
