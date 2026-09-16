@@ -285,7 +285,7 @@ export default function AuthorSidebar({
       {/* ── Desktop sidebar ── */}
       <aside data-author-sidebar className="hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
         <div className="px-7 pb-8 pt-8">
-          <Link href="/author/home" className="inline-flex items-center">
+          <Link href="/author/home" className="inline-flex min-h-11 items-center">
             <Image
               src="/favicon.svg?v=20260916"
               alt="Verkli"
