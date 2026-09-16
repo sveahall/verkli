@@ -73,6 +73,7 @@ export type CreateCampaignPlanBody = z.infer<typeof createCampaignPlanBodySchema
 
 /** PATCH /api/author/marketing/posts/[id] body */
 export const updatePostBodySchema = z.object({
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
   caption: z.string().max(5000).optional(),
   hashtags: z.string().max(2000).optional(),
   cta: z.string().max(500).optional(),
