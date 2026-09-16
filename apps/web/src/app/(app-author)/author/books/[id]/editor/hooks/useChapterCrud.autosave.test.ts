@@ -22,6 +22,39 @@ function recordingPersist(
 }
 
 describe("drainPendingSaves", () => {
+  it("keeps a conflicting draft for recovery while saving other chapters", async () => {
+    const pending = new Map<string, Record<string, unknown>>([
+      ["a", { body: "My local draft" }], ["b", { body: "Other chapter" }],
+    ]);
+    const { persist } = recordingPersist(undefined, (id) => id === "a" ? "conflict" : "written");
+    const result = await drainPendingSaves(pending, persist);
+    expect(result.conflictedChapters).toEqual(["a"]);
+    expect(pending.get("a")).toEqual({ body: "My local draft" });
+    expect(result.saved.get("b")).toBe(JSON.stringify({ body: "Other chapter" }));
+  });
+
+  it("announces a conflict before waiting for another queued chapter", async () => {
+    const pending = new Map<string, Record<string, unknown>>([["a", { body: "retained" }], ["b", { body: "later" }]]);
+    const events: string[] = [];
+    let release!: () => void;
+    let started!: () => void;
+    const waiting = new Promise<void>((resolve) => { release = resolve; });
+    const secondStarted = new Promise<void>((resolve) => { started = resolve; });
+    const persist: PersistChapter = async (id, payload) => {
+      if (id === "a") return { outcome: "conflict", serialized: JSON.stringify(payload) };
+      events.push("saving:b");
+      started();
+      await waiting;
+      return { outcome: "written", serialized: JSON.stringify(payload) };
+    };
+    const drain = drainPendingSaves(pending, persist, new Set(), (id) => events.push(`conflict:${id}`));
+    await secondStarted;
+    expect(events).toEqual(["conflict:a", "saving:b"]);
+    expect(pending.get("a")).toEqual({ body: "retained" });
+    release();
+    await drain;
+  });
+
   it("writes nothing when the queue is empty", async () => {
     const { persist, writes } = recordingPersist();
     const result = await drainPendingSaves(new Map(), persist);
