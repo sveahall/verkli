@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import StatsOverviewCards from "./StatsOverviewCards";
 import StatsEngagementCards from "./StatsEngagementCards";
 import StatsBookTable from "./StatsBookTable";
+import { RevenueBreakdown } from "@/features/author-workspaces/analytics/AnalyticsCharts";
+import type { RevenueData } from "@/features/author-workspaces/analytics/AnalyticsWorkspace";
 
 type Period = "7d" | "30d" | "all";
 
@@ -16,14 +18,6 @@ type Stats = {
   // Set when the route answered 200 but some figure inside it failed to load.
   partial?: boolean;
   period: string;
-};
-
-type Revenue = {
-  partial?: boolean;
-  totalRevenue: number;
-  orderRevenue: number;
-  donationRevenue: number;
-  currency: string;
 };
 
 type Engagement = {
@@ -42,67 +36,47 @@ const periodLabels: Record<Period, string> = {
 export default function AuthorStatsDashboard() {
   const [period, setPeriod] = useState<Period>("30d");
   const [stats, setStats] = useState<Stats | null>(null);
-  const [revenue, setRevenue] = useState<Revenue | null>(null);
+  const [revenue, setRevenue] = useState<RevenueData | null>(null);
   const [publishedBooks, setPublishedBooks] = useState(0);
   const [engagement, setEngagement] = useState<Engagement | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [statsRes, revenueRes, engagementRes] = await Promise.all([
-        fetch(`/api/author/stats?period=${period}`),
-        fetch("/api/author/stats/revenue"),
-        fetch("/api/author/stats/engagement"),
-      ]);
-
-      // A failed response used to be skipped in silence, which rendered as a
-      // confident dashboard of zeros — indistinguishable from an author who had
-      // genuinely sold nothing. Zero is a claim about their work; refusing to
-      // make it when we do not know is the point of this flag.
-      let anyFailed = false;
-
-      if (statsRes.ok) {
-        const json = await statsRes.json();
-        setStats(json);
-        // Comes from this same response now. It used to be read off a SECOND
-        // request to the identical endpoint, which never returned the field, so
-        // the figure was always 0 and the round trip bought nothing.
-        setPublishedBooks(json.publishedBooks ?? 0);
-        // A 200 is not proof the numbers are complete. The route sets `partial`
-        // when a sub-query failed, which `response.ok` alone cannot express.
-        if (json.partial) anyFailed = true;
-      } else {
-        anyFailed = true;
-      }
-      if (revenueRes.ok) {
-        const json = await revenueRes.json();
-        setRevenue(json);
-        if (json.partial) anyFailed = true;
-      } else {
-        anyFailed = true;
-      }
-      if (engagementRes.ok) {
-        setEngagement(await engagementRes.json());
-      } else {
-        anyFailed = true;
-      }
-
-      setLoadFailed(anyFailed);
-    } catch (error) {
-      // Previously an empty catch. A thrown fetch left every figure at its
-      // previous value with nothing on screen to say so.
-      console.error("[AuthorStatsDashboard] stats load failed", error);
-      setLoadFailed(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [period]);
-
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    const controller = new AbortController();
+    const { signal } = controller;
+    setLoading(true);
+    const run = async () => {
+      try {
+        const responses = await Promise.all([
+          fetch(`/api/author/stats?period=${period}`, { signal }),
+          fetch(`/api/author/stats/revenue?period=${period}`, { signal }),
+          fetch("/api/author/stats/engagement", { signal }),
+        ]);
+        const [nextStats, nextRevenue, nextEngagement] = await Promise.all(
+          responses.map((response) => response.ok ? response.json() : null)
+        );
+        if (signal.aborted) return;
+        setStats(nextStats);
+        setPublishedBooks(nextStats?.publishedBooks ?? 0);
+        setRevenue(nextRevenue);
+        setEngagement(nextEngagement);
+        setLoadFailed(!nextStats || nextStats.partial || !nextRevenue || nextRevenue.partial || !nextEngagement);
+      } catch (error) {
+        if (signal.aborted) return;
+        console.error("[AuthorStatsDashboard] stats load failed", error);
+        setStats(null);
+        setRevenue(null);
+        setEngagement(null);
+        setLoadFailed(true);
+      } finally {
+        if (!signal.aborted) setLoading(false);
+      }
+    };
+    void run();
+    return () => controller.abort();
+  }, [period, retry]);
 
   return (
     <div className="mx-auto max-w-[960px] px-4 py-8 sm:px-6">
@@ -116,7 +90,7 @@ export default function AuthorStatsDashboard() {
               key={p}
               type="button"
               onClick={() => setPeriod(p)}
-              className={`rounded-lg px-4 py-1.5 text-[13px] font-medium transition-colors ${
+              className={`min-h-11 rounded-lg px-4 py-1.5 text-[13px] font-medium transition-colors ${
                 period === p
                   ? "bg-card text-foreground shadow-sm dark:bg-card dark:text-foreground"
                   : "text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground"
@@ -139,8 +113,8 @@ export default function AuthorStatsDashboard() {
           role="alert"
           className="mb-6 rounded-2xl border border-[var(--color-warning)]/30 bg-[var(--color-warning-muted)] px-4 py-3 text-[13px] text-[var(--color-warning)]"
         >
-          Some figures could not be loaded, so the numbers below may be
-          incomplete. They are not a report of zero activity. Try again shortly.
+          <p>Some figures could not be loaded. Unavailable figures are not zero activity.</p>
+          <button type="button" className="btn-secondary mt-3 min-h-11" onClick={() => setRetry((value) => value + 1)}>Retry statistics</button>
         </div>
       )}
 
@@ -161,9 +135,10 @@ export default function AuthorStatsDashboard() {
           <StatsOverviewCards
             views={stats?.views ?? 0}
             reads={stats?.reads ?? 0}
-            revenue={revenue?.totalRevenue ?? 0}
+            revenue={revenue?.totalRevenue ?? null}
             publishedBooks={publishedBooks}
-            currency={revenue?.currency ?? "SEK"}
+            currency={revenue?.currency ?? null}
+            byCurrency={revenue?.byCurrency ?? null}
           />
 
           {engagement && (
@@ -180,33 +155,16 @@ export default function AuthorStatsDashboard() {
             </>
           )}
 
-          {revenue && (revenue.orderRevenue > 0 || revenue.donationRevenue > 0) && (
-            <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm dark:border-border dark:bg-card">
-              <h2 className="author-section-title mb-4 text-[15px] font-medium text-foreground dark:text-foreground">
-                Revenue breakdown
-              </h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[12px] font-medium text-muted-foreground dark:text-muted-foreground">Book sales</p>
-                  <p className="text-lg font-bold text-foreground dark:text-foreground">
-                    {revenue.orderRevenue.toLocaleString("en-US")} {revenue.currency}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[12px] font-medium text-muted-foreground dark:text-muted-foreground">Donations</p>
-                  <p className="text-lg font-bold text-foreground dark:text-foreground">
-                    {revenue.donationRevenue.toLocaleString("en-US")} {revenue.currency}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm dark:border-border dark:bg-card">
+            <h2 className="author-section-title mb-4 text-[15px] font-medium text-foreground">Sales and subscriptions</h2>
+            <RevenueBreakdown revenue={revenue} />
+          </div>
 
           <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm dark:border-border dark:bg-card">
             <h2 className="author-section-title mb-4 text-[15px] font-medium text-foreground dark:text-foreground">
               By book
             </h2>
-            <StatsBookTable period={period} />
+            <StatsBookTable key={`${period}-${retry}`} period={period} />
           </div>
         </div>
       )}

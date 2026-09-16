@@ -5,23 +5,26 @@ import type { ReactNode } from "react";
 type StatsOverviewCardsProps = {
   views: number;
   reads: number;
-  revenue: number;
+  revenue: number | null;
   publishedBooks: number;
-  currency: string;
+  currency: string | null;
+  byCurrency?: Record<string, number> | null;
 };
 
 function StatCard({
   icon,
   label,
   value,
+  stackIcon = false,
 }: {
   icon: ReactNode;
   label: string;
-  value: string;
+  value: ReactNode;
+  stackIcon?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm dark:border-border dark:bg-card">
-      <div className="flex items-center gap-3">
+      <div className={stackIcon ? "flex flex-col gap-3" : "flex items-center gap-3"}>
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#907AFF]/10 text-accent-foreground">
           {icon}
         </div>
@@ -44,12 +47,19 @@ export default function StatsOverviewCards({
   revenue,
   publishedBooks,
   currency,
+  byCurrency,
 }: StatsOverviewCardsProps) {
   const formatNumber = (n: number) =>
     n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 
-  const formatRevenue = (n: number) =>
-    `${n.toLocaleString("en-US")} ${currency}`;
+  const amounts = byCurrency === undefined
+    ? revenue === null ? null : { [currency ?? "SEK"]: revenue }
+    : byCurrency;
+  const salesValue = amounts === null ? "Unavailable" : Object.keys(amounts).length === 0
+    ? "No paid orders"
+    : Object.entries(amounts).map(([code, amount]) => (
+        <span key={code} className="block break-words tabular-nums">{amount.toLocaleString("en-US")} {code}</span>
+      ));
 
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -79,8 +89,9 @@ export default function StatsOverviewCards({
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6" />
           </svg>
         }
-        label="Revenue"
-        value={formatRevenue(revenue)}
+        stackIcon
+        label="Book sales"
+        value={salesValue}
       />
       <StatCard
         icon={

@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import type { AnalyticsData, BookRow, ChapterSignal, DailyPoint, MarketingCampaign, Period } from "./AnalyticsWorkspace";
+import type { AnalyticsData, BookRow, ChapterSignal, DailyPoint, MarketingCampaign, Period, RevenueData } from "./AnalyticsWorkspace";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -11,9 +11,16 @@ function fmtNum(n: number) {
 }
 
 function fmtCurrency(n: number, currency = "SEK") {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M ${currency}`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K ${currency}`;
-  return `${fmtNum(n)} ${currency}`;
+  return `${n.toLocaleString("en-GB", { maximumFractionDigits: 2 })} ${currency}`;
+}
+
+function SalesValue({ revenue }: { revenue: RevenueData | null }) {
+  if (!revenue?.byCurrency) return <>Unavailable</>;
+  const amounts = Object.entries(revenue.byCurrency);
+  if (amounts.length === 0) return <>No paid orders</>;
+  return <>{amounts.map(([currency, value]) => (
+    <span className="block break-words tabular-nums" key={currency}>{fmtCurrency(value, currency)}</span>
+  ))}</>;
 }
 
 function smoothPath(pts: Array<[number, number]>): string {
@@ -53,7 +60,7 @@ function KPICard({
   accent,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   sub?: string;
   accent?: "purple" | "green" | "amber" | "blue" | "pink";
 }) {
@@ -299,56 +306,41 @@ function BooksTable({ rows }: { rows: BookRow[] }) {
 
 // ─── Revenue Breakdown ────────────────────────────────────────────────────────
 
-function RevenueBreakdown({
-  orderRevenue,
-  donationRevenue,
-  subscriptionMRR,
-  activeSubscriberCount,
-  currency,
-}: {
-  orderRevenue: number;
-  donationRevenue: number;
-  subscriptionMRR: number;
-  activeSubscriberCount: number;
-  currency: string;
-}) {
-  const total = orderRevenue + donationRevenue + subscriptionMRR;
-
-  const streams = [
-    { label: "Book sales", value: orderRevenue, color: "bg-[#907AFF]", sub: null },
-    { label: "Subscriptions", value: subscriptionMRR, color: "bg-emerald-400", sub: activeSubscriberCount > 0 ? `${activeSubscriberCount} active subscriber${activeSubscriberCount !== 1 ? "s" : ""} · MRR` : "No active subscribers" },
-    { label: "Donations", value: donationRevenue, color: "bg-pink-400", sub: null },
-  ];
-
+export function RevenueBreakdown({ revenue }: { revenue: RevenueData | null }) {
   return (
-    <div className="space-y-4">
-      {streams.map(({ label, value, color, sub }) => {
-        const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-        return (
-          <div key={label}>
-            <div className="flex items-center justify-between text-[13px]">
-              <div className="flex items-center gap-2">
-                <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
-                <div>
-                  <span className="text-muted-foreground dark:text-muted-foreground">{label}</span>
-                  {sub ? (
-                    <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">{sub}</p>
-                  ) : null}
-                </div>
+    <div className="space-y-5 text-sm">
+      <div>
+        <p className="font-medium text-foreground">Paid book orders</p>
+        {!revenue?.byCurrency ? (
+          <p role="alert" className="mt-2 text-muted-foreground">Sales data unavailable. Please retry.</p>
+        ) : (
+          <p className="mt-2 font-semibold text-foreground"><SalesValue revenue={revenue} /></p>
+        )}
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          Selected period, by order creation date. Order amounts before fee and royalty allocation; not your payout balance.
+        </p>
+      </div>
+      <div className="border-t border-border pt-4">
+        <p className="font-medium text-foreground">Current subscriptions <span className="font-normal text-muted-foreground">· All books</span></p>
+        {!revenue?.subscriptionByCurrency ? (
+          <p role="alert" className="mt-2 text-muted-foreground">Subscription data unavailable. Please retry.</p>
+        ) : (
+          <>
+            {Object.keys(revenue.subscriptionByCurrency).length === 0 ? (
+              <p className="mt-2 text-muted-foreground">No active subscriptions</p>
+            ) : (
+              <div className="mt-2 space-y-1 font-semibold tabular-nums text-foreground">
+                {Object.entries(revenue.subscriptionByCurrency).map(([currency, value]) => (
+                  <p key={currency}>{fmtCurrency(value, currency)} / month</p>
+                ))}
               </div>
-              <div className="text-right">
-                <span className="font-semibold text-foreground dark:text-foreground">
-                  {fmtCurrency(value, currency)}
-                </span>
-                <span className="ml-2 text-[12px] text-muted-foreground dark:text-muted-foreground">{pct}%</span>
-              </div>
-            </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted dark:bg-card">
-              <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
-            </div>
-          </div>
-        );
-      })}
+            )}
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              {revenue.activeSubscriberCount} active subscribers. Monthly recurring amount (MRR), separate from period sales and collected payments.
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -451,21 +443,9 @@ export default function AnalyticsDashboard({
   const views = isAllBooks
     ? (data.overviewStats?.views ?? 0)
     : (data.bookDetail?.overview.views ?? 0);
-  const purchases = isAllBooks
-    ? (data.overviewStats?.purchases ?? 0)
-    : (data.bookDetail?.overview.purchases ?? 0);
   const bookmarks = isAllBooks
     ? (data.engagement?.bookmarks ?? 0)
     : (data.bookDetail?.overview.bookmarks ?? 0);
-  // Per-book view must show that book's revenue, not the whole catalogue's.
-  // Every other figure beside it already switches on isAllBooks; revenue did
-  // not, which was invisible only while it was always zero.
-  const totalRevenue = isAllBooks
-    ? (data.revenue?.totalRevenue ?? 0)
-    : (data.bookDetail?.overview.revenue ?? 0);
-  const currency = isAllBooks
-    ? (data.revenue?.currency ?? "SEK")
-    : (data.bookDetail?.overview.currency ?? data.revenue?.currency ?? "SEK");
   const avgRating = data.engagement?.averageRating ?? 0;
   const reviews = data.engagement?.reviews ?? 0;
   const completionRate = isAllBooks
@@ -512,13 +492,9 @@ export default function AnalyticsDashboard({
           accent="blue"
         />
         <KPICard
-          label="Revenue"
-          value={fmtCurrency(totalRevenue, currency)}
-          sub={
-            (data.revenue?.activeSubscriberCount ?? 0) > 0
-              ? `${data.revenue?.activeSubscriberCount} subscriber${(data.revenue?.activeSubscriberCount ?? 0) !== 1 ? "s" : ""} · ${purchases} sales`
-              : purchases > 0 ? `${purchases} sales` : "No sales yet"
-          }
+          label="Book sales"
+          value={<SalesValue revenue={data.revenue} />}
+          sub="Paid orders in selected period"
           accent="green"
         />
         <KPICard
@@ -584,7 +560,9 @@ export default function AnalyticsDashboard({
                   Books breakdown
                 </h3>
               </div>
-              <BooksTable rows={data.booksTable} />
+              {data.booksFailed ? (
+                <p role="alert" className="text-sm text-muted-foreground">Book statistics unavailable. Please retry.</p>
+              ) : <BooksTable rows={data.booksTable} />}
             </>
           ) : (
             <>
@@ -617,20 +595,11 @@ export default function AnalyticsDashboard({
                   Revenue
                 </p>
                 <h3 className="mt-1.5 text-[16px] font-semibold tracking-tight text-foreground dark:text-foreground">
-                  Income breakdown
+                  Sales and subscriptions
                 </h3>
               </div>
-              <span className="text-[22px] font-semibold tracking-tight text-foreground dark:text-foreground">
-                {fmtCurrency(totalRevenue, currency)}
-              </span>
             </div>
-            <RevenueBreakdown
-              orderRevenue={data.revenue?.orderRevenue ?? 0}
-              donationRevenue={data.revenue?.donationRevenue ?? 0}
-              subscriptionMRR={data.revenue?.subscriptionMRR ?? 0}
-              activeSubscriberCount={data.revenue?.activeSubscriberCount ?? 0}
-              currency={currency}
-            />
+            <RevenueBreakdown revenue={data.revenue} />
           </div>
 
           {/* Marketing activity */}
