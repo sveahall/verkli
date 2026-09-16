@@ -259,3 +259,38 @@ describe("revenue period and monetary boundaries", () => {
     expect(mocks.createAdminClient).not.toHaveBeenCalled();
   });
 });
+
+
+describe("subscription currency minor units", () => {
+  it.each([
+    ["JPY", 1500, 1500], ["KRW", 1500, 1500],
+    ["KWD", 1005, 1.005], ["BHD", 1005, 1.005],
+    ["SEK", 1500, 15], ["ISK", 1500, 15], ["UGX", 1500, 15],
+  ])("reports %s MRR without changing paid-order units", async (currency, minor, expected) => {
+    mocks.createAdminClient.mockReturnValue(adminStub({
+      orders: [{ amount: 15000, currency: "SEK" }],
+      author_subscriptions: [{ amount_monthly: minor, currency }],
+    }, []));
+    const body = await (await GET(req())).json();
+    expect(body.subscriptionMRR).toBe(expected);
+    expect(body.subscriptionByCurrency).toEqual({ [currency]: expected });
+    expect(body.subscriptionCurrency).toBe(currency);
+    expect(body.totalRevenue).toBe(150);
+    expect(body.byCurrency).toEqual({ SEK: 150 });
+  });
+
+  it("converts summed minor-unit buckets independently without currency mixing", async () => {
+    mocks.createAdminClient.mockReturnValue(adminStub({
+      author_subscriptions: [
+        { amount_monthly: 1500, currency: "jpy" },
+        { amount_monthly: 2500, currency: "JPY" },
+        { amount_monthly: 1005, currency: "kwd" },
+        { amount_monthly: 1500, currency: "sek" },
+      ],
+    }, []));
+    const body = await (await GET(req())).json();
+    expect(body.subscriptionByCurrency).toEqual({ JPY: 4000, KWD: 1.005, SEK: 15 });
+    expect(body.subscriptionMRR).toBeNull();
+    expect(body.subscriptionCurrency).toBeNull();
+  });
+});

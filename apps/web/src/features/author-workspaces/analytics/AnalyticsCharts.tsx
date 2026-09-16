@@ -2,6 +2,7 @@
 
 import { useMemo, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { stripeAmountFractionDigits } from "@/lib/payments/stripe-currency";
 import type { AnalyticsData, BookRow, ChapterSignal, DailyPoint, MarketingCampaign, Period, RevenueData } from "./AnalyticsWorkspace";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -11,7 +12,7 @@ function fmtNum(n: number) {
 }
 
 function fmtCurrency(n: number, currency = "SEK") {
-  return `${n.toLocaleString("en-GB", { maximumFractionDigits: 2 })} ${currency}`;
+  return `${n.toLocaleString("en-GB", { maximumFractionDigits: stripeAmountFractionDigits(currency) })} ${currency}`;
 }
 
 function SalesValue({ revenue }: { revenue: RevenueData | null }) {
