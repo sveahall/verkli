@@ -379,7 +379,7 @@ export default function GlobalNavbar({
                   alt="Verkli"
                   width={1429}
                   height={265}
-                  className="h-8 w-auto dark:hidden"
+                  className="h-auto w-[104px] sm:w-28 dark:hidden"
                   priority
                 />
                 <Image
@@ -387,7 +387,7 @@ export default function GlobalNavbar({
                   alt="Verkli"
                   width={1429}
                   height={265}
-                  className="hidden h-8 w-auto dark:block"
+                  className="hidden h-auto w-[104px] sm:w-28 dark:block"
                 />
               </Link>
 
