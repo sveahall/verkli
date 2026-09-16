@@ -1,4 +1,7 @@
 import { spawn } from 'node:child_process';
+import { readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const server = process.argv[2] ?? '/app/apps/web/server.js';
@@ -12,6 +15,16 @@ let output = '';
 child.stdout.on('data', chunk => { output += chunk; });
 child.stderr.on('data', chunk => { output += chunk; });
 try {
+  // Resolve from the emitted route runtime, including Turbopack's aliases.
+  // A root-level sharp can load while an alias to apps/web/node_modules dangles.
+  const appRoot = dirname(resolve(server));
+  const runtimeRequire = createRequire(join(appRoot, '.next/server/chunks/runtime-check.cjs'));
+  const aliases = readdirSync(join(appRoot, '.next/node_modules')).filter(name => /^sharp-[a-f0-9]+$/.test(name));
+  for (const name of ['sharp', ...aliases]) {
+    const sharp = runtimeRequire(name);
+    await sharp({ create: { width: 1, height: 1, channels: 3, background: '#ffffff' } }).png().toBuffer();
+    console.log(`[web image check] ${name}: native image conversion passed`);
+  }
   let ready = false;
   for (let i = 0; i < 100; i++) {
     if (child.exitCode !== null) throw Error(`Server exited with ${child.exitCode}`);
