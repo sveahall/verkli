@@ -28,11 +28,11 @@ export const agents = [
     action: "Open Stella’s workspace", note: "You choose what gets shared.",
   },
   {
-    id: "ernst", name: "Ernst", role: "Pricing & earnings", panel: "pricing",
+    id: "ernst", name: "Marcus", role: "Pricing & earnings", panel: "pricing",
     headline: "Your book. Your terms.",
-    description: "Set your book’s price and currency, choose how readers pay, and keep your publishing decisions in one place. Ernst is your guide to the pricing workspace.",
+    description: "Set your book’s price and currency, choose how readers pay, and keep your publishing decisions in one place. Marcus is your guide to the pricing workspace.",
     tasks: ["Book pricing", "Currency", "Purchase options"],
-    action: "Set pricing with Ernst", note: "Your pricing controls. No automatic financial decisions.",
+    action: "Set pricing with Marcus", note: "Your pricing controls. No automatic financial decisions.",
   },
 ] as const;
 
