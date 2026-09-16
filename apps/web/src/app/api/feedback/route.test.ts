@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+const limiter = vi.hoisted(() => ({ check: vi.fn() }));
+vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => limiter }));
+
 // Force in-memory rate limiter (no Redis)
 vi.mock("@/lib/env", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/env")>();
@@ -29,10 +32,31 @@ const { createAdminClient } = await import("@/lib/supabase/admin");
 describe("POST /api/feedback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    limiter.check.mockResolvedValue({ allowed: true });
     vi.mocked(createClient).mockResolvedValue({
       auth: { getUser: () => Promise.resolve({ data: { user: { id: "user-1" } } }) },
       from: mockFrom,
     } as never);
+  });
+
+  it("rejects whitespace-only messages before writing", async () => {
+    mockFrom.mockReturnValue({ insert: () => ({ select: () => ({ single: async () => ({ data: { id: "fb-1", created_at: "2026-09-16" }, error: null }) }) }) });
+    const res = await POST(new Request("http://localhost/api/feedback", {
+      method: "POST", body: JSON.stringify({ type: "other", message: " \n\t " }),
+    }));
+    expect(res.status).toBe(400);
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockAdminFrom).not.toHaveBeenCalled();
+  });
+
+  it("keeps the feedback rate limit", async () => {
+    limiter.check.mockResolvedValue({ allowed: false, retryAfterSeconds: 10 });
+    const res = await POST(new Request("http://localhost/api/feedback", {
+      method: "POST", body: JSON.stringify({ type: "other", message: "Help" }),
+    }));
+    expect(res.status).toBe(429);
+    expect(await res.json()).toMatchObject({ retryAfterSeconds: 10 });
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   it("returns 400 for invalid type", async () => {
@@ -139,6 +163,7 @@ describe("POST /api/feedback", () => {
 describe("GET /api/feedback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    limiter.check.mockResolvedValue({ allowed: true });
   });
 
   it("returns 401 when not authenticated", async () => {

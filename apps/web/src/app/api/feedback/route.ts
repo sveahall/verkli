@@ -38,7 +38,7 @@ export async function GET() {
 
 const feedbackBodySchema = z.object({
   type: z.enum(["bug", "idea", "other"], { message: "Invalid type" }),
-  message: z.string().min(1, "Message required").max(2000),
+  message: z.string().trim().min(1, "Message required").max(2000),
   url: z.string().max(2000).optional().nullable(),
   request_id: z.string().max(100).optional().nullable(),
 });
