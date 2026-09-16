@@ -2,12 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isNewslettersEnabled } from "@/lib/flags";
 import { verifyUnsubscribeToken } from "@/lib/newsletters/unsubscribe-token";
 import {
   apiError,
   E_NOT_AUTHENTICATED,
-  E_NEWSLETTERS_FEATURE_DISABLED,
   E_NEWSLETTER_SUBSCRIBE_FAILED,
   E_INVALID_JSON,
   E_VALIDATION_FAILED,
@@ -50,18 +48,12 @@ async function handleTokenUnsubscribe(token: string): Promise<Response> {
 }
 
 export async function GET(request: Request) {
-  if (!isNewslettersEnabled()) {
-    return apiError(E_NEWSLETTERS_FEATURE_DISABLED, 403);
-  }
   const token = new URL(request.url).searchParams.get("token")?.trim() ?? "";
   if (!token) return apiError(E_VALIDATION_FAILED, 400);
   return handleTokenUnsubscribe(token);
 }
 
 export async function POST(request: Request) {
-  if (!isNewslettersEnabled()) {
-    return apiError(E_NEWSLETTERS_FEATURE_DISABLED, 403);
-  }
 
   // Allow an anonymous one-click unsubscribe with a signed token — this is
   // what email clients use for the `List-Unsubscribe: One-Click` flow.

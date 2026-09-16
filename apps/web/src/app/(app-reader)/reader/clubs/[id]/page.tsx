@@ -79,7 +79,7 @@ export default async function ClubDetailPage({ params }: ClubDetailPageProps) {
     .from("book_club_messages")
     .select("id, user_id, content, created_at")
     .eq("club_id", id)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(50);
 
   const typedMessages = (messages as { id: string; user_id: string; content: string; created_at: string }[] | null) ?? [];
@@ -90,7 +90,7 @@ export default async function ClubDetailPage({ params }: ClubDetailPageProps) {
         club={typedClub}
         members={typedMembers}
         currentUser={{ id: user.id }}
-        initialMessages={typedMessages}
+        initialMessages={typedMessages.reverse()}
       />
     </div>
   );

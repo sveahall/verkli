@@ -18,7 +18,7 @@ const paramsSchema = z.object({
 });
 
 const createMessageBodySchema = z.object({
-  content: z.string().min(1).max(2000),
+  content: z.string().trim().min(1).max(2000),
 });
 
 type MessageRow = {
@@ -86,8 +86,8 @@ export async function GET(
   }
 
   const url = new URL(request.url);
-  const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10));
-  const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") ?? "50", 10)));
+  const page = Math.max(1, (parseInt(url.searchParams.get("page") ?? "1", 10) || 1));
+  const limit = Math.min(100, Math.max(1, (parseInt(url.searchParams.get("limit") ?? "50", 10) || 50)));
   const offset = (page - 1) * limit;
 
   const { data, error } = await supabase
@@ -109,7 +109,7 @@ export async function GET(
 
   const messages = (data ?? []) as MessageRow[];
 
-  return NextResponse.json({ messages });
+  return NextResponse.json({ messages: messages.reverse() });
 }
 
 export async function POST(
