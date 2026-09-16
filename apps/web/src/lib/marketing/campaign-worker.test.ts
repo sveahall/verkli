@@ -137,4 +137,20 @@ describe("campaign worker", () => {
     expect(posts).toHaveLength(1);
     expect(updates.at(-1)?.status).toBe("failed");
   });
+  it("builds a four-week multilingual draft calendar without approving or posting", async () => {
+    plan.duration_weeks = 4;
+    plan.languages = ["sv", "en"];
+    try {
+      await processPlan();
+      expect(posts).toHaveLength(16);
+      expect(new Set(posts.map(post => post.scheduled_for)).size).toBe(8);
+      expect(new Set(posts.map(post => post.language))).toEqual(new Set(["sv", "en"]));
+      expect(posts.every(post => post.status === "draft")).toBe(true);
+      expect(mocks.generate.mock.calls.at(-1)?.[0].campaign.day).toBe(24);
+    } finally {
+      plan.duration_weeks = 1;
+      plan.languages = ["sv"];
+    }
+  });
+
 });
