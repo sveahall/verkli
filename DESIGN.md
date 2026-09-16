@@ -4,7 +4,7 @@ Updated 2026-09-15. The approved `/author` landing is the visual reference. This
 
 ## Colour and surfaces
 
-The approved 2026-09-15 originals are `apps/web/public/verkli-mark.png` (butterfly) and `logo-verkli.png` (full wordmark). Preserve their proportions and colours. Compatibility SVGs use this artwork: `favi.svg` is the small mark, `logo-dark.svg` the black wordmark for light surfaces, and `favicon.svg` the white wordmark for dark surfaces (its historical name does not indicate a browser icon). Only the lettering changes colour; never invert the entire butterfly. Use the `?v=20260915` asset version in UI and emails so offline caches refresh. The animated butterfly clips the original mark into two wings, and email templates use the PNG wordmark. Do not recreate the wordmark with a font or substitute a generic icon.
+The approved full wordmarks were updated on 2026-09-16: `apps/web/public/logo-dark.svg` is the supplied black vector wordmark for light surfaces, and `favicon.svg` is the supplied white vector wordmark for dark surfaces (its historical name does not indicate a browser icon). Both retain the original 1429 × 265 viewBox. `logo-verkli.png` and `logo-verkli-light.png` are the supplied 2143 × 397 PNG originals for email and social previews. Preserve their proportions and colours; never invert the butterfly. Full-wordmark references use `?v=20260916` so offline caches refresh. Email templates use the black PNG wordmark. The separate butterfly mark (`verkli-mark.png`, `favi.svg`) and its existing version remain unchanged. Do not recreate the wordmark with a font or substitute a generic icon.
 
 | Purpose | Light | Dark |
 | --- | --- | --- |
