@@ -45,6 +45,7 @@ type Post = {
   assetError: string | null;
   postedAt: string | null;
   postedUrl: string | null;
+  updatedAt: string;
   mode: string;
 };
 
@@ -183,10 +184,24 @@ export default function CampaignDetailView({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = (await res.json().catch(() => ({}))) as { post?: Partial<Post>; detail?: string };
-    if (!res.ok || !data.post) throw new Error(data.detail ?? "Could not save this post. Your edits are still here. Try again.");
+    const data = (await res.json().catch(() => ({}))) as { post?: Partial<Post> & { updatedAt: string }; error?: string; detail?: string };
+    if (!res.ok || !data.post?.updatedAt) {
+      throw Object.assign(new Error(data.detail ?? "Could not save this post. Your edits are still here. Try again."), { code: data.error });
+    }
     patchLocal(postId, data.post as Partial<Post>);
     return data.post;
+  };
+
+  const handleReloadPost = async (postId: string): Promise<Post> => {
+    const res = await fetch(`/api/author/marketing/campaigns/${campaign.id}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const data = (await res.json().catch(() => ({}))) as { posts?: Post[] };
+    const latest = data.posts?.find((item) => item.id === postId);
+    if (!res.ok || !latest?.updatedAt) throw new Error("Could not load the latest saved copy. Your draft is still here. Try again.");
+    patchLocal(postId, latest);
+    return latest;
   };
 
   const handleGenerateTrailer = async (postId: string) => {
@@ -448,6 +463,7 @@ export default function CampaignDetailView({
         post={activePost}
         onClose={() => setActiveId(null)}
         onUpdate={handlePostUpdate}
+        onReload={handleReloadPost}
         onGenerateTrailer={handleGenerateTrailer}
       />
     ) : null}
@@ -488,11 +504,13 @@ export function PostDrawer({
   post,
   onClose,
   onUpdate,
+  onReload,
   onGenerateTrailer,
 }: {
   post: Post;
   onClose: () => void;
-  onUpdate: (id: string, body: Record<string, unknown>) => Promise<unknown>;
+  onUpdate: (id: string, body: Record<string, unknown>) => Promise<Partial<Post> & { updatedAt: string }>;
+  onReload: (id: string) => Promise<Post>;
   onGenerateTrailer: (id: string) => Promise<void>;
 }) {
   // PostDrawer is remounted per post via `key={post.id}` from the parent,
@@ -505,6 +523,10 @@ export function PostDrawer({
   }, []);
   const [caption, setCaption] = useState(post.caption ?? "");
   const [hashtags, setHashtags] = useState(post.hashtags ?? "");
+  // Keep the revision paired with this draft, even if a parent refresh brings newer props.
+  const [draftRevision, setDraftRevision] = useState(post.updatedAt);
+  const [conflicted, setConflicted] = useState(false);
+  const [latestSaved, setLatestSaved] = useState<Post | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   const [copyFlash, setCopyFlash] = useState<"none" | "caption" | "hashtags" | "all">("none");
   const [busy, setBusy] = useState(false);
@@ -521,21 +543,46 @@ export function PostDrawer({
   };
 
   const update = async (body: Record<string, unknown>, close = false) => {
+    if (busy || conflicted) return;
     setBusy(true);
     setSavedFlash(false);
     setActionError(null);
     try {
-      await onUpdate(post.id, body);
+      const saved = await onUpdate(post.id, { ...body, expectedUpdatedAt: draftRevision });
+      setDraftRevision(saved.updatedAt);
       if (close) onClose();
       else {
         setSavedFlash(true);
         setTimeout(() => setSavedFlash(false), 1500);
       }
     } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "POST_CHANGED") {
+        setConflicted(true);
+        setLatestSaved(null);
+      }
       setActionError(error instanceof Error ? error.message : "Could not save. Try again.");
     } finally {
       setBusy(false);
     }
+  };
+  const loadLatest = async () => {
+    setBusy(true);
+    try {
+      setLatestSaved(await onReload(post.id));
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Could not load the latest saved copy.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const useLatest = () => {
+    if (!latestSaved) return;
+    setCaption(latestSaved.caption ?? "");
+    setHashtags(latestSaved.hashtags ?? "");
+    setDraftRevision(latestSaved.updatedAt);
+    setConflicted(false);
+    setLatestSaved(null);
+    setActionError(null);
   };
   const saveText = () => update({ caption, hashtags });
   const markPosted = () => update({ status: "posted" }, true);
@@ -576,6 +623,21 @@ export function PostDrawer({
 
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
           {actionError ? <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{actionError}</p> : null}
+          {conflicted ? (
+            <section className="space-y-3 rounded-xl border border-border p-3" aria-label="Post changed in another tab">
+              <p className="text-sm">Your draft is still in the fields below. Compare it with the latest saved copy before continuing.</p>
+              <Button size="sm" variant="ghost" onClick={loadLatest} isLoading={busy}>Load latest for comparison</Button>
+              {latestSaved ? (
+                <div className="space-y-3">
+                  <p className="text-eyebrow">Latest saved copy</p>
+                  <p className="whitespace-pre-wrap text-sm">{latestSaved.caption || "No caption"}</p>
+                  <p className="whitespace-pre-wrap text-sm">{latestSaved.hashtags || "No hashtags"}</p>
+                  <p className="text-sm text-muted-foreground">Using this copy replaces your local draft. Copy any edits you want to keep first.</p>
+                  <Button size="sm" onClick={useLatest} disabled={busy}>Use latest saved copy</Button>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
           {/* Trailer / podcast preview */}
           {post.contentType === "trailer" ? (
             <section>
@@ -598,6 +660,7 @@ export function PostDrawer({
               <Button
                 size="sm"
                 onClick={() => onGenerateTrailer(post.id)}
+                disabled={busy || conflicted}
                 isLoading={post.status === "asset_pending"}
                 loadingText="Generating…"
                 className="mt-3 w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
@@ -635,7 +698,7 @@ export function PostDrawer({
               >
                 {copyFlash === "caption" ? "Copied!" : "Copy caption"}
               </Button>
-              <Button size="sm" variant="ghost" onClick={saveText} isLoading={busy} disabled={post.status === "posted"}>
+              <Button size="sm" variant="ghost" onClick={saveText} isLoading={busy} disabled={post.status === "posted" || conflicted}>
                 {savedFlash ? "Saved!" : "Save edits"}
               </Button>
             </div>
@@ -696,7 +759,7 @@ export function PostDrawer({
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {post.status !== "posted" && (post.status !== "ready" || hasUnsavedEdits) ? (
                 <Button size="sm" onClick={() => update({ caption, hashtags, status: "ready" })}
-                  disabled={!caption.trim() || (post.contentType !== "text" && !post.mediaAssetUrl)} isLoading={busy}>
+                  disabled={conflicted || !caption.trim() || (post.contentType !== "text" && !post.mediaAssetUrl)} isLoading={busy}>
                   Approve final copy
                 </Button>
               ) : null}
@@ -709,7 +772,7 @@ export function PostDrawer({
                   size="sm"
                   variant="ghost"
                   onClick={markPosted}
-                  disabled={post.status !== "ready" || hasUnsavedEdits}
+                  disabled={conflicted || post.status !== "ready" || hasUnsavedEdits}
                   isLoading={busy}
                 >
                   Mark as posted
@@ -720,6 +783,7 @@ export function PostDrawer({
                   size="sm"
                   variant="ghost"
                   onClick={markSkipped}
+                  disabled={conflicted}
                   isLoading={busy}
                 >
                   Skip this one

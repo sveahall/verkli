@@ -33,6 +33,9 @@ export async function PATCH(
 
   const parsed = updatePostBodySchema.safeParse(body);
   if (!parsed.success) {
+    if (parsed.error.issues.some((issue) => issue.path[0] === "expectedUpdatedAt")) {
+      return apiError(E_VALIDATION_FAILED, 400, { detail: "Reload the campaign to get the current post revision before saving." });
+    }
     return apiError(E_VALIDATION_FAILED, 400);
   }
 
@@ -46,6 +49,9 @@ export async function PATCH(
   }
   if (!current) return apiError("POST_NOT_FOUND", 404);
   const input = parsed.data;
+  if (input.expectedUpdatedAt !== current.updated_at) {
+    return apiError("POST_CHANGED", 409, { detail: "This post changed in another tab. Your draft has been kept. Load the latest saved copy to compare before reviewing again." });
+  }
   const copyChanged = (input.caption !== undefined && input.caption !== current.caption)
     || (input.hashtags !== undefined && input.hashtags !== current.hashtags)
     || (input.cta !== undefined && input.cta !== current.cta);
@@ -79,7 +85,7 @@ export async function PATCH(
     .eq("id", id)
     .eq("author_id", gate.user.id)
     .eq("status", current.status)
-    .eq("updated_at", current.updated_at)
+    .eq("updated_at", input.expectedUpdatedAt)
     .select(
       `id, status, caption, hashtags, cta, posted_at, posted_url, updated_at`
     )

@@ -124,6 +124,7 @@ export async function GET(
     postedUrl: p.posted_url,
     mode: p.mode,
     metadata: p.metadata,
+    updatedAt: p.updated_at,
   }));
 
   return NextResponse.json({
