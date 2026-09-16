@@ -28,12 +28,13 @@ export default function ClubChat({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
 
   const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" });
   }, []);
 
   useEffect(() => {
@@ -64,15 +65,16 @@ export default function ClubChat({
         credentials: "include",
         signal: controller.signal,
       });
-      if (res.ok) {
-        const body = (await res.json()) as { messages: ChatMessage[] };
-        setMessages(body.messages);
-      }
+      if (!res.ok) throw new Error("Could not load club messages");
+      const body = (await res.json()) as { messages: ChatMessage[] };
+      if (controller.signal.aborted) return;
+      setMessages(body.messages);
+      setLoadError(false);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         return;
       }
-      // silent poll failure
+      if (!controller.signal.aborted) setLoadError(true);
     } finally {
       if (fetchAbortRef.current === controller) {
         fetchAbortRef.current = null;
@@ -96,7 +98,7 @@ export default function ClubChat({
     async (e: React.FormEvent) => {
       e.preventDefault();
       const content = draft.trim();
-      if (!content) return;
+      if (!content || sending) return;
 
       setSending(true);
       setError(null);
@@ -120,7 +122,7 @@ export default function ClubChat({
         }
 
         if (body.message) {
-          setMessages((prev) => [...prev, body.message as ChatMessage]);
+          setMessages((prev) => prev.some((message) => message.id === body.message!.id) ? prev : [...prev, body.message as ChatMessage]);
         }
         setDraft("");
       } catch {
@@ -129,7 +131,7 @@ export default function ClubChat({
         setSending(false);
       }
     },
-    [clubId, draft]
+    [clubId, draft, sending]
   );
 
   const formatTime = (iso: string) => {
@@ -139,7 +141,7 @@ export default function ClubChat({
 
   return (
     <div className="flex flex-col rounded-xl border border-border bg-card">
-      <div className="flex max-h-[400px] flex-col gap-2 overflow-y-auto p-4">
+      <div data-club-chat-scroll="true" role="log" aria-label="Club conversation" aria-live="polite" aria-relevant="additions" tabIndex={0} className="focus-visible:outline-2 focus-visible:outline-ring flex max-h-[400px] flex-col gap-2 overflow-y-auto p-4">
         {messages.length === 0 && (
           <p className="py-8 text-center text-[13px] text-muted-foreground">
             No messages yet. Start the conversation!
@@ -176,22 +178,29 @@ export default function ClubChat({
         <div ref={bottomRef} />
       </div>
 
+      {loadError && (
+        <div className="px-4 py-3">
+          <p role="alert" className="text-[13px] text-red-600 dark:text-red-400">Could not update messages. The conversation may be out of date.</p>
+          <Button variant="secondary" size="sm" onClick={fetchMessages}>Try again</Button>
+        </div>
+      )}
       <form
         onSubmit={handleSend}
         className="flex items-center gap-2 border-t border-border p-3"
       >
         <input
           type="text"
+          aria-label="Message"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Write a message..."
           maxLength={2000}
-          className="min-h-[44px] flex-1 rounded-full border border-border bg-card/90 px-4 text-[14px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-card dark:focus-visible:ring-offset-background"
+          className="min-h-[44px] min-w-0 flex-1 rounded-full border border-border bg-card/90 px-4 text-[14px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:bg-card dark:focus-visible:ring-offset-background"
         />
         <Button
           type="submit"
           size="sm"
-          disabled={!draft.trim()}
+          disabled={!draft.trim() || sending}
           isLoading={sending}
           loadingText="..."
         >
@@ -199,7 +208,7 @@ export default function ClubChat({
         </Button>
       </form>
       {error && (
-        <p className="px-4 pb-3 text-[12px] text-red-600 dark:text-red-400">
+        <p role="alert" className="px-4 pb-3 text-[12px] text-red-600 dark:text-red-400">
           {error}
         </p>
       )}

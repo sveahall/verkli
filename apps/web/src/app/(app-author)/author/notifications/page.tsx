@@ -6,17 +6,27 @@ import NotificationItem from "@/components/notifications/NotificationItem";
 
 export default function AuthorNotificationsPage() {
   const [page, setPage] = useState(1);
-  const { notifications, total, loading, refetch } = useNotificationList(page);
+  const { notifications, total, loading, error, refetch } = useNotificationList(page);
   const totalPages = Math.max(1, Math.ceil(total / 20));
 
-  const handleMarkRead = async (id: string) => {
-    await fetch(`/api/notifications/${id}`, { method: "PATCH" });
-    refetch();
-  };
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const handleMarkAllRead = async () => {
-    await fetch("/api/notifications/mark-all-read", { method: "POST" });
-    refetch();
+  const markRead = async (id?: string) => {
+    if (saving) return;
+    setSaving(true);
+    setActionError(null);
+    try {
+      const response = await fetch(id ? `/api/notifications/${id}` : "/api/notifications/mark-all-read", {
+        method: id ? "PATCH" : "POST",
+      });
+      if (!response.ok) throw new Error("Could not update notifications");
+      await refetch();
+    } catch {
+      setActionError("Could not update notifications. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -27,17 +37,25 @@ export default function AuthorNotificationsPage() {
         </h1>
         <button
           type="button"
-          onClick={handleMarkAllRead}
-          className="text-[13px] font-medium text-accent-foreground hover:text-accent-foreground transition-colors"
+          onClick={() => void markRead()}
+          disabled={saving || loading || !!error || !notifications.some((item) => !item.read)}
+          className="btn-secondary text-[13px]"
         >
-          Mark all as read
+          {saving ? "Updating…" : "Mark all as read"}
         </button>
       </div>
 
+      {actionError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{actionError}</p>}
+
       <div className="overflow-hidden rounded-2xl border border-border/50 bg-card shadow-sm dark:border-border dark:bg-card">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div role="status" aria-label="Loading notifications" className="flex items-center justify-center py-12">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-[#907AFF]" />
+          </div>
+        ) : error ? (
+          <div className="p-6">
+            <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            <button type="button" className="btn-secondary mt-4" onClick={() => void refetch()}>Try again</button>
           </div>
         ) : notifications.length === 0 ? (
           <p className="py-12 text-center text-[13px] text-muted-foreground dark:text-muted-foreground">
@@ -56,7 +74,7 @@ export default function AuthorNotificationsPage() {
                 createdAt={n.created_at}
                 entityType={n.entity_type}
                 entityId={n.entity_id}
-                onMarkRead={handleMarkRead}
+                onMarkRead={markRead}
               />
             ))}
           </div>
@@ -67,9 +85,9 @@ export default function AuthorNotificationsPage() {
         <div className="mt-4 flex items-center justify-center gap-2">
           <button
             type="button"
-            disabled={page <= 1}
+            disabled={loading || page <= 1}
             onClick={() => setPage((p) => p - 1)}
-            className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-accent"
+            className="btn-secondary text-[13px]"
           >
             Previous
           </button>
@@ -78,9 +96,9 @@ export default function AuthorNotificationsPage() {
           </span>
           <button
             type="button"
-            disabled={page >= totalPages}
+            disabled={loading || page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40 dark:text-muted-foreground dark:hover:bg-accent"
+            className="btn-secondary text-[13px]"
           >
             Next
           </button>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isPollsEnabled } from "@/lib/flags";
 import {
   apiError,
@@ -20,10 +21,6 @@ type PollOptionRow = {
   poll_id: string;
   text: string;
   sort_order: number;
-};
-
-type PollVoteRow = {
-  option_id: string;
 };
 
 export async function GET(
@@ -79,37 +76,29 @@ export async function GET(
 
   const typedOptions = (options ?? []) as PollOptionRow[];
 
-  const { data: votes, error: votesError } = await supabase
-    .from("poll_votes")
-    .select("option_id")
-    .eq("poll_id", id);
+  // Reader RLS exposes only their own vote. After checking poll visibility
+  // above, use server-only counts; no voter identities leave the database.
+  const admin = createAdminClient();
+  const results: { option_id: string; text: string; count: number }[] = [];
+  for (const option of typedOptions) {
+    const { count, error: votesError } = await admin
+      .from("poll_votes")
+      .select("option_id", { count: "exact", head: true })
+      .eq("poll_id", id)
+      .eq("option_id", option.id);
 
-  if (votesError) {
-    console.error("[polls] results votes load failed", {
-      pollId: id,
-      message: votesError.message,
-      code: votesError.code,
-    });
-    return apiError(E_POLL_RESULTS_LOAD_FAILED, 500);
+    if (votesError) {
+      console.error("[polls] results votes load failed", {
+        pollId: id,
+        message: votesError.message,
+        code: votesError.code,
+      });
+      return apiError(E_POLL_RESULTS_LOAD_FAILED, 500);
+    }
+
+    results.push({ option_id: option.id, text: option.text, count: count ?? 0 });
   }
-
-  const typedVotes = (votes ?? []) as PollVoteRow[];
-
-  const countsByOptionId = new Map<string, number>();
-  for (const vote of typedVotes) {
-    countsByOptionId.set(
-      vote.option_id,
-      (countsByOptionId.get(vote.option_id) ?? 0) + 1
-    );
-  }
-
-  const results = typedOptions.map((option) => ({
-    option_id: option.id,
-    text: option.text,
-    count: countsByOptionId.get(option.id) ?? 0,
-  }));
-
-  const totalVotes = typedVotes.length;
+  const totalVotes = results.reduce((sum, option) => sum + option.count, 0);
 
   return NextResponse.json({ results, totalVotes });
 }

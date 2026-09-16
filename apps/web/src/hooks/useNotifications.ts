@@ -70,26 +70,38 @@ export function useNotificationList(page: number) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchList = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`/api/notifications?page=${page}`);
-      if (res.ok) {
-        const json = await res.json();
-        setNotifications(json.notifications ?? []);
-        setTotal(json.total ?? 0);
-      }
+      const res = await fetch(`/api/notifications?page=${page}`, { signal: controller.signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (controller.signal.aborted) return;
+      setNotifications(json.notifications ?? []);
+      setTotal(json.total ?? 0);
     } catch {
-      // silent
+      if (!controller.signal.aborted) {
+        setError("Could not load notifications. Check your connection and try again.");
+      }
     } finally {
-      setLoading(false);
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+        setLoading(false);
+      }
     }
   }, [page]);
 
   useEffect(() => {
-    fetchList();
+    void fetchList();
+    return () => { abortRef.current?.abort(); };
   }, [fetchList]);
 
-  return { notifications, total, loading, refetch: fetchList };
+  return { notifications, total, loading, error, refetch: fetchList };
 }
