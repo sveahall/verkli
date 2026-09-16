@@ -98,4 +98,20 @@ describe("analytics activity states", () => {
     vi.stubEnv("NEXT_PUBLIC_MARKETING_ENABLED", "true");
     expect(render()).toContain('href="/author/marketing"');
   });
+
+  it("omits the disabled marketing panel when there is no historical campaign data", () => {
+    vi.stubEnv("NEXT_PUBLIC_MARKETING_ENABLED", "false");
+    const data = emptyData();
+    data.marketingFailed = true;
+    const html = render(data);
+    expect(html).not.toContain("Marketing activity");
+    expect(html).not.toContain("Campaign data unavailable");
+  });
+
+  it("shows genuine campaign failures when marketing is enabled", () => {
+    vi.stubEnv("NEXT_PUBLIC_MARKETING_ENABLED", "true");
+    const data = emptyData();
+    data.marketingFailed = true;
+    expect(render(data)).toContain("Campaign data unavailable. Please retry.");
+  });
 });

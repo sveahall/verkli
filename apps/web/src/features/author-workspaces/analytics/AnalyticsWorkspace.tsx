@@ -8,6 +8,7 @@ import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 import { cn } from "@/lib/utils";
+import { getMarketingEnabled } from "@/lib/flags";
 import styles from "./AnalyticsWorkspace.module.css";
 
 const AnalyticsDashboard = dynamic(
@@ -175,6 +176,7 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
+    const marketingEnabled = getMarketingEnabled();
     setLoading(true);
     const read = (url: string) => fetch(url, { signal: controller.signal });
     const revenueUrl = `/api/author/stats/revenue?period=${period}${bookId === "all" ? "" : `&bookId=${encodeURIComponent(bookId)}`}`;
@@ -187,7 +189,7 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
             read(revenueUrl),
             read(`/api/author/stats/books?period=${period}`),
             read("/api/author/stats/engagement"),
-            read("/api/author/marketing/campaigns"),
+            marketingEnabled ? read("/api/author/marketing/campaigns") : null,
           ]);
 
           const [stats, revenue, booksData, engagement, campaigns] = await Promise.all([
@@ -195,11 +197,11 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
             revenueRes.ok ? revenueRes.json() : null,
             booksRes.ok ? booksRes.json() : null,
             engRes.ok ? engRes.json() : null,
-            campaignsRes.ok ? campaignsRes.json() : null,
+            campaignsRes?.ok ? campaignsRes.json() : null,
           ]);
 
           if (!cancelled) {
-            setLoadFailed(!stats || stats.partial || !revenue || revenue.partial || !booksData || booksData.partial || !engagement || !campaigns);
+            setLoadFailed(!stats || stats.partial || !revenue || revenue.partial || !booksData || booksData.partial || !engagement || (marketingEnabled && !campaigns));
             setData({
               overviewStats: stats,
               revenue,
@@ -208,7 +210,7 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
               booksFailed: !booksData || Boolean(booksData.partial),
               bookDetail: null,
               marketingCampaigns: (campaigns?.campaigns as MarketingCampaign[]) ?? [],
-              marketingFailed: !campaigns,
+              marketingFailed: marketingEnabled && !campaigns,
             });
           }
         } else {
@@ -216,18 +218,18 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
             read(`/api/books/${bookId}/stats?period=${period}`),
             read(revenueUrl),
             read("/api/author/stats/engagement"),
-            read("/api/author/marketing/campaigns"),
+            marketingEnabled ? read("/api/author/marketing/campaigns") : null,
           ]);
 
           const [bookDetail, revenue, engagement, campaigns] = await Promise.all([
             bookRes.ok ? bookRes.json() : null,
             revenueRes.ok ? revenueRes.json() : null,
             engRes.ok ? engRes.json() : null,
-            campaignsRes.ok ? campaignsRes.json() : null,
+            campaignsRes?.ok ? campaignsRes.json() : null,
           ]);
 
           if (!cancelled) {
-            setLoadFailed(!bookDetail || bookDetail.partial || !revenue || revenue.partial || !engagement || !campaigns);
+            setLoadFailed(!bookDetail || bookDetail.partial || !revenue || revenue.partial || !engagement || (marketingEnabled && !campaigns));
             setData({
               overviewStats: null,
               revenue,
@@ -235,7 +237,7 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
               booksTable: [],
               bookDetail,
               marketingCampaigns: (campaigns?.campaigns as MarketingCampaign[]) ?? [],
-              marketingFailed: !campaigns,
+              marketingFailed: marketingEnabled && !campaigns,
             });
           }
         }
@@ -244,7 +246,7 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
           setLoadFailed(true);
           // Never retain another book's or period's figures after a failed load.
           setData({ overviewStats: null, revenue: null, engagement: null, booksTable: [],
-            booksFailed: true, bookDetail: null, marketingCampaigns: [], marketingFailed: true });
+            booksFailed: true, bookDetail: null, marketingCampaigns: [], marketingFailed: marketingEnabled });
         }
       } finally {
         if (!cancelled) setLoading(false);
