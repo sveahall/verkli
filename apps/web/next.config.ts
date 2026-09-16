@@ -172,7 +172,10 @@ const nextConfig: NextConfig = {
   // Keep heavy/native-binding parsers out of the route bundle. `cheerio`
   // (~500 KB) and `mammoth` (~1 MB) were previously being bundled into the
   // chapter-repair route via `import-extract.ts`.
-  serverExternalPackages: ["epub", "pdf-parse", "bullmq", "cheerio", "mammoth"],
+  serverExternalPackages: ["epub", "pdf-parse", "pdfkit", "bullmq", "cheerio", "mammoth"],
+  outputFileTracingIncludes: {
+    "/api/author/books/*/production/export": ["./src/features/book-production/pdf-fonts/**/*"],
+  },
   experimental: {
     // Tree-shake barrel imports for large UI/animation libs.
     optimizePackageImports: ["lucide-react", "@tiptap/core", "motion"],
