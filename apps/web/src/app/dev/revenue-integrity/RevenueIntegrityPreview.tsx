@@ -6,15 +6,15 @@ import type { AnalyticsData, Period, RevenueData } from "@/features/author-works
 import AuthorStatsDashboard from "@/components/author/stats/AuthorStatsDashboard";
 import styles from "@/features/author-shell/AuthorAppShell.module.css";
 
-type Scenario = "healthy" | "empty" | "orders-failed" | "subscriptions-failed" | "books-failed" | "network-failed";
+type Scenario = "currency-precision" | "healthy" | "empty" | "orders-failed" | "subscriptions-failed" | "books-failed" | "network-failed";
 function revenueFor(period: Period, selected: boolean, scenario: Scenario): RevenueData {
   const factor = period === "7d" ? 1 : period === "30d" ? 3 : 6;
   return {
     partial: scenario.endsWith("failed"),
     totalRevenue: null, orderRevenue: null, donationRevenue: 0, currency: null,
     byCurrency: scenario === "orders-failed" ? null : scenario === "empty" ? {} : selected ? { EUR: 49 * factor } : { SEK: 150 * factor, EUR: 49 * factor },
-    subscriptionMRR: 99, activeSubscriberCount: scenario === "subscriptions-failed" ? null : scenario === "empty" ? 0 : 1,
-    subscriptionByCurrency: scenario === "subscriptions-failed" ? null : scenario === "empty" ? {} : { SEK: 99 },
+    subscriptionMRR: scenario === "currency-precision" ? null : 99, activeSubscriberCount: scenario === "currency-precision" ? 3 : scenario === "subscriptions-failed" ? null : scenario === "empty" ? 0 : 1,
+    subscriptionByCurrency: scenario === "subscriptions-failed" ? null : scenario === "empty" ? {} : scenario === "currency-precision" ? { JPY: 1500, KWD: 1.005, SEK: 15.5 } : { SEK: 99 },
     subscriptionScope: "author",
   };
 }
@@ -65,7 +65,7 @@ export default function RevenueIntegrityPreview() {
         <div className="flex flex-wrap gap-4 rounded-2xl border border-border bg-card p-4">
           <label className="space-y-2 text-sm">View<select className="input-base block" value={view} onChange={(e) => setView(e.target.value)}><option value="analytics">Analytics</option><option value="statistics">Statistics</option></select></label>
           <label className="space-y-2 text-sm">Scenario<select className="input-base block" value={scenario} onChange={(e) => { scenarioRef.current = e.target.value as Scenario; setScenario(e.target.value as Scenario); }}>
-            <option value="healthy">Mixed currencies</option><option value="empty">No paid orders</option><option value="orders-failed">Order page failure</option><option value="subscriptions-failed">Subscription failure</option><option value="books-failed">Book statistics failure</option><option value="network-failed">Network failure</option>
+            <option value="healthy">Mixed currencies</option><option value="currency-precision">Subscription currency precision</option><option value="empty">No paid orders</option><option value="orders-failed">Order page failure</option><option value="subscriptions-failed">Subscription failure</option><option value="books-failed">Book statistics failure</option><option value="network-failed">Network failure</option>
           </select></label>
           {view === "analytics" && <>
             <label className="space-y-2 text-sm">Period<select className="input-base block" value={period} onChange={(e) => setPeriod(e.target.value as Period)}><option value="7d">7 days</option><option value="30d">30 days</option><option value="all">All time</option></select></label>

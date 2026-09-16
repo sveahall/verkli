@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import AnalyticsDashboard from "./AnalyticsCharts";
+import AnalyticsDashboard, { RevenueBreakdown } from "./AnalyticsCharts";
 import type { AnalyticsData } from "./AnalyticsWorkspace";
 function data(revenue: Record<string, unknown> | null): AnalyticsData {
   return { overviewStats: null, revenue, engagement: null, booksTable: [], bookDetail: null, marketingCampaigns: [] } as AnalyticsData;
@@ -41,5 +41,20 @@ describe("analytics revenue presentation", () => {
     expect(html).toContain("150 SEK");
     expect(html).toContain("Subscription data unavailable");
     expect(html).not.toContain("No active subscribers");
+  });
+});
+
+
+describe("MRR display precision", () => {
+  it("preserves zero- and three-decimal subscription amounts in the shared dashboard breakdown", () => {
+    const html = renderToStaticMarkup(<RevenueBreakdown revenue={{ ...revenue,
+      subscriptionMRR: null, subscriptionByCurrency: { JPY: 1500, KWD: 1.005, BHD: 2.009, SEK: 15.5 },
+      subscriptionScope: "author",
+    }} />);
+    expect(html).toContain("1,500 JPY");
+    expect(html).toContain("1.005 KWD");
+    expect(html).toContain("2.009 BHD");
+    expect(html).toContain("15.5 SEK");
+    expect(html).not.toContain("1.01 KWD");
   });
 });

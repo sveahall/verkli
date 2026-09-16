@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { stripeMinorToMajor } from "@/lib/payments/stripe-currency";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
@@ -99,16 +100,24 @@ export async function GET(request: Request) {
       addToCurrencyTotal(subscriptionTotals, row.currency, Number(row.amount_monthly) || 0);
     }
   }
-  const byCurrency = (totals: CurrencyTotals) => Object.fromEntries(
-    [...totals].map(([code, minor]) => [code.toUpperCase(), minorToMajor(minor)])
+  const byCurrency = (
+    totals: CurrencyTotals,
+    convert: (minor: number, currency: string) => number = minorToMajor
+  ) => Object.fromEntries(
+    [...totals].map(([code, minor]) => [code.toUpperCase(), convert(minor, code)])
   );
-  const singleAmount = (totals: CurrencyTotals) => {
+  const singleAmount = (
+    totals: CurrencyTotals,
+    convert: (minor: number, currency: string) => number = minorToMajor
+  ) => {
     if (totals.size > 1) return { total: null, currency: null };
     const [code, minor] = [...totals][0] ?? ["sek", 0];
-    return { total: minorToMajor(minor), currency: code.toUpperCase() };
+    return { total: convert(minor, code), currency: code.toUpperCase() };
   };
   const sales = singleAmount(orderTotals);
-  const mrr = singleAmount(subscriptionTotals);
+  // Subscription plans can use currencies beyond SEK/EUR/USD. Their stored
+  // amount_monthly is the Stripe unit_amount, so its scale follows that code.
+  const mrr = singleAmount(subscriptionTotals, stripeMinorToMajor);
 
   return NextResponse.json({
     partial: errors.length > 0,
@@ -125,7 +134,7 @@ export async function GET(request: Request) {
     byCurrency: orders.error ? null : byCurrency(orderTotals),
     subscriptionMRR: subscriptions.error ? null : mrr.total,
     subscriptionCurrency: subscriptions.error ? null : mrr.currency,
-    subscriptionByCurrency: subscriptions.error ? null : byCurrency(subscriptionTotals),
+    subscriptionByCurrency: subscriptions.error ? null : byCurrency(subscriptionTotals, stripeMinorToMajor),
     subscriptionScope: "author",
     activeSubscriberCount: subscriptions.error ? null : subscriptions.rows.length,
   });
