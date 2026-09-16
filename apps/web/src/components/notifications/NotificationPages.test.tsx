@@ -14,4 +14,25 @@ describe("notification pages", () => {
     expect(html).not.toContain("No notifications yet");
     expect(html).not.toContain("all caught up");
   });
+  it.each([ReaderNotificationsPage, AuthorNotificationsPage])("keeps the global read action available when the current page is already read", (Page) => {
+    mocks.list.mockReturnValue({
+      notifications: Array.from({ length: 20 }, (_, index) => ({
+        id: `read-${index}`, type: "system", title: "Already read", body: null,
+        read: true, created_at: "2026-09-16T10:00:00Z", entity_type: null, entity_id: null,
+      })),
+      total: 40, loading: false, error: null, refetch: vi.fn(),
+    });
+    const html = renderToStaticMarkup(<Page />);
+    const action = html.match(/<button\b[^>]*>Mark all as read<\/button>/)?.[0];
+    expect(action).toBeDefined();
+    expect(action).not.toContain("disabled");
+  });
+
+  it.each([ReaderNotificationsPage, AuthorNotificationsPage])("still prevents the global action while the notification page is loading", (Page) => {
+    mocks.list.mockReturnValue({ notifications: [], total: 40, loading: true, error: null, refetch: vi.fn() });
+    const html = renderToStaticMarkup(<Page />);
+    const action = html.match(/<button\b[^>]*>Mark all as read<\/button>/)?.[0];
+    expect(action).toContain("disabled");
+  });
+
 });

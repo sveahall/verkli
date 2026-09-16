@@ -42,7 +42,7 @@ export default function ReaderNotificationsPage() {
         <button
           type="button"
           onClick={() => void markRead()}
-          disabled={saving || loading || !!error || !notifications.some((item) => !item.read)}
+          disabled={saving || loading || !!error}
           className="btn-secondary text-[13px]"
         >
           {saving ? "Updating…" : "Mark all as read"}
