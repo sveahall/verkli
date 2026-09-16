@@ -5,6 +5,7 @@
  * - `translation`: estimated model units (roughly chars / 4).
  * - `tts`: estimated model units (roughly chars / 4).
  * - `video`: fixed per-job/render credits.
+ * - `editorial` / `marketing`: conservative model token bounds, not monetary quotes.
  *
  * Per-job caps are validated locally before Redis budget checks:
  * - `translation`: max chars per job.
@@ -15,7 +16,7 @@
 import Redis from "ioredis";
 import { getRedisClientOptions } from "@/lib/env";
 
-export type BudgetPipeline = "tts" | "translation" | "video";
+export type BudgetPipeline = "tts" | "translation" | "video" | "editorial" | "marketing";
 
 export interface BudgetCheckInput {
   userId: string;
@@ -55,18 +56,24 @@ const DEFAULT_DAILY_BUDGETS: Record<BudgetPipeline, number> = {
   tts: 500_000,
   translation: 500_000,
   video: 100,
+  marketing: 0, // No implicit spending allowance.
+  editorial: 0, // No implicit spending allowance; configuration is required.
 };
 
 const DEFAULT_JOB_COST_CAPS: Record<BudgetPipeline, number> = {
   tts: 50_000,
   translation: 1_000_000,
   video: 5,
+  editorial: 80_000,
+  marketing: 0,
 };
 
 const PIPELINE_JOB_COST_UNITS: Record<BudgetPipeline, JobCostUnit> = {
   tts: "chars",
   translation: "chars",
   video: "units",
+  editorial: "chars",
+  marketing: "units",
 };
 
 const REDIS_RESERVE_SCRIPT = `
@@ -158,8 +165,27 @@ function readPositiveIntEnv(key: string, fallback: number): number {
   return Math.floor(parsed);
 }
 
+export class BudgetConfigurationError extends Error {
+  readonly code = "BUDGET_CONFIGURATION_ERROR";
+
+  constructor(readonly environmentKey: string) {
+    super(`[budget] ${environmentKey} must be configured as a positive safe integer.`);
+    this.name = "BudgetConfigurationError";
+  }
+}
+
+function requirePositiveIntEnv(key: string): number {
+  const value = Number(process.env[key]);
+  if (!Number.isSafeInteger(value) || value <= 0) throw new BudgetConfigurationError(key);
+  return value;
+}
+
 function getPipelineLimit(pipeline: BudgetPipeline): number {
   switch (pipeline) {
+    case "editorial":
+      return requirePositiveIntEnv("EDITORIAL_DAILY_BUDGET");
+    case "marketing":
+      return requirePositiveIntEnv("MARKETING_DAILY_BUDGET");
     case "tts":
       return readPositiveIntEnv("TTS_DAILY_BUDGET", DEFAULT_DAILY_BUDGETS.tts);
     case "translation":
@@ -173,6 +199,8 @@ function getPipelineLimit(pipeline: BudgetPipeline): number {
 
 function getPipelineJobCostCap(pipeline: BudgetPipeline): number {
   switch (pipeline) {
+    case "marketing":
+      return requirePositiveIntEnv("MARKETING_JOB_CAP_UNITS");
     case "tts":
       return readPositiveIntEnv("TTS_JOB_CAP_CHARS", DEFAULT_JOB_COST_CAPS.tts);
     case "translation":
@@ -313,6 +341,12 @@ export async function checkBudget(input: BudgetCheckInput): Promise<BudgetUsageS
   const day = utcDay(now);
   const key = buildBudgetKey(userId, input.pipeline, day);
   const limit = getPipelineLimit(input.pipeline);
+  if (input.pipeline === "marketing") {
+    if (!Number.isSafeInteger(input.units) || input.units <= 0) {
+      throw new Error("[budget] Marketing reservations require positive integer token units.");
+    }
+    validateJobCost({ userId, pipeline: input.pipeline, jobSize: input.units, jobId: input.jobId });
+  }
   const units = normalizeUnits(input.units);
   const rawJobId = input.jobId ? String(input.jobId) : null;
   const jobId = rawJobId ?? "unknown";

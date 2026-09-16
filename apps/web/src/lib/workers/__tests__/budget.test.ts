@@ -127,6 +127,7 @@ import {
   getUsage,
   resetAllBudgets,
   BudgetExceededError,
+  BudgetConfigurationError,
   JobCostExceededError,
   validateJobCost,
 } from "../budget";
@@ -140,8 +141,50 @@ describe("workers/budget (redis)", () => {
     delete process.env.TTS_JOB_CAP_CHARS;
     delete process.env.TRANSLATION_JOB_CAP_CHARS;
     delete process.env.VIDEO_JOB_CAP_UNITS;
+    delete process.env.EDITORIAL_DAILY_BUDGET;
+    delete process.env.MARKETING_DAILY_BUDGET;
+    delete process.env.MARKETING_JOB_CAP_UNITS;
     redisStore.clear();
     await resetAllBudgets();
+  });
+
+  it("fails closed when the editorial allowance is not configured", async () => {
+    await expect(checkBudget({ userId: "author", pipeline: "editorial", units: 4 })).rejects.toThrow("EDITORIAL_DAILY_BUDGET");
+    expect(redisStore.size).toBe(0);
+  });
+
+  it("reserves a configured editorial cap atomically without sharing translation allowance", async () => {
+    process.env.EDITORIAL_DAILY_BUDGET = "6";
+    const results = await Promise.allSettled([
+      checkBudget({ userId: "author", pipeline: "editorial", units: 4, jobId: "review-a" }),
+      checkBudget({ userId: "author", pipeline: "editorial", units: 4, jobId: "review-b" }),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect((await getUsage({ userId: "author", pipeline: "editorial" })).current).toBe(4);
+    expect((await getUsage({ userId: "author", pipeline: "translation" })).current).toBe(0);
+  });
+
+  it.each([undefined, "", "0", "-1", "1.5", "Infinity", "9007199254740992"])("requires explicit safe marketing caps (%s)", async (value) => {
+    if (value !== undefined) process.env.MARKETING_DAILY_BUDGET = value;
+    process.env.MARKETING_JOB_CAP_UNITS = "10";
+    await expect(checkBudget({ userId: "author", pipeline: "marketing", units: 1 })).rejects.toBeInstanceOf(BudgetConfigurationError);
+    process.env.MARKETING_DAILY_BUDGET = "20";
+    if (value === undefined) delete process.env.MARKETING_JOB_CAP_UNITS;
+    else process.env.MARKETING_JOB_CAP_UNITS = value;
+    await expect(checkBudget({ userId: "author", pipeline: "marketing", units: 1 })).rejects.toBeInstanceOf(BudgetConfigurationError);
+    expect(redisStore.size).toBe(0);
+  });
+
+  it("enforces marketing request and daily caps independently of editorial", async () => {
+    process.env.MARKETING_DAILY_BUDGET = "6";
+    process.env.MARKETING_JOB_CAP_UNITS = "4";
+    process.env.EDITORIAL_DAILY_BUDGET = "6";
+    await expect(checkBudget({ userId: "author", pipeline: "marketing", units: 5 })).rejects.toBeInstanceOf(JobCostExceededError);
+    expect(redisStore.size).toBe(0);
+    await checkBudget({ userId: "author", pipeline: "marketing", units: 4, jobId: "attempt-a" });
+    await expect(checkBudget({ userId: "author", pipeline: "marketing", units: 4, jobId: "attempt-b" })).rejects.toBeInstanceOf(BudgetExceededError);
+    expect((await getUsage({ userId: "author", pipeline: "editorial" })).current).toBe(0);
   });
 
   it("does not double-charge when the same jobId is reserved again (retry)", async () => {
