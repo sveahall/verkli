@@ -13,38 +13,10 @@ export type LibraryBook = {
 export type LibraryFilter = "ALL" | "DRAFT" | "PUBLISHED" | "ARCHIVED";
 export type LibrarySort = "recent" | "title" | "chapters";
 
-const PIPELINE_STEPS = [
-  { label: "Write",     panel: null },
-  { label: "Cover",     panel: "cover" },
-  { label: "Audio",     panel: "audiobook" },
-  { label: "Translate", panel: "translate" },
-  { label: "Publish",   panel: "publish" },
-  { label: "Review",    panel: "review" },
-] as const;
-
-export function getPipelineDone(book: LibraryBook): boolean[] {
-  return [
-    book.chapterCount > 0,
-    !!book.coverImageUrl,
-    book.audiobookStatus === "ready" || book.audiobookStatus === "completed",
-    book.translationCount > 0,
-    book.status === "PUBLISHED",
-    book.status === "PUBLISHED",
-  ];
-}
-
-function getNextPanel(book: LibraryBook): string {
-  const done = getPipelineDone(book);
-  const firstIncomplete = done.findIndex((d) => !d);
-  if (firstIncomplete === -1) return "review";
-  return PIPELINE_STEPS[firstIncomplete].panel ?? "";
-}
-
 export function getBookHref(book: LibraryBook, demoModeActive = false): string {
-  // Preserve the existing demo flow regardless of workflow completion.
-  if (demoModeActive) return `/author/books/${book.id}?panel=cover`;
-  const panel = getNextPanel(book);
-  return panel ? `/author/books/${book.id}?panel=${panel}` : `/author/books/${book.id}`;
+  // Opening a book always returns to its manuscript. Optional formats are
+  // selected from the book workspace; they are not publishing prerequisites.
+  return `/author/books/${book.id}${demoModeActive ? "?panel=cover" : ""}`;
 }
 
 export function formatLibraryDate(value: string | null): string {

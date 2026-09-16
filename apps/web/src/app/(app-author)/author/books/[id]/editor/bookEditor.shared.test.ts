@@ -25,9 +25,10 @@ describe("TOOL_ORDER (author stepper flow)", () => {
     expect(pricingIndex).toBeLessThan(publishIndex);
   });
 
-  it("starts at the manuscript and ends at review", () => {
+  it("starts with writing and editorial review and ends at publish", () => {
     expect(TOOL_ORDER[0]).toBe("edit");
-    expect(TOOL_ORDER[TOOL_ORDER.length - 1]).toBe("review");
+    expect(TOOL_ORDER[1]).toBe("review");
+    expect(TOOL_ORDER[TOOL_ORDER.length - 1]).toBe("publish");
   });
 
   it("has label metadata for every step", () => {
@@ -68,5 +69,15 @@ describe("getInitialTool", () => {
 
   it("falls back when the requested tool is not visible", () => {
     expect(getInitialTool(["cover", "production"], "pricing")).toBe("cover");
+  });
+});
+
+describe("edition navigation", () => {
+  it("retains the selected language in the manuscript and every tool link", () => {
+    for (const tool of ALL_TOOLS) {
+      const url = new URL(getToolHref("book-1", tool, "sv"), "https://example.test");
+      expect(url.searchParams.get("lang")).toBe("sv");
+      expect(url.searchParams.get("panel")).toBe(tool === "edit" ? null : tool);
+    }
   });
 });

@@ -49,11 +49,11 @@
 .unavailable { padding:12px 0; color:#f6ce97; font-size:13px; }
 .avatar { display:inline-block; flex-shrink:0; overflow:hidden; border-radius:50%; background:#f0eaf5; border:1px solid #e7dcea; }
 .avatar .artwork { height:155%; width:155%; max-width:none; margin-left:-27.5%; object-fit:contain; object-position:center top; }
-.companion { display:flex; align-items:center; gap:17px; margin:0 0 28px; padding:0 0 22px; border-bottom:1px solid var(--border); }
+.companion { display:flex; align-items:center; gap:12px; margin:0 0 26px; padding:14px 16px; border:1px solid var(--border); border-radius:16px; background:var(--background); }
 .companion .avatar { background:var(--team-wash); }
-.companionName { font:500 19px/1.4 var(--font-montserrat-alternates),sans-serif; letter-spacing:-.03em; }
-.companionName span { font:400 13px/1.6 var(--font-inter),sans-serif; letter-spacing:0; color:var(--muted-foreground); }
-.companionNote { margin-top:4px; font-size:13px; line-height:1.6; color:var(--muted-foreground); }
+.companionName { font:500 16px/1.4 var(--font-montserrat-alternates),sans-serif; letter-spacing:-.03em; }
+.companionName span { margin-left:10px; font:400 13px/1.6 var(--font-inter),sans-serif; letter-spacing:0; color:var(--muted-foreground); }
+.companionNote { margin-top:4px; font-size:12px; line-height:1.6; color:var(--muted-foreground); }
 .team button:focus-visible,.team a:focus-visible { outline:2px solid var(--accent-foreground); outline-offset:4px; }
 .detail a:focus-visible,.detail button:focus-visible { outline-color:#eadff5; }
 .team button:active,.cta:active { transform:scale(.98); }
@@ -91,7 +91,7 @@
   .detailActions { padding:22px 0 0; border-left:0; border-top:1px solid #ffffff21; }
   .detailActions ul { min-height:44px; margin-bottom:16px; }
   .railControls>span { max-width:135px; line-height:1.6; }
-  .companionName span { display:block; }
+  .companionName span { display:block; margin-left:0; }
 }
 @media (max-width:640px) { .publicTeam { margin:64px auto; } .workspace { padding:20px; } }
 @media (prefers-reduced-motion:reduce) {

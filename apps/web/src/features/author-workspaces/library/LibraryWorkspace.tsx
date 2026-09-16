@@ -10,7 +10,7 @@ import DeleteBookButton from "@/components/books/DeleteBookButton";
 import NotificationBell from "@/components/notifications/NotificationBell";
 import { Button } from "@/components/ui/button";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
-import { filterAndSortBooks, formatLibraryDate, getBookHref, getPipelineDone, getStatusLabel, type LibraryBook, type LibraryFilter, type LibrarySort } from "./library-model";
+import { filterAndSortBooks, formatLibraryDate, getBookHref, getStatusLabel, type LibraryBook, type LibraryFilter, type LibrarySort } from "./library-model";
 import styles from "./LibraryWorkspace.module.css";
 
 type LibraryWorkspaceProps = {
@@ -45,18 +45,6 @@ function BookCover({ book, priority = false }: { book: LibraryBook; priority?: b
   );
 }
 
-function BookProgress({ book }: { book: LibraryBook }) {
-  const done = getPipelineDone(book).filter(Boolean).length;
-  return (
-    <div className={styles.progress}>
-      <div className={styles.progressTrack} role="progressbar" aria-label={`Workflow steps for ${book.title}`} aria-valuemin={0} aria-valuemax={6} aria-valuenow={done}>
-        <span style={{ width: `${done / 6 * 100}%` }} />
-      </div>
-      <span>{done} of 6 steps</span>
-    </div>
-  );
-}
-
 function BookActions({ book, href }: { book: LibraryBook; href: string }) {
   const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
@@ -81,6 +69,8 @@ function BookActions({ book, href }: { book: LibraryBook; href: string }) {
       <summary role="button" aria-label={`Book actions for ${book.title}`}><MoreHorizontal size={20} aria-hidden="true" /></summary>
       <div className={styles.actionPopover}>
         <Link href={href}><PenLine size={16} aria-hidden="true" /> Open editor</Link>
+        <Link href={`/author/books/${book.id}?panel=publish`}><ArrowUpRight size={16} aria-hidden="true" /> Publishing details</Link>
+        <Link href={`/author/analytics?bookId=${encodeURIComponent(book.id)}`}><ArrowUpRight size={16} aria-hidden="true" /> Reader activity</Link>
         {book.status === "PUBLISHED" && <a href={`/reader/books/${book.id}`} target="_blank" rel="noopener noreferrer"><BookOpen size={16} aria-hidden="true" /> View as reader ↗</a>}
         <DeleteBookButton bookId={book.id} bookTitle={book.title} className={styles.deleteButton} />
       </div>
@@ -102,7 +92,7 @@ function BookCard({ book, demoModeActive }: { book: LibraryBook; demoModeActive:
           <h3 title={book.title}>{book.title}</h3>
           <p className={styles.chapterCount}>{book.chapterCount} {book.chapterCount === 1 ? "chapter" : "chapters"}{audioReady && <span><Headphones size={13} aria-hidden="true" /> Audio ready</span>}</p>
           <p className={styles.description}>{book.description?.trim() || "No description yet. Add one in publishing details."}</p>
-          <BookProgress book={book} />
+          {book.translationCount > 0 && <p className={styles.formatNote}>{book.translationCount} {book.translationCount === 1 ? "translation project" : "translation projects"}</p>}
           <p className={styles.edited}><CalendarDays size={15} aria-hidden="true" />{editedLabel(book.updatedAt)}</p>
         </div>
       </Link>
@@ -186,7 +176,7 @@ export default function LibraryWorkspace({ books, initialCreateOpen = false, dem
           {recentBook ? (
             <section className={styles.hero} aria-label="Continue writing">
               <div className={styles.heroCover}><BookCover book={recentBook} priority /></div>
-              <div className={styles.heroContent}><p className={styles.eyebrow}>Continue writing</p><h2 title={recentBook.title}>{recentBook.title}</h2><p className={styles.heroMeta}>{editedLabel(recentBook.updatedAt)} · {recentBook.chapterCount} {recentBook.chapterCount === 1 ? "chapter" : "chapters"}</p><BookProgress book={recentBook} /></div>
+              <div className={styles.heroContent}><p className={styles.eyebrow}>Continue writing</p><h2 title={recentBook.title}>{recentBook.title}</h2><p className={styles.heroMeta}>{editedLabel(recentBook.updatedAt)} · {recentBook.chapterCount} {recentBook.chapterCount === 1 ? "chapter" : "chapters"}</p><p className={styles.heroNote}>Write at your own pace. Cover, audio and translation tools are inside.</p></div>
               <div className={styles.heroAction}><Link href={getBookHref(recentBook, demoModeActive)} aria-label={`Continue editing ${recentBook.title}`}>Open editor <ArrowRight size={18} aria-hidden="true" /></Link></div>
             </section>
           ) : (

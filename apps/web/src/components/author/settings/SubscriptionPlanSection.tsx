@@ -7,6 +7,7 @@ type Props = {
   initialPriceMonthly: number;
   initialCurrency: string;
   initialDescription: string | null;
+  savePlan?: (plan: { enabled: boolean; price_monthly: number; currency: string; description: string | null }) => Promise<Response>;
 };
 
 const CURRENCY_OPTIONS = [
@@ -21,6 +22,7 @@ export default function SubscriptionPlanSection({
   initialPriceMonthly,
   initialCurrency,
   initialDescription,
+  savePlan,
 }: Props) {
   const [enabled, setEnabled] = useState(initialEnabled);
   const [price, setPrice] = useState(String(Math.round(initialPriceMonthly / 100)));
@@ -44,15 +46,11 @@ export default function SubscriptionPlanSection({
     }
 
     try {
-      const res = await fetch("/api/author/subscription-plan", {
+      const plan = { enabled, price_monthly: priceMinor, currency, description: description.trim() || null };
+      const res = savePlan ? await savePlan(plan) : await fetch("/api/author/subscription-plan", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enabled,
-          price_monthly: priceMinor,
-          currency,
-          description: description.trim() || null,
-        }),
+        body: JSON.stringify(plan),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -71,12 +69,12 @@ export default function SubscriptionPlanSection({
   };
 
   return (
-    <section className="rounded-2xl border border-border bg-card px-5 py-6 sm:px-7">
+    <section className="rounded-3xl border border-border bg-card p-5 sm:p-7" onChange={() => setStatus("idle")}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="author-section-title text-section-title">Reader subscriptions</h2>
+          <h2 className="font-display text-xl font-medium">Reader subscriptions</h2>
           <p className="mt-1 text-sm text-muted-foreground dark:text-muted-foreground">
-            Let readers pay a monthly fee for access to all your books — like a personal membership.
+            Offer readers a monthly membership with access to all your books.
           </p>
         </div>
         <button
@@ -84,41 +82,38 @@ export default function SubscriptionPlanSection({
           role="switch"
           aria-label="Enable reader subscriptions"
           aria-checked={enabled}
-          onClick={() => setEnabled((v) => !v)}
-          className={`relative mt-0.5 h-6 w-10 flex-shrink-0 rounded-full transition-colors ${
-            enabled
-              ? "bg-[#907AFF]"
-              : "bg-muted dark:bg-card"
-          }`}
+          disabled={saving}
+          onClick={() => { setEnabled((v) => !v); setStatus("idle"); }}
+          className="relative inline-flex min-h-11 w-12 flex-shrink-0 items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring disabled:opacity-60"
         >
-          <span
-            className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-              enabled ? "translate-x-4" : "translate-x-0.5"
-            }`}
-          />
+          <span className={`relative h-7 w-12 rounded-full border border-border transition-colors ${enabled ? "bg-primary" : "bg-muted"}`}>
+            <span className={`absolute left-1 top-1 h-[18px] w-[18px] rounded-full shadow-sm transition-transform ${enabled ? "translate-x-5 bg-primary-foreground" : "bg-muted-foreground"}`} />
+          </span>
         </button>
       </div>
 
       {enabled && (
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <fieldset disabled={saving} className="mt-5 grid min-w-0 gap-5 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground dark:text-foreground">
+            <label htmlFor="subscription-price" className="text-sm font-medium">
               Monthly price
             </label>
             <div className="flex items-center gap-2">
               <input
                 type="number"
+                id="subscription-price"
                 min="1"
                 step="1"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="input-base min-h-[44px] w-full text-[14px]"
+                className="input-base min-h-11 min-w-0 w-full text-base sm:text-sm"
                 placeholder="49"
               />
               <select
+                aria-label="Subscription currency"
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
-                className="input-base min-h-[44px] shrink-0 text-[14px]"
+                className="input-base min-h-11 !w-24 shrink-0 text-base sm:text-sm"
               >
                 {CURRENCY_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -133,38 +128,35 @@ export default function SubscriptionPlanSection({
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground dark:text-foreground">
+            <label htmlFor="subscription-description" className="text-sm font-medium">
               What&apos;s included <span className="font-normal text-muted-foreground">(optional)</span>
             </label>
             <textarea
+              id="subscription-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               maxLength={400}
               placeholder="e.g. Access to all books, early chapters, and exclusive updates."
-              className="input-base w-full resize-none text-[14px]"
+              className="input-base min-h-28 w-full resize-y text-base sm:text-sm"
             />
           </div>
-        </div>
+        </fieldset>
       )}
+      {!enabled && <p className="mt-4 rounded-xl bg-muted/50 px-4 py-3 text-sm text-muted-foreground">Reader subscriptions are off. Enable them to set a monthly price, then save your subscription settings.</p>}
 
-      <div className="mt-4 flex items-center gap-3">
+      <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-border pt-5">
         <button
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="min-h-[44px] rounded-full bg-primary px-5 py-2 text-[13px] font-semibold text-primary-foreground shadow-[0_4px_12px_rgba(15,23,42,0.18)] transition hover:bg-primary/90 hover:shadow-[0_6px_16px_rgba(15,23,42,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-11 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {saving ? "Saving…" : "Save subscription settings"}
         </button>
-        {status === "ok" && (
-          <span className="text-[13px] text-emerald-600 dark:text-emerald-400">Saved</span>
-        )}
-        {status === "error" && (
-          <span className="text-[13px] text-red-600 dark:text-red-400">
-            {errorMessage || "Could not save subscription settings."}
-          </span>
-        )}
+        <p role={status === "error" ? "alert" : "status"} aria-live="polite" className={`min-h-5 text-sm ${status === "ok" ? "text-emerald-700 dark:text-emerald-400" : status === "error" ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
+          {saving ? "Saving subscription settings…" : status === "ok" ? "Subscription settings saved." : status === "error" ? errorMessage || "Could not save subscription settings." : "Saved separately from account preferences."}
+        </p>
       </div>
     </section>
   );

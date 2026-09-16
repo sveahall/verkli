@@ -3,7 +3,6 @@ import {
   filterAndSortBooks,
   formatLibraryDate,
   getBookHref,
-  getPipelineDone,
   getStatusLabel,
   type LibraryBook,
 } from "./library-model";
@@ -23,33 +22,28 @@ function book(overrides: Partial<LibraryBook> = {}): LibraryBook {
   };
 }
 
-const routeCases: Array<{ label: string; value: LibraryBook; href: string }> = [
-  { label: "empty manuscript", value: book(), href: "/author/books/book-1" },
-  { label: "missing cover", value: book({ chapterCount: 1 }), href: "/author/books/book-1?panel=cover" },
-  { label: "missing audio", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg" }), href: "/author/books/book-1?panel=audiobook" },
-  { label: "audio still processing", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg", audiobookStatus: "processing" }), href: "/author/books/book-1?panel=audiobook" },
-  { label: "missing translation", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg", audiobookStatus: "ready" }), href: "/author/books/book-1?panel=translate" },
-  { label: "completed audio", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg", audiobookStatus: "completed" }), href: "/author/books/book-1?panel=translate" },
-  { label: "ready to publish", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg", audiobookStatus: "ready", translationCount: 1 }), href: "/author/books/book-1?panel=publish" },
-  { label: "published complete", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg", audiobookStatus: "ready", translationCount: 1, status: "PUBLISHED" }), href: "/author/books/book-1?panel=review" },
-  { label: "published missing audio", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg", status: "PUBLISHED" }), href: "/author/books/book-1?panel=audiobook" },
-  { label: "archived complete manuscript", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg", audiobookStatus: "completed", translationCount: 1, status: "ARCHIVED" }), href: "/author/books/book-1?panel=publish" },
+const routeCases: Array<{ label: string; value: LibraryBook }> = [
+  { label: "empty manuscript", value: book() },
+  { label: "missing cover", value: book({ chapterCount: 1 }) },
+  { label: "missing audio", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg" }) },
+  { label: "audio still processing", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg", audiobookStatus: "processing" }) },
+  { label: "missing translation", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg", audiobookStatus: "ready" }) },
+  { label: "completed audio", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg", audiobookStatus: "completed" }) },
+  { label: "ready to publish", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg", audiobookStatus: "ready", translationCount: 1 }) },
+  { label: "published complete", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg", audiobookStatus: "ready", translationCount: 1, status: "PUBLISHED" }) },
+  { label: "published missing audio", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg", status: "PUBLISHED" }) },
+  { label: "archived complete manuscript", value: book({ chapterCount: 1, coverImageUrl: "/cover.jpg", audiobookStatus: "completed", translationCount: 1, status: "ARCHIVED" }) },
 ];
 
 describe("library workflow routes", () => {
-  it.each(routeCases)("preserves the existing next step for $label", ({ value, href }) => {
-    expect(getBookHref(value)).toBe(href);
+  it.each(routeCases)("opens the manuscript without requiring optional formats for $label", ({ value }) => {
+    expect(getBookHref(value)).toBe("/author/books/book-1");
   });
 
   it.each(routeCases)("always starts demo mode at cover for $label", ({ value }) => {
     expect(getBookHref(value, true)).toBe("/author/books/book-1?panel=cover");
   });
 
-  it("reports six workflow steps independently of chapter count", () => {
-    expect(getPipelineDone(book({ chapterCount: 12, translationCount: 2, status: "PUBLISHED" })))
-      .toEqual([true, false, false, true, true, true]);
-    expect(getPipelineDone(book())).toEqual([false, false, false, false, false, false]);
-  });
 });
 
 describe("library display metadata", () => {

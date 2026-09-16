@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef, useEffect, useSyncExternalStore } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Check, ChevronLeft, ChevronRight, Maximize2, MoreHorizontal, PanelRight, Pencil, Plus, Trash2 } from "lucide-react";
 import styles from "./SimplifiedEditView.module.css";
@@ -34,16 +34,10 @@ const TiptapEditor = dynamic(editorImport, {
   ),
 });
 
-function subscribeToPanelViewport(onChange: () => void) {
-  const media = window.matchMedia("(min-width: 1024px)");
-  media.addEventListener("change", onChange);
-  return () => media.removeEventListener("change", onChange);
-}
-const isPanelViewportWide = () => window.matchMedia("(min-width: 1024px)").matches;
-const serverPanelViewport = () => false;
 
 type SimplifiedEditViewProps = {
   bookId: string;
+  activeLanguage?: string;
   bookTitle: string;
   chapters: Chapter[];
   visibleChapters: Chapter[];
@@ -94,6 +88,7 @@ type SimplifiedEditViewProps = {
 
 export default function SimplifiedEditView({
   bookId,
+  activeLanguage,
   bookTitle,
   chapters,
   visibleChapters,
@@ -183,10 +178,8 @@ export default function SimplifiedEditView({
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, []);
-  const wideViewport = useSyncExternalStore(subscribeToPanelViewport, isPanelViewportWide, serverPanelViewport);
-  const [sidePanelOverride, setSidePanelOverride] = useState<boolean | null>(null);
-  const sidePanelOpen = sidePanelOverride ?? wideViewport;
-  const toggleSidePanel = () => setSidePanelOverride(!sidePanelOpen);
+  const [sidePanelOpen, setSidePanelOpen] = useState(false);
+  const toggleSidePanel = () => setSidePanelOpen((open) => !open);
   const [tiptapEditor, setTiptapEditor] = useState<Editor | null>(null);
   const [liveWordCount, setLiveWordCount] = useState(0);
   const handleEditorReady = useCallback((ed: Editor) => {
@@ -326,7 +319,7 @@ export default function SimplifiedEditView({
       </header>
 
       <div className={styles.workflow}>
-        <BookWorkflowHeader bookId={bookId} activeTool={activeTool} tools={tools} bare compact />
+        <BookWorkflowHeader bookId={bookId} language={activeLanguage} activeTool={activeTool} tools={tools} bare compact />
       </div>
 
       <div className={styles.canvas}>

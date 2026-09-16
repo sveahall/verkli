@@ -1,4 +1,6 @@
 .panel { container-type: inline-size; }
+.root :is(button, a) { min-height: 44px; }
+.root :is(button, a, input, select, textarea):focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
 .heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
 .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-items: start; }
 .preview {
@@ -9,7 +11,14 @@
 .currentCover { width: min(100%, 288px); margin-inline: auto; }
 .artwork { background: var(--card); border-radius: 4px 12px 12px 4px; box-shadow: -5px 0 0 -2px #7456bd33, 0 18px 28px -12px #24182f40; }
 .upload { aspect-ratio: 3 / 4; width: min(100%, 260px); margin-inline: auto; min-height: 260px; background: var(--card); }
-.previewHint { margin-top: 24px; color: var(--muted-foreground); text-align: center; font-size: 12px; line-height: 1.8; }
+.previewHint { margin-top: 16px; color: var(--muted-foreground); text-align: center; font-size: 12px; line-height: 1.8; }
+.coverCaption { margin-top: 24px; text-align: center; }
+.coverCaption p { color: var(--foreground); font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.coverCaption span { display: block; margin-top: 5px; color: var(--muted-foreground); font-size: 12px; }
+.briefModes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 24px; padding: 4px; border: 1px solid var(--border); border-radius: 16px; background: var(--background); }
+.briefModes button { flex: 1; padding: 10px 14px; border-radius: 12px; color: var(--muted-foreground); font-size: 13px; font-weight: 500; transition: background-color 150ms, color 150ms; }
+.briefModes button[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); }
+.variationLabel { position: absolute; bottom: 8px; left: 8px; display: flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 999px; color: var(--foreground); background: var(--card); font-size: 11px; font-weight: 500; }
 .coverActions { margin-top: 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .coverActions button { min-height: 44px; }
 .generator { min-width: 0; padding: 4px 0; }
@@ -34,4 +43,7 @@
 @container (max-width: 699px) {
   .upload { aspect-ratio: auto; min-height: 180px; }
   .heading > span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .root *, .root *::before, .root *::after { animation: none !important; transition: none !important; }
 }

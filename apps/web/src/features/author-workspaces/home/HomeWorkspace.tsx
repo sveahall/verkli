@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AudioLines,
+  ArrowUpRight,
+  BookOpen,
   Coins,
   Languages,
   MessageSquareText,
@@ -192,6 +194,18 @@ export default function HomeWorkspace({
         headerRight={<WorkspaceHeaderActions />}
         main={
           <div className="space-y-6">
+            <section className="flex flex-col gap-6 rounded-[22px] border border-border bg-card p-6 sm:flex-row sm:items-center sm:justify-between sm:p-7" aria-label="Continue your story">
+              <div className="flex min-w-0 items-start gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent text-accent-foreground"><BookOpen className="h-5 w-5" aria-hidden="true" /></div>
+                <div className="min-w-0">
+                  <p className="text-xs text-accent-foreground">{primaryBook ? "Continue your story" : "Your author studio"}</p>
+                  <h2 className="mt-2 break-words font-display text-2xl font-normal leading-snug tracking-tight sm:text-[28px]">{primaryBook?.title ?? "Make room for your first story"}</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{primaryBook ? `Last edited ${formatUpdatedAt(primaryBook.updatedAt).toLowerCase()}. Your manuscript and publishing tools are together.` : "Start with a new book or import a manuscript. Your writing, publishing and reader activity come together here."}</p>
+                </div>
+              </div>
+              {primaryBook ? <Link href={`/author/books/${primaryBook.id}`} className="inline-flex min-h-11 shrink-0 items-center justify-between gap-5 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">Open editor <ArrowUpRight size={17} aria-hidden="true" /></Link>
+                : <Button onClick={openCreateDialog} className="min-h-11 shrink-0 rounded-full">Start your first book <Plus size={17} aria-hidden="true" /></Button>}
+            </section>
             <section className="flex flex-wrap items-center gap-2.5">
               <Button
                 type="button"
@@ -207,7 +221,7 @@ export default function HomeWorkspace({
                 href={resolveCommandHref("translate-book", {
                   bookId: primaryBook?.id ?? null,
                 })}
-                aria-label="Translate selected book"
+                aria-label={primaryBook ? `Translate ${primaryBook.title}` : "Choose a book to translate"}
                 className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-[14px] font-medium text-muted-foreground shadow-[0_2px_10px_rgba(15,23,42,0.04)] transition hover:bg-background dark:bg-card dark:text-foreground dark:hover:bg-accent"
               >
                 <Languages className="h-4 w-4 text-accent-foreground" aria-hidden="true" />
@@ -218,7 +232,7 @@ export default function HomeWorkspace({
                 href={resolveCommandHref("generate-audiobook", {
                   bookId: primaryBook?.id ?? null,
                 })}
-                aria-label="Create audiobook for selected book"
+                aria-label={primaryBook ? `Create audiobook for ${primaryBook.title}` : "Choose a book for an audiobook"}
                 className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-[14px] font-medium text-muted-foreground shadow-[0_2px_10px_rgba(15,23,42,0.04)] transition hover:bg-background dark:bg-card dark:text-foreground dark:hover:bg-accent"
               >
                 <AudioLines className="h-4 w-4 text-accent-foreground" aria-hidden="true" />
@@ -228,7 +242,15 @@ export default function HomeWorkspace({
 
             <AgentTeam workspace bookId={primaryBook?.id} bookTitle={primaryBook?.title} onCreateBook={openCreateDialog} />
 
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <section>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="font-display text-xl font-medium tracking-tight">Your books</h2>
+                <Link href="/author/library" className="inline-flex min-h-11 items-center gap-2 text-sm text-accent-foreground hover:underline">Open library <ArrowUpRight size={15} aria-hidden="true" /></Link>
+              </div>
+              <BooksTable items={tableRows} />
+            </section>
+
+            <section aria-label="Reader activity" className="grid grid-cols-2 gap-3 xl:grid-cols-5">
               {statCards.map((stat) => (
                 <StatsCard
                   key={stat.label}
@@ -247,9 +269,6 @@ export default function HomeWorkspace({
               <ActivityList items={activityItems} />
             </section>
 
-            <section>
-              <BooksTable items={tableRows} />
-            </section>
           </div>
         }
       />

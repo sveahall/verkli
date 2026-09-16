@@ -30,6 +30,7 @@ import {
   type AuthorSidebarLink,
 } from "@/nav/navConfig";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
+import { getToolHref } from "@/app/(app-author)/author/books/[id]/editor/bookEditor.shared";
 import { setActiveRoleCookieClient } from "@/lib/active-role";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -47,15 +48,7 @@ const ICONS: Record<string, LucideIcon> = {
  * Book workflow tabs — shown as nested items under Production
  * when the user is working on a specific book.
  */
-/**
- * Linear 7-step production flow:
- * Write → Cover → Audio → Translate → Pricing → Publish → Review.
- *
- * Keep this in the same order as `TOOL_ORDER` in `bookEditor.shared.ts` —
- * Pricing must stay ahead of Publish so the author sets a price before the
- * book ships. (This list is a separate hardcoded source of truth from
- * TOOL_ORDER; changes to the flow have to be made in both places.)
- */
+/** Legacy demo navigation; the author studio uses the grouped page rail. */
 const BOOK_WORKFLOW_TABS: ReadonlyArray<{
   key: string;
   label: string;
@@ -266,6 +259,7 @@ export default function AuthorSidebar({
 }) {
   const { state, activeBook } = useAuthorWorkspace();
   const pathname = usePathname();
+  const language = useSearchParams().get("lang") ?? undefined;
   const currentBookId = activeBook?.id ?? state.currentBookId;
   const isOnBookPage = pathname.startsWith("/author/books/");
   const bookIdFromPath = isOnBookPage
@@ -325,13 +319,12 @@ export default function AuthorSidebar({
                   active={active}
                 />
                 {showWorkflowChildren && (
-                  <div className="mt-1">
-                    <div className="mb-1 pl-7" title={activeBook?.title ?? "Book"}>
-                      <span className="block truncate max-w-[160px] text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/45">
-                        {activeBook?.title ?? "Book"}
-                      </span>
-                    </div>
-                    <BookWorkflowNav bookId={workflowBookId} isOnBookPage={isOnBookPage} demoModeActive={demoModeActive} />
+                  <div className="mx-3 mb-3 mt-3 rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-3">
+                    <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-sidebar-foreground/50">Current book</p>
+                    <Link href={getToolHref(workflowBookId, "edit", language)} className="mt-1 flex min-h-11 items-center text-sm leading-relaxed text-sidebar-foreground" title={activeBook?.id === workflowBookId ? activeBook.title ?? "Open manuscript" : "Open manuscript"}>
+                      <span className="line-clamp-2">{activeBook?.id === workflowBookId ? activeBook.title ?? "Open manuscript" : "Open manuscript"}</span>
+                    </Link>
+                    {demoModeActive ? <BookWorkflowNav bookId={workflowBookId} isOnBookPage={isOnBookPage} demoModeActive /> : <p className="mt-1 text-xs leading-relaxed text-sidebar-foreground/55">Your manuscript, editions and release tools are above the page.</p>}
                   </div>
                 )}
               </div>
@@ -395,38 +388,16 @@ export default function AuthorSidebar({
               </Link>
             );
           })}
-          {/* Settings shortcut */}
-          {AUTHOR_SIDEBAR_FOOTER.filter((item) => item.key === "settings").map((item) => {
-            const active = isLeafActive(item, pathname);
-            const Icon = ICONS[item.icon] ?? Settings;
-            return (
-              <Link
-                key={item.key}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className="group flex flex-col items-center gap-1 px-3 py-1.5"
-              >
-                <span
-                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 ${
-                    active
-                      ? "bg-sidebar-accent text-[#E29ED5]"
-                      : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground"
-                  }`}
-                >
-                  <Icon className="h-[18px] w-[18px]" />
-                </span>
-                <span
-                  className={`text-[10px] font-medium transition-colors ${
-                    active
-                      ? "text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/60"
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
+          <details className="relative" onKeyDown={(event) => {
+            if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); }
+          }}>
+            <summary className="flex min-h-14 min-w-14 cursor-pointer list-none flex-col items-center justify-center gap-1 rounded-xl text-sidebar-foreground/80 [&::-webkit-details-marker]:hidden" aria-label="Account menu">
+              <UserCircle className="h-5 w-5" aria-hidden /><span className="text-[10px] font-medium">Account</span>
+            </summary>
+            <div className="absolute bottom-full right-0 mb-4 w-56 rounded-2xl border border-sidebar-border bg-sidebar p-2 shadow-xl" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); }}>
+              {AUTHOR_SIDEBAR_FOOTER.map((item) => item.key === "switch-to-reader" ? <SwitchToReaderButton key={item.key} /> : <SidebarNavLink key={item.key} item={item} href={item.href} active={isLeafActive(item, pathname)} />)}
+            </div>
+          </details>
         </div>
       </nav>
     </>

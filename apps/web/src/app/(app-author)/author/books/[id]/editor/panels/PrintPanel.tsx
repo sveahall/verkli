@@ -354,7 +354,7 @@ export default function PrintPanel({
       {selectedFormats.size > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Pricing</h3>
-          <p className="mt-1 text-[13px] text-muted-foreground dark:text-muted-foreground">Set the reader price per format. You keep the margin after production and shipping.</p>
+          <p className="mt-1 text-[13px] text-muted-foreground dark:text-muted-foreground">Set a planned reader price per format. The estimate excludes taxes, fees and other costs; confirm production and delivery with your printer.</p>
 
           <div className="mt-3 flex items-center gap-2">
             <span className="text-[13px] text-muted-foreground dark:text-muted-foreground">Currency</span>

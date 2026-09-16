@@ -30,19 +30,18 @@ export function PrintPanelPitch({ onGetStarted }: { onGetStarted: () => void }) 
       <div className="text-center">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent-foreground">Print on demand</p>
         <h2 className="author-section-title mt-3 text-2xl font-medium tracking-tight text-foreground dark:text-foreground">
-          Offer your book as a physical copy
+          Prepare a printed edition
         </h2>
         <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-muted-foreground dark:text-muted-foreground">
-          Each book is printed when a reader orders it. No inventory, no upfront
-          cost&nbsp;&mdash; we handle printing, packaging and shipping.
+          Choose formats and estimate pricing for your physical book. Review your print files and confirm a printing and delivery service before taking orders.
         </p>
       </div>
 
       <div className="mt-10 grid grid-cols-3 gap-6 text-center">
         {[
-          { icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4", title: "No inventory" },
-          { icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", title: "No risk" },
-          { icon: "M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4", title: "We handle it all" },
+          { icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4", title: "Choose a format" },
+          { icon: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", title: "Review a proof" },
+          { icon: "M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4", title: "Plan distribution" },
         ].map((item) => (
           <div key={item.title}>
             <svg className="mx-auto h-6 w-6 text-muted-foreground dark:text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -81,8 +80,7 @@ export function PrintPanelPitch({ onGetStarted }: { onGetStarted: () => void }) 
         </div>
 
         <p className="mt-4 text-center text-[13px] text-muted-foreground dark:text-muted-foreground">
-          You set the reader price.
-          Example: sell softcover for 179&nbsp;kr &rarr; production 55&nbsp;kr + shipping 39&nbsp;kr = <span className="font-semibold text-emerald-600 dark:text-emerald-400">you keep 85&nbsp;kr</span>
+          Illustrative costs only. A 179&nbsp;kr price less 55&nbsp;kr production and 39&nbsp;kr shipping leaves 85&nbsp;kr before taxes, fees and other costs. Confirm current costs with your printer.
         </p>
       </div>
 
@@ -132,10 +130,10 @@ export function PrintPanelActivated({
         {/* Status */}
         <div className="mb-4 flex items-center gap-2.5">
           <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-400">
-            Active
+            Settings saved
           </span>
           <span className="text-xs text-muted-foreground dark:text-muted-foreground">
-            Readers can order a physical copy
+            Print settings are saved. Confirm print files and fulfillment before accepting orders.
           </span>
         </div>
 
@@ -189,7 +187,7 @@ export function PrintPanelActivated({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
               </svg>
               <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                Price not set — readers cannot order yet
+                Add a price to complete your print settings
               </span>
             </div>
             <button
