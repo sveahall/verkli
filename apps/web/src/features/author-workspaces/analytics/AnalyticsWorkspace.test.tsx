@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const harness = vi.hoisted(() => ({
-  effects: [] as Array<() => void | (() => void)>, updates: [] as unknown[],
+  effects: [] as Array<() => void | (() => void)>, updates: [] as unknown[], failedUpdates: [] as unknown[],
   period: "7d", bookId: "all", fetch: vi.fn(),
 }));
 vi.mock("react", async (original) => ({
   ...await original<typeof import("react")>(),
   useEffect: (effect: () => void | (() => void)) => { harness.effects.push(effect); },
-  useState: (initial: unknown) => [initial === "30d" ? harness.period : initial, (value: unknown) => harness.updates.push(value)],
+  useState: (initial: unknown) => [initial === "30d" ? harness.period : initial, (value: unknown) => {
+    harness.updates.push(value);
+    if (initial === false) harness.failedUpdates.push(value);
+  }],
 }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/author/analytics", useRouter: () => ({ replace: vi.fn() }), useSearchParams: () => new URLSearchParams(harness.bookId === "all" ? "" : `bookId=${harness.bookId}`) }));
 vi.mock("next/dynamic", () => ({ default: () => () => null }));
@@ -16,11 +19,12 @@ vi.mock("@/features/author-workspaces/components/WorkspaceHeaderActions", () => 
 const { default: AnalyticsWorkspace } = await import("./AnalyticsWorkspace");
 const settle = async () => { for (let i = 0; i < 15; i++) await Promise.resolve(); };
 beforeEach(() => {
-  harness.effects = []; harness.updates = []; harness.period = "7d"; harness.bookId = "all";
+  harness.effects = []; harness.updates = []; harness.failedUpdates = []; harness.period = "7d"; harness.bookId = "all";
+  vi.stubEnv("NEXT_PUBLIC_MARKETING_ENABLED", "true");
   harness.fetch.mockReset().mockImplementation(async (url: string) => Response.json(url.includes("revenue") ? { byCurrency: { SEK: 150 } } : { books: [] }));
   vi.stubGlobal("fetch", harness.fetch);
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 function start() {
   AnalyticsWorkspace({ books: [{ id: "book-2", title: "Selected" }] });
   return harness.effects.at(-1)!();
@@ -34,10 +38,39 @@ describe("analytics request integrity", () => {
     harness.bookId = "book-2"; start(); await settle();
     expect(harness.fetch.mock.calls.map(([url]) => url)).toContain("/api/author/stats/revenue?period=7d&bookId=book-2");
   });
-  it("clears previous financial figures on a network failure", async () => {
+  it.each(["true", "false"])("clears previous financial figures on a network failure with marketing=%s", async (enabled) => {
+    vi.stubEnv("NEXT_PUBLIC_MARKETING_ENABLED", enabled);
     harness.fetch.mockRejectedValue(new Error("network unavailable"));
     start(); await settle();
     expect(harness.updates).toContainEqual(expect.objectContaining({ revenue: null, booksFailed: true }));
+    expect(harness.failedUpdates).toEqual([true]);
+  });
+  it.each(["all", "book-2"])("does not request disabled marketing or mark healthy statistics failed for %s", async (bookId) => {
+    vi.stubEnv("NEXT_PUBLIC_MARKETING_ENABLED", "false");
+    harness.bookId = bookId;
+    const healthyFetch = harness.fetch.getMockImplementation()!;
+    harness.fetch.mockImplementation((url: string) => url.includes("/marketing/")
+      ? Response.json({ error: "MARKETING_FEATURE_DISABLED" }, { status: 403 })
+      : healthyFetch(url));
+    start(); await settle();
+    expect(harness.fetch.mock.calls.map(([url]) => url)).not.toContain("/api/author/marketing/campaigns");
+    expect(harness.fetch).toHaveBeenCalledTimes(bookId === "all" ? 4 : 3);
+    expect(harness.failedUpdates).toEqual([false]);
+    expect(harness.updates).toContainEqual(expect.objectContaining({
+      revenue: { byCurrency: { SEK: 150 } }, marketingFailed: false, marketingCampaigns: [],
+      [bookId === "all" ? "overviewStats" : "bookDetail"]: { books: [] },
+    }));
+  });
+  it.each(["all", "book-2"])("reports a genuine enabled marketing failure for %s while preserving loaded revenue", async (bookId) => {
+    harness.bookId = bookId;
+    const healthyFetch = harness.fetch.getMockImplementation()!;
+    harness.fetch.mockImplementation((url: string) => url.includes("/marketing/")
+      ? Response.json({ error: "DATABASE_ERROR" }, { status: 503 })
+      : healthyFetch(url));
+    start(); await settle();
+    expect(harness.fetch.mock.calls.map(([url]) => url)).toContain("/api/author/marketing/campaigns");
+    expect(harness.failedUpdates).toEqual([true]);
+    expect(harness.updates).toContainEqual(expect.objectContaining({ revenue: { byCurrency: { SEK: 150 } }, marketingFailed: true }));
   });
   it("aborts obsolete requests and never applies their response", async () => {
     let resolve!: (value: Response) => void;

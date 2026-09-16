@@ -498,10 +498,10 @@ export default function AnalyticsDashboard({
               : chapterSignals.length === 0 ? <p className={styles.unavailable}>Chapter data appears once readers start reading.</p>
               : <ChapterFunnel signals={chapterSignals} />}
           </section>
-          <section className={styles.panel} aria-labelledby="analytics-marketing-title">
+          {(getMarketingEnabled() || data.marketingCampaigns.length > 0) && <section className={styles.panel} aria-labelledby="analytics-marketing-title">
             <div className={styles.panelHeading}><div><h2 id="analytics-marketing-title">Marketing activity</h2><p>Campaigns across all books · All time</p></div></div>
             {data.marketingFailed ? <p role="alert" className={styles.unavailable}>Campaign data unavailable. Please retry.</p> : <MarketingPanel campaigns={data.marketingCampaigns} />}
-          </section>
+          </section>}
         </div>
         <section className={styles.panel} aria-labelledby="analytics-sales-title">
           <div className={styles.panelHeading}><div><h2 id="analytics-sales-title">Sales and subscriptions</h2><p>Order amounts and current recurring subscriptions.</p></div></div>
