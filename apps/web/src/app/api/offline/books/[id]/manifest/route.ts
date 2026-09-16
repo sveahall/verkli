@@ -46,7 +46,10 @@ export async function GET(
     return apiError(E_OFFLINE_MANIFEST_LOAD_FAILED, 500);
   }
 
-  const chapterRows = (chapters ?? []) as ChapterRow[];
+  const publishedCount = activeVersion.published_chapter_count;
+  const chapterRows = ((chapters ?? []) as ChapterRow[]).filter((chapter) =>
+    typeof publishedCount !== "number" || !Number.isFinite(publishedCount) || chapter.order < publishedCount
+  );
   const manifestChapters = await Promise.all(
     chapterRows.map(async (chapter) => {
       const contentHash = await buildChapterContentHash({

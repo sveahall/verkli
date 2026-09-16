@@ -119,6 +119,9 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
         throw new Error(resolveErrorMessage(manifestBody.error ?? null));
       }
       const manifest = manifestBody as OfflineManifestResponse;
+      if (!manifest.chapters?.length) {
+        throw new Error("This book has no chapters available to save offline.");
+      }
 
       const previousManifest = await getOfflineManifestForBook(userId, bookId);
       const previousHashes = previousManifest?.chapterHashes ?? {};
@@ -183,6 +186,16 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
         manifest.bookId,
         manifest.chapters.map((chapter) => chapter.id)
       );
+      await syncBookmarksSnapshot(userId, manifest.bookId);
+
+      const nextUrls = [manifest.bookUrl, ...manifest.chapters.map((chapter) => chapter.readerUrl)];
+      await cacheOfflineUrls(nextUrls);
+      const staleUrls = (previousManifest?.chapterReaderUrls ?? []).filter((url) => !nextUrls.includes(url));
+      if (staleUrls.length > 0) {
+        await clearOfflineUrls(staleUrls);
+      }
+      // A manifest is the saved-state marker. Write it only after the worker
+      // confirms all reader pages are available, including after a retry.
       await saveOfflineManifest({
         userId,
         bookId: manifest.bookId,
@@ -197,15 +210,6 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
         chapterCount: manifest.chapters.length,
         updatedAt: Date.now(),
       });
-      await syncBookmarksSnapshot(userId, manifest.bookId);
-
-      const nextUrls = [manifest.bookUrl, ...manifest.chapters.map((chapter) => chapter.readerUrl)];
-      const staleUrls = (previousManifest?.chapterReaderUrls ?? []).filter((url) => !nextUrls.includes(url));
-      if (staleUrls.length > 0) {
-        await clearOfflineUrls(staleUrls);
-      }
-      await cacheOfflineUrls(nextUrls);
-
       setProgress(100);
       setStatusText("Saved offline");
       setIsSaved(true);
@@ -227,10 +231,10 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
     setStatusText("Clearing offline data...");
     try {
       const existingManifest = await getOfflineManifestForBook(userId, bookId);
-      await removeOfflineBook(userId, bookId);
       if (existingManifest) {
         await clearOfflineUrls([existingManifest.bookUrl, ...existingManifest.chapterReaderUrls]);
       }
+      await removeOfflineBook(userId, bookId);
       setIsSaved(false);
       setStatusText("Offline data removed");
     } catch {
@@ -246,8 +250,8 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
     setErrorText(null);
     setStatusText("Clearing all offline data...");
     try {
-      await clearOfflineForUser(userId);
       await clearAllOfflineContentUrls();
+      await clearOfflineForUser(userId);
       setIsSaved(false);
       setStatusText("All offline data cleared");
     } catch {
@@ -294,6 +298,7 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
 
   return (
     <div className="min-w-[220px]">
+      <p className="mb-2 text-[12px] text-muted-foreground">Saves chapter text on this device. Audio needs an internet connection.</p>
       <button
         type="button"
         onClick={() => void saveOffline()}
@@ -306,6 +311,11 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
       {(isBusy || progress > 0) && (
         <div className="mt-3 w-full rounded-full border border-black/10 bg-black/[0.04] p-1 dark:border-border dark:bg-card">
           <div
+            role="progressbar"
+            aria-label="Saving offline chapters"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.min(100, Math.max(0, progress))}
             className="h-1.5 rounded-full bg-[#907AFF] transition-[background-color,border-color,color,box-shadow]"
             style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
           />
@@ -313,12 +323,12 @@ export default function OfflineSaveButton({ bookId, userId, languageCode }: Prop
       )}
 
       {statusText && (
-        <p className="mt-2 text-[12px] text-muted-foreground">
+        <p role="status" className="mt-2 text-[12px] text-muted-foreground">
           {statusText}
         </p>
       )}
       {errorText && (
-        <p className="mt-2 text-[12px] text-rose-700 dark:text-rose-300">
+        <p role="alert" className="mt-2 text-[12px] text-rose-700 dark:text-rose-300">
           {errorText}
         </p>
       )}

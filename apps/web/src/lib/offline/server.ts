@@ -30,6 +30,7 @@ type OfflineVersionRow = {
   book_id: string;
   language_code: string;
   published_at: string | null;
+  published_chapter_count: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -123,7 +124,7 @@ export async function requireOfflineBookAccess(
 
   const { data: versions, error: versionsError } = await supabase
     .from("book_versions")
-    .select("id, book_id, language_code, published_at, created_at, updated_at")
+    .select("id, book_id, language_code, published_at, published_chapter_count, created_at, updated_at")
     .eq("book_id", bookRow.id)
     .not("published_at", "is", null)
     .order("created_at", { ascending: true });
