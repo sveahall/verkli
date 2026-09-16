@@ -1,4 +1,15 @@
 .studio { color: var(--foreground); width: 100%; min-width: 0; }
+.editorFields { border:0; padding:0; margin:0; min-width:0; }
+.exportActions { display:flex; flex-direction:column; gap:10px; margin-top:22px; }
+.accountState { display:flex; flex-direction:column; align-items:flex-start; gap:16px; padding:28px; border:1px solid var(--border); border-radius:18px; margin-bottom:24px; }
+.accountState p { font-size:14px; line-height:1.7; color:var(--muted-foreground); }
+.conflictActions { display:flex; flex-wrap:wrap; gap:10px; }
+.savedReview { width:100%; font-size:14px; line-height:1.7; }
+.savedReview summary { cursor:pointer; min-height:44px; display:flex; align-items:center; }
+.savedReview dl { display:grid; grid-template-columns:auto 1fr; gap:8px 20px; margin:12px 0; }
+.savedReview dt { color:var(--muted-foreground); }.savedReview dd,.savedReview p { white-space:pre-wrap; overflow-wrap:anywhere; }
+.reviewArtwork { display:flex; gap:20px; margin:16px 0; }.reviewArtwork figure { width:150px; max-width:45%; }.reviewArtwork figure > div { background-size:cover; background-position:center; border:1px solid var(--border); }.reviewArtwork figcaption { font-size:12px; color:var(--muted-foreground); margin-top:6px; }
+@media(max-width:600px) { .accountState { padding:18px; }.savedReview dl { grid-template-columns:1fr; gap:4px; }.savedReview dd { margin-bottom:10px; } }
 .workspaceTabs { display:flex; gap:6px; padding:5px; border:1px solid var(--border); background:var(--background); border-radius:14px; width:fit-content; max-width:100%; margin:0 0 30px; }
 .workspaceTabs button { display:flex; align-items:center; justify-content:center; gap:8px; min-height:46px; padding:10px 16px; border-radius:10px; color:var(--muted-foreground); font-size:13px; }
 .workspaceTabs button[aria-selected="true"] { color:var(--primary-foreground); background:var(--primary); }

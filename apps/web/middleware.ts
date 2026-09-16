@@ -4,6 +4,18 @@ import { isBetaUser, BetaCheckTransientError } from '@/lib/auth/beta'
 import { getAuthorApplicationStatus } from '@/lib/auth/author-approval'
 import { ACTIVE_ROLE_COOKIE } from '@/lib/active-role'
 import { TA_FOR_ER_ORDER } from '@/lib/orders/ta-for-er'
+import { sanitizeNextPath } from '@/lib/auth/next-path'
+
+function redirectToSignIn(request: NextRequest, role: 'author' | 'reader', sessionResponse: NextResponse) {
+  const url = request.nextUrl.clone()
+  const next = sanitizeNextPath(`${url.pathname}${url.search}`)
+  url.pathname = `/${role}/signin`
+  url.search = ''
+  if (next) url.searchParams.set('next', next)
+  const response = NextResponse.redirect(url, 307)
+  for (const cookie of sessionResponse.cookies.getAll()) response.cookies.set(cookie)
+  return response
+}
 
 // ---------------------------------------------------------------------------
 // In-memory cache of `profiles.role` keyed by user id. Middleware otherwise
@@ -409,6 +421,11 @@ export async function middleware(request: NextRequest) {
           headers: { 'Content-Type': 'application/json' },
         })
       }
+      // An expired session cannot prove beta membership yet. Let workspace
+      // visitors sign in, then check membership again on the original route.
+      if (!user && (p.startsWith('/author/') || p.startsWith('/reader/'))) {
+        return redirectToSignIn(request, p.startsWith('/author/') ? 'author' : 'reader', supabaseResponse)
+      }
       const url = request.nextUrl.clone()
       url.pathname = '/waitlist'
       if (user) url.searchParams.set('access', 'pending')
@@ -447,9 +464,7 @@ export async function middleware(request: NextRequest) {
   // Protect all /author/* routes except public ones
   if (pathname.startsWith('/author') && !isAuthorPublic) {
     if (!user) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/author/signin'
-      return NextResponse.redirect(url)
+      return redirectToSignIn(request, 'author', supabaseResponse)
     }
 
     // SECURITY: Only trust profiles.role from DB — user_metadata is client-writable.
@@ -489,9 +504,7 @@ export async function middleware(request: NextRequest) {
 
   // Protect all /reader/* routes except public ones
   if (pathname.startsWith('/reader') && !isReaderPublic && !user) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/reader/signin'
-    return NextResponse.redirect(url)
+    return redirectToSignIn(request, 'reader', supabaseResponse)
   }
 
   return supabaseResponse

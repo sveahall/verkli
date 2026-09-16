@@ -12,6 +12,11 @@ import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/client";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { resolveActiveRoleFromProfile, setActiveRoleCookieClient } from "@/lib/active-role";
+import { resolvePostSignInPath, sanitizeNextPath, writeNextPathCookieClient } from "@/lib/auth/next-path";
+
+function readRawNextParam(): string | null {
+  return typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("next");
+}
 
 export default function AuthorSignIn() {
   const router = useRouter();
@@ -69,7 +74,7 @@ export default function AuthorSignIn() {
 
       const resolvedRole = nextRole ?? "author";
       setActiveRoleCookieClient(resolvedRole);
-      router.replace(resolvedRole === "reader" ? "/reader/home" : "/author/home");
+      router.replace(resolvePostSignInPath(readRawNextParam(), resolvedRole));
     } catch {
       setError("Sign in failed. Please try again.");
       setLoading(false);
@@ -78,6 +83,7 @@ export default function AuthorSignIn() {
 
   const handleGoogleSignIn = async () => {
     setError("");
+    writeNextPathCookieClient(sanitizeNextPath(readRawNextParam()));
     const { error } = await signInWithGoogle();
     if (error) {
       setError(resolveErrorMessage(null, "Sign in failed. Check your email and password."));

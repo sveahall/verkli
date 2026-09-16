@@ -1,20 +1,3 @@
-// GENERATED FILE — DO NOT EDIT.
-//
-// Regenerate:
-//   cd apps/web && npm run generate:types
-//
-// Two things that make this fail quietly:
-//   - `--schema` is not optional. The default is `public` alone, which silently
-//     drops the graphql_public block below. The script passes it; a hand-run
-//     command must too.
-//   - The CLI must be authenticated as the account that owns the verkli project.
-//     A token for the other account returns "your account does not have the
-//     necessary privileges" from the type-generation endpoint. Pass one via
-//     SUPABASE_ACCESS_TOKEN rather than re-running `supabase login`, so the
-//     existing login is left alone.
-//
-// Manual edits will be overwritten on the next regeneration.
-
 export type Json =
   | string
   | number
@@ -894,6 +877,51 @@ export type Database = {
             foreignKeyName: "book_imports_book_version_id_fkey"
             columns: ["book_version_id"]
             isOneToOne: false
+            referencedRelation: "book_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      book_production_drafts: {
+        Row: {
+          book_id: string
+          created_at: string
+          owner_id: string
+          revision: number
+          settings: Json
+          updated_at: string
+          version_id: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          owner_id: string
+          revision?: number
+          settings: Json
+          updated_at?: string
+          version_id: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          owner_id?: string
+          revision?: number
+          settings?: Json
+          updated_at?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_production_drafts_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "book_production_drafts_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: true
             referencedRelation: "book_versions"
             referencedColumns: ["id"]
           },
@@ -3880,6 +3908,32 @@ export type Database = {
           p_user_id: string
         }
         Returns: boolean
+      }
+      has_book_entitlement: {
+        Args: { p_book_id: string; p_chapter_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      is_book_club_member: {
+        Args: { p_club_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      owns_book_production_artwork: {
+        Args: { object_name: string }
+        Returns: boolean
+      }
+      owns_book_production_edition: {
+        Args: { p_book_id: string; p_version_id: string }
+        Returns: boolean
+      }
+      policy_inventory: {
+        Args: { p_table: string }
+        Returns: {
+          cmd: string
+          permissive: string
+          policyname: string
+          qual: string
+          roles: string[]
+        }[]
       }
       refresh_book_audiobook_status: {
         Args: { p_book_id: string }

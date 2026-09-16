@@ -53,7 +53,7 @@ export default async function OgImage() {
         />
 
         {/* Supplied wordmark; ImageResponse renders this image directly. */}
-        <img src={logo} alt="Verkli" width={438} height={120} />
+        <img src={logo} alt="Verkli" width={438} height={(438 * 397) / 2143} />
 
         {/* Tagline */}
         <div

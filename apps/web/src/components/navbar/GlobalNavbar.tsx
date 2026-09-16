@@ -375,18 +375,18 @@ export default function GlobalNavbar({
                 className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus:ring-offset-background"
               >
                 <Image
-                  src="/logo-dark.svg?v=20260915"
+                  src="/logo-dark.svg?v=20260916"
                   alt="Verkli"
-                  width={796}
-                  height={221}
+                  width={1429}
+                  height={265}
                   className="h-8 w-auto dark:hidden"
                   priority
                 />
                 <Image
-                  src="/favicon.svg?v=20260915-white"
+                  src="/favicon.svg?v=20260916"
                   alt="Verkli"
-                  width={796}
-                  height={221}
+                  width={1429}
+                  height={265}
                   className="hidden h-8 w-auto dark:block"
                 />
               </Link>

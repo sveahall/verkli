@@ -4,21 +4,23 @@ import { useState } from "react";
 import { AlertCircle, Download, FileCheck2, Loader2 } from "lucide-react";
 import { getCoverGeometry, isValidIsbn13, type ProductionSettings } from "./model";
 import styles from "./ProductionStudio.module.css";
+import type { ProductionExportKind } from "./remote-draft";
 
-export type ProductionProof = { pageCount: number; interiorUrl: string; coverUrl: string | null; notes: string[] };
+export type ProductionProof = { pageCount: number | null; interiorUrl: string | null; coverUrl: string | null; notes: string[] };
 
 function NumberField({ label, value, onChange, min, max, step = 1, optional = false }: { label: string; value: number | null; onChange: (value: number | null) => void; min: number; max: number; step?: number; optional?: boolean }) {
   const [draft, setDraft] = useState<string | null>(null);
   return <label className={styles.field}>{label}<input type="number" inputMode="decimal" min={min} max={max} step={step} value={draft ?? (value === null ? "" : String(value))} placeholder={optional ? "From your printer" : undefined} onFocus={() => setDraft(value === null ? "" : String(value))} onChange={(event) => { setDraft(event.target.value); if (event.target.value !== "" && Number.isFinite(event.target.valueAsNumber)) onChange(event.target.valueAsNumber); else if (optional) onChange(null); }} onBlur={() => setDraft(null)} /></label>;
 }
 
-export function ProductionFormat({ settings, onChange, proof, building, onBuild, exportAvailable }: {
+export function ProductionFormat({ settings, onChange, proof, building, onBuild, exportAvailable, exportBlockedReason }: {
   settings: ProductionSettings;
   onChange: (patch: Partial<ProductionSettings>) => void;
   proof: ProductionProof | null;
-  building: boolean;
-  onBuild: () => void;
+  building: ProductionExportKind | null;
+  onBuild: (kind: ProductionExportKind) => void;
   exportAvailable: boolean;
+  exportBlockedReason?: string;
 }) {
   const geometry = getCoverGeometry(settings);
   const [customTrim, setCustomTrim] = useState(false);
@@ -52,9 +54,13 @@ export function ProductionFormat({ settings, onChange, proof, building, onBuild,
     <aside className={styles.exportCard}>
       <FileCheck2 size={26} aria-hidden /><h3 className={styles.sectionTitle}>From manuscript to book.</h3><p className={styles.help}>Review two separate files: the interior and the complete cover.</p>
       <dl className={styles.measurements}><div><dt>Trim</dt><dd>{settings.trimWidthMm} × {settings.trimHeightMm} mm</dd></div><div><dt>Full cover</dt><dd>{geometry.widthMm === null ? "Spine measurement needed" : `${geometry.widthMm.toFixed(2)} × ${geometry.heightMm.toFixed(2)} mm`}</dd></div><div><dt>Interior pages</dt><dd>{proof?.pageCount ?? "Calculated during export"}</dd></div><div><dt>Book parts</dt><dd>{settings.sections.filter((section) => section.enabled).length} included</dd></div></dl>
-      <button type="button" className={styles.primaryButton} disabled={building || !exportAvailable} onClick={onBuild}>{building ? <Loader2 className={styles.spinner} size={17} aria-hidden /> : <FileCheck2 size={17} aria-hidden />}{building ? "Typesetting your book…" : "Generate print proof"}</button>
-      {!exportAvailable && <p className={styles.help}>PDF export is not available yet.</p>}
-      {proof && <div className={styles.proofDownloads}><a href={proof.interiorUrl} download="book-interior.pdf"><Download size={17} aria-hidden />Interior PDF<span>{proof.pageCount} pages</span></a>{proof.coverUrl && <a href={proof.coverUrl} download="book-cover.pdf"><Download size={17} aria-hidden />Full-cover PDF</a>}{proof.notes.map((note) => <p className={styles.warning} key={note}><AlertCircle size={15} aria-hidden />{note}</p>)}</div>}
+      <div className={styles.exportActions}>
+        <button type="button" className={styles.primaryButton} disabled={Boolean(building) || !exportAvailable} onClick={() => onBuild("interior")}>{building === "interior" ? <Loader2 className={styles.spinner} size={17} aria-hidden /> : <FileCheck2 size={17} aria-hidden />}{building === "interior" ? "Typesetting interior…" : "Generate interior PDF"}</button>
+        <button type="button" className={styles.secondaryButton} disabled={Boolean(building) || !exportAvailable || settings.spineWidthMm === null} onClick={() => onBuild("cover")}>{building === "cover" ? <Loader2 className={styles.spinner} size={17} aria-hidden /> : <FileCheck2 size={17} aria-hidden />}{building === "cover" ? "Preparing cover…" : "Generate full-cover PDF"}</button>
+      </div>
+      {!exportAvailable && <p className={styles.help}>{exportBlockedReason}</p>}
+      {settings.spineWidthMm === null && <p className={styles.help}>Enter your printer’s final spine measurement to export the full cover.</p>}
+      {proof && <div className={styles.proofDownloads}>{proof.interiorUrl && <a href={proof.interiorUrl} download="book-interior.pdf"><Download size={17} aria-hidden />Interior PDF<span>{proof.pageCount} pages</span></a>}{proof.coverUrl && <a href={proof.coverUrl} download="book-cover.pdf"><Download size={17} aria-hidden />Full-cover PDF</a>}{proof.notes.map((note) => <p className={styles.warning} key={note}><AlertCircle size={15} aria-hidden />{note}</p>)}</div>}
       <div className={styles.printNote}><strong>Before you send it to print</strong><p>Check the proof, artwork resolution, printer’s colour requirements and final spine measurement. Request a physical proof before the full run.</p></div>
     </aside>
   </div>;

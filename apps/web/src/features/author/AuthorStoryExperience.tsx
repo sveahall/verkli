@@ -243,7 +243,7 @@ export function AuthorStudioExperience() {
     <StudioSurface reduceMotion={reduceMotion}>
     <div className={styles.studio} data-stage={stage} onPointerDownCapture={(event) => { if (!(event.target instanceof Element && event.target.closest("[data-tour-control]"))) setTour(false); }} onKeyDownCapture={(event) => { if (!(event.target instanceof Element && event.target.closest("[data-tour-control]"))) setTour(false); }}>
       <div className={styles.chrome}>
-        <div className={styles.wordmark}><Image src="/favicon.svg?v=20260915-white" alt="Verkli" width={109} height={30} className={styles.studioLogo} /><span>/</span><span>Studio</span></div>
+        <div className={styles.wordmark}><Image src="/favicon.svg?v=20260916" alt="Verkli" width={1429} height={265} className={styles.studioLogo} /><span>/</span><span>Studio</span></div>
         <div className={styles.chromeRight}><span className={styles.sampleBadge}>Make yourself at home.</span>{!reduceMotion && <button data-tour-control type="button" aria-label={tour ? "Pause tour" : "Play tour"} onClick={() => { story.pause(); setTour((value) => !value); }}>{tour && !reduceMotion ? <Pause size={13} /> : <Play size={13} />}<span>{tour ? "Pause tour" : "Play tour"}</span></button>}</div>
       </div>
       <div className={styles.stageNav}>

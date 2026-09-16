@@ -55,7 +55,7 @@ export function ProductionCover({ settings, artwork, onChange, onUpload, onRemov
       <div className={styles.coverStage}>
         {view === "spread" ? <div className={styles.spread} style={{ gridTemplateColumns: `${settings.trimWidthMm}fr ${spine}fr ${settings.trimWidthMm}fr` }}>
           {face("back")}
-          <div className={styles.spine} style={coverStyle}><span>{settings.cover.spineText || settings.title}</span></div>
+          <div className={styles.spine} style={coverStyle}><span>{settings.cover.spineText}</span></div>
           {face("front")}
         </div> : <div className={styles.singleFace} key={view}>{face(view)}</div>}
       </div>
