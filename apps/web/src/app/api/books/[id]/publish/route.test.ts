@@ -79,6 +79,7 @@ function buildSupabaseMock({
     | null,
   defaultVersion = { id: VERSION_ID } as { id: string } | null,
   anyVersion = null as { id: string } | null,
+  beforeVersionUpdate = () => {},
   updateError = null as { message?: string } | null,
   authorProfile = { display_name: "Author Name", username: null as string | null } as
     | { display_name: string | null; username: string | null }
@@ -90,14 +91,22 @@ function buildSupabaseMock({
     published_at: string | null;
     visibility: string;
     published_chapter_count: number | null;
+    status?: string;
+    updated_at?: string;
   } | null;
   versionError?: { code?: string; message?: string } | null;
   chapters?: { id: string; content: string | null }[] | null;
   defaultVersion?: { id: string } | null;
   anyVersion?: { id: string } | null;
+  beforeVersionUpdate?: () => void;
   updateError?: { message?: string } | null;
   authorProfile?: { display_name: string | null; username: string | null } | null;
 } = {}) {
+  if (version) {
+    version.status ??= "draft";
+    version.updated_at ??= "2026-09-16T10:00:00.123456Z";
+  }
+  const versionUpdates: Record<string, unknown>[] = [];
   // Track version select calls to differentiate between version lookups
   let versionSelectCount = 0;
 
@@ -139,7 +148,7 @@ function buildSupabaseMock({
                     })),
                   })),
                   maybeSingle: vi.fn().mockResolvedValue({
-                    data: version,
+                    data: version ? { ...version } : null,
                     error: versionError,
                   }),
                 })),
@@ -150,7 +159,7 @@ function buildSupabaseMock({
             return {
               eq: vi.fn(() => ({
                 maybeSingle: vi.fn().mockResolvedValue({
-                  data: version,
+                  data: version ? { ...version } : null,
                   error: versionError,
                 }),
                 not: vi.fn(() => ({
@@ -162,22 +171,35 @@ function buildSupabaseMock({
               })),
             };
           }),
-          update: vi.fn(() => ({
-            eq: vi.fn().mockResolvedValue({ error: updateError }),
-          })),
+          update: vi.fn((values: Record<string, unknown>) => {
+            const filters: Array<[string, unknown]> = [];
+            const execute = () => {
+              beforeVersionUpdate();
+              const matched = version && filters.every(([key, value]) => (version as Record<string, unknown>)[key] === value);
+              if (matched && !updateError) { versionUpdates.push(values); Object.assign(version, values); }
+              return { data: matched && !updateError ? { id: VERSION_ID } : null, error: updateError };
+            };
+            const query = {
+              eq: (key: string, value: unknown) => { filters.push([key, value]); return query; },
+              select: () => query,
+              maybeSingle: async () => execute(),
+              then: (resolve: (value: ReturnType<typeof execute>) => unknown) => Promise.resolve(execute()).then(resolve),
+            };
+            return query;
+          }),
         };
       }
       if (table === "chapters") {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              order: vi.fn(() => ({
-                data: chapters,
-                error: null,
-              })),
-            })),
-          })),
-        };
+        return { select: vi.fn(() => {
+          let chapterId: string | null = null;
+          const rows = () => chapters?.map((chapter, order) => ({ order, ...chapter })) ?? null;
+          const query = {
+            eq: (key: string, value: string) => { if (key === "id") chapterId = value; return query; },
+            order: () => ({ data: rows(), error: null }),
+            maybeSingle: async () => ({ data: rows()?.find((chapter) => chapter.id === chapterId) ?? null, error: null }),
+          };
+          return query;
+        }) };
       }
       if (table === "books") {
         return {
@@ -203,7 +225,7 @@ function buildSupabaseMock({
   };
 
   mocks.createClient.mockResolvedValue(supabase);
-  return supabase;
+  return { ...supabase, versionUpdates };
 }
 
 describe("POST /api/books/[id]/publish", () => {
@@ -568,4 +590,53 @@ describe("POST /api/books/[id]/publish", () => {
       expect.any(String),
     );
   });
+  function publishableBook() {
+    mocks.getBookAsOwner.mockResolvedValue({ ok: true, data: { id: BOOK_ID, title: "My Book", author_id: "author-1", status: "DRAFT", original_language: "en", cover_image: "cover.jpg" } });
+  }
+  const draftVersion = () => ({ id: VERSION_ID, book_id: BOOK_ID, published_at: null as string | null, visibility: "private", published_chapter_count: null as number | null, status: "draft", updated_at: "2026-09-16T10:00:00.123456Z" });
+
+  it("blocks publishing an edition currently being translated", async () => {
+    publishableBook();
+    const db = buildSupabaseMock({ version: { ...draftVersion(), status: "translating" } });
+    const res = await POST(makeRequest({ scope: "book" }), makeParams());
+    expect(res.status).toBe(409);
+    expect(db.versionUpdates).toEqual([]);
+  });
+
+  it.each(["book", "chapter"])("atomically rejects %s publish when a worker claims the edition after reading", async (scope) => {
+    publishableBook();
+    const version = draftVersion();
+    const db = buildSupabaseMock({ version, beforeVersionUpdate: () => { version.status = "translating"; version.updated_at = "new-claim"; } });
+    const res = await POST(makeRequest({ scope, chapterId: "ch-1" }), makeParams());
+    expect(res.status).toBe(409);
+    expect(version.published_at).toBeNull();
+    expect(db.versionUpdates).toEqual([]);
+  });
+
+  it("rejects publishing a later chapter before the first chapter", async () => {
+    publishableBook();
+    const db = buildSupabaseMock({ chapters: [{ id: "ch-1", content: "First" }, { id: "ch-2", content: "Second" }] });
+    const res = await POST(makeRequest({ scope: "chapter", chapterId: "ch-2" }), makeParams());
+    expect(res.status).toBe(409);
+    expect(db.versionUpdates).toEqual([]);
+  });
+
+  it("allows only the next chapter in a partially released edition", async () => {
+    publishableBook();
+    const version = { ...draftVersion(), published_at: "2026-09-15T10:00:00Z", published_chapter_count: 1 };
+    const db = buildSupabaseMock({ version, chapters: [{ id: "ch-1", content: "First" }, { id: "ch-2", content: "Second" }] });
+    const res = await POST(makeRequest({ scope: "chapter", chapterId: "ch-2" }), makeParams());
+    expect(res.status).toBe(200);
+    expect(db.versionUpdates[0]?.published_chapter_count).toBe(2);
+  });
+
+  it("preserves explicit all-chapters publishing for a partially released edition", async () => {
+    publishableBook();
+    const version = { ...draftVersion(), published_at: "2026-09-15T10:00:00Z", published_chapter_count: 1 };
+    const db = buildSupabaseMock({ version, chapters: [{ id: "ch-1", content: "First" }, { id: "ch-2", content: "Second" }] });
+    const res = await POST(makeRequest({ scope: "book" }), makeParams());
+    expect(res.status).toBe(200);
+    expect(db.versionUpdates[0]?.published_chapter_count).toBeNull();
+  });
+
 });
