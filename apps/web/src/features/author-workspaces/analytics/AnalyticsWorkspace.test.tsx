@@ -8,7 +8,7 @@ vi.mock("react", async (original) => ({
   useEffect: (effect: () => void | (() => void)) => { harness.effects.push(effect); },
   useState: (initial: unknown) => [initial === "30d" ? harness.period : initial, (value: unknown) => harness.updates.push(value)],
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), useSearchParams: () => new URLSearchParams(harness.bookId === "all" ? "" : `bookId=${harness.bookId}`) }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/author/analytics", useRouter: () => ({ replace: vi.fn() }), useSearchParams: () => new URLSearchParams(harness.bookId === "all" ? "" : `bookId=${harness.bookId}`) }));
 vi.mock("next/dynamic", () => ({ default: () => () => null }));
 vi.mock("@/features/author-shell/workspace-state", () => ({ useAuthorWorkspace: () => ({ setCurrentBookId: vi.fn() }) }));
 vi.mock("@/features/author-workspaces/WorkspaceLayout", () => ({ default: () => null }));

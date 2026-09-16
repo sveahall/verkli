@@ -1,6 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import BookToolsMenu from "../BookToolsMenu";
+import AgentAvatar from "@/features/ai-team/AgentAvatar";
+import { getAgent } from "@/features/ai-team/agents";
+import { agentConversations, conversationTool } from "@/features/ai-team/agent-conversations";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useBookJobs } from "@/hooks/useBookJobs";
@@ -185,6 +190,11 @@ export default function BookEditorView({
       // Private mode / blocked storage: the dock still works, it just forgets.
     }
   }, [assistantOpen]);
+
+  // The specialist follows the task. Each tool keeps its own transcript in
+  // AiAssistantPanel, so changing rooms does not mix translation and editing.
+  useEffect(() => { setAssistantTool(tool); }, [tool]);
+  const currentAgent = getAgent(agentConversations[conversationTool(assistantTool ?? tool)].agent);
 
   // ⌘I / Ctrl+I, the shortcut Cursor trained everyone on.
   useEffect(() => {
@@ -543,12 +553,13 @@ export default function BookEditorView({
         </div>
       )}
       <WorkspaceLayout
-        asideLabel="AI Assistant"
+        asideLabel={`Talk to ${currentAgent.name}`}
         asideId="book-ai-assistant"
         asideOpen={assistantOpen}
         onAsideClose={() => setAssistantOpen(false)}
         aside={
           <AiAssistantDock
+            bookTitle={bookTitle}
             bookId={book.id}
             chapterId={selectedChapterId}
             variant="dock"
@@ -563,15 +574,17 @@ export default function BookEditorView({
         }
         header={
           <header>
-            <nav className="flex items-center gap-1.5 text-[14px]">
+            <nav className="flex min-w-0 items-center gap-1.5 text-[14px]">
               <Link
                 href="/author/library"
-                className="text-muted-foreground transition-colors hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-foreground"
+                aria-label="Back to library"
+                className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-foreground"
               >
-                Library
+                <ArrowLeft size={18} className="sm:hidden" aria-hidden />
+                <span className="hidden sm:inline">Library</span>
               </Link>
-              <span className="text-muted-foreground dark:text-muted-foreground" aria-hidden>/</span>
-              <span className="max-w-[220px] truncate font-medium text-foreground dark:text-foreground">
+              <span className="hidden text-muted-foreground dark:text-muted-foreground sm:inline" aria-hidden>/</span>
+              <span className="hidden max-w-[220px] truncate font-medium text-foreground dark:text-foreground sm:inline">
                 {bookTitle}
               </span>
             </nav>
@@ -579,14 +592,16 @@ export default function BookEditorView({
         }
         headerRight={
           <div className="flex items-center gap-2">
+            <BookToolsMenu bookId={book.id} language={activeLanguage} demo={isDemoEditorView} />
             {publishing.isPublished && (
               <Link
                 href={`/reader/books/${book.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
+                aria-label="View as reader"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
               >
-                View as reader
+                <span className="hidden sm:inline">View as reader</span>
                 <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M2.5 9.5l7-7M9.5 2.5H4m5.5 0v5.5" />
                 </svg>
@@ -597,17 +612,16 @@ export default function BookEditorView({
               onClick={() => { if (!assistantOpen) setAssistantTool(tool); setAssistantOpen((open) => !open); }}
               aria-expanded={assistantOpen}
               aria-controls="book-ai-assistant"
-              title="AI Assistant (⌘I)"
+              title={`Talk to ${currentAgent.name} (⌘I)`}
+              aria-label={`Talk to ${currentAgent.name}`}
               className={`inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition ${
                 assistantOpen
                   ? "border-[#907AFF]/40 bg-[#907AFF]/[0.08] text-accent-foreground"
                   : "border-border text-muted-foreground hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
               }`}
             >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M8 1.5l1.6 3.6 3.9.4-2.9 2.6.8 3.8L8 10l-3.4 1.9.8-3.8L2.5 5.5l3.9-.4z" />
-              </svg>
-              AI
+              <AgentAvatar agent={currentAgent.id} size={28} />
+              <span className="hidden sm:inline">{currentAgent.name}</span>
             </button>
             <WorkspaceHeaderActions />
           </div>
@@ -637,6 +651,7 @@ export default function BookEditorView({
             {/* Edit panel (has its own white card) */}
             {tool === "edit" && (
               <SimplifiedEditView
+                activeLanguage={activeLanguage}
                 bookId={book.id}
                 bookTitle={bookTitle}
                 chapters={chapters}
@@ -686,6 +701,9 @@ export default function BookEditorView({
             {/* All non-edit panels */}
             {tool !== "edit" && tool !== "dashboard" && (
               <BookEditorPanelContent
+                savedPriceAmountMinor={book.price_amount ?? 0}
+                savedPriceCurrency={book.price_currency ?? "SEK"}
+                savedPricingModel={book.pricing_model ?? "book"}
                 bookOwnerId={book.author_id}
                 onApplyReview={chapterCrud.handleApplyReview}
                 reviewSaveBlocked={chapterCrud.isSaving || chapterCrud.hasUnsavedChanges}

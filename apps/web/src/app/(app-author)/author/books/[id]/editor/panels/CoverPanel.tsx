@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import styles from "./CoverPanel.module.css";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowRight, ImageIcon, PenLine, Sparkles, Upload } from "lucide-react";
+import { ArrowRight, Check, ImageIcon, PenLine, Sparkles, Upload } from "lucide-react";
 import { ACCEPTED_COVER_TYPES, COVER_AI_STYLES, COVER_TEMPLATES } from "../BookEditorView.helpers";
 import { requiresUnoptimizedImage } from "@/lib/images/optimizable";
 
@@ -107,7 +107,7 @@ export default function CoverPanel({
     : null;
 
   return (
-    <div className={`mx-auto w-full max-w-[1120px] ${demoMode ? "mt-6 space-y-5 px-6 sm:mt-8" : styles.panel}`}>
+    <div className={`mx-auto w-full max-w-[1120px] ${styles.root} ${demoMode ? "mt-6 space-y-5 px-6 sm:mt-8" : styles.panel}`}>
       {/* Step number/name dropped — the workflow stepper above already shows
           step position; keep only the pacing badge inside the hero copy. */}
       {/* ── Header (real-mode only — demo mode lets the panels speak for themselves) ── */}
@@ -139,7 +139,7 @@ export default function CoverPanel({
       <div className={demoMode ? "grid items-stretch gap-6 pt-2 lg:grid-cols-[minmax(260px,320px)_1fr]" : styles.layout}>
         {/* ── Cover preview ── */}
         <div className={demoMode ? "flex flex-col" : styles.preview}>
-          {!demoMode && <div className={styles.previewLabel}><span>Your book cover</span><span>3:4</span></div>}
+          {!demoMode && <div className={styles.previewLabel}><span>Digital cover</span><span>{displayCoverUrl ? "In use" : "Your canvas"}</span></div>}
           {/* Demo pitch: the cover is driven by a local asset (decoupled from
               Supabase for wifi-resilience). demoCoverUrl carries the seeded
               fallback, any local edit/upload, or null once the presenter
@@ -156,7 +156,7 @@ export default function CoverPanel({
               >
                 <Image
                   src={demoMode ? demoCoverUrl ?? "" : displayCoverUrl ?? ""}
-                  alt="Book cover"
+                  alt={`Cover of ${bookTitle}`}
                   fill
                   sizes="320px"
                   className="object-contain"
@@ -290,7 +290,11 @@ export default function CoverPanel({
               </div>
             </div>
           )}
-          {!demoMode && <p className={styles.previewHint}>JPG or PNG<br />Recommended: 1800 × 2400 px (3:4)</p>}
+          {!demoMode && <div className={styles.coverCaption}>
+            <p>{bookTitle || "Your book title"}</p>
+            {authorName && <span>{authorName}</span>}
+          </div>}
+          {!demoMode && <p className={styles.previewHint}>JPG or PNG · 3:4 portrait<br />Recommended: 1800 × 2400 px</p>}
         </div>
 
         {/* ── AI generation ── */}
@@ -307,9 +311,9 @@ export default function CoverPanel({
                 <h2
                   className="text-[40px] font-semibold leading-[0.98] tracking-[-0.028em] text-foreground sm:text-[52px]"
                 >
-                  Cover, in
+                  A new look
                   <br />
-                  eight seconds.
+                  for your story.
                 </h2>
                 <p className="max-w-[34ch] text-[14px] leading-relaxed text-muted-foreground">
                   Four variations from your title, synopsis, and genre.
@@ -382,8 +386,20 @@ export default function CoverPanel({
                 <Sparkles className="h-3.5 w-3.5 text-accent-foreground" />
               </div>
               <h3 className="text-sm font-semibold text-foreground dark:text-foreground">
-                Generate with AI
+                Explore a cover direction
               </h3>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Build a visual brief, then compare the AI variations. Your current cover stays in place until you choose a new one.</p>
+            <div className={styles.briefModes} aria-label="Cover brief type">
+              <button type="button" aria-pressed={coverAITemplate !== null} onClick={() => {
+                if (coverAITemplate === null) setCoverAITemplate(previousTemplateRef.current);
+                if (coverAIError) setCoverAIError(null);
+              }}>Guided brief</button>
+              <button type="button" aria-pressed={coverAITemplate === null} onClick={() => {
+                if (coverAITemplate) previousTemplateRef.current = coverAITemplate;
+                setCoverAITemplate(null);
+                if (coverAIError) setCoverAIError(null);
+              }}>My own prompt</button>
             </div>
 
             {/* Real (non-demo) AI form: template dropdown */}
@@ -459,27 +475,6 @@ export default function CoverPanel({
                   Focus on the visual scene. You can add your title and author name in the cover editor.
                 </p>
               </div>
-            )}
-
-            {/* Toggle between template and custom (real mode only) */}
-            {!demoMode && (
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  if (coverAITemplate) {
-                    previousTemplateRef.current = coverAITemplate;
-                    setCoverAITemplate(null);
-                  } else {
-                    setCoverAITemplate(previousTemplateRef.current);
-                  }
-                  if (coverAIError) setCoverAIError(null);
-                }}
-                className="text-xs font-medium text-muted-foreground underline decoration-slate-300 underline-offset-2 transition-colors hover:text-accent-foreground dark:text-muted-foreground dark:decoration-white/20 dark:hover:text-accent-foreground"
-              >
-                {coverAITemplate ? "Write a custom prompt instead" : "Use a template instead"}
-              </button>
-            </div>
             )}
 
             {/* Style + Generate (real mode only) */}
@@ -611,12 +606,12 @@ export default function CoverPanel({
               `}</style>
               <div className="mb-4 flex items-center justify-between">
                 <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
-                  Generated covers — click to preview
+                  Choose a direction to preview
                 </p>
                 {coverAIGeneratedSource ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-[var(--brand-violet)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--brand-violet)]">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--brand-violet)]" aria-hidden />
-                    Generated just now
+                    {coverAIGeneratedSource === "fallback" ? "Example variations" : "Generated just now"}
                   </span>
                 ) : null}
               </div>
@@ -626,6 +621,7 @@ export default function CoverPanel({
                     key={`${url}-${i}`}
                     type="button"
                     onClick={() => setCoverAIPreviewUrl(url)}
+                    aria-label={`Preview cover variation ${i + 1}`}
                     disabled={coverUploading}
                     // Demo: staggered entry, 250ms apart per index, only
                     // when the source is "fallback" (live results land all
@@ -648,6 +644,7 @@ export default function CoverPanel({
                       className="object-cover transition-transform duration-200 group-hover:scale-[1.03]"
                       unoptimized={requiresUnoptimizedImage(url)}
                     />
+                    <span className={styles.variationLabel}>{(demoMode ? demoCoverUrl : displayCoverUrl) === url ? <><Check size={13} aria-hidden /> In use</> : `Variation ${i + 1}`}</span>
                   </button>
                 ))}
               </div>

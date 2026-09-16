@@ -93,7 +93,7 @@ function Preview() {
       <label>Response <select aria-label="Response mode" value={mode} onChange={(event) => setMode(event.target.value)}>{["normal","failure","delay","fallback","invalid"].map((value) => <option key={value}>{value}</option>)}</select></label>
     </div>
     <WorkspaceLayout header={<h1 className="font-display text-2xl">The harbour</h1>} asideOpen={open} onAsideClose={() => setOpen(false)} asideLabel="Book specialist"
-      aside={<AiAssistantPanel bookId={BOOK_ID} chapterId={chapter.id} chapterTitle={chapter.title} activeTool={assistantTool} variant="dock" onClose={() => setOpen(false)} getDraftText={execution.getDraftText} onExecuteAction={execution.execute} />}
+      aside={<AiAssistantPanel bookTitle="The harbour" bookId={BOOK_ID} chapterId={chapter.id} chapterTitle={chapter.title} activeTool={assistantTool} variant="dock" onClose={() => setOpen(false)} getDraftText={execution.getDraftText} onExecuteAction={execution.execute} />}
       main={<div>
         <AgentCompanion agent={persona.agent} onTalk={() => {setAssistantTool(tool);setOpen(true);}} />
         {tool === "edit" && <TiptapEditor key={chapter.id} content={chapter.content ?? ""} chapterId={chapter.id} bookId={BOOK_ID} onUpdate={update} onDirty={() => setSaved(false)} onEditorReady={onReady} />}

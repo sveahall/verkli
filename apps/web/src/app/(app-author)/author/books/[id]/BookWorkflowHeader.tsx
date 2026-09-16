@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { Tool } from "./editor/bookEditor.shared";
-import { TOOL_META, getToolHref } from "./editor/bookEditor.shared";
+import { BOOK_WORKFLOW_GROUPS, TOOL_META, getToolHref } from "./editor/bookEditor.shared";
+import styles from "./BookWorkflowHeader.module.css";
 
 /**
  * Tools that should never appear in the stepper, regardless of which tools
@@ -27,6 +28,7 @@ const NON_STEPPER_TOOLS: ReadonlySet<Tool> = new Set([
 
 type Props = {
   bookId: string;
+  language?: string;
   activeTool: Tool;
   tools: Tool[];
   /** When true, renders without the card wrapper (for embedding inside another card) */
@@ -37,15 +39,22 @@ type Props = {
   mini?: boolean;
 };
 
-function StepperContent({ bookId, activeTool, tools, mini = false }: Omit<Props, "bare">) {
+function StepperContent({ bookId, language, activeTool, tools, mini = false }: Omit<Props, "bare">) {
   // Order comes from the `tools` prop so demo-only entries like 'production'
   // appear in the position the parent inserts them at (between cover and
   // audiobook for the investor pitch). We then strip non-stepper tools.
   const orderedTools = tools.filter((t) => !NON_STEPPER_TOOLS.has(t));
-  const currentIndex = Math.max(0, orderedTools.indexOf(activeTool));
+  const currentIndex = orderedTools.indexOf(activeTool);
+  const groups: Array<{ label: string; tools: Tool[] }> = [];
+  for (const tool of orderedTools) {
+    const label = BOOK_WORKFLOW_GROUPS.find((group) => group.tools.includes(tool))?.label ?? "Production";
+    const previous = groups[groups.length - 1];
+    if (previous?.label === label) previous.tools.push(tool);
+    else groups.push({ label, tools: [tool] });
+  }
   const prevTool = currentIndex > 0 ? orderedTools[currentIndex - 1] : null;
   const nextTool =
-    currentIndex < orderedTools.length - 1
+    currentIndex >= 0 && currentIndex < orderedTools.length - 1
       ? orderedTools[currentIndex + 1]
       : null;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -62,50 +71,42 @@ function StepperContent({ bookId, activeTool, tools, mini = false }: Omit<Props,
   }, [activeTool]);
 
   return (
-    <nav aria-label="Book workflow" className="flex min-w-0 items-center gap-2 sm:gap-3">
-      {prevTool ? (
-        <Link href={getToolHref(bookId, prevTool)} aria-label={`Back to ${TOOL_META[prevTool].label}`}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring">
-          <ArrowLeft size={16} aria-hidden />
-        </Link>
-      ) : <div className="w-11 shrink-0" aria-hidden />}
-      <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain p-1">
-        <ol className={`flex w-max min-w-full items-center ${mini ? "gap-1" : "gap-1 sm:gap-2"}`}>
-          {orderedTools.map((t, index) => (
-            <li key={t} className="flex-1">
-              <Link href={getToolHref(bookId, t)} aria-current={t === activeTool ? "step" : undefined}
-                className={`group flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring ${t === activeTool
-                  ? "bg-primary text-primary-foreground shadow-surface-sm"
-                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"}`}>
-                {!mini && <span className={`text-[11px] tabular-nums ${t === activeTool ? "opacity-65" : "text-muted-foreground/70"}`} aria-hidden>{String(index + 1).padStart(2, "0")}</span>}
-                {TOOL_META[t].label}
-              </Link>
-            </li>
-          ))}
-        </ol>
+    <nav aria-label="Book workflow" className={styles.navigation}>
+      <div className={styles.rail}>
+        {prevTool && <Link href={getToolHref(bookId, prevTool, language)} aria-label={`Back to ${TOOL_META[prevTool].label}`} className={styles.arrow}><ArrowLeft size={16} aria-hidden /></Link>}
+        <div ref={scrollRef} className={styles.scroller}>
+          <div className={styles.groups}>
+            {groups.map((group, index) => (
+              <div key={`${group.label}-${index}`} className={styles.group}>
+                {!mini && <span className={styles.label}>{group.label}</span>}
+                <ol className={styles.list} aria-label={group.label}>
+                  {group.tools.map((t) => (
+                    <li key={t}><Link href={getToolHref(bookId, t, language)} aria-current={t === activeTool ? "step" : undefined} className={styles.link}>{TOOL_META[t].label}</Link></li>
+                  ))}
+                </ol>
+              </div>
+            ))}
+          </div>
+        </div>
+        {nextTool && <Link href={getToolHref(bookId, nextTool, language)} aria-label={`Continue to ${TOOL_META[nextTool].label}`} className={styles.arrow}><ArrowRight size={16} aria-hidden /></Link>}
       </div>
-      {nextTool ? (
-        <Link href={getToolHref(bookId, nextTool)} aria-label={`Continue to ${TOOL_META[nextTool].label}`}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-ring">
-          <ArrowRight size={16} aria-hidden />
-        </Link>
-      ) : <div className="w-11 shrink-0" aria-hidden />}
+      {!mini && (activeTool === "translate" || activeTool === "audiobook") && <p className={styles.note}>Optional edition. You can publish your written book without creating audio or translations.</p>}
     </nav>
   );
 }
 
-export default function BookWorkflowHeader({ bookId, activeTool, tools, bare = false, compact = false, mini = false }: Props) {
+export default function BookWorkflowHeader({ bookId, language, activeTool, tools, bare = false, compact = false, mini = false }: Props) {
   if (bare) {
     return (
       <div className={mini ? "px-2 py-2" : compact ? "border-b border-border bg-background/50 px-3 py-3 sm:px-5" : "border-b border-border px-3 py-4 sm:px-5"}>
-        <StepperContent bookId={bookId} activeTool={activeTool} tools={tools} compact={compact} mini={mini} />
+        <StepperContent bookId={bookId} language={language} activeTool={activeTool} tools={tools} compact={compact} mini={mini} />
       </div>
     );
   }
 
   return (
     <header className="rounded-2xl border border-black/[0.04] bg-card px-6 pb-6 pt-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-border dark:bg-card dark:shadow-none">
-      <StepperContent bookId={bookId} activeTool={activeTool} tools={tools} />
+      <StepperContent bookId={bookId} language={language} activeTool={activeTool} tools={tools} />
     </header>
   );
 }

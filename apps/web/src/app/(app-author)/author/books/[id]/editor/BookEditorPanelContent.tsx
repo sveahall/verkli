@@ -42,6 +42,9 @@ const DistributionFacade = dynamic(() => import("./panels/DistributionFacade"));
 
 interface BookEditorPanelContentProps {
   bookId: string;
+  savedPriceAmountMinor?: number;
+  savedPriceCurrency?: string;
+  savedPricingModel?: string;
   bookOwnerId?: string;
   bookTitle: string;
   bookDescription: string | null;
@@ -85,6 +88,9 @@ interface BookEditorPanelContentProps {
 
 export default function BookEditorPanelContent({
   bookId,
+  savedPriceAmountMinor,
+  savedPriceCurrency,
+  savedPricingModel,
   bookOwnerId,
   bookTitle,
   bookDescription,
@@ -123,11 +129,12 @@ export default function BookEditorPanelContent({
   onApplyReview,
   reviewSaveBlocked,
 }: BookEditorPanelContentProps) {
-  const companion = tool === "cover" ? getAgent("stella") : getAgentForPanel(tool);
+  const companion = tool === "cover" ? getAgent("stella") : tool === "review" || tool === "publish" ? getAgent("edith") : getAgentForPanel(tool);
   return (
     <div className="@container/book-panel w-full min-w-0 rounded-2xl border border-border bg-card shadow-surface-sm">
       <BookWorkflowHeader
         bookId={bookId}
+        language={activeLanguage}
         activeTool={tool}
         tools={tools}
         bare
@@ -280,6 +287,10 @@ export default function BookEditorPanelContent({
         {tool === "publish" && (
           <div className="space-y-8">
             <PublishPanel
+              onNavigate={onNavigateToPanel}
+              priceAmountMinor={savedPriceAmountMinor}
+              priceCurrency={savedPriceCurrency}
+              pricingModel={savedPricingModel}
               bookId={bookId}
               bookTitle={bookTitle}
               bookDescription={bookDescription}
@@ -312,6 +323,9 @@ export default function BookEditorPanelContent({
               onOpenCover={() => onNavigateToPanel("cover")}
               genreSelector={<GenreSelector bookId={bookId} />}
             />
+            <details className="rounded-2xl border border-border bg-card">
+              <summary className="min-h-14 cursor-pointer px-5 py-4 text-sm font-medium">Adjust pricing</summary>
+              <div className="border-t border-border p-4">
             <PricingPanel
               chapters={chapters}
               priceAmountMinor={pricing.priceAmountMinor}
@@ -329,6 +343,11 @@ export default function BookEditorPanelContent({
               stripeConfigured={stripeConfigured}
               currentVisibility={publishing.currentVisibility}
             />
+              </div>
+            </details>
+            <details className="rounded-2xl border border-border bg-card">
+              <summary className="min-h-14 cursor-pointer px-5 py-4 text-sm font-medium">Printed editions & distribution</summary>
+              <div className="border-t border-border p-4">
             <PrintPanel
               bookId={bookId}
               title={bookTitle}
@@ -348,6 +367,10 @@ export default function BookEditorPanelContent({
               onSavePrintOnDemandSettings={onSavePrintOnDemandSettings}
             />
 
+              </div>
+            </details>
+            <details className="rounded-2xl border border-border bg-card">
+              <summary className="min-h-14 cursor-pointer px-5 py-4 text-sm font-medium text-muted-foreground">Manage this book</summary>
             {/* Danger zone */}
             <div className="rounded-2xl border border-red-200/60 bg-red-50/30 px-6 py-5 dark:border-red-900/30 dark:bg-red-950/10">
               <h3 className="text-[14px] font-semibold text-red-800 dark:text-red-300">Danger zone</h3>
@@ -364,6 +387,7 @@ export default function BookEditorPanelContent({
                 />
               </div>
             </div>
+            </details>
           </div>
         )}
 
@@ -385,7 +409,7 @@ export default function BookEditorPanelContent({
             priceCurrency={pricing.priceCurrency}
             marketingCampaigns={marketingCampaigns}
             onNavigate={onNavigateToPanel}
-            onPublish={() => publishing.setConfirmPublishAction("publish")}
+            onPublish={() => onNavigateToPanel("publish")}
           />
         )}
 

@@ -187,6 +187,20 @@
   color: #b6aebf;
 }
 
+.heroNote {
+  margin-top: 16px;
+  color: #b6aebf;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.formatNote {
+  margin-top: auto;
+  color: var(--library-accent);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .heroContent .progress {
   max-width: 330px;
   margin-top: 20px;

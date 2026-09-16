@@ -16,7 +16,7 @@ import type { InlineAiAction } from "@/features/book-workspace/types";
 
 export type PendingAiRequest = { id: string; action: InlineAiAction; selectedText: string };
 export type AiAssistantPanelProps = {
-  bookId: string; chapterId: string | null; chapterTitle?: string | null;
+  bookId: string; bookTitle?: string; chapterId: string | null; chapterTitle?: string | null;
   pendingRequest?: PendingAiRequest | null; onPendingRequestHandled?: () => void;
   variant?: "page" | "dock"; onClose?: () => void; activeTool?: Tool;
   getDraftText?: () => string | undefined;
@@ -36,7 +36,7 @@ const ACTION_PROMPTS: Partial<Record<InlineAiAction, string>> = {
   expand: "Suggest an expanded version of this passage with more detail.",
 };
 
-export default function AiAssistantPanel({ bookId, chapterId, chapterTitle, variant = "page", onClose,
+export default function AiAssistantPanel({ bookId, bookTitle, chapterId, chapterTitle, variant = "page", onClose,
   activeTool = "edit", pendingRequest, onPendingRequestHandled, getDraftText, onExecuteAction,
 }: AiAssistantPanelProps) {
   const tool = conversationTool(activeTool);
@@ -176,7 +176,7 @@ export default function AiAssistantPanel({ bookId, chapterId, chapterTitle, vari
       <div className={styles.identity}><h2>{agent.name}</h2><p>{persona.role}</p></div>
       {onClose && <button type="button" className={styles.close} onClick={onClose} aria-label="Close AI assistant"><X size={17} aria-hidden /></button>}
     </header>
-    <div className={styles.context}><span className={styles.contextDot} aria-hidden />{chapterTitle ? `Working with ${chapterTitle}` : chapterId ? "Working with your current chapter" : "Book conversation"}</div>
+    <div className={styles.context}>{bookTitle && <span><strong>Book</strong> {bookTitle}</span>}<span><strong>{chapterId ? "Chapter" : "Scope"}</strong> {chapterTitle || (chapterId ? "Current chapter" : "Whole book")}</span></div>
     <div ref={transcriptRef} role="log" aria-label={`Conversation with ${agent.name}`} aria-live="polite" className={styles.transcript}>
       {thread.messages.length === 0 && <div className={styles.welcome}>
         <div className={styles.portrait}><AgentAvatar agent={persona.agent} portrait /></div>

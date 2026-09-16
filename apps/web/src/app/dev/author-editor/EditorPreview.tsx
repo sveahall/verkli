@@ -10,6 +10,7 @@ import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 import SimplifiedEditView from "@/app/(app-author)/author/books/[id]/editor/views/SimplifiedEditView";
 import FocusModeEditorView from "@/app/(app-author)/author/books/[id]/editor/views/FocusModeEditorView";
+import { TOOL_ORDER } from "@/app/(app-author)/author/books/[id]/editor/bookEditor.shared";
 import type { Chapter, Tool } from "@/app/(app-author)/author/books/[id]/editor/BookEditorView.types";
 
 const BOOK_ID = "editor-preview-ferry";
@@ -17,7 +18,7 @@ const CHAPTERS_PER_PAGE = 21;
 const PREVIEW_PRESET_KEY = "verkli_editor_preview_preset";
 type Scenario = "sample" | "empty" | "longtitle" | "many";
 const PREVIEW_MESSAGE = "Local preview only. Your edits stay in this page; no book or file is saved to a server.";
-const TOOLS: Tool[] = ["edit", "cover", "audiobook", "translate", "pricing", "publish", "review"];
+const TOOLS: Tool[] = TOOL_ORDER;
 const paragraph = (text: string) => ({ type: "paragraph", content: [{ type: "text", text }] });
 const heading = (text: string) => ({ type: "heading", attrs: { level: 2 }, content: [{ type: "text", text }] });
 const SAMPLE_CHAPTERS: Chapter[] = [
