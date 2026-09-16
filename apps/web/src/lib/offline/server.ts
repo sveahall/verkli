@@ -1,6 +1,7 @@
 import { canUserReadBook } from "@/lib/books/access";
 import { getBillingStateForUser } from "@/lib/billing/server";
 import { isOfflineReadingEnabled } from "@/lib/flags";
+import { SECURE_OFFLINE_SAVING_AVAILABLE } from "./availability";
 import { normalizeLanguage, normalizeLanguageOrNull } from "@/lib/languages";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -68,7 +69,7 @@ export async function requireOfflineBookAccess(
   args: OfflineBookAccessArgs
 ):
   Promise<{ ok: true; context: OfflineBookAccessContext } | { ok: false; response: Response }> {
-  if (!isOfflineReadingEnabled()) {
+  if (!SECURE_OFFLINE_SAVING_AVAILABLE || !isOfflineReadingEnabled()) {
     return { ok: false, response: apiError(E_OFFLINE_FEATURE_DISABLED, 503) };
   }
 

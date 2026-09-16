@@ -1,57 +1,58 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cacheOfflineUrls, clearOfflineUrls } from "./service-worker";
+import { cacheOfflineUrls, clearAllOfflineContentUrls, retireOfflineServiceWorker } from "./service-worker";
 
+const { clearOfflineDatabase } = vi.hoisted(() => ({ clearOfflineDatabase: vi.fn() }));
+vi.mock("./idb", () => ({ clearOfflineDatabase }));
+const removeCache = vi.fn();
+const unregister = vi.fn();
+const reload = vi.fn();
 const postMessage = vi.fn();
-const close = vi.fn();
 
 beforeEach(() => {
-  vi.useFakeTimers();
-  vi.stubGlobal("window", { location: { origin: "https://reader.test" }, setTimeout, clearTimeout });
-  vi.stubGlobal("navigator", { serviceWorker: { ready: Promise.resolve({ active: { postMessage } }) } });
-  vi.stubGlobal("MessageChannel", class {
-    port1 = { onmessage: null as ((event: { data: unknown }) => void) | null, close };
-    port2 = { reply: (data: unknown) => this.port1.onmessage?.({ data }), close };
-  });
-  postMessage.mockReset();
-  close.mockClear();
+  vi.clearAllMocks();
+  removeCache.mockResolvedValue(true);
+  unregister.mockResolvedValue(true);
+  clearOfflineDatabase.mockResolvedValue(undefined);
+  vi.stubGlobal("window", { location: { origin: "https://reader.test", reload } });
+  vi.stubGlobal("caches", { keys: async () => ["verkli-content-v1", "verkli-static-v1", "unrelated-app"], delete: removeCache });
+  vi.stubGlobal("navigator", { serviceWorker: {
+    ready: Promise.resolve({ active: { postMessage } }),
+    controller: { scriptURL: "https://reader.test/sw.js" },
+    getRegistrations: async () => [{ active: { scriptURL: "https://reader.test/sw.js" }, unregister }],
+  } });
 });
+afterEach(() => vi.unstubAllGlobals());
 
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
-
-describe("offline worker acknowledgement", () => {
-  it("rejects failed cache writes instead of reporting a saved book", async () => {
-    postMessage.mockImplementation((_command, [port]) => port.reply({ ok: false }));
-    await expect(cacheOfflineUrls(["/reader/read/chapter"])).rejects.toThrow(/offline/i);
+describe("offline saving is closed until ownership and entitlement leases exist", () => {
+  it("rejects saving without contacting an old worker even if it would acknowledge success", async () => {
+    await expect(cacheOfflineUrls(["/reader/read/paid-chapter"])).rejects.toThrow(/unavailable/i);
+    expect(postMessage).not.toHaveBeenCalled();
   });
 
-  it("rejects unsupported browsers", async () => {
-    vi.stubGlobal("navigator", {});
-    await expect(cacheOfflineUrls(["/reader/read/chapter"])).rejects.toThrow(/not supported/i);
+  it("purges both legacy HTML caches but leaves unrelated applications alone", async () => {
+    await clearAllOfflineContentUrls();
+    expect(removeCache.mock.calls).toEqual([["verkli-content-v1"], ["verkli-static-v1"]]);
   });
 
-  it("bounds waiting for registration so Save cannot hang forever", async () => {
-    vi.stubGlobal("navigator", { serviceWorker: { ready: new Promise(() => {}) } });
-    const result = expect(cacheOfflineUrls(["/reader/read/chapter"])).rejects.toThrow(/try again/i);
-    await vi.advanceTimersByTimeAsync(10_000);
-    await result;
+  it("retires an existing controller and purges persisted text without relying on the feature flag", async () => {
+    await retireOfflineServiceWorker();
+    expect(unregister).toHaveBeenCalledTimes(1);
+    expect(clearOfflineDatabase).toHaveBeenCalledTimes(1);
+    expect(reload).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects a missing acknowledgement and releases ports", async () => {
-    const result = expect(cacheOfflineUrls(["/reader/read/chapter"])).rejects.toThrow(/try again/i);
-    await vi.advanceTimersByTimeAsync(60_000);
-    await result;
-    expect(close).toHaveBeenCalledTimes(2);
+  it("does not reload uncontrolled pages or unregister unrelated workers", async () => {
+    vi.stubGlobal("navigator", { serviceWorker: { controller: null, getRegistrations: async () => [{ active: { scriptURL: "https://reader.test/other/sw.js" }, unregister }] } });
+    await retireOfflineServiceWorker();
+    expect(unregister).not.toHaveBeenCalled();
+    expect(clearOfflineDatabase).toHaveBeenCalledTimes(1);
+    expect(reload).not.toHaveBeenCalled();
   });
 
-  it("accepts confirmed writes and deduplicates chapter URLs", async () => {
-    postMessage.mockImplementation((_command, [port]) => port.reply({ ok: true }));
-    await cacheOfflineUrls(["/reader/read/chapter", " /reader/read/chapter "]);
-    expect(postMessage.mock.calls[0][0]).toEqual({ type: "OFFLINE_CACHE_URLS", urls: ["https://reader.test/reader/read/chapter"] });
-    expect(close).toHaveBeenCalledTimes(2);
-  });
-
-  it("reports a failed removal so the UI cannot claim content was cleared", async () => {
-    postMessage.mockImplementation((_command, [port]) => port.reply({ ok: false }));
-    await expect(clearOfflineUrls(["/reader/read/chapter"])).rejects.toThrow(/offline/i);
+  it("detaches the retired controller even when another tab blocks database cleanup", async () => {
+    clearOfflineDatabase.mockRejectedValue(new Error("Close other tabs"));
+    await expect(retireOfflineServiceWorker()).rejects.toThrow("Close other tabs");
+    expect(unregister).toHaveBeenCalledTimes(1);
+    expect(reload).toHaveBeenCalledTimes(1);
   });
 });
