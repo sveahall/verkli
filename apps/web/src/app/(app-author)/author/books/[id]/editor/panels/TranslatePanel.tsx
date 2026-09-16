@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getLanguageLabel, LANGUAGE_OPTIONS, isSupportedLanguage, type SupportedLanguage } from "@/lib/languages";
 import { isTranslationPairSupported } from "@/lib/translation-pairs";
+import { ArrowRight, BookOpen, ChevronDown, Languages, Check } from "lucide-react";
+import styles from "./TranslatePanel.module.css";
 import TranslationCheckoutModal from "./TranslationCheckoutModal";
 import { TranslateMoreLanguagesCard, TranslatePreviewPanes } from "./TranslatePanel.components";
 
@@ -55,6 +57,12 @@ export default function TranslatePanel({
   });
   const [originalPreview, setOriginalPreview] = useState<string>("");
   const [translationPreview, setTranslationPreview] = useState<string>("");
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const reportMessage = useCallback((message: string | null) => {
+    setActionError(message);
+    onMessage?.(message);
+  }, [onMessage]);
   const [previewUnavailable, setPreviewUnavailable] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [translating, setTranslating] = useState(false);
@@ -72,7 +80,7 @@ export default function TranslatePanel({
     if (!bookId || !sourceVersionId) return;
     setTranslating(true);
     setSuccessMessage(null);
-    onMessage?.(null);
+    reportMessage(null);
     try {
       const succeeded: string[] = [];
       const failed: Array<{ lang: string; error: string }> = [];
@@ -104,18 +112,18 @@ export default function TranslatePanel({
         );
       }
       if (failed.length > 0) {
-        onMessage?.(
+        reportMessage(
           `Failed: ${failed.map((f) => `${getLanguageLabel(f.lang)} (${f.error})`).join(", ")}`
         );
       } else {
-        onMessage?.(null);
+        reportMessage(null);
       }
     } catch {
-      onMessage?.("Could not start translation. Try again.");
+      reportMessage("Could not start translation. Try again.");
     } finally {
       setTranslating(false);
     }
-  }, [bookId, sourceVersionId, onMessage]);
+  }, [bookId, sourceVersionId, reportMessage]);
 
   // Handle return from Stripe checkout. Runs once per mount via
   // checkoutHandledRef so re-renders from prop changes can't double-fire.
@@ -151,6 +159,7 @@ export default function TranslatePanel({
     setLoadingPreview(true);
     setTranslationPreview("");
     setPreviewUnavailable(false);
+    setPreviewError(null);
     try {
       const res = await fetch(
         `/api/books/${bookId}/translation-preview?targetLanguage=${encodeURIComponent(targetLanguage)}`,
@@ -168,15 +177,15 @@ export default function TranslatePanel({
       if (res.ok && data) {
         setOriginalPreview(nextOriginalPreview);
         setTranslationPreview(nextTranslationPreview);
-        setPreviewUnavailable(nextPreviewUnavailable);
+        setPreviewUnavailable(nextPreviewUnavailable || Boolean(data.pairUnsupported));
       } else {
         setTranslationPreview("");
-        setPreviewUnavailable(false);
+        setPreviewError(res.status === 401 ? "Your session expired. Sign in again to load the preview." : "We couldn’t load the preview. Your manuscript has not changed.");
       }
     } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
       setTranslationPreview("");
-      setPreviewUnavailable(false);
+      setPreviewError("Couldn’t connect. Check your connection and try the preview again.");
     } finally {
       if (!controller.signal.aborted) {
         setLoadingPreview(false);
@@ -194,10 +203,10 @@ export default function TranslatePanel({
   const handleTranslateFullBook = useCallback(async () => {
     if (!bookId || !sourceVersionId || translating || billingLoading) return;
     const toTranslate = Array.from(selectedLanguages).filter((code) =>
-      isSupportedLanguage(code)
+      isSupportedLanguage(code) && isTranslationPairSupported(sourceLanguage, code)
     ) as SupportedLanguage[];
     if (toTranslate.length === 0) {
-      onMessage?.("Select at least one language.");
+      reportMessage("Select at least one language.");
       return;
     }
 
@@ -209,7 +218,7 @@ export default function TranslatePanel({
 
     setTranslating(true);
     setSuccessMessage(null);
-    onMessage?.(null);
+    reportMessage(null);
     try {
       const succeeded: string[] = [];
       const failed: Array<{ lang: string; error: string }> = [];
@@ -240,18 +249,18 @@ export default function TranslatePanel({
         );
       }
       if (failed.length > 0) {
-        onMessage?.(
+        reportMessage(
           `Failed: ${failed.map((f) => `${getLanguageLabel(f.lang)} (${f.error})`).join(", ")}`
         );
       } else {
-        onMessage?.(null);
+        reportMessage(null);
       }
     } catch {
-      onMessage?.("Could not start translation. Try again.");
+      reportMessage("Could not start translation. Try again.");
     } finally {
       setTranslating(false);
     }
-  }, [bookId, sourceVersionId, selectedLanguages, translating, billingLoading, isProLocked, onMessage]);
+  }, [bookId, sourceVersionId, selectedLanguages, sourceLanguage, translating, billingLoading, isProLocked, reportMessage]);
 
   const handleTranslateSingleLanguage = useCallback(async () => {
     if (!bookId || !sourceVersionId || translating || billingLoading || !isSupportedLanguage(targetLanguage)) return;
@@ -263,13 +272,13 @@ export default function TranslatePanel({
     }
 
     if (translateScope === "chapter" && !selectedChapterId) {
-      onMessage?.("Select a chapter first.");
+      reportMessage("Select a chapter first.");
       return;
     }
 
     setTranslating(true);
     setSuccessMessage(null);
-    onMessage?.(null);
+    reportMessage(null);
     try {
       const body: Record<string, unknown> = {
         targetLanguage,
@@ -286,19 +295,19 @@ export default function TranslatePanel({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.ok === false) {
-        onMessage?.(data?.error ?? "Could not start translation.");
+        reportMessage(data?.error ?? "Could not start translation.");
         setTranslating(false);
         return;
       }
       const scopeLabel = translateScope === "chapter" ? "Chapter translation" : "Translation";
-      setSuccessMessage(`${scopeLabel} started. Progress handled by background worker.`);
-      onMessage?.(null);
+      setSuccessMessage(`${scopeLabel} started. You can keep working while we prepare your translation.`);
+      reportMessage(null);
     } catch {
-      onMessage?.("Could not start translation. Try again.");
+      reportMessage("Could not start translation. Try again.");
     } finally {
       setTranslating(false);
     }
-  }, [bookId, sourceVersionId, targetLanguage, translating, billingLoading, isProLocked, translateScope, selectedChapterId, onMessage]);
+  }, [bookId, sourceVersionId, targetLanguage, translating, billingLoading, isProLocked, translateScope, selectedChapterId, reportMessage]);
 
   const handleProSubscribe = useCallback(() => {
     setCheckoutModalOpen(false);
@@ -306,6 +315,7 @@ export default function TranslatePanel({
   }, []);
 
   const toggleLanguage = (code: string) => {
+    if (translating || !isSupportedLanguage(code) || !isTranslationPairSupported(sourceLanguage, code)) return;
     setSelectedLanguages((prev) => {
       const next = new Set(prev);
       if (next.has(code)) next.delete(code);
@@ -319,166 +329,89 @@ export default function TranslatePanel({
     .filter((code) => isSupportedLanguage(code) && isTranslationPairSupported(sourceLanguage, code))
     .map((code) => ({ code, label: getLanguageLabel(code) }));
 
-  return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      {!hideTitle && (
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="author-page-title text-foreground">
-              {bookTitle}
-            </h1>
-            <p className="mt-1 text-[15px] text-muted-foreground dark:text-muted-foreground">{authorDisplayName}</p>
-          </div>
-          <p className="text-sm mt-8 text-muted-foreground dark:text-muted-foreground">Book length: {bookLengthLabel}</p>
-        </div>
-      )}
-      {hideTitle && (
-        <p className="text-sm text-muted-foreground dark:text-muted-foreground">Book length: {bookLengthLabel}</p>
-      )}
+  const selectedChapter = chapters.find((chapter) => chapter.id === selectedChapterId);
+  const chapterUnavailable = !isProLocked && translateScope === "chapter" && !selectedChapter;
+  const actionDisabled = translating || billingLoading || !sourceVersionId || chapterUnavailable;
 
-      {/* TRANSLATE section */}
-      <div className="space-y-5">
-        <div className="flex flex-wrap items-center gap-x-10 gap-y-2">
-          <h2 className="author-section-title text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
-            Translate
-          </h2>
-          <div className="flex flex-wrap items-center gap-3 text-[15px]">
-            <span className="font-medium text-foreground dark:text-foreground">{sourceLabel}</span>
-            <span className="text-muted-foreground dark:text-muted-foreground">&rarr;</span>
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              Target language
-              <select
-                value={targetLanguage}
-                onChange={(event) => setTargetLanguage(event.target.value as SupportedLanguage)}
-                className="min-h-11 rounded-xl border border-border bg-card px-3 py-2 text-[16px] text-foreground sm:text-sm"
-              >
-                {targetOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+  return (
+    <section className={styles.studio} aria-labelledby="translation-title">
+      <header className={styles.intro}>
+        <div>
+          {!hideTitle && <p className={styles.bookTitle}>{bookTitle} <span>by {authorDisplayName}</span></p>}
+          <h2 id="translation-title">Your story, <span>in another language.</span></h2>
+          <p>Compare an opening excerpt. Choose what to translate. Keep the final say.</p>
+        </div>
+        <span className={styles.length}><BookOpen size={16} aria-hidden />{bookLengthLabel.replace(/^1 chapters$/, "1 chapter")}</span>
+      </header>
+
+      <div className={styles.workbench}>
+        <div className={styles.toolbar}>
+          <div className={styles.languagePair}>
+            <div className={styles.source}><span>Translate from</span><strong>{sourceLabel}</strong></div>
+            <ArrowRight size={20} className={styles.direction} aria-hidden />
+            <label className={styles.target}>
+              <span>Translate into</span>
+              <div className={styles.selectWrap}>
+                <select aria-label="Target language" value={targetLanguage} disabled={translating}
+                  onChange={(event) => setTargetLanguage(event.target.value as SupportedLanguage)}>
+                  {targetOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                </select>
+                <ChevronDown size={16} aria-hidden />
+              </div>
             </label>
           </div>
+          {!isProLocked && chapters.length > 0 && (
+            <div className={styles.scope} aria-label="Translation scope">
+              <button type="button" disabled={translating} aria-pressed={translateScope === "book"} onClick={() => setTranslateScope("book")}>Full book</button>
+              <button type="button" disabled={translating} aria-pressed={translateScope === "chapter"} onClick={() => setTranslateScope("chapter")}>Current chapter</button>
+            </div>
+          )}
         </div>
-
-        {/* Scope selector – Pro users only */}
-        {!isProLocked && chapters.length > 0 && (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setTranslateScope("book")}
-              className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
-                translateScope === "book"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted text-muted-foreground hover:bg-muted dark:bg-card dark:text-foreground dark:hover:bg-accent"
-              }`}
-            >
-              Full book
-            </button>
-            <button
-              type="button"
-              onClick={() => setTranslateScope("chapter")}
-              className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
-                translateScope === "chapter"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-muted text-muted-foreground hover:bg-muted dark:bg-card dark:text-foreground dark:hover:bg-accent"
-              }`}
-            >
-              Current chapter
-            </button>
-            {translateScope === "chapter" && selectedChapterId && (
-              <span className="ml-2 text-xs text-muted-foreground dark:text-muted-foreground">
-                {chapters.find((ch) => ch.id === selectedChapterId)?.title ?? "Untitled"}
-              </span>
-            )}
-          </div>
-        )}
-
         <TranslatePreviewPanes
-          targetLanguage={targetLanguage}
-          translateScope={translateScope}
-          isProLocked={isProLocked}
-          loadingPreview={loadingPreview}
-          originalPreview={originalPreview}
-          translationPreview={translationPreview}
-          previewUnavailable={previewUnavailable}
-          translating={translating}
-          billingLoading={billingLoading}
-          sourceVersionId={sourceVersionId}
-          onTranslate={() => void handleTranslateSingleLanguage()}
+          targetLanguage={targetLanguage} loadingPreview={loadingPreview}
+          originalPreview={originalPreview} translationPreview={translationPreview}
+          previewUnavailable={previewUnavailable} previewError={previewError}
+          onRetry={() => void fetchPreview()}
         />
+        <div className={styles.actionBar}>
+          <div>
+            <p>{translateScope === "chapter" && !isProLocked ? selectedChapter ? selectedChapter.title || "Untitled chapter" : "Select a chapter in Write first" : `Full book → ${getLanguageLabel(targetLanguage)}`}</p>
+            <span>{!sourceVersionId ? "Add your manuscript before starting a translation." : billingLoading ? "Checking your plan…" : isProLocked ? "Review payment options before you start." : "Your original stays unchanged. Review the translation before publishing."}</span>
+          </div>
+          <button type="button" className={styles.primary} disabled={actionDisabled}
+            onClick={() => void handleTranslateSingleLanguage()}>
+            {translating ? "Starting translation…" : isProLocked ? "View translation options" : translateScope === "chapter" ? "Translate chapter" : "Translate book"}
+            <ArrowRight size={17} aria-hidden />
+          </button>
+        </div>
       </div>
 
-      {/* Two cards */}
-      <div className="grid grid-cols-1 gap-6 @min-[760px]/book-panel:grid-cols-2">
-        <div className="overflow-hidden rounded-2xl bg-card shadow-sm ring-1 ring-black/5 dark:bg-card dark:ring-white/10">
-          <div className="space-y-5 px-6 py-6">
-            <div>
-              <h3 className="text-[15px] font-semibold text-foreground dark:text-foreground">
-                Increase your sales
-              </h3>
-              <p className="mt-1.5 text-sm text-muted-foreground dark:text-foreground">
-                Reach more readers by translating your book into more languages.
-              </p>
-            </div>
-            <div className="rounded-xl border border-black/[0.06] px-4 py-3 dark:border-border">
-              <p className="mb-2 text-sm font-medium text-foreground dark:text-foreground">Translate to:</p>
-              {selectedForDisplay.length ? (
-                <ul className="space-y-1 text-sm text-muted-foreground dark:text-foreground">
-                  {selectedForDisplay.map((l) => (
-                    <li key={l.code} className="flex items-center gap-2">
-                      <span className="text-muted-foreground">&bull;</span>
-                      {l.label}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">No languages selected</p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => void handleTranslateFullBook()}
-              disabled={translating || billingLoading || !sourceVersionId}
-              className="block w-full rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {translating ? "Translating..." : "Translate full book"}
+      {(successMessage || actionError) && <div className={styles.feedback}>
+        {successMessage && <p role="status"><Check size={18} aria-hidden />{successMessage}</p>}
+        {actionError && <p role="alert" className={styles.error}>{actionError}</p>}
+      </div>}
+
+      <details className={styles.more}>
+        <summary>
+          <Languages size={22} aria-hidden />
+          <span><strong>Take your book further</strong><span>Translate the full book into several languages in one go.</span></span>
+          <ChevronDown className={styles.expandIcon} size={20} aria-hidden />
+        </summary>
+        <div className={styles.moreBody}>
+          <TranslateMoreLanguagesCard sourceLanguage={sourceLanguage} selectedLanguages={selectedLanguages}
+            disabled={translating} onToggleLanguage={toggleLanguage} />
+          <div className={styles.batchAction}>
+            <div><p>{selectedForDisplay.length ? selectedForDisplay.map((language) => language.label).join(", ") : "Choose at least one language"}</p>
+              <span>Full book · {selectedForDisplay.length} {selectedForDisplay.length === 1 ? "language" : "languages"}{isProLocked ? " · Payment options shown next" : ""}</span></div>
+            <button type="button" className={styles.primary} onClick={() => void handleTranslateFullBook()}
+              disabled={translating || billingLoading || !sourceVersionId || !selectedForDisplay.length}>
+              {translating ? "Starting translations…" : isProLocked ? "View options for selected languages" : "Translate selected languages"}<ArrowRight size={17} aria-hidden />
             </button>
           </div>
-          <div className="flex items-center justify-center gap-2 border-t border-border px-6 py-4 text-[11px] uppercase tracking-[0.18em] text-muted-foreground dark:border-border dark:text-muted-foreground">
-            <span>OPTIMISED FOR BOOKS</span>
-            <span className="text-accent-foreground">&middot;</span>
-            <span>CONTEXT AWARE</span>
-            <span className="text-accent-foreground">&middot;</span>
-            <span>EDITABLE</span>
-          </div>
         </div>
-
-        <TranslateMoreLanguagesCard
-          sourceLanguage={sourceLanguage}
-          selectedLanguages={selectedLanguages}
-          onToggleLanguage={toggleLanguage}
-        />
-      </div>
-
-      {/* Status */}
-      {successMessage && (
-        <div
-          className="rounded-lg border border-[#907AFF]/40 bg-[#907AFF]/10 px-4 py-3 text-sm text-accent-foreground dark:border-[#907AFF]/40 dark:bg-[#907AFF]/15 dark:text-accent-foreground"
-          role="status"
-        >
-          {successMessage}
-        </div>
-      )}
-
-      {/* Payment modal */}
-      <TranslationCheckoutModal
-        open={checkoutModalOpen}
-        onClose={() => setCheckoutModalOpen(false)}
-        bookId={bookId}
-        sourceVersionId={sourceVersionId ?? ""}
-        languages={checkoutLanguages}
-        onProSubscribe={handleProSubscribe}
-      />
-    </div>
+      </details>
+      <TranslationCheckoutModal open={checkoutModalOpen} onClose={() => setCheckoutModalOpen(false)}
+        bookId={bookId} sourceVersionId={sourceVersionId ?? ""} languages={checkoutLanguages} onProSubscribe={handleProSubscribe} />
+    </section>
   );
 }
