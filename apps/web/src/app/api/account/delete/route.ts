@@ -41,15 +41,17 @@ export async function POST() {
 
   const admin = createAdminClient();
 
-  const { error } = await admin
+  const { data, error } = await admin
     .from("profiles")
     .update({ deletion_requested_at: new Date().toISOString() })
-    .eq("user_id", user.id);
+    .eq("user_id", user.id)
+    .select("user_id")
+    .maybeSingle();
 
-  if (error) {
+  if (error || !data) {
     console.error("[account.delete] soft-request failed", {
       userId: user.id,
-      message: error.message,
+      message: error?.message ?? "No profile was updated",
     });
     return apiError(E_DATABASE_ERROR, 500);
   }
@@ -58,7 +60,7 @@ export async function POST() {
   // for this log entry to avoid accidentally erasing an account that never
   // actually requested it.
   try {
-    await admin.from("audit_log").insert({
+    const { error: auditError } = await admin.from("audit_log").insert({
       entity_type: "user",
       entity_id: user.id,
       action: "deletion_requested",
@@ -66,6 +68,7 @@ export async function POST() {
       actor_role: "user",
       meta: {},
     });
+    if (auditError) throw new Error(auditError.message);
   } catch (auditError) {
     console.error("[account.delete] audit log insert failed", {
       userId: user.id,
@@ -74,9 +77,19 @@ export async function POST() {
     });
   }
 
-  // Sign the user out so their session is invalidated immediately. The
-  // admin processor picks up the `deletion_requested_at` row later.
-  await supabase.auth.signOut();
+  // The request is saved, not processed. A failed sign-out must not imply
+  // that saving failed or claim the session was successfully invalidated.
+  let signedOut = false;
+  try {
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) throw new Error(signOutError.message);
+    signedOut = true;
+  } catch (signOutError) {
+    console.error("[account.delete] sign out failed", {
+      userId: user.id,
+      message: signOutError instanceof Error ? signOutError.message : String(signOutError),
+    });
+  }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, deletionRequested: true, signedOut });
 }
