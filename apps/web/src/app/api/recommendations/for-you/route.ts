@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { apiError, E_NOT_AUTHENTICATED } from "@/lib/api-errors";
+import { apiError, E_NOT_AUTHENTICATED, E_RECOMMENDATIONS_LOAD_FAILED } from "@/lib/api-errors";
 import { scoreSimilarBooks, type ScoredBook } from "@/lib/recommendations/scoring";
 import { enrichWithAuthors } from "@/lib/recommendations/enrichment";
 import { normalizeLanguageOrNull } from "@/lib/languages";
@@ -11,8 +11,8 @@ const MAX_HISTORY_SEEDS = 5;
 const PER_SEED_LIMIT = 50;
 
 type SeedBook = {
-  id: string;
-  author_id: string;
+  id: string | null;
+  author_id: string | null;
   language: string | null;
   genreIds: string[];
 };
@@ -69,6 +69,14 @@ export async function GET(request: Request) {
     supabase.from("reader_genre_preferences").select("genre_id").eq("user_id", user.id).limit(30),
   ]);
 
+  if (readingsRes.error || genrePrefRes.error) {
+    console.error("[recommendations for-you] reader signals lookup failed", {
+      userId: user.id,
+      message: readingsRes.error?.message ?? genrePrefRes.error?.message,
+    });
+    return apiError(E_RECOMMENDATIONS_LOAD_FAILED, 500);
+  }
+
   const historyBookIds = makeUnique((readingsRes.data ?? []).map((r) => r.book_id));
   const preferredGenreIds = makeUnique((genrePrefRes.data ?? []).map((r) => r.genre_id));
 
@@ -76,7 +84,7 @@ export async function GET(request: Request) {
   let seeds: SeedBook[] = [];
 
   if (historySeedIds.length > 0) {
-    const [{ data: historyBooks }, { data: historyBookGenres }] = await Promise.all([
+    const [historyBooksRes, historyGenresRes] = await Promise.all([
       supabase
         .from("books")
         .select("id, author_id, language")
@@ -86,6 +94,16 @@ export async function GET(request: Request) {
         .select("book_id, genre_id")
         .in("book_id", historySeedIds),
     ]);
+
+    if (historyBooksRes.error || historyGenresRes.error) {
+      console.error("[recommendations for-you] history books lookup failed", {
+        userId: user.id,
+        message: historyBooksRes.error?.message ?? historyGenresRes.error?.message,
+      });
+      return apiError(E_RECOMMENDATIONS_LOAD_FAILED, 500);
+    }
+    const historyBooks = historyBooksRes.data;
+    const historyBookGenres = historyGenresRes.data;
 
     const genreMap = new Map<string, string[]>();
     for (const row of historyBookGenres ?? []) {
@@ -103,27 +121,8 @@ export async function GET(request: Request) {
   }
 
   if (seeds.length === 0 && preferredGenreIds.length > 0) {
-    const { data: fallbackGenreRows } = await supabase
-      .from("book_genres")
-      .select("book_id")
-      .in("genre_id", preferredGenreIds)
-      .limit(25);
-
-    const fallbackBookIds = makeUnique((fallbackGenreRows ?? []).map((r) => r.book_id)).slice(0, MAX_HISTORY_SEEDS);
-    if (fallbackBookIds.length > 0) {
-      const { data: fallbackBooks } = await supabase
-        .from("books")
-        .select("id, author_id, language")
-        .eq("status", "PUBLISHED")
-        .in("id", fallbackBookIds);
-
-      seeds = (fallbackBooks ?? []).map((book) => ({
-        id: book.id,
-        author_id: book.author_id,
-        language: normalizeLanguageOrNull(book.language),
-        genreIds: preferredGenreIds,
-      }));
-    }
+    // Preferences are the signal; a catalog book must not become invented history.
+    seeds = [{ id: null, author_id: null, language: null, genreIds: preferredGenreIds }];
   }
 
   if (seeds.length === 0) {
@@ -137,29 +136,34 @@ export async function GET(request: Request) {
     });
   }
 
-  const scoredBatches = await Promise.all(
-    seeds.map((seed) =>
-      scoreSimilarBooks(
-        supabase,
-        seed.id,
-        seed.author_id,
-        seed.language,
-        seed.genreIds,
-        PER_SEED_LIMIT
+  try {
+    const scoredBatches = await Promise.all(
+      seeds.map((seed) =>
+        scoreSimilarBooks(
+          supabase,
+          seed.id,
+          seed.author_id,
+          seed.language,
+          seed.genreIds,
+          PER_SEED_LIMIT
+        )
       )
-    )
-  );
+    );
 
-  const excluded = new Set<string>(historyBookIds);
-  const topScored = aggregateScoredBooks(scoredBatches, excluded, limit);
-  const books = await enrichWithAuthors(supabase, topScored);
+    const excluded = new Set<string>(historyBookIds);
+    const topScored = aggregateScoredBooks(scoredBatches, excluded, limit);
+    const books = await enrichWithAuthors(supabase, topScored);
 
-  return NextResponse.json({
-    books,
-    meta: {
-      seedCount: seeds.length,
-      historyBookCount: historyBookIds.length,
-      preferredGenreCount: preferredGenreIds.length,
-    },
-  });
+    return NextResponse.json({
+      books,
+      meta: {
+        seedCount: seeds.length,
+        historyBookCount: historyBookIds.length,
+        preferredGenreCount: preferredGenreIds.length,
+      },
+    });
+  } catch (error) {
+    console.error("[recommendations for-you] scoring failed", error);
+    return apiError(E_RECOMMENDATIONS_LOAD_FAILED, 500);
+  }
 }
