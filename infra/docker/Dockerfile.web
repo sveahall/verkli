@@ -246,6 +246,14 @@ RUN mkdir -p /tmp/sharp-install \
  && rm -rf /tmp/sharp-install \
  && chown -R nextjs:nodejs /app/node_modules
 
+# Turbopack's sharp-<hash> alias targets the workspace package location.
+# Tracing excludes sharp there, so preserve that location using the isolated
+# runtime install. A root-only install leaves the emitted route import broken.
+RUN mkdir -p /app/apps/web/node_modules \
+ && if [ ! -e /app/apps/web/node_modules/sharp ]; then \
+      ln -s ../../../node_modules/sharp /app/apps/web/node_modules/sharp; \
+    fi
+
 # Fail the BUILD if sharp cannot actually load.
 #
 # Without this the failure mode is silent: next/image catches the missing module
