@@ -445,7 +445,7 @@ export default function BookEditorPanelContent({
               if (marketing.isGeneratingMarketing) return;
               marketing.setMarketingChannel(channel);
               marketing.setMarketingLanguage(lang as SupportedLanguage);
-              await marketing.handleGenerateMarketingCopy();
+              await marketing.handleGenerateMarketingCopy(channel, lang as SupportedLanguage);
             }}
             isGenerating={marketing.isGeneratingMarketing}
             trailerStatus={bookTrailerStatus}

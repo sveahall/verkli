@@ -74,18 +74,22 @@ export async function GET(request: Request) {
   // Lookup post counts per plan
   let postsByPlan: Record<string, { total: number; ready: number; posted: number }> = {};
   if (planIds.length > 0) {
-    const { data: postsRaw } = await supabase
+    const { data: postsRaw, error: postsError } = await supabase
       .from("marketing_posts")
       .select("campaign_plan_id, status")
       .in("campaign_plan_id", planIds);
 
+    if (postsError) {
+      console.error("[campaigns list] post counts failed:", postsError.message);
+      return apiError(E_DATABASE_ERROR, 500);
+    }
     type PostCountRow = { campaign_plan_id: string; status: string };
     postsByPlan = ((postsRaw ?? []) as unknown as PostCountRow[]).reduce<
       Record<string, { total: number; ready: number; posted: number }>
     >((acc, row) => {
       const bucket = acc[row.campaign_plan_id] ?? { total: 0, ready: 0, posted: 0 };
       bucket.total += 1;
-      if (row.status === "ready" || row.status === "draft") bucket.ready += 1;
+      if (row.status === "ready") bucket.ready += 1;
       if (row.status === "posted") bucket.posted += 1;
       acc[row.campaign_plan_id] = bucket;
       return acc;
