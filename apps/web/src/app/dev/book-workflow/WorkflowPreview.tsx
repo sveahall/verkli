@@ -105,8 +105,8 @@ export default function WorkflowPreview() {
   return (
     <div className="grid min-h-screen bg-background text-foreground lg:grid-cols-[232px_minmax(0,1fr)]">
       <aside className="hidden h-screen border-r border-sidebar-border bg-sidebar p-6 text-sidebar-foreground lg:sticky lg:top-0 lg:block">
-        <Image src="/logo-dark.svg?v=20260915" alt="Verkli" width={132} height={36} className="mb-12 h-9 w-auto dark:hidden" />
-        <Image src="/favicon.svg?v=20260915-white" alt="Verkli" width={132} height={36} className="mb-12 hidden h-9 w-auto dark:block" />
+        <Image src="/logo-dark.svg?v=20260916" alt="Verkli" width={1429} height={265} className="mb-12 h-9 w-auto dark:hidden" />
+        <Image src="/favicon.svg?v=20260916" alt="Verkli" width={1429} height={265} className="mb-12 hidden h-9 w-auto dark:block" />
         <div className="mb-6 flex items-center gap-3 text-sm"><Library size={18} /> Library</div>
         <p className="mb-5 truncate text-xs text-sidebar-foreground/60">Den sista färjan</p>
         {[{ label: "Write", icon: PenLine }, { label: "AI Assistant", icon: Sparkles }, { label: "Cover", icon: ImageIcon }, { label: "Audio", icon: Headphones }, { label: "Publish", icon: BookOpen }].map(({ label, icon: Icon }) => (
