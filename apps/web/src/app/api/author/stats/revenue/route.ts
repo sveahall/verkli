@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { apiError, E_DATABASE_ERROR } from "@/lib/api-errors";
 import {
   addToCurrencyTotal,
-  dominantCurrencyTotal,
   fetchAllRows,
   minorToMajor,
   resolveAuthorBooks,
@@ -15,10 +15,18 @@ import {
 
 type AmountRow = { amount: number | string; currency: string | null };
 
-export async function GET() {
+const querySchema = z.object({ period: z.enum(["7d", "30d", "all"]).default("30d") });
+
+export async function GET(request: Request) {
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
 
+  const url = new URL(request.url);
+  const parsed = querySchema.safeParse({ period: url.searchParams.get("period") ?? undefined });
+  const period = parsed.success ? parsed.data.period : "30d";
+  const selectedBookId = url.searchParams.get("bookId") || null;
+  const since = period === "all" ? null : new Date();
+  if (since) since.setDate(since.getDate() - (period === "7d" ? 7 : 30));
   const supabase = await createClient();
 
   // Which books are this author's is an RLS decision, made with the session
@@ -33,22 +41,26 @@ export async function GET() {
     return apiError(E_DATABASE_ERROR, 500);
   }
 
-  const { bookIds } = owned;
+  if (selectedBookId && !owned.bookIds.includes(selectedBookId)) {
+    return NextResponse.json({ error: "Book not found." }, { status: 404 });
+  }
+  const bookIds = selectedBookId ? [selectedBookId] : owned.bookIds;
   const admin = createAdminClient();
 
   // Paged, not a plain select: PostgREST stops at max_rows = 1000, which turns
   // a "total" into "the first thousand rows" without any error to notice.
   const [orders, subscriptions] = await Promise.all([
     bookIds.length > 0
-      ? fetchAllRows<AmountRow>((from, to) =>
-          admin
+      ? fetchAllRows<AmountRow>((from, to) => {
+          let query = admin
             .from("orders")
             .select("amount, currency")
             .in("book_id", bookIds)
-            .eq("status", SETTLED_PAYMENT_STATUS)
-            .order("id", { ascending: true })
-            .range(from, to)
-        )
+            .eq("status", SETTLED_PAYMENT_STATUS);
+          // This schema records order creation, not payment settlement time.
+          if (since) query = query.gte("created_at", since.toISOString());
+          return query.order("id", { ascending: true }).range(from, to);
+        })
       : Promise.resolve({ rows: [] as AmountRow[], error: null }),
     fetchAllRows<{ amount_monthly: number; currency: string | null }>((from, to) =>
       admin
@@ -61,96 +73,60 @@ export async function GET() {
     ),
   ]);
 
-  // These used to be swallowed, so a broken revenue query looked exactly like
-  // an author who had not sold anything. Log loudly; still answer with what
-  // did load rather than failing the whole dashboard.
-  let partial = false;
+  const errors: string[] = [];
   for (const [table, result] of [
     ["orders", orders],
     ["author_subscriptions", subscriptions],
   ] as const) {
     if (result.error) {
-      partial = true;
+      errors.push(table);
       console.error("[author/stats/revenue] load failed", {
-        userId: user.id,
-        table,
-        message: result.error,
+        userId: user.id, table, message: result.error,
       });
     }
   }
 
-  // Amounts are minor units and each row carries its own currency, so they are
-  // tallied per currency rather than added into one meaningless number.
+  // A failed later page must not turn a first-page subtotal into a total.
   const orderTotals: CurrencyTotals = new Map();
-  for (const row of orders.rows) {
-    addToCurrencyTotal(orderTotals, row.currency, Number(row.amount) || 0);
-  }
-
-  // Deliberately empty, and not a stub for a query someone forgot to write.
-  //
-  // This used to read `donations` filtered on `recipient_id`. That column does
-  // not exist, so the request errored on every load and the author was shown a
-  // confident 0. Renaming it does not help: `donations` records a reader buying
-  // CREDITS FOR THEMSELVES (`user_id` is the payer, alongside `credits_delta`
-  // and `credits_applied_at` — see api/donations/checkout/route.ts), and it
-  // carries no author or recipient column at all. There is no author-directed
-  // donation in this schema to total up.
-  //
-  // Kept as an empty map rather than deleting `donationRevenue` from the
-  // response, because the field is rendered in two places
-  // (AnalyticsCharts.tsx, AuthorStatsDashboard.tsx) and reader-to-author
-  // donations are planned work. When that ships, fill this map from the new
-  // table; nothing downstream has to change.
-  const donationTotals: CurrencyTotals = new Map();
-
-  const subscriptionTotals: CurrencyTotals = new Map();
-  for (const row of subscriptions.rows) {
-    addToCurrencyTotal(
-      subscriptionTotals,
-      row.currency,
-      Number(row.amount_monthly) || 0
-    );
-  }
-
-  const combined: CurrencyTotals = new Map();
-  for (const totals of [orderTotals, donationTotals, subscriptionTotals]) {
-    for (const [code, minor] of totals) {
-      combined.set(code, (combined.get(code) ?? 0) + minor);
+  if (!orders.error) {
+    for (const row of orders.rows) {
+      addToCurrencyTotal(orderTotals, row.currency, Number(row.amount) || 0);
     }
   }
-
-  if (combined.size > 1) {
-    console.warn("[author/stats/revenue] multiple currencies; reporting the largest", {
-      userId: user.id,
-      currencies: [...combined.keys()],
-    });
+  const subscriptionTotals: CurrencyTotals = new Map();
+  if (!subscriptions.error) {
+    for (const row of subscriptions.rows) {
+      addToCurrencyTotal(subscriptionTotals, row.currency, Number(row.amount_monthly) || 0);
+    }
   }
+  const byCurrency = (totals: CurrencyTotals) => Object.fromEntries(
+    [...totals].map(([code, minor]) => [code.toUpperCase(), minorToMajor(minor)])
+  );
+  const singleAmount = (totals: CurrencyTotals) => {
+    if (totals.size > 1) return { total: null, currency: null };
+    const [code, minor] = [...totals][0] ?? ["sek", 0];
+    return { total: minorToMajor(minor), currency: code.toUpperCase() };
+  };
+  const sales = singleAmount(orderTotals);
+  const mrr = singleAmount(subscriptionTotals);
 
-  // KNOWN LIMITATION, deliberate. With revenue in more than one currency the
-  // headline reports the largest bucket only, so it under-reports. The
-  // alternative — adding SEK to EUR — produces a number that is not an amount
-  // of anything, which is worse. Presenting mixed currencies properly is a
-  // product decision (convert at whose rate, as of when?) rather than a coding
-  // one, and September is a Swedish, card-only, single-book launch that cannot
-  // reach this case. `byCurrency` below carries the full picture for whoever
-  // builds that UI.
-  const headline = dominantCurrencyTotal(combined);
-  const code = headline.currency.toLowerCase();
-
-  // See the note in ../route.ts: a logged failure the author cannot see, wrapped
-  // in a 200 containing zeros, reads to them as "you earned nothing".
   return NextResponse.json({
-    partial,
-    totalRevenue: headline.total,
-    orderRevenue: minorToMajor(orderTotals.get(code) ?? 0),
-    donationRevenue: minorToMajor(donationTotals.get(code) ?? 0),
-    subscriptionMRR: minorToMajor(subscriptionTotals.get(code) ?? 0),
-    activeSubscriberCount: subscriptions.rows.length,
-    currency: headline.currency,
-    // Present so a mixed-currency author is not silently under-reported by the
-    // headline figure above.
-    byCurrency: Object.fromEntries(
-      [...combined].map(([c, minor]) => [c.toUpperCase(), minorToMajor(minor)])
-    ),
+    partial: errors.length > 0,
+    errors,
+    period,
+    bookId: selectedBookId,
+    dateBasis: "order_created_at",
+    // Compatibility scalars are only meaningful for one currency. Neither MRR
+    // nor reader credit purchases (the donations table) are historical sales.
+    totalRevenue: orders.error ? null : sales.total,
+    orderRevenue: orders.error ? null : sales.total,
+    donationRevenue: 0,
+    currency: orders.error ? null : sales.currency,
+    byCurrency: orders.error ? null : byCurrency(orderTotals),
+    subscriptionMRR: subscriptions.error ? null : mrr.total,
+    subscriptionCurrency: subscriptions.error ? null : mrr.currency,
+    subscriptionByCurrency: subscriptions.error ? null : byCurrency(subscriptionTotals),
+    subscriptionScope: "author",
+    activeSubscriberCount: subscriptions.error ? null : subscriptions.rows.length,
   });
 }
