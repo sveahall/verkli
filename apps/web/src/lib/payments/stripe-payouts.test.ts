@@ -62,6 +62,7 @@ describe("connected payout visibility", () => {
   it.each([
     [12345, "sek", "123.45"], [123, "jpy", "123"], [12300, "isk", "123"],
     [12300, "ugx", "123"], [12300, "huf", "123.00"], [12345, "bhd", "12.345"],
+    [12345, "huf", "123.45"], [12345, "twd", "123.45"],
   ])("formats Stripe minor units for %s %s", (amount, currency, expected) => {
     expect(formatPayoutAmount(amount, currency, "en")).toContain(expected);
   });

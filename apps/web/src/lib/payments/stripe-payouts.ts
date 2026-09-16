@@ -1,6 +1,7 @@
 import "server-only";
 import Stripe from "stripe";
 import { STRIPE_API_VERSION } from "./stripe";
+import { stripeAmountFractionDigits, stripeMinorToMajor } from "./stripe-currency";
 
 export type PayoutSnapshot = {
   available: { amount: number; currency: string }[];
@@ -35,12 +36,13 @@ export async function getConnectedPayoutSnapshot(stripeAccountId: string): Promi
 }
 
 export function formatPayoutAmount(amount: number, currency: string, locale: string): string {
-  const code = currency.toUpperCase();
-  const formatter = new Intl.NumberFormat(locale, { style: "currency", currency: code, currencyDisplay: "code" });
-  // Stripe retains two-decimal API amounts for ISK and UGX despite their ISO precision.
-  // https://docs.stripe.com/currencies#special-cases
-  const digits = code === "ISK" || code === "UGX" ? 2 : (formatter.resolvedOptions().maximumFractionDigits ?? 2);
-  return formatter.format(amount / 10 ** digits);
+  const code = currency.trim().toUpperCase();
+  const digits = stripeAmountFractionDigits(code);
+  const formatter = new Intl.NumberFormat(locale, {
+    style: "currency", currency: code, currencyDisplay: "code",
+    minimumFractionDigits: digits, maximumFractionDigits: digits,
+  });
+  return formatter.format(stripeMinorToMajor(amount, code));
 }
 
 function csvCell(value: string | number | boolean): string {

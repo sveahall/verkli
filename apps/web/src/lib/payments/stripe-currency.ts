@@ -3,8 +3,9 @@
  */
 export function stripeAmountFractionDigits(currency: string): number {
   const code = currency.trim().toUpperCase();
-  // Stripe keeps two-decimal API amounts for these zero-decimal ISO currencies.
-  if (code === "ISK" || code === "UGX") return 2;
+  // These API amounts remain in hundredths even when ICU uses zero display
+  // decimals. HUF/TWD payouts must be divisible by 100, not scaled as whole units.
+  if (["ISK", "UGX", "HUF", "TWD"].includes(code)) return 2;
   return new Intl.NumberFormat("en", { style: "currency", currency: code })
     .resolvedOptions().maximumFractionDigits ?? 2;
 }
