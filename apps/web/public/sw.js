@@ -63,18 +63,15 @@ async function cacheUrls(urls) {
 
   await Promise.all(
     urls.map(async (urlValue) => {
-      try {
-        const request = new Request(urlValue, {
-          method: "GET",
-          credentials: "include",
-        });
-        const response = await fetch(request);
-        if (response && response.ok) {
-          await cache.put(request, response.clone());
-        }
-      } catch {
-        // Ignore individual pre-cache failures; caller can retry later.
+      const request = new Request(urlValue, {
+        method: "GET",
+        credentials: "include",
+      });
+      const response = await fetch(request);
+      if (!response || !response.ok || response.redirected) {
+        throw new Error("offline_precache_failed");
       }
+      await cache.put(request, response.clone());
     })
   );
 }

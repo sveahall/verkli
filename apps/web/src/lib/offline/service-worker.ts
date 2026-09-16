@@ -18,25 +18,41 @@ function normalizeUrls(urls: string[]): string[] {
 
 async function postCommand(command: ServiceWorkerCommand): Promise<void> {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
-    return;
+    throw new Error("Offline saving is not supported in this browser.");
   }
 
-  const registration = await navigator.serviceWorker.ready.catch(() => null);
+  let readyTimeout: ReturnType<typeof setTimeout> | undefined;
+  const registration = await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<never>((_resolve, reject) => {
+      readyTimeout = setTimeout(() => reject(new Error("Offline storage is not ready. Reload the page and try again.")), 10_000);
+    }),
+  ]).finally(() => clearTimeout(readyTimeout));
   const worker = registration?.active ?? navigator.serviceWorker.controller;
   if (!worker) {
-    return;
+    throw new Error("Offline storage is not ready. Reload the page and try again.");
   }
 
-  await new Promise<void>((resolve) => {
+  await new Promise<void>((resolve, reject) => {
     const channel = new MessageChannel();
-    const timeout = window.setTimeout(() => resolve(), 5000);
-
-    channel.port1.onmessage = () => {
+    const finish = (error?: Error) => {
       window.clearTimeout(timeout);
-      resolve();
+      channel.port1.close();
+      channel.port2.close();
+      if (error) reject(error);
+      else resolve();
+    };
+    const timeout = window.setTimeout(() => finish(new Error("Offline storage did not respond. Please try again.")), 60_000);
+
+    channel.port1.onmessage = (event) => {
+      finish(event.data?.ok === true ? undefined : new Error("Could not update offline storage. Check your connection and available device storage, then try again."));
     };
 
-    worker.postMessage(command, [channel.port2]);
+    try {
+      worker.postMessage(command, [channel.port2]);
+    } catch {
+      finish(new Error("Could not contact offline storage. Reload the page and try again."));
+    }
   });
 }
 

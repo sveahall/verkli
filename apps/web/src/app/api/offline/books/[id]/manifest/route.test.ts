@@ -39,7 +39,7 @@ describe("GET /api/offline/books/[id]/manifest", () => {
     expect(response.status).toBe(403);
   });
 
-  it("returns a manifest with chapter hashes and upserts offline metadata", async () => {
+  it.each([{ publishedCount: null, expectedCount: 2 }, { publishedCount: 2, expectedCount: 1 }, { publishedCount: 0, expectedCount: 0 }])("only includes released chapters when publication count is $publishedCount", async ({ publishedCount, expectedCount }) => {
     const chapters = [
       {
         id: "11111111-1111-4111-8111-111111111111",
@@ -80,7 +80,7 @@ describe("GET /api/offline/books/[id]/manifest", () => {
         supabase: { from },
         userId: "user-1",
         book: { id: "book-1" },
-        activeVersion: { id: "ver-1" },
+        activeVersion: { id: "ver-1", published_chapter_count: publishedCount },
         activeLanguageCode: "sv",
       },
     });
@@ -94,8 +94,8 @@ describe("GET /api/offline/books/[id]/manifest", () => {
     expect(body.bookId).toBe("book-1");
     expect(body.bookVersionId).toBe("ver-1");
     expect(body.manifestHash).toBe("manifest-hash");
-    expect(body.chapters).toHaveLength(2);
-    expect(body.chapters[0]).toMatchObject({
+    expect(body.chapters).toHaveLength(expectedCount);
+    if (expectedCount > 0) expect(body.chapters[0]).toMatchObject({
       id: "11111111-1111-4111-8111-111111111111",
       contentHash: "hash-Chapter 1",
       readerUrl: "/reader/read/11111111-1111-4111-8111-111111111111",
