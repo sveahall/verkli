@@ -40,6 +40,7 @@ function makeSupabaseMock(bookAuthorId: string) {
           id: "ver-1",
           language_code: "sv",
           status: "translating",
+          error_message: "translation-claim:internal-job-id",
           created_at: "2026-02-11T11:00:00.000Z",
           updated_at: "2026-02-11T11:05:00.000Z",
         },
@@ -122,6 +123,7 @@ describe("GET /api/books/[id]/translation-status", () => {
       active: true,
     });
     expect(body.jobs).toHaveLength(1);
-    expect(body.jobs[0]).toMatchObject({ id: "ver-1", language: "sv", status: "running" });
+    expect(body.jobs[0]).toMatchObject({ id: "ver-1", language: "sv", status: "running", error: null });
+    expect(JSON.stringify(body)).not.toContain("translation-claim:");
   });
 });

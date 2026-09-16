@@ -63,6 +63,7 @@ export async function GET(
     supabase,
     bookId,
     book,
+    requestedSourceVersionId: new URL(request.url).searchParams.get("sourceVersionId"),
   })
 
   if (!sourceContext.sourceVersionId) {

@@ -1,22 +1,22 @@
 /**
- * BullMQ worker: process "translate" jobs for book translations (Opus MT / CTranslate2).
- * Run from apps/web: npm run translate-worker (requires REDIS_URL, Supabase env; Python venv and model in apps/web/models/sv_en)
+ * BullMQ worker: translate books with source-grounded fidelity and voice reviews.
+ * Run from apps/web: npm run translate-worker (Redis, Supabase and Anthropic required).
  */
 
 import "./load-dotenv";
 import "./sentry-worker-init";
 import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
-import { Worker, UnrecoverableError } from "bullmq";
+import { Worker, UnrecoverableError, type Job } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import type { TranslationJobData } from "../src/lib/translation-queue";
-import { translateBatch as opusTranslateBatch, sanitizeTranslatedText } from "../src/lib/opus";
-import { nvidiaRivaTranslator } from "../src/lib/ai/providers/nvidia-riva-translator";
-import { anthropicTranslator } from "../src/lib/ai/providers/anthropic-translator";
-import { opusTranslator } from "../src/lib/ai/providers/opus-translator";
-import { ChainTranslator } from "../src/lib/ai/providers/chain-translator";
-import { getProviderForPair, type TranslationProvider } from "../src/lib/translation-pairs";
-import { detectLanguageWithConfidence } from "../src/lib/language-detect";
+import { randomUUID } from "node:crypto";
+import { getProviderForPair } from "../src/lib/translation-pairs";
+import { createAuthorProfile } from "../src/lib/ai/translation-quality/anthropic";
+import { buildBookProfileSample, translateQualityChapter, TranslationNeedsReviewError } from "../src/lib/translation-quality-chapter";
+import { hashTranslationSource, hashTranslationTarget, TRANSLATION_QUALITY_JOB_KIND, type TranslationQualityRecord } from "../src/lib/translation-quality-report";
+import { estimateTranslationQualityBook, translationQualityReservationKey, TranslationQualityBudgetError } from "../src/lib/translation-quality-budget";
+import type { Json } from "../src/lib/supabase/types";
 import { contentHash } from "../src/lib/import-extract";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
 import { upsertBookTranslationState } from "../src/lib/book-translation";
@@ -43,11 +43,11 @@ function translateSmokeText(text: string, targetLanguage: string): string {
   return `[smoke:${normalizedTarget}] ${trimmed}`;
 }
 
-/** Max chars per batch sent to Opus MT (~1500-2000 tokens for European languages). */
-const MAX_BATCH_CHARS = 6000;
-/** Per-chunk retry attempts with exponential backoff. */
-const MAX_CHUNK_RETRY = 3;
-const RETRY_BASE_DELAY_MS = 1000;
+// A quality failure is terminal: retrying an entire paid book cannot improve a
+// completed review decision, and must not refund already consumed model work.
+export class TranslationQualityStoppedError extends UnrecoverableError {
+  constructor(message: string) { super(message); this.name = "TranslationQualityStoppedError"; }
+}
 
 function structuredLog(event: string, data: Record<string, unknown>): void {
   console.log(JSON.stringify({ event, ts: new Date().toISOString(), ...data }));
@@ -95,84 +95,6 @@ function replaceTiptapTexts(
 }
 
 /**
- * Group texts into batches where total chars per batch <= maxChars.
- * Each text is always kept whole (never split across batches).
- */
-function batchByChars(texts: string[], maxChars: number): string[][] {
-  const batches: string[][] = [];
-  let current: string[] = [];
-  let currentChars = 0;
-
-  for (const text of texts) {
-    if (currentChars + text.length > maxChars && current.length > 0) {
-      batches.push(current);
-      current = [];
-      currentChars = 0;
-    }
-    current.push(text);
-    currentChars += text.length;
-  }
-  if (current.length > 0) batches.push(current);
-  return batches;
-}
-
-/**
- * Translate a batch of texts via the appropriate provider, with retry.
- * Opus MT output is sanitized; NVIDIA Riva output is used as-is.
- */
-async function translateBatchWithRetry(
-  texts: string[],
-  sourceLang: string,
-  targetLang: string,
-  chapterId: string,
-  batchIndex: number,
-  provider: TranslationProvider,
-): Promise<string[]> {
-  for (let attempt = 1; attempt <= MAX_CHUNK_RETRY; attempt++) {
-    try {
-      let results: string[];
-
-      if (provider === "opus") {
-        const raw = opusTranslateBatch({ texts, sourceLanguage: sourceLang, targetLanguage: targetLang });
-        results = raw.map((t) => sanitizeTranslatedText(t));
-      } else if (provider === "nvidia-riva") {
-        results = await nvidiaRivaTranslator.translateBatch(texts, sourceLang, targetLang);
-      } else if (provider === "anthropic") {
-        results = await anthropicTranslator.translateBatch(texts, sourceLang, targetLang);
-      } else {
-        // chain: sv → en (Opus) → target (Riva), or source (Riva) → en → sv (Opus)
-        const chain = sourceLang === "sv"
-          ? new ChainTranslator(opusTranslator, nvidiaRivaTranslator)
-          : new ChainTranslator(nvidiaRivaTranslator, opusTranslator);
-        results = await chain.translateBatch(texts, sourceLang, targetLang);
-      }
-
-      return results.map((t, i) => {
-        if (!t.trim() && texts[i].trim()) {
-          structuredLog("chunk_item_empty_fallback", { chapterId, batchIndex, itemIndex: i });
-          return texts[i];
-        }
-        return t;
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      structuredLog("chunk_translation_failed", {
-        chapterId,
-        batchIndex,
-        attempt,
-        maxAttempts: MAX_CHUNK_RETRY,
-        error: msg.slice(0, 300),
-        provider,
-      });
-      if (attempt === MAX_CHUNK_RETRY) throw err;
-      const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
-      await new Promise((resolve) => setTimeout(resolve, delay));
-    }
-  }
-  throw new Error("translateBatchWithRetry: unreachable");
-}
-
-/**
  * Extract plain text from a TipTap JSON node (for display/debugging).
  */
 function extractText(node: unknown): string {
@@ -209,42 +131,18 @@ function assertWorkerEnv(): void {
   }
 }
 
-function assertOpusEnv(): void {
+function assertQualityProviderEnv(): void {
   if (PIPELINE_SMOKE_MODE) {
-    console.warn("[translation worker] PIPELINE_SMOKE_MODE=true — Opus MT binary checks are skipped.");
+    console.warn("[translation worker] PIPELINE_SMOKE_MODE=true — smoke translations are not quality-reviewed.");
     return;
   }
-
-  // Opus is optional and normally absent: it needs a Python venv and a
-  // downloaded model.bin that ships with neither the repo nor this image.
-  // getProviderForPair() checks the same two variables, so when they are unset
-  // nothing is routed to Opus and its absence costs nothing.
-  const opusMissing: string[] = [];
-  if (!process.env.OPUSMT_PYTHON?.trim()) opusMissing.push("OPUSMT_PYTHON");
-  if (!process.env.OPUSMT_MODELS_DIR?.trim()) opusMissing.push("OPUSMT_MODELS_DIR");
-  if (opusMissing.length > 0) {
-    console.warn(
-      `[translation worker] Opus MT not configured (${opusMissing.join(", ")}). sv pairs route to Anthropic instead.`
-    );
-  }
-
-  if (!process.env.NVIDIA_NIM_API_KEY?.trim()) {
-    console.warn(
-      "[translation worker] NVIDIA_NIM_API_KEY not set. Riva pairs (en/de/es/fr/pt/ru/zh/ja/ko/ar) will fail."
-    );
-  }
-
-  // This one is load-bearing. Without Opus, every Swedish pair — which is every
-  // book on the platform today — resolves to Anthropic, so a missing key here
-  // means translation does not work at all rather than partially.
   if (!process.env.ANTHROPIC_API_KEY?.trim()) {
-    console.error(
-      "[translation worker] ANTHROPIC_API_KEY not set. Swedish translations will fail."
-    );
+    console.error("[translation worker] ANTHROPIC_API_KEY is required for reviewed translations.");
+    process.exit(1);
   }
 }
 
-async function processJob(payload: TranslationJobData, workerJobId?: string) {
+export async function processJob(payload: TranslationJobData, workerJobId?: string) {
   const {
     bookId,
     sourceVersionId,
@@ -256,6 +154,29 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
   const supabase = createAdminClient();
   let resolvedTargetVersionId: string | null = null;
   let translationProgress = 0;
+  let targetClaimRevision: string | null = null;
+  let targetClaimMarker: string | null = null;
+  let savedChapterCount = 0;
+  let qualityJobId: string | null = null;
+  let qualityRecord: TranslationQualityRecord | null = null;
+  let qualityStarted = false;
+  let reportWrite = Promise.resolve();
+  function saveQualityReport() {
+    reportWrite = reportWrite.then(persistQualityReport);
+    return reportWrite;
+  }
+  async function persistQualityReport() {
+    if (!qualityJobId || !qualityRecord) return;
+    const terminal = qualityRecord.status !== "processing";
+    const { data, error } = await supabase.from("ai_jobs").update({
+      output: qualityRecord as unknown as Json,
+      status: qualityRecord.status === "failed" ? "failed" : terminal ? "completed" : "processing",
+      progress: translationProgress,
+      error: qualityRecord.error,
+      ...(terminal ? { finished_at: new Date().toISOString() } : {}),
+    }).eq("id", qualityJobId).select("id").maybeSingle();
+    if (error || !data) throw new Error("Could not save the translation quality report.");
+  }
   const selectedChapterId =
     typeof chapterId === "string" && chapterId.trim().length > 0 ? chapterId.trim() : null;
 
@@ -339,6 +260,9 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
     if (!normalizedTarget) {
       throw new UnrecoverableError("Target language missing or unsupported for translation job");
     }
+    if (sourceLang === normalizedTarget || targetVersionId === sourceVersionId) {
+      throw new UnrecoverableError("Choose a target version and language different from the original manuscript.");
+    }
 
     const translationProvider = getProviderForPair(sourceLang, normalizedTarget);
     if (!translationProvider) {
@@ -347,85 +271,26 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       );
     }
 
-    if (targetVersionId) {
-      const { data: targetVersion, error: targetError } = await supabase
-        .from("book_versions")
-        .select("id, book_id, language_code")
-        .eq("id", targetVersionId)
-        .single();
-      if (targetError || !targetVersion) {
-        throw new Error(targetError?.message ?? "Target version not found");
-      }
-      if (targetVersion.book_id !== bookId) {
-        throw new Error("Target version does not belong to book");
-      }
-      if (normalizeLanguageOrNull(targetVersion.language_code) !== normalizedTarget) {
-        throw new Error("Target version language mismatch");
-      }
-      resolvedTargetVersionId = targetVersion.id;
-    } else {
-      const { data: targetVersion, error: targetError } = await supabase
-        .from("book_versions")
-        .upsert(
-          {
-            book_id: bookId,
-            language_code: normalizedTarget,
-            status: "translating",
-            // Inherit the source's visibility rather than taking the column
-            // default, which is "public". Translating a private draft used to
-            // produce a public version — the book's own `published` flag kept
-            // it out of discovery, so nothing leaked, but the author never
-            // chose that and a second gate is not a decision.
-            visibility: sourceVersion.visibility ?? "private",
-          },
-          { onConflict: "book_id,language_code" }
-        )
-        .select("id")
-        .single();
-      if (targetError || !targetVersion?.id) {
-        throw new Error(targetError?.message ?? "Failed to create target version");
-      }
-      resolvedTargetVersionId = targetVersion.id;
+    const targetFields = "id, book_id, language_code, published_at, status, updated_at";
+    let targetQuery = supabase.from("book_versions").select(targetFields).eq("book_id", bookId);
+    targetQuery = targetVersionId ? targetQuery.eq("id", targetVersionId) : targetQuery.eq("language_code", normalizedTarget);
+    const { data: existingTarget, error: targetLookupError } = await targetQuery.maybeSingle();
+    if (targetLookupError || (targetVersionId && !existingTarget)) throw new UnrecoverableError("Could not find the target edition in this book.");
+    let targetSnapshot = existingTarget;
+    if (!targetSnapshot) {
+      // INSERT, never upsert: a concurrent new edition belongs to its creator.
+      const { data: createdTarget, error: createError } = await supabase.from("book_versions").insert({
+        book_id: bookId, language_code: normalizedTarget, status: "draft",
+        visibility: sourceVersion.visibility ?? "private",
+      }).select(targetFields).single();
+      if (createError || !createdTarget) throw new UnrecoverableError("The target edition was created or changed elsewhere. Refresh before starting a new translation.");
+      targetSnapshot = createdTarget;
     }
-
-    if (!resolvedTargetVersionId) {
-      throw new Error("Missing target version id");
-    }
-
-    await supabase
-      .from("book_versions")
-      .update({ status: "translating", error_message: null })
-      .eq("id", resolvedTargetVersionId);
-
-    if (!selectedChapterId) {
-      await upsertBookTranslationState(supabase, {
-        bookId,
-        language: normalizedTarget,
-        status: "running",
-        progress: 0,
-      });
-    }
-
-    if (overwrite) {
-      if (selectedChapterId) {
-        const { data: sourceChapterForDelete, error: sourceChapterForDeleteError } = await supabase
-          .from("chapters")
-          .select("order")
-          .eq("book_version_id", sourceVersionId)
-          .eq("id", selectedChapterId)
-          .maybeSingle();
-        if (sourceChapterForDeleteError || !sourceChapterForDelete) {
-          throw new Error(sourceChapterForDeleteError?.message ?? "Selected source chapter not found");
-        }
-        await supabase
-          .from("chapters")
-          .delete()
-          .eq("book_version_id", resolvedTargetVersionId)
-          .eq("order", sourceChapterForDelete.order);
-      } else {
-        await supabase.from("chapters").delete().eq("book_version_id", resolvedTargetVersionId);
-      }
-    }
+    if (normalizeLanguageOrNull(targetSnapshot.language_code) !== normalizedTarget) throw new UnrecoverableError("Target version language mismatch");
+    if (targetSnapshot.published_at) throw new UnrecoverableError("This translation is published. Unpublish the target edition before replacing its text.");
+    if (targetSnapshot.status === "translating") throw new UnrecoverableError("A translation is already running for this edition. Wait for it to finish before starting another.");
+    if (!targetSnapshot.updated_at || !targetSnapshot.status) throw new UnrecoverableError("Could not read the target edition revision. No translation was started.");
+    resolvedTargetVersionId = targetSnapshot.id;
 
     let chaptersQuery = supabase
       .from("chapters")
@@ -446,6 +311,20 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       throw new UnrecoverableError("No chapters found to translate");
     }
 
+    const targetChapterFields = "id, title, content, order, updated_at, version_number";
+    const readTargetSnapshot = () => {
+      let query = supabase.from("chapters").select(targetChapterFields)
+        .eq("book_id", bookId).eq("book_version_id", resolvedTargetVersionId!)
+        .order("order", { ascending: true });
+      if (selectedChapterId) query = query.eq("order", chapterList[0].order);
+      return query;
+    };
+    const { data: targetBaseline, error: baselineError } = await readTargetSnapshot();
+    if (baselineError || !targetBaseline || targetBaseline.some((row) => !row.updated_at || !Number.isSafeInteger(row.version_number))) {
+      throw new UnrecoverableError("Could not read the target manuscript revision. No model work was started.");
+    }
+    const targetSnapshotKey = (rows: typeof targetBaseline) => JSON.stringify(rows.map((row) => [row.id, row.title, row.content, row.order, row.updated_at, row.version_number]));
+
     // Size the budget on the actual translatable text, not the raw stored
     // string. For TipTap chapters `content` is serialized JSON, so counting its
     // length billed JSON markup (node types, attrs, braces) as translatable
@@ -464,28 +343,31 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       }
       return sum + content.length;
     }, 0);
-    const estimatedCostUnits = Math.ceil(totalChars / 4);
     const budgetUserId = payload.authorId ?? book.author_id;
     if (!budgetUserId) {
       throw new UnrecoverableError("Missing authorId for translation budget enforcement");
     }
     try {
+      // Count actual batches, including fragmented formatting runs. Character
+      // count alone cannot bound the number of reviewer calls.
+      const estimate = PIPELINE_SMOKE_MODE ? null : estimateTranslationQualityBook(chapterList);
       validateJobCost({
         userId: budgetUserId,
         pipeline: "translation",
-        jobSize: totalChars,
+        jobSize: estimate?.sourceChars ?? totalChars,
         jobId: workerJobId ?? null,
       });
       await checkBudget({
         userId: budgetUserId,
         pipeline: "translation",
-        units: estimatedCostUnits,
+        units: estimate?.estimatedCostUnits ?? Math.ceil(totalChars / 4),
         jobId: workerJobId ?? null,
       });
     } catch (err) {
-      if (err instanceof BudgetExceededError || err instanceof JobCostExceededError) {
-        throw new UnrecoverableError(err.message);
+      if (err instanceof BudgetExceededError) {
+        throw new UnrecoverableError("This reviewed translation exceeds the remaining daily AI allowance. Try fewer chapters or try again after the daily reset.");
       }
+      if (err instanceof JobCostExceededError || err instanceof TranslationQualityBudgetError) throw new UnrecoverableError(err.message);
       throw err;
     }
 
@@ -496,13 +378,81 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       chapterCount: chapterList.length,
       totalChars,
       scope: selectedChapterId ? "chapter" : "book",
-      provider: translationProvider,
+      provider: PIPELINE_SMOKE_MODE ? "smoke" : "anthropic",
     });
+
+    const reviewedTargets: Array<{ title: string; content: string; order: number }> = [];
+    const pendingChapters: Array<{ book_id: string; book_version_id: string; title: string; content: string; source_text: string; content_hash: string; order: number }> = [];
+    if (!PIPELINE_SMOKE_MODE) {
+      if (workerJobId) {
+        const { data: previousRun, error: previousRunError } = await supabase.from("ai_jobs")
+          .select("id, output").eq("user_id", budgetUserId).eq("kind", TRANSLATION_QUALITY_JOB_KIND)
+          .eq("input->>reservationKey", workerJobId).limit(1).maybeSingle();
+        if (previousRunError) throw new UnrecoverableError("Could not verify whether this translation already consumed AI work. Try again later.");
+        if (previousRun) {
+          qualityStarted = true;
+          qualityJobId = previousRun.id;
+          qualityRecord = previousRun.output as unknown as TranslationQualityRecord;
+          throw new TranslationQualityStoppedError("This translation run was interrupted after review started. Its saved report is available. Start a new translation to continue.");
+        }
+      }
+      qualityJobId = randomUUID();
+      targetClaimMarker = `translation-claim:${qualityJobId}`;
+      qualityRecord = {
+        formatVersion: 1, scope: selectedChapterId ? "chapter" : "book",
+        sourceVersionId, targetVersionId: resolvedTargetVersionId,
+        sourceHash: hashTranslationSource(chapterList), status: "processing", profile: null,
+        batches: [], usageReceipts: [], checkedAt: new Date().toISOString(), error: null,
+      };
+      const { error: reportError } = await supabase.from("ai_jobs").insert({
+        id: qualityJobId, user_id: budgetUserId, book_id: bookId,
+        book_version_id: resolvedTargetVersionId, kind: TRANSLATION_QUALITY_JOB_KIND,
+        language: normalizedTarget, status: "processing", started_at: new Date().toISOString(),
+        input: { sourceVersionId, sourceHash: qualityRecord.sourceHash, scope: qualityRecord.scope, reservationKey: workerJobId ?? null, targetClaimMarker },
+        output: qualityRecord as unknown as Json,
+      });
+      if (reportError) throw new UnrecoverableError("Could not create the translation quality report. No review was started.");
+    } else {
+      qualityJobId = randomUUID();
+      targetClaimMarker = `translation-claim:${qualityJobId}`;
+      const { error } = await supabase.from("ai_jobs").insert({
+        id: qualityJobId, user_id: budgetUserId, book_id: bookId, book_version_id: resolvedTargetVersionId,
+        kind: TRANSLATION_QUALITY_JOB_KIND, language: normalizedTarget, status: "processing",
+        input: { reservationKey: workerJobId ?? null, targetClaimMarker, smoke: true },
+      });
+      if (error) throw new UnrecoverableError("Could not save the translation claim. No translation was started.");
+    }
+
+    // Claim exactly the unpublished edition inspected above. Publish uses the
+    // same status/revision boundary, so only one operation can win.
+    const { data: claim, error: startError } = await supabase.from("book_versions")
+      .update({ status: "translating", error_message: targetClaimMarker })
+      .eq("id", resolvedTargetVersionId).eq("book_id", bookId)
+      .eq("status", targetSnapshot.status).eq("updated_at", targetSnapshot.updated_at)
+      .is("published_at", null).select("id, updated_at").maybeSingle();
+    if (startError || !claim?.updated_at) throw new UnrecoverableError("The target edition changed or was published before translation started. Refresh and try again.");
+    targetClaimRevision = claim.updated_at;
+
+    if (!selectedChapterId) {
+      await upsertBookTranslationState(supabase, {
+        bookId,
+        language: normalizedTarget,
+        status: "running",
+        progress: 0,
+      });
+    }
+
+    if (qualityRecord) {
+      qualityStarted = true;
+      qualityRecord.profile = await createAuthorProfile({ sourceSample: buildBookProfileSample(chapterList), sourceLanguage: sourceLang, targetLanguage: normalizedTarget }, async (usage) => { qualityRecord!.profileUsage = usage; qualityRecord!.usageReceipts!.push(usage); await saveQualityReport(); });
+      await saveQualityReport();
+    }
 
     for (let i = 0; i < chapterList.length; i++) {
       const ch = chapterList[i];
       const sourceContent = (ch.content as string | null) ?? "";
       let translatedContent = sourceContent;
+      let translatedTitle = ch.title ?? `Chapter ${Number(ch.order ?? i) + 1}`;
 
       structuredLog("chapter_translation_started", {
         chapterId: ch.id,
@@ -512,7 +462,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
         sourceChars: sourceContent.length,
       });
 
-      if (sourceContent.trim()) {
+      if (sourceContent.trim() || (!PIPELINE_SMOKE_MODE && translatedTitle.trim())) {
         try {
           if (PIPELINE_SMOKE_MODE) {
             // Smoke mode: prefix text with smoke marker (no Opus MT)
@@ -528,60 +478,20 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
                 .join("\n\n");
             }
           } else {
-            // Cost optimization: skip if content is already in target language
-            const sampleText = isTiptapJson(sourceContent)
-              ? extractText(JSON.parse(sourceContent)).slice(0, 4000)
-              : sourceContent.slice(0, 4000);
-            const langCheck = detectLanguageWithConfidence(sampleText);
-
-            if (langCheck.language === normalizedTarget && langCheck.confidence > 0.95) {
-              structuredLog("chapter_skipped_already_translated", {
-                chapterId: ch.id,
-                detectedLanguage: langCheck.language,
-                confidence: Math.round(langCheck.confidence * 100) / 100,
-              });
-            } else {
-              // Batch translate with retry
-              if (isTiptapJson(sourceContent)) {
-                const parsed = JSON.parse(sourceContent);
-                const texts = collectTiptapTexts(parsed);
-                const nonEmptyMap: Array<{ index: number; text: string }> = [];
-                for (let ti = 0; ti < texts.length; ti++) {
-                  if (texts[ti].trim()) nonEmptyMap.push({ index: ti, text: texts[ti] });
-                }
-
-                if (nonEmptyMap.length > 0) {
-                  const batches = batchByChars(nonEmptyMap.map((m) => m.text), MAX_BATCH_CHARS);
-                  const allTranslated: string[] = [];
-                  for (let bi = 0; bi < batches.length; bi++) {
-                    const result = await translateBatchWithRetry(
-                      batches[bi], sourceLang, normalizedTarget, ch.id, bi, translationProvider,
-                    );
-                    allTranslated.push(...result);
-                  }
-
-                  const fullTexts = [...texts];
-                  for (let ti = 0; ti < nonEmptyMap.length; ti++) {
-                    fullTexts[nonEmptyMap[ti].index] = allTranslated[ti] ?? texts[nonEmptyMap[ti].index];
-                  }
-                  translatedContent = JSON.stringify(replaceTiptapTexts(parsed, fullTexts, { i: 0 }));
-                }
-              } else {
-                // Plain text — batch translate paragraphs
-                const paragraphs = sourceContent.split(/\n{2,}/).filter((p) => p.trim());
-                if (paragraphs.length > 0) {
-                  const batches = batchByChars(paragraphs, MAX_BATCH_CHARS);
-                  const allTranslated: string[] = [];
-                  for (let bi = 0; bi < batches.length; bi++) {
-                    const result = await translateBatchWithRetry(
-                      batches[bi], sourceLang, normalizedTarget, ch.id, bi, translationProvider,
-                    );
-                    allTranslated.push(...result);
-                  }
-                  translatedContent = allTranslated.join("\n\n");
-                }
-              }
-            }
+            if (!qualityRecord?.profile) throw new Error("The author profile is unavailable. Translation was not reviewed.");
+            const result = await translateQualityChapter({
+              chapterId: ch.id, title: translatedTitle, content: sourceContent,
+              sourceLanguage: sourceLang, targetLanguage: normalizedTarget,
+              profile: qualityRecord.profile,
+              onUsage: async (receipt) => { qualityRecord!.usageReceipts!.push(receipt); await saveQualityReport(); },
+              onBatch: async (batch) => {
+                qualityRecord!.batches.push(batch);
+                if (batch.report.status === "needs_review") qualityRecord!.status = "needs_review";
+                await saveQualityReport();
+              },
+            });
+            translatedContent = result.content;
+            translatedTitle = result.title;
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -590,39 +500,26 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
             chapterOrder: ch.order,
             error: msg.slice(0, 500),
           });
-          const safeMessage = msg.slice(0, 500);
-          await supabase
-            .from("book_versions")
-            .update({ status: "failed", error_message: safeMessage })
-            .eq("id", resolvedTargetVersionId);
           throw err;
         }
       }
 
-      const hash = contentHash(translatedContent);
-      const { error: upsertError } = await supabase.from("chapters").upsert(
-        {
+      // Stage the complete result. A later rejected chapter must leave the old
+      // target text intact; write conditionally after every required review passes.
+      pendingChapters.push({
           book_id: bookId,
           book_version_id: resolvedTargetVersionId,
-          title: ch.title ?? `Chapter ${Number(ch.order ?? i) + 1}`,
+          title: translatedTitle,
           content: translatedContent,
           source_text: sourceContent,
-          content_hash: hash,
+          content_hash: contentHash(translatedContent),
           order: Number(ch.order ?? i),
-        },
-        { onConflict: "book_version_id,order" }
-      );
-      if (upsertError) {
-        structuredLog("chapter_upsert_failed", {
-          chapterId: ch.id,
-          error: upsertError.message,
-          details: upsertError.details,
-        });
-        throw new Error(`Failed to upsert translated chapter: ${upsertError.message}`);
-      }
+      });
+
+      reviewedTargets.push({ title: translatedTitle, content: translatedContent, order: Number(ch.order ?? i) });
 
       if (!selectedChapterId) {
-        translationProgress = Math.round(((i + 1) / chapterList.length) * 100);
+        translationProgress = Math.min(95, Math.round(((i + 1) / chapterList.length) * 95));
         await upsertBookTranslationState(supabase, {
           bookId,
           language: normalizedTarget,
@@ -639,11 +536,77 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       });
     }
 
-    await supabase
-      .from("book_versions")
-      .update({ status: "done", error_message: null })
-      .eq("id", resolvedTargetVersionId);
+    if (qualityRecord) {
+      let currentQuery = supabase.from("chapters").select("id, title, source_text, content, order")
+        .eq("book_version_id", sourceVersionId).order("order", { ascending: true });
+      if (selectedChapterId) currentQuery = currentQuery.eq("id", selectedChapterId);
+      const { data: currentSource, error: currentError } = await currentQuery;
+      if (currentError || !currentSource || hashTranslationSource(currentSource) !== qualityRecord.sourceHash) {
+        throw new TranslationQualityStoppedError("The manuscript changed during translation. Review the current source and start a new translation.");
+      }
+    }
 
+    // Reject any target change observed since BEFORE model work, including
+    // newly created chapters. Per-row conditions below close the later race.
+    const { data: currentTargetSnapshot, error: currentTargetError } = await readTargetSnapshot();
+    if (currentTargetError || !currentTargetSnapshot || targetSnapshotKey(currentTargetSnapshot) !== targetSnapshotKey(targetBaseline)) {
+      throw new TranslationQualityStoppedError("The target manuscript changed during translation. Your newer text was kept. Review it before starting again.");
+    }
+    const { data: targetBeforeWrite, error: targetBeforeWriteError } = await supabase
+      .from("book_versions").select("published_at, status, updated_at").eq("id", resolvedTargetVersionId).single();
+    if (targetBeforeWriteError || !targetBeforeWrite || targetBeforeWrite.published_at ||
+        targetBeforeWrite.status !== "translating" || targetBeforeWrite.updated_at !== targetClaimRevision) {
+      throw new TranslationQualityStoppedError("The target edition changed or became published. No replacement was saved.");
+    }
+    for (const next of pendingChapters) {
+      const baseline = targetBaseline.find((row) => row.order === next.order);
+      const write = baseline
+        ? supabase.from("chapters").update(next).eq("id", baseline.id).eq("book_id", bookId)
+            .eq("book_version_id", resolvedTargetVersionId).eq("version_number", baseline.version_number).eq("updated_at", baseline.updated_at)
+        : supabase.from("chapters").insert(next);
+      const { data: saved, error: writeError } = await write.select("id").maybeSingle();
+      if (writeError || !saved) throw new TranslationQualityStoppedError(`The target chapter changed or could not be saved. ${savedChapterCount} reviewed chapters were saved; newer text was kept. Review the edition before retrying.`);
+      savedChapterCount += 1;
+    }
+    if (overwrite && !selectedChapterId) {
+      const keptOrders = new Set(pendingChapters.map((chapter) => chapter.order));
+      for (const baseline of targetBaseline.filter((row) => !keptOrders.has(row.order))) {
+        const { data: removed, error: deleteError } = await supabase.from("chapters").delete()
+          .eq("book_id", bookId).eq("book_version_id", resolvedTargetVersionId).eq("id", baseline.id)
+          .eq("version_number", baseline.version_number).eq("updated_at", baseline.updated_at).select("id").maybeSingle();
+        if (deleteError || !removed) throw new TranslationQualityStoppedError(`A target chapter changed during reconciliation. ${savedChapterCount} reviewed chapters were saved; newer text was kept. Review the edition before retrying.`);
+      }
+    }
+
+    if (qualityRecord) {
+      let targetQuery = supabase.from("chapters").select("title, content, order")
+        .eq("book_version_id", resolvedTargetVersionId).order("order", { ascending: true });
+      if (selectedChapterId) targetQuery = targetQuery.eq("order", reviewedTargets[0]?.order ?? -1);
+      const { data: currentTarget, error: targetReadError } = await targetQuery;
+      qualityRecord.targetHash = hashTranslationTarget(reviewedTargets);
+      if (targetReadError || !currentTarget || hashTranslationTarget(currentTarget) !== qualityRecord.targetHash) {
+        throw new TranslationQualityStoppedError("The translated manuscript changed during review. Its current text has not passed the saved checks. Start a new review.");
+      }
+
+    }
+
+    const { data: completedVersion, error: completionError } = await supabase
+      .from("book_versions")
+      .update({ status: selectedChapterId ? "draft" : "done", error_message: null })
+      .eq("id", resolvedTargetVersionId).eq("status", "translating").eq("error_message", targetClaimMarker!).eq("updated_at", targetClaimRevision!).is("published_at", null)
+      .select("id").maybeSingle();
+    if (completionError || !completedVersion) throw new TranslationQualityStoppedError("The edition changed before completion. Saved chapters remain, but the current edition has not been approved. Review it before retrying.");
+
+    if (qualityRecord) {
+      qualityRecord.status = "checks_passed";
+      qualityRecord.checkedAt = new Date().toISOString();
+      translationProgress = 100;
+      await saveQualityReport();
+    }
+
+    if (PIPELINE_SMOKE_MODE && qualityJobId) {
+      await supabase.from("ai_jobs").update({ status: "completed", finished_at: new Date().toISOString() }).eq("id", qualityJobId);
+    }
     if (!selectedChapterId) {
       await upsertBookTranslationState(supabase, {
         bookId,
@@ -660,33 +623,87 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       totalChars,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = qualityStarted && !(err instanceof TranslationNeedsReviewError) && !(err instanceof TranslationQualityStoppedError)
+      ? "Translation quality checks could not be completed. No quality approval was issued. Open the saved review and try again."
+      : err instanceof Error ? err.message : "Translation failed.";
+    await reportWrite.catch(() => {});
+    reportWrite = Promise.resolve();
+    if (qualityRecord) {
+      qualityRecord.status = err instanceof TranslationNeedsReviewError ? "needs_review" : "failed";
+      qualityRecord.error = msg;
+      try { await saveQualityReport(); } catch { console.error("[translation quality] failed to persist terminal report", { bookId, qualityJobId }); }
+    }
     console.error("[translation worker] failed — bookId:", bookId, "error:", msg);
-    if (resolvedTargetVersionId) {
-      const safeMessage = msg.slice(0, 500);
-      await supabase
-        .from("book_versions")
-        .update({ status: "failed", error_message: safeMessage })
-        .eq("id", resolvedTargetVersionId);
-    }
-    if (!selectedChapterId) {
-      const normalizedTarget = normalizeLanguageOrNull(targetLanguage);
-      if (normalizedTarget) {
-        await upsertBookTranslationState(supabase, {
-          bookId,
-          language: normalizedTarget,
-          status: "failed",
-          progress: translationProgress,
-        });
+    // Persistence outages must not replace the paid terminal error with a
+    // retryable DB exception and restart the entire translation.
+    try {
+      if (resolvedTargetVersionId && targetClaimRevision) {
+        const { data: failedVersion, error: failedError } = await supabase.from("book_versions")
+          .update({ status: "failed", error_message: msg.slice(0, 500) })
+          .eq("id", resolvedTargetVersionId).eq("status", "translating").eq("error_message", targetClaimMarker!).eq("updated_at", targetClaimRevision).is("published_at", null)
+          .select("id").maybeSingle();
+        if (!failedError && failedVersion && !selectedChapterId) {
+          const normalizedTarget = normalizeLanguageOrNull(targetLanguage);
+          if (normalizedTarget) await upsertBookTranslationState(supabase, {
+            bookId, language: normalizedTarget, status: "failed", progress: translationProgress,
+          });
+        }
       }
+    } catch {
+      console.error("[translation quality] failed to persist terminal translation state", { bookId, qualityJobId });
     }
+    if (qualityStarted) throw new TranslationQualityStoppedError(msg);
     throw err;
+  }
+}
+
+/** A terminal job may reconcile only the exact version claim recorded by that job. */
+export async function reconcileFailedTranslation(job: Job | undefined, err: Error): Promise<void> {
+  try {
+    const data = job?.data as Partial<TranslationJobData> | undefined;
+    const attempts = job?.opts?.attempts ?? 1;
+    const made = job?.attemptsMade ?? 0;
+    const stalledOut = /stalled more than allowable limit/i.test(err.message);
+    if (made < attempts && !stalledOut && !(err instanceof UnrecoverableError)) return;
+    const reservationKey = job ? translationQualityReservationKey(job) : null;
+    if (!reservationKey) return;
+    const admin = createAdminClient();
+    const { data: paidRun, error: paidRunError } = await admin.from("ai_jobs")
+      .select("id, book_version_id, input, output").eq("kind", TRANSLATION_QUALITY_JOB_KIND)
+      .eq("input->>reservationKey", reservationKey).limit(1).maybeSingle();
+    // Unknown ledger state cannot authorize a refund or mutation of a version.
+    if (paidRunError) throw new Error("Could not read the failed job's translation claim.");
+    if (!paidRun) {
+      if (!(err instanceof TranslationQualityStoppedError)) await releaseBudget({ pipeline: "translation", jobId: reservationKey });
+      return;
+    }
+    const input = paidRun.input as Record<string, unknown> | null;
+    const claimMarker = input?.targetClaimMarker;
+    const bookId = data?.bookId;
+    const language = data?.targetLanguage ? normalizeLanguageOrNull(data.targetLanguage) : null;
+    if (!bookId || !language || !paidRun.book_version_id || typeof claimMarker !== "string" || !claimMarker.startsWith("translation-claim:")) return;
+    const { data: reconciled, error } = await admin.from("book_versions")
+      .update({ status: "failed", error_message: err.message.slice(0, 500) || "Translation stopped unexpectedly. Please try again." })
+      .eq("id", paidRun.book_version_id).eq("book_id", bookId).eq("language_code", language)
+      .eq("status", "translating").eq("error_message", claimMarker).is("published_at", null)
+      .select("id").maybeSingle();
+    if (error) throw error;
+    const previousOutput = paidRun.output && typeof paidRun.output === "object" && !Array.isArray(paidRun.output) ? paidRun.output : {};
+    const { error: reportError } = await admin.from("ai_jobs")
+      .update({ status: "failed", finished_at: new Date().toISOString(),
+        error: "Translation stopped unexpectedly. Review the saved edition before retrying.",
+        output: { ...previousOutput, status: "failed", error: "Translation stopped unexpectedly. Review the saved edition before retrying." } })
+      .eq("id", paidRun.id).eq("status", "processing").eq("input->>targetClaimMarker", claimMarker);
+    if (reportError) throw reportError;
+    if (reconciled) console.warn("[translation-worker] reconciled orphaned version to failed", { bookId, language });
+  } catch (error) {
+    console.error("[translation-worker] failed-state reconciliation error", error);
   }
 }
 
 function main() {
   assertWorkerEnv();
-  assertOpusEnv();
+  assertQualityProviderEnv();
 
   const url = process.env.REDIS_URL ?? "";
   if (!url || url.trim() === "") {
@@ -711,7 +728,7 @@ function main() {
     async (job) => {
       if (job.name === "translate" && job.data) {
         console.log("[translation-worker] processing job", job.id);
-        const workerJobId = job.id != null ? String(job.id) : undefined;
+        const workerJobId = translationQualityReservationKey(job);
         await processJob(job.data as TranslationJobData, workerJobId);
       }
     },
@@ -729,51 +746,7 @@ function main() {
   worker.on("failed", (job, err) => {
     Sentry.captureException(err);
     console.error("[translation-worker] job failed", job?.id, err?.message);
-    // Reconcile orphaned book_versions state. The in-process catch writes the
-    // target version to "failed" before re-throwing, so an ordinary failure is
-    // already terminal here. But on a hard-kill/stall the catch never runs and
-    // the target version stays stuck "translating" forever. On a TERMINAL
-    // failure (retries exhausted or stall-out), flip any still-"translating"
-    // version for this book+language to "failed". The .eq("status","translating")
-    // guard makes it idempotent and prevents clobbering a done/failed/running row.
-    void (async () => {
-      try {
-        const data = job?.data as Partial<TranslationJobData> | undefined;
-        const attempts = job?.opts?.attempts ?? 1;
-        const made = job?.attemptsMade ?? 0;
-        // Match BullMQ's exact stall-out message so an arbitrary error whose
-        // text merely contains "stalled" cannot trip the terminal override.
-        const stalledOut = /stalled more than allowable limit/i.test(err?.message ?? "");
-        if (made < attempts && !stalledOut) return; // not terminal — will retry
-        // Terminal failure — refund the reserved translation budget (reserved
-        // under the BullMQ job id; idempotent, best-effort).
-        await releaseBudget({
-          pipeline: "translation",
-          jobId: job?.id != null ? String(job.id) : null,
-        });
-        const bookId = data?.bookId;
-        const normalizedLang = data?.targetLanguage
-          ? normalizeLanguageOrNull(data.targetLanguage)
-          : null;
-        if (!bookId || !normalizedLang) return;
-        const admin = createAdminClient();
-        const safeError =
-          (err?.message ?? "").slice(0, 500) ||
-          "Översättningen avbröts oväntat (servern startade om). Försök igen.";
-        await admin
-          .from("book_versions")
-          .update({ status: "failed", error_message: safeError })
-          .eq("book_id", bookId)
-          .eq("language_code", normalizedLang)
-          .eq("status", "translating");
-        console.warn("[translation-worker] reconciled orphaned version to failed", {
-          bookId,
-          language: normalizedLang,
-        });
-      } catch (reconcileErr) {
-        console.error("[translation-worker] failed-state reconciliation error", reconcileErr);
-      }
-    })();
+    return reconcileFailedTranslation(job, err);
   });
   worker.on("error", (err) => {
     console.error("[translation worker] Redis/queue error:", err.message);
@@ -799,4 +772,6 @@ function main() {
   });
 }
 
-main();
+// The combined/start-workers launchers rely on registration when importing this
+// module. Only unit tests import processJob without starting a queue consumer.
+if (process.env.NODE_ENV !== "test") main();
