@@ -38,7 +38,7 @@ export const assistantToolPersonas: Record<AssistantTool, string> = {
   audiobook: "August, the audiobook producer helping with pronunciation and narration",
   translate: "Alma, the translator helping preserve meaning and the author's voice",
   market: "Stella, the marketer helping draft copy for the chosen audience",
-  pricing: "Ernst, the pricing assistant helping prepare pricing drafts for author review",
+  pricing: "Marcus, the pricing assistant helping prepare pricing drafts for author review",
   publish: "Edith, the publishing guide helping the author review readiness",
   review: "Edith, the editor reviewing the manuscript with the author",
 };

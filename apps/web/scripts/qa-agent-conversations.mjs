@@ -91,14 +91,14 @@ const cases=[
    expect((await evidence(page)).filter(r=>r.path.endsWith('/cover/generate'))[1].body.prompt).toContain('quiet blue harbour');
    await page.getByRole('button',{name:'pricing',exact:true}).click();
    await page.getByRole('combobox',{name:'Response mode'}).selectOption('failure');
-   await send(page,'Ernst','Prepare 99 SEK.');
+   await send(page,'Marcus','Prepare 99 SEK.');
    await expect(page.getByRole('button',{name:'Retry message'})).toBeVisible();
-   await page.getByRole('textbox',{name:'Message to Ernst',exact:true}).fill('A later question.');
+   await page.getByRole('textbox',{name:'Message to Marcus',exact:true}).fill('A later question.');
    await page.getByRole('combobox',{name:'Response mode'}).selectOption('normal');
    await page.getByRole('button',{name:'Retry message'}).click();
    await page.getByRole('button',{name:'Review in pricing',exact:true}).click();
    await expect(page.getByTestId('price-draft')).toHaveText('99 SEK — not saved');
-   await expect(page.getByRole('textbox',{name:'Message to Ernst',exact:true})).toHaveValue('A later question.');
+   await expect(page.getByRole('textbox',{name:'Message to Marcus',exact:true})).toHaveValue('A later question.');
    expect((await evidence(page)).every(r=>r.path.endsWith('/ai/chat')||r.path.endsWith('/cover/generate'))).toBe(true);
  }],
  ['Alma opens editor and applies once; narrow dock and fallback',async(page)=>{
