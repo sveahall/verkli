@@ -14,28 +14,38 @@ export interface ScoredBook {
  */
 export async function scoreSimilarBooks(
   supabase: SupabaseClient,
-  bookId: string,
-  authorId: string,
+  bookId: string | null,
+  authorId: string | null,
   language: string | null,
   genreIds: string[],
   limit: number
 ): Promise<ScoredBook[]> {
   // 1. Fetch published candidates (exclude the current book)
-  const { data: candidates } = await supabase
+  let candidateQuery = supabase
     .from("books")
     .select("id, title, cover_image, author_id, language")
-    .eq("status", "PUBLISHED")
-    .neq("id", bookId)
-    .limit(200);
+    .eq("status", "PUBLISHED");
+
+  if (bookId) candidateQuery = candidateQuery.neq("id", bookId);
+  const { data: candidates, error: candidatesError } = await candidateQuery.limit(200);
+  if (candidatesError) {
+    console.error("[recommendations] candidate lookup failed", candidatesError.message);
+    throw new Error("Could not load recommendation candidates.");
+  }
 
   if (!candidates?.length) return [];
 
   // 2. Fetch genres for candidates
   const candidateIds = candidates.map((b) => b.id);
-  const { data: candidateGenres } = await supabase
+  const { data: candidateGenres, error: genresError } = await supabase
     .from("book_genres")
     .select("book_id, genre_id")
     .in("book_id", candidateIds);
+
+  if (genresError) {
+    console.error("[recommendations] genre lookup failed", genresError.message);
+    throw new Error("Could not load recommendation genres.");
+  }
 
   const bookGenreMap = new Map<string, Set<string>>();
   for (const bg of candidateGenres ?? []) {
@@ -61,7 +71,10 @@ export async function scoreSimilarBooks(
     }
 
     // Same author: +5
-    if (book.author_id === authorId) score += 5;
+    if (authorId && book.author_id === authorId) score += 5;
+
+    // Language alone is not evidence of similar content.
+    if (score === 0) continue;
 
     // Same language: +3
     if (language && book.language === language) score += 3;

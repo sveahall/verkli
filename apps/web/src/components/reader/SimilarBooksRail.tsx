@@ -35,7 +35,10 @@ export default async function SimilarBooksRail({
     language,
     genreIds,
     8
-  );
+  ).catch((error: unknown) => {
+    console.error("[recommendations similar-books] scoring failed", error);
+    return [];
+  });
 
   if (scored.length === 0) return null;
 
@@ -45,7 +48,7 @@ export default async function SimilarBooksRail({
     <section className="mx-auto max-w-[1100px] px-6 pb-12">
       <Rail
         title="Similar books"
-        description="Based on genre, author, and collections"
+        description="Based on shared genres and authors"
         isEmpty={false}
       >
         {enriched.map((book) => (
