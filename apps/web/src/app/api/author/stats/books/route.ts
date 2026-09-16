@@ -121,6 +121,7 @@ export async function GET(request: Request) {
       userId: user.id,
       message: ordersError,
     });
+    return apiError(E_DATABASE_ERROR, 500);
   }
 
   for (const order of paidOrders) {

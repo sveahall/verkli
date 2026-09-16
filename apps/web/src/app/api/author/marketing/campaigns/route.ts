@@ -1,3 +1,4 @@
+import { getMarketingQueueReadiness } from "@/lib/marketing/queue-readiness";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthorAndMarketingEnabled } from "@/lib/auth/require-author-marketing";
@@ -74,18 +75,22 @@ export async function GET(request: Request) {
   // Lookup post counts per plan
   let postsByPlan: Record<string, { total: number; ready: number; posted: number }> = {};
   if (planIds.length > 0) {
-    const { data: postsRaw } = await supabase
+    const { data: postsRaw, error: postsError } = await supabase
       .from("marketing_posts")
       .select("campaign_plan_id, status")
       .in("campaign_plan_id", planIds);
 
+    if (postsError) {
+      console.error("[campaigns list] post counts failed:", postsError.message);
+      return apiError(E_DATABASE_ERROR, 500);
+    }
     type PostCountRow = { campaign_plan_id: string; status: string };
     postsByPlan = ((postsRaw ?? []) as unknown as PostCountRow[]).reduce<
       Record<string, { total: number; ready: number; posted: number }>
     >((acc, row) => {
       const bucket = acc[row.campaign_plan_id] ?? { total: 0, ready: 0, posted: 0 };
       bucket.total += 1;
-      if (row.status === "ready" || row.status === "draft") bucket.ready += 1;
+      if (row.status === "ready") bucket.ready += 1;
       if (row.status === "posted") bucket.posted += 1;
       acc[row.campaign_plan_id] = bucket;
       return acc;
@@ -153,6 +158,9 @@ export async function POST(request: Request) {
     return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
+  const readiness = await getMarketingQueueReadiness();
+  if (!readiness.ok) return apiError(readiness.code, 503, { detail: readiness.detail });
+
   const normalizedLanguages = Array.from(
     new Set(input.languages.map((l) => normalizeLanguage(l)))
   );
@@ -187,21 +195,26 @@ export async function POST(request: Request) {
     return apiError(E_DATABASE_ERROR, 500);
   }
 
-  const jobId = await enqueueMarketingJob({
-    bookId: input.bookId,
-    authorId: gate.user.id,
-    channels: input.channels,
-    language: normalizedLanguages[0] ?? "en",
-    campaignPlanId: inserted.id,
-  });
+  let jobId: string | null = null;
+  try {
+    jobId = await enqueueMarketingJob({
+      bookId: input.bookId,
+      authorId: gate.user.id,
+      channels: input.channels,
+      language: normalizedLanguages[0] ?? "en",
+      campaignPlanId: inserted.id,
+    });
+  } catch {
+    console.error("[campaigns create] queueing failed", { campaignId: inserted.id });
+  }
 
   if (!jobId) {
-    // Mark plan as failed so the user sees a clear error
-    await supabase
+    const { error: restoreError } = await supabase
       .from("marketing_campaign_plans")
-      .update({ status: "failed", generation_error: "queue_unavailable" })
-      .eq("id", inserted.id);
-    return apiError(E_QUEUE_UNAVAILABLE, 503);
+      .update({ status: "failed", generation_error: "Campaign generation is temporarily unavailable. Please try again later." })
+      .eq("id", inserted.id).eq("author_id", gate.user.id).eq("status", "generating");
+    if (restoreError) console.error("[campaigns create] could not restore failed status:", restoreError.message);
+    return apiError(E_QUEUE_UNAVAILABLE, 503, { detail: "Could not start campaign generation. Please try again later from the campaign page." });
   }
 
   return NextResponse.json({

@@ -42,6 +42,7 @@ export default function PollCard({
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<ResultOption[] | null>(null);
   const [totalVotes, setTotalVotes] = useState(0);
+  const [resultsError, setResultsError] = useState(false);
   // Whether the poll is closed by time is computed client-side after mount.
   // Reading `new Date()` during render would produce different SSR/CSR
   // output near the close boundary and trigger a hydration warning.
@@ -58,11 +59,12 @@ export default function PollCard({
 
   // Load results when user has voted or poll is closed
   const loadResults = useCallback(async () => {
+    setResultsError(false);
     try {
       const res = await fetch(`/api/polls/${pollId}/results`, {
         credentials: "include",
       });
-      if (!res.ok) return;
+      if (!res.ok) throw new Error("Could not load poll results");
       const data = (await res.json()) as {
         results: ResultOption[];
         totalVotes: number;
@@ -70,7 +72,7 @@ export default function PollCard({
       setResults(data.results);
       setTotalVotes(data.totalVotes);
     } catch {
-      // Silently fail — results are non-critical
+      setResultsError(true);
     }
   }, [pollId]);
 
@@ -81,7 +83,7 @@ export default function PollCard({
   }, [hasVoted, isClosed, loadResults]);
 
   const handleVote = useCallback(async () => {
-    if (!selectedOptionId || isClosed) return;
+    if (!selectedOptionId || isClosed || hasVoted || voting) return;
     setVoting(true);
     setError(null);
 
@@ -106,7 +108,7 @@ export default function PollCard({
     } finally {
       setVoting(false);
     }
-  }, [pollId, selectedOptionId, isClosed]);
+  }, [pollId, selectedOptionId, isClosed, hasVoted, voting]);
 
   const showResults = hasVoted || !!isClosed;
 
@@ -114,7 +116,7 @@ export default function PollCard({
     <Card className="p-5">
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-[15px] font-medium text-foreground font-display">
+          <h3 id={`poll-question-${pollId}`} className="text-[15px] font-medium text-foreground font-display">
             {question}
           </h3>
           <span
@@ -129,12 +131,23 @@ export default function PollCard({
         </div>
 
         {error && (
-          <p className="text-[13px] text-red-600 dark:text-red-400">
+          <p role="alert" className="text-[13px] text-red-600 dark:text-red-400">
             {error}
           </p>
         )}
 
-        {showResults && results ? (
+        {showResults && !results ? (
+          <div className="space-y-3">
+            {resultsError ? (
+              <>
+                <p role="alert" className="text-[13px] text-red-600 dark:text-red-400">Could not load results. Please try again.</p>
+                <Button variant="secondary" size="sm" onClick={loadResults}>Try again</Button>
+              </>
+            ) : (
+              <p role="status" className="text-[13px] text-muted-foreground">Loading results…</p>
+            )}
+          </div>
+        ) : showResults && results ? (
           <div className="space-y-2">
             {results.map((r) => {
               const pct = totalVotes > 0 ? Math.round((r.count / totalVotes) * 100) : 0;
@@ -178,11 +191,11 @@ export default function PollCard({
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div role="radiogroup" aria-labelledby={`poll-question-${pollId}`} className="space-y-2">
             {options.map((opt) => (
               <label
                 key={opt.id}
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-[14px] transition ${
+                className={`flex focus-within:ring-2 focus-within:ring-ring cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-[14px] transition ${
                   selectedOptionId === opt.id
                     ? "border-[#907AFF] bg-[#907AFF]/5 text-foreground "
                     : "border-border bg-card text-muted-foreground hover:border-border dark:hover:border-border"

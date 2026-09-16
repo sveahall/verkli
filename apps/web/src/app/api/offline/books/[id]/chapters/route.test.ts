@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { POST } from "./route";
 
 const { requireOfflineBookAccess, buildChapterContentHash } = vi.hoisted(() => ({
@@ -17,8 +17,11 @@ vi.mock("@/lib/offline/hash", () => ({
 describe("POST /api/offline/books/[id]/chapters", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     buildChapterContentHash.mockImplementation(async ({ title }: { title: string }) => `hash-${title}`);
   });
+
+  afterEach(() => vi.restoreAllMocks());
 
   it("passes through auth/entitlement errors", async () => {
     requireOfflineBookAccess.mockResolvedValue({
@@ -45,7 +48,7 @@ describe("POST /api/offline/books/[id]/chapters", () => {
     expect(response.status).toBe(403);
   });
 
-  it("returns chapter content in batch order", async () => {
+  it.each([{ publishedCount: null, expectedStatus: 200, alternate: false }, { publishedCount: 2, expectedStatus: 403, alternate: false }, { publishedCount: 2, expectedStatus: 403, alternate: true }])("respects publication count $publishedCount (alternate edition: $alternate)", async ({ publishedCount, expectedStatus, alternate }) => {
     const bookVersionId = "11111111-1111-4111-8111-111111111111";
     const chapterIdOne = "22222222-2222-4222-8222-222222222222";
     const chapterIdTwo = "33333333-3333-4333-8333-333333333333";
@@ -76,6 +79,10 @@ describe("POST /api/offline/books/[id]/chapters", () => {
         };
         return chain;
       }
+      if (table === "book_versions") {
+        const chain = { select: () => chain, eq: () => chain, not: () => chain, maybeSingle: async () => ({ data: { id: bookVersionId, published_chapter_count: publishedCount }, error: null }) };
+        return chain;
+      }
       throw new Error(`Unexpected table ${table}`);
     });
 
@@ -85,7 +92,7 @@ describe("POST /api/offline/books/[id]/chapters", () => {
         supabase: { from },
         userId: "user-1",
         book: { id: "book-1" },
-        activeVersion: { id: bookVersionId },
+        activeVersion: { id: alternate ? "other-version" : bookVersionId, published_chapter_count: alternate ? null : publishedCount },
         activeLanguageCode: "en",
       },
     });
@@ -104,7 +111,13 @@ describe("POST /api/offline/books/[id]/chapters", () => {
     });
     const body = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(expectedStatus);
+    if (expectedStatus === 403) {
+      expect(body.error).toBe("CHAPTER_NOT_PUBLISHED");
+      expect(console.warn).toHaveBeenCalledWith("[offline.chapters] requested unreleased chapters", expect.objectContaining({ bookId: "book-1" }));
+      expect(body.chapters).toBeUndefined();
+      return;
+    }
     expect(body.bookVersionId).toBe(bookVersionId);
     expect(body.chapters).toHaveLength(2);
     expect(body.chapters[0]).toMatchObject({

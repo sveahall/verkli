@@ -73,11 +73,12 @@ export type CreateCampaignPlanBody = z.infer<typeof createCampaignPlanBodySchema
 
 /** PATCH /api/author/marketing/posts/[id] body */
 export const updatePostBodySchema = z.object({
+  expectedUpdatedAt: z.string().datetime({ offset: true }),
   caption: z.string().max(5000).optional(),
   hashtags: z.string().max(2000).optional(),
   cta: z.string().max(500).optional(),
   status: z
-    .enum(["draft", "ready", "asset_pending", "asset_failed", "posted", "skipped"])
+    .enum(["draft", "ready", "posted", "skipped"])
     .optional(),
   postedUrl: z.string().url().max(2000).optional(),
 });

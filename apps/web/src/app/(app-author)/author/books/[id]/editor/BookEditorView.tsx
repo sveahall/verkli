@@ -413,6 +413,13 @@ export default function BookEditorView({
 
   // ── Status banners ────────────────────────────────────────────────────────
   const statusBanners = (
+    <>
+    {chapterCrud.hasSaveConflict && (
+      <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted p-4 text-sm">
+        <p className="flex-1">A newer chapter was saved elsewhere. Your unsaved draft is still in this tab. Download it before leaving or reloading to compare and keep your changes.</p>
+        <button type="button" className="min-h-11 rounded-lg border border-border px-4 font-medium" onClick={chapterCrud.downloadUnsavedDrafts}>Download unsaved draft</button>
+      </div>
+    )}
     <BookEditorStatusBanners
       jobLoading={jobLoading}
       jobError={jobError}
@@ -421,7 +428,19 @@ export default function BookEditorView({
       onJobRetry={handleJobRetry}
       suppressInDemo={isDemoEditorView}
     />
+    </>
   );
+
+  // A remount from saved props would discard the retained conflicted draft on
+  // the next keystroke. Keep writing paused until the author exports and reloads.
+  if (chapterCrud.hasSaveConflict && (focusMode || isWriteOnlyWorkspace || tool === "edit")) {
+    return <div className="p-6">{statusBanners}<p className="text-sm text-muted-foreground">Editing is paused to protect your unsaved draft. Download it, then reload to open the latest saved chapter.</p></div>;
+  }
+
+  // Do not mount a writing surface with old props while review persistence is in flight.
+  if (chapterCrud.isApplyingReview && (focusMode || isWriteOnlyWorkspace || tool === "edit")) {
+    return <div role="status" className="p-8 text-sm text-muted-foreground">Finishing your review change…</div>;
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // FOCUS MODE
@@ -444,7 +463,7 @@ export default function BookEditorView({
         onSelectNextChapter={selectNextChapter}
         onResetSessionWords={() => setSessionStartWords(null)}
         onAutoSave={chapterCrud.handleAutoSave}
-        onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
+        onDirty={() => chapterCrud.markChapterDirty(selectedChapterId)}
         onWordCount={setWordCount}
         onExitFocusMode={() => setFocusMode(false)}
       />
@@ -496,7 +515,7 @@ export default function BookEditorView({
         onSaveTitle={chapterCrud.handleSaveTitle}
         onCancelEditTitle={chapterCrud.handleCancelEditTitle}
         onWordCount={setWordCount}
-        onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
+        onDirty={() => chapterCrud.markChapterDirty(selectedChapterId)}
         onAutoSave={chapterCrud.handleAutoSave}
         // NOTE: unlike SimplifiedEditView this passes the raw handler, so a
         // bubble-menu action fired within 500 ms of typing would lose those
@@ -640,7 +659,7 @@ export default function BookEditorView({
                 onResetSessionWords={() => setSessionStartWords(null)}
                 onWordCount={setWordCount}
                 onAutoSave={chapterCrud.handleAutoSave}
-                onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
+                onDirty={() => chapterCrud.markChapterDirty(selectedChapterId)}
                 onToggleFocusMode={() => setFocusMode((current) => !current)}
                 onDeleteChapter={chapterCrud.handleDeleteChapter}
                 onCreateChapter={chapterCrud.handleCreateChapter}
@@ -668,6 +687,8 @@ export default function BookEditorView({
             {tool !== "edit" && tool !== "dashboard" && (
               <BookEditorPanelContent
                 bookOwnerId={book.author_id}
+                onApplyReview={chapterCrud.handleApplyReview}
+                reviewSaveBlocked={chapterCrud.isSaving || chapterCrud.hasUnsavedChanges}
                 bookId={book.id}
                 bookTitle={bookTitle}
                 demoMode={isDemoEditorView}

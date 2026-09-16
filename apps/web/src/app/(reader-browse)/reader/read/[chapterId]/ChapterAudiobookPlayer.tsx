@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getAudiobookEnabled } from "@/lib/flags";
 import { useListenTracking } from "@/lib/analytics/useListenTracking";
+import NoDownloadAudioPlayer from "@/components/books/NoDownloadAudioPlayer";
 
 type Props = {
   bookId: string;
@@ -75,6 +76,7 @@ export default function ChapterAudiobookPlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resumePositionSeconds, setResumePositionSeconds] = useState<number | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
     if (!audiobookFeatureEnabled || !shouldAttemptLoad) {
@@ -188,7 +190,7 @@ export default function ChapterAudiobookPlayer({
         clearTimeout(loadingTimer);
       }
     };
-  }, [audiobookFeatureEnabled, bookId, chapterId, resolvedIsAuthorView, shouldAttemptLoad]);
+  }, [audiobookFeatureEnabled, bookId, chapterId, resolvedIsAuthorView, shouldAttemptLoad, loadAttempt]);
 
   // WP-03. Must be called before the early returns below — the audio element is
   // conditionally rendered, hooks are not.
@@ -210,6 +212,7 @@ export default function ChapterAudiobookPlayer({
           showLoading ? "" : "pointer-events-none select-none opacity-0"
         }`}
         aria-hidden={showLoading ? undefined : true}
+        role="status"
       >
         Loading chapter audio...
       </p>
@@ -230,14 +233,15 @@ export default function ChapterAudiobookPlayer({
 
   if (error) {
     return (
-      <p className="mt-7 text-xs text-amber-700 dark:text-amber-300" role="alert">
-        {error}
-      </p>
+      <div className="mt-7 text-xs text-amber-700 dark:text-amber-300" role="alert">
+        <p>{error}</p>
+        <button type="button" onClick={() => setLoadAttempt((attempt) => attempt + 1)} className="mt-2 min-h-11 rounded-lg border border-border px-3 text-foreground">Retry audio</button>
+      </div>
     );
   }
 
   if (!audioUrl) {
-    return null;
+    return <p role="status" className="mt-7 text-xs text-muted-foreground">No audio is available for this chapter.</p>;
   }
 
   return (
@@ -269,11 +273,10 @@ export default function ChapterAudiobookPlayer({
         needs for its own "Playing" indicator, composing rather than replacing.
         onLoadedMetadata / onTimeUpdate / onSeeked come straight from the hook.
       */}
-      <audio
-        controls
-        preload="none"
+      <NoDownloadAudioPlayer
         className="w-full"
         src={audioUrl}
+        onRetry={() => setLoadAttempt((attempt) => attempt + 1)}
         {...listenTracking}
         onPlay={(event) => {
           setIsPlaying(true);
@@ -288,9 +291,7 @@ export default function ChapterAudiobookPlayer({
           listenTracking.onEnded(event);
         }}
         onEmptied={() => setIsPlaying(false)}
-      >
-        Your browser does not support audio playback.
-      </audio>
+      />
     </div>
   );
 }

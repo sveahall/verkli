@@ -1,3 +1,5 @@
+import { SECURE_OFFLINE_SAVING_AVAILABLE } from "./availability";
+
 const DB_NAME = "verkli-offline";
 const DB_VERSION = 1;
 
@@ -168,6 +170,7 @@ export async function getOfflineManifestForBook(
   userId: string,
   bookId: string
 ): Promise<OfflineManifestRecord | null> {
+  if (!SECURE_OFFLINE_SAVING_AVAILABLE) return null;
   const db = await openOfflineDb();
   const transaction = db.transaction(STORE_MANIFESTS, "readonly");
   const store = transaction.objectStore(STORE_MANIFESTS);
@@ -304,6 +307,7 @@ export async function getOfflineChapter(
   userId: string,
   chapterId: string
 ): Promise<OfflineChapterRecord | null> {
+  if (!SECURE_OFFLINE_SAVING_AVAILABLE) return null;
   const db = await openOfflineDb();
   const transaction = db.transaction(STORE_CHAPTERS, "readonly");
   const store = transaction.objectStore(STORE_CHAPTERS);
@@ -311,4 +315,14 @@ export async function getOfflineChapter(
   const result = (await requestToPromise(request)) as OfflineChapterRecord | undefined;
   await transactionToPromise(transaction);
   return result ?? null;
+}
+
+export async function clearOfflineDatabase(): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(DB_NAME);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(new Error("Could not remove saved copies. Close other Verkli tabs and try again."));
+    request.onblocked = () => reject(new Error("Close other Verkli tabs, then try removing saved copies again."));
+  });
 }

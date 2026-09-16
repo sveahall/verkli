@@ -306,6 +306,7 @@ export default function ReaderDiscoverPageView({
               <div className="scrollbar-none flex gap-2 overflow-x-auto pb-0.5">
                 <Link
                   href={buildFilterHref(activeFilters, { genreSlugs: [] })}
+                  aria-current={activeFilters.genreSlugs.length === 0 ? "true" : undefined}
                   className={`flex-shrink-0 rounded-full border px-4 py-3 text-sm font-medium transition-[background-color,border-color,color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] ${
                     activeFilters.genreSlugs.length === 0
                       ? "border-[#907AFF]/30 bg-[#907AFF]/[0.09] text-accent-foreground dark:bg-[#907AFF]/[0.14] "
@@ -320,6 +321,7 @@ export default function ReaderDiscoverPageView({
                   return (
                     <Link
                       key={g.id}
+                      aria-current={isActive ? "true" : undefined}
                       href={buildFilterHref(activeFilters, {
                         genreSlugs: toggleGenre(activeFilters.genreSlugs, g.slug),
                       })}
@@ -419,6 +421,9 @@ export default function ReaderDiscoverPageView({
         {activeFilters.genreSlugs.length > 0 && (
           <input type="hidden" name="genre" value={activeFilters.genreSlugs.join(",")} />
         )}
+
+        <input type="hidden" name="format" value={activeFilters.format} />
+        <input type="hidden" name="sort" value={activeFilters.sort} />
 
         <SlidersHorizontal className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
 

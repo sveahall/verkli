@@ -1,5 +1,7 @@
 "use client";
 
+import type { ApplyReview } from "./panels/EditorialReviewPanel";
+
 import dynamic from "next/dynamic";
 import GenreSelector from "@/components/books/GenreSelector";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
@@ -76,6 +78,8 @@ interface BookEditorPanelContentProps {
   refetchBookJob: () => Promise<void>;
   /** True when the parent (BookEditorView) detected demo mode via effectiveTools. */
   demoMode?: boolean;
+  onApplyReview: ApplyReview;
+  reviewSaveBlocked: boolean;
   /** Set when an editor bubble-menu action routed the author to the AI panel. */
 }
 
@@ -116,6 +120,8 @@ export default function BookEditorPanelContent({
   bookTrailerStatus,
   bookTrailerUrl,
   demoMode = false,
+  onApplyReview,
+  reviewSaveBlocked,
 }: BookEditorPanelContentProps) {
   const companion = tool === "cover" ? getAgent("stella") : getAgentForPanel(tool);
   return (
@@ -363,6 +369,8 @@ export default function BookEditorPanelContent({
 
         {tool === "review" && (
           <ReviewPanel
+            onApplyReview={onApplyReview}
+            saveBlocked={reviewSaveBlocked}
             bookId={bookId}
             bookTitle={bookTitle}
             chapters={chapters}
@@ -437,7 +445,7 @@ export default function BookEditorPanelContent({
               if (marketing.isGeneratingMarketing) return;
               marketing.setMarketingChannel(channel);
               marketing.setMarketingLanguage(lang as SupportedLanguage);
-              await marketing.handleGenerateMarketingCopy();
+              await marketing.handleGenerateMarketingCopy(channel, lang as SupportedLanguage);
             }}
             isGenerating={marketing.isGeneratingMarketing}
             trailerStatus={bookTrailerStatus}

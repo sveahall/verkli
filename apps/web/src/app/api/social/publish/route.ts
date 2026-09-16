@@ -12,7 +12,7 @@ import {
   E_QUEUE_UNAVAILABLE,
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
-import { VALID_PLATFORMS } from "@/lib/social/platform-constraints";
+import { VALID_PLATFORMS, PUBLISHABLE_PLATFORMS } from "@/lib/social/platform-constraints";
 import { checkPublishRateLimit } from "@/lib/social/rate-limit";
 import { enqueueSocialPublishJob } from "@/lib/social-publish-queue";
 
@@ -49,6 +49,9 @@ export async function POST(request: Request) {
   for (const p of platforms) {
     if (!VALID_PLATFORMS.includes(p)) {
       return apiError(E_SOCIAL_INVALID_PLATFORM, 400, { detail: p });
+    }
+    if (!PUBLISHABLE_PLATFORMS.includes(p)) {
+      return apiError("SOCIAL_PUBLISH_NOT_IMPLEMENTED", 422, { detail: "This channel requires manual sharing. No publishing job was created." });
     }
   }
 

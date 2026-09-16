@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
+  E_CHAPTER_NOT_PUBLISHED,
   E_INVALID_JSON,
   E_OFFLINE_CHAPTER_LOAD_FAILED,
   E_VALIDATION_FAILED,
@@ -92,11 +93,12 @@ export async function POST(
 
   const { supabase, userId, book, activeVersion } = access.context;
   const requestedVersionId = validated.body.bookVersionId;
+  let publishedCount = activeVersion.published_chapter_count;
 
   if (requestedVersionId !== activeVersion.id) {
     const { data: version, error: versionError } = await supabase
       .from("book_versions")
-      .select("id")
+      .select("id, published_chapter_count")
       .eq("id", requestedVersionId)
       .eq("book_id", book.id)
       .not("published_at", "is", null)
@@ -116,6 +118,7 @@ export async function POST(
     if (!version) {
       return apiError(E_BOOK_NOT_FOUND, 404);
     }
+    publishedCount = version.published_chapter_count;
   }
 
   const chapterIds = validated.body.chapterIds;
@@ -138,6 +141,10 @@ export async function POST(
   }
 
   const rows = (chapters ?? []) as ChapterRow[];
+  if (typeof publishedCount === "number" && Number.isFinite(publishedCount) && rows.some((chapter) => chapter.order >= publishedCount)) {
+    console.warn("[offline.chapters] requested unreleased chapters", { userId, bookId: book.id, requestedVersionId });
+    return apiError(E_CHAPTER_NOT_PUBLISHED, 403);
+  }
   const rowsById = new Map(rows.map((chapter) => [chapter.id, chapter]));
   const missingChapterIds = chapterIds.filter((chapterId) => !rowsById.has(chapterId));
   if (missingChapterIds.length > 0) {

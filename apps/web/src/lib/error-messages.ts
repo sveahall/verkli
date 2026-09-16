@@ -168,6 +168,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_ROLE: "Invalid role.",
 
   // Marketing
+  MARKETING_BUDGET_UNAVAILABLE: "AI draft generation needs an available, configured budget. Contact support. Generation stopped before the next AI request.",
+  MARKETING_BUDGET_EXCEEDED: "This AI draft exceeds the configured request or daily limit. Try a smaller campaign or contact support.",
+  MARKETING_AI_UNAVAILABLE: "AI marketing drafts are not configured yet. Contact support. Your existing copy has been kept.",
+  MARKETING_AI_FAILED: "Could not generate a usable AI draft. Please try again. Your existing copy has been kept.",
   MARKETING_FEATURE_DISABLED: "The marketing feature is not enabled.",
 
   // Social

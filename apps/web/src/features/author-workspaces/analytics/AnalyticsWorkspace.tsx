@@ -57,6 +57,19 @@ export type BookRow = {
   purchases: number;
 };
 
+export type RevenueData = {
+  partial?: boolean;
+  totalRevenue: number | null;
+  orderRevenue: number | null;
+  donationRevenue: number;
+  subscriptionMRR: number | null;
+  activeSubscriberCount: number | null;
+  currency: string | null;
+  byCurrency: Record<string, number> | null;
+  subscriptionByCurrency: Record<string, number> | null;
+  subscriptionScope: "author";
+};
+
 export type AnalyticsData = {
   overviewStats: {
     views: number;
@@ -65,14 +78,8 @@ export type AnalyticsData = {
     bookmarks: number;
     dailyChart: DailyPoint[];
   } | null;
-  revenue: {
-    totalRevenue: number;
-    orderRevenue: number;
-    donationRevenue: number;
-    subscriptionMRR: number;
-    activeSubscriberCount: number;
-    currency: string;
-  } | null;
+  revenue: RevenueData | null;
+  booksFailed?: boolean;
   engagement: {
     reviews: number;
     averageRating: number;
@@ -176,6 +183,8 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
 
   const [period, setPeriod] = useState<Period>("30d");
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
   const [data, setData] = useState<AnalyticsData>({
     overviewStats: null,
     revenue: null,
@@ -194,17 +203,20 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
+    const read = (url: string) => fetch(url, { signal: controller.signal });
+    const revenueUrl = `/api/author/stats/revenue?period=${period}${bookId === "all" ? "" : `&bookId=${encodeURIComponent(bookId)}`}`;
 
     const run = async () => {
       try {
         if (bookId === "all") {
           const [statsRes, revenueRes, booksRes, engRes, campaignsRes] = await Promise.all([
-            fetch(`/api/author/stats?period=${period}`),
-            fetch("/api/author/stats/revenue"),
-            fetch(`/api/author/stats/books?period=${period}`),
-            fetch("/api/author/stats/engagement"),
-            fetch("/api/author/marketing/campaigns"),
+            read(`/api/author/stats?period=${period}`),
+            read(revenueUrl),
+            read(`/api/author/stats/books?period=${period}`),
+            read("/api/author/stats/engagement"),
+            read("/api/author/marketing/campaigns"),
           ]);
 
           const [stats, revenue, booksData, engagement, campaigns] = await Promise.all([
@@ -216,21 +228,23 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
           ]);
 
           if (!cancelled) {
+            setLoadFailed(!stats || stats.partial || !revenue || revenue.partial || !booksData || booksData.partial || !engagement);
             setData({
               overviewStats: stats,
               revenue,
               engagement,
               booksTable: (booksData?.books as BookRow[]) ?? [],
+              booksFailed: !booksData || Boolean(booksData.partial),
               bookDetail: null,
               marketingCampaigns: (campaigns?.campaigns as MarketingCampaign[]) ?? [],
             });
           }
         } else {
           const [bookRes, revenueRes, engRes, campaignsRes] = await Promise.all([
-            fetch(`/api/books/${bookId}/stats?period=${period}`),
-            fetch("/api/author/stats/revenue"),
-            fetch("/api/author/stats/engagement"),
-            fetch("/api/author/marketing/campaigns"),
+            read(`/api/books/${bookId}/stats?period=${period}`),
+            read(revenueUrl),
+            read("/api/author/stats/engagement"),
+            read("/api/author/marketing/campaigns"),
           ]);
 
           const [bookDetail, revenue, engagement, campaigns] = await Promise.all([
@@ -241,6 +255,7 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
           ]);
 
           if (!cancelled) {
+            setLoadFailed(!bookDetail || bookDetail.partial || !revenue || revenue.partial || !engagement);
             setData({
               overviewStats: null,
               revenue,
@@ -252,7 +267,12 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
           }
         }
       } catch {
-        // continue with empty data
+        if (!cancelled) {
+          setLoadFailed(true);
+          // Never retain another book's or period's figures after a failed load.
+          setData({ overviewStats: null, revenue: null, engagement: null, booksTable: [],
+            booksFailed: true, bookDetail: null, marketingCampaigns: [] });
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -261,8 +281,9 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
     void run();
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [bookId, period]);
+  }, [bookId, period, retry]);
 
   const updateBookId = (id: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -304,6 +325,12 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
             <PeriodSelector period={period} onChange={setPeriod} />
           </div>
 
+          {!loading && loadFailed && (
+            <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 text-sm">
+              <p>Some statistics could not be loaded. Unavailable figures are not zero activity.</p>
+              <button type="button" className="btn-secondary min-h-11" onClick={() => setRetry((value) => value + 1)}>Retry statistics</button>
+            </div>
+          )}
           {books.length === 0 ? (
             <div className="rounded-2xl border border-border bg-card px-6 py-14 text-center">
               <h2 className="author-section-title text-[26px] font-medium tracking-tight text-foreground dark:text-foreground">

@@ -83,12 +83,10 @@ function sanitizeNewsletterHtml(html: string): string {
 
 type SubscriberRow = {
   subscriber_user_id: string;
-  profiles: { email: string | null; display_name: string | null } | null;
 };
 
 type RecipientWithIdentity = {
   email: string;
-  name: string | undefined;
   subscriberUserId: string;
 };
 
@@ -128,45 +126,35 @@ export async function sendNewsletter(
     throw new Error(`Newsletter already sent: ${newsletterId}`);
   }
 
-  // Fetch active subscribers with their email from profiles
-  const { data: subscribers, error: subError } = await supabase
-    .from("newsletter_subscriptions")
-    .select("subscriber_user_id, profiles:subscriber_user_id(email, display_name)")
-    .eq("author_id", nl.author_id)
-    .eq("status", "active");
-
-  if (subError) {
-    throw new Error(`Failed to load subscribers: ${subError.message}`);
+  // Subscriptions reference auth.users, not profiles; profiles has no email
+  // column. Resolve addresses server-side without exposing them to the author.
+  const rows: SubscriberRow[] = [];
+  const PAGE_SIZE = 500;
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("newsletter_subscriptions")
+      .select("subscriber_user_id")
+      .eq("author_id", nl.author_id)
+      .eq("status", "active")
+      .order("subscriber_user_id")
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (error) throw new Error(`Failed to load subscribers: ${error.message}`);
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
   }
 
-  const rows = (subscribers ?? []) as unknown as SubscriberRow[];
-
-  // Filter to subscribers that have an email, keeping the subscriber id so we
-  // can produce a signed per-recipient unsubscribe URL.
-  const emails: RecipientWithIdentity[] = rows
-    .map((r) => {
-      const profile = r.profiles;
-      if (!profile || !profile.email) return null;
-      return {
-        email: profile.email,
-        name: profile.display_name ?? undefined,
-        subscriberUserId: r.subscriber_user_id,
-      };
-    })
-    .filter((e): e is RecipientWithIdentity => e !== null);
+  const emails: RecipientWithIdentity[] = [];
+  for (const row of rows) {
+    const { data, error } = await supabase.auth.admin.getUserById(row.subscriber_user_id);
+    if (error) throw new Error(`Failed to resolve subscriber: ${error.message}`);
+    if (data.user?.email) {
+      emails.push({ email: data.user.email, subscriberUserId: row.subscriber_user_id });
+    }
+  }
 
   if (emails.length === 0) {
-    // Mark as sent with 0 recipients
-    await supabase
-      .from("newsletters")
-      .update({
-        status: "sent",
-        sent_at: new Date().toISOString(),
-        recipient_count: 0,
-      })
-      .eq("id", newsletterId);
-
-    return { recipientCount: 0 };
+    throw new Error("No active subscribers with an email address. The newsletter remains a draft.");
   }
 
   // Send via Resend batch API
@@ -205,20 +193,26 @@ export async function sendNewsletter(
   for (let i = 0; i < batchMessages.length; i += BATCH_SIZE) {
     const batch = batchMessages.slice(i, i + BATCH_SIZE);
     try {
-      await resend.batch.send(batch);
-      totalSent += batch.length;
+      const { data, error } = await resend.batch.send(batch);
+      if (error) throw new Error(`Newsletter delivery rejected: ${error.message}`);
+      if (!data || data.data.length !== batch.length) {
+        throw new Error("Newsletter delivery returned an incomplete receipt");
+      }
+      totalSent += data.data.length;
     } catch (err) {
       console.error("[newsletters] batch send failed", {
         newsletterId,
         batchStart: i,
         batchSize: batch.length,
+        acceptedRecipients: totalSent,
         error: err instanceof Error ? err.message : String(err),
       });
+      throw err;
     }
   }
 
   // Update newsletter status
-  await supabase
+  const { error: updateError } = await supabase
     .from("newsletters")
     .update({
       status: "sent",
@@ -226,6 +220,10 @@ export async function sendNewsletter(
       recipient_count: totalSent,
     })
     .eq("id", newsletterId);
+
+  if (updateError) {
+    throw new Error(`Could not save newsletter delivery status: ${updateError.message}`);
+  }
 
   return { recipientCount: totalSent };
 }

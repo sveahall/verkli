@@ -49,7 +49,7 @@
  * write errored outright. Both stay queued; the distinction exists so the UI can
  * say which is more likely rather than always promising a retry will help.
  */
-export type PersistOutcome = "written" | "transient" | "missing";
+export type PersistOutcome = "written" | "transient" | "missing" | "conflict";
 
 export interface PersistResult {
   outcome: PersistOutcome;
@@ -69,6 +69,8 @@ export interface DrainResult {
   transientFailures: string[];
   /** Matched no row, so probably deleted or inaccessible. Still queued. */
   missingChapters: string[];
+  /** A newer server draft exists. Retained for explicit recovery, never overwritten. */
+  conflictedChapters: string[];
 }
 
 /** First queued entry not yet attempted in this pass, or null when none remain. */
@@ -96,11 +98,14 @@ export async function drainPendingSaves(
    * written: unlike an ambiguous zero-row result, deletion here is something we
    * did and therefore know.
    */
-  deletedChapterIds: ReadonlySet<string> = new Set()
+  deletedChapterIds: ReadonlySet<string> = new Set(),
+  /** Publish the recovery gate before awaiting another chapter in this drain. */
+  onConflict?: (chapterId: string) => void,
 ): Promise<DrainResult> {
   const saved = new Map<string, string>();
   const transientFailures: string[] = [];
   const missingChapters: string[] = [];
+  const conflictedChapters: string[] = [];
   // Chapters that failed in this pass. Skipped for the remainder of it so a
   // re-queued failure cannot spin the loop or shadow the chapters behind it.
   // A chapter that SUCCEEDS is deliberately not in here, so fresh content
@@ -150,6 +155,11 @@ export async function drainPendingSaves(
     // write per later drain and never an author's words.
     if (!pending.has(chapterId)) pending.set(chapterId, payload);
 
+    if (result.outcome === "conflict") {
+      conflictedChapters.push(chapterId);
+      onConflict?.(chapterId);
+      continue;
+    }
     if (result.outcome === "transient") {
       transientFailures.push(chapterId);
       continue;
@@ -157,5 +167,5 @@ export async function drainPendingSaves(
     missingChapters.push(chapterId);
   }
 
-  return { saved, transientFailures, missingChapters };
+  return { saved, transientFailures, missingChapters, conflictedChapters };
 }

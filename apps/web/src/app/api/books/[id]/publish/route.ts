@@ -66,6 +66,9 @@ export async function POST(
   const { id } = await params;
   if (!isValidUuid(id)) return apiError(E_INVALID_BOOK_ID, 400);
   const body = await request.json().catch(() => ({}));
+  if (body?.scope !== undefined && body.scope !== "book" && body.scope !== "chapter") {
+    return NextResponse.json({ error: "INVALID_SCOPE", detail: "Publication scope must be book or chapter." }, { status: 400 });
+  }
   const versionFromBody =
     body?.versionId != null && String(body.versionId).trim() !== ""
       ? String(body.versionId).trim()
@@ -146,7 +149,7 @@ export async function POST(
 
   const withPublishedChapterCount = await supabase
     .from("book_versions")
-    .select("id, book_id, published_at, visibility, published_chapter_count")
+    .select("id, book_id, published_at, visibility, published_chapter_count, status, updated_at")
     .eq("id", versionId)
     .maybeSingle();
 
@@ -155,7 +158,7 @@ export async function POST(
   )
     ? await supabase
         .from("book_versions")
-        .select("id, book_id, published_at, visibility")
+        .select("id, book_id, published_at, visibility, status, updated_at")
         .eq("id", versionId)
         .maybeSingle()
     : null;
@@ -324,6 +327,14 @@ export async function POST(
     return NextResponse.json({ ok: true, visibility: requestedVisibility });
   }
 
+  // Translation claims and publication compete on this same version revision.
+  // A preflight check alone leaves a window for publishing partially saved text.
+  const publishConflict = () => {
+    console.warn("[publish] version changed or translation is active", { bookId: id, versionId });
+    return NextResponse.json({ error: "VERSION_CHANGED", detail: "This edition changed or is being translated. Reload it and review the current text before publishing." }, { status: 409 });
+  };
+  if (version.status === "translating" || !version.status || !version.updated_at) return publishConflict();
+
   const chapterReleaseMode = requestedScope === "chapter";
   if (chapterReleaseMode && !hasPublishedChapterCountColumn) {
     return apiError(E_DATABASE_ERROR, 503, {
@@ -331,7 +342,7 @@ export async function POST(
         "Database schema is outdated: missing book_versions.published_chapter_count. Run the latest Supabase migrations.",
     });
   }
-  if (version.published_at && !chapterReleaseMode) {
+  if (version.published_at && !chapterReleaseMode && (version.published_chapter_count === null || body?.scope !== "book")) {
     if (requestedVisibility && requestedVisibility !== version.visibility) {
       const { error: versionUpdateError } = await supabase
         .from("book_versions")
@@ -376,7 +387,7 @@ export async function POST(
 
   const { data: chapters } = await supabase
     .from("chapters")
-    .select("id, content")
+    .select("id, content, order")
     .eq("book_version_id", versionId)
     .order("order", { ascending: true });
 
@@ -439,13 +450,14 @@ export async function POST(
       });
     }
 
-    const chapterOrder = Number(chapter.order ?? 0);
-    const nextPublishedChapterCount = Math.max(
-      currentlyPublishedChapterCount ?? 0,
-      Number.isFinite(chapterOrder) ? chapterOrder + 1 : 1
-    );
+    const currentCount = version.published_at ? currentlyPublishedChapterCount ?? 0 : 0;
+    const nextChapter = chapters.find((item) => item.order >= currentCount);
+    if (!nextChapter || nextChapter.id !== requestedChapterId || !Number.isInteger(chapter.order) || chapter.order < 0) {
+      return NextResponse.json({ error: "NEXT_CHAPTER_REQUIRED", detail: "Publish the next unreleased chapter, or explicitly choose to publish all chapters." }, { status: 409 });
+    }
+    const nextPublishedChapterCount = chapter.order + 1;
 
-    const { error: versionUpdateError } = await supabase
+    const { data: publishedVersion, error: versionUpdateError } = await supabase
       .from("book_versions")
       .update({
         status: "done",
@@ -453,7 +465,9 @@ export async function POST(
         visibility: nextVisibility,
         published_chapter_count: nextPublishedChapterCount,
       })
-      .eq("id", versionId);
+      .eq("id", versionId).eq("book_id", id)
+      .eq("status", version.status).eq("updated_at", version.updated_at)
+      .select("id").maybeSingle();
 
     if (versionUpdateError) {
       console.error("[publish] chapter publish update failed", {
@@ -464,6 +478,8 @@ export async function POST(
       });
       return apiError(E_DATABASE_ERROR, 500);
     }
+
+    if (!publishedVersion) return publishConflict();
 
     if (book.status !== "PUBLISHED") {
       const { error: updateError } = await supabase
@@ -512,15 +528,19 @@ export async function POST(
     fullPublishPayload.published_chapter_count = null;
   }
 
-  const { error: versionUpdateError } = await supabase
+  const { data: publishedVersion, error: versionUpdateError } = await supabase
     .from("book_versions")
     .update(fullPublishPayload)
-    .eq("id", versionId);
+    .eq("id", versionId).eq("book_id", id)
+    .eq("status", version.status).eq("updated_at", version.updated_at)
+    .select("id").maybeSingle();
 
   if (versionUpdateError) {
     console.error("[publish] version publish update failed", { bookId: id, versionId, message: versionUpdateError.message });
     return apiError(E_DATABASE_ERROR, 500);
   }
+
+  if (!publishedVersion) return publishConflict();
 
   if (book.status !== "PUBLISHED") {
     const { error: updateError } = await supabase

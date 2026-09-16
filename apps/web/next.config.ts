@@ -86,7 +86,7 @@ const cspDirectives = [
   "img-src 'self' data: blob: https:",
   `connect-src ${connectSrc.join(" ")}`,
   "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://billing.stripe.com https://platform.twitter.com https://syndication.twitter.com https://www.instagram.com https://*.instagram.com https://www.tiktok.com https://*.tiktok.com https://*.supabase.co https://runwayml.com https://*.runwayml.com",
-  "form-action 'self' https://checkout.stripe.com https://billing.stripe.com https://*.supabase.co",
+  "form-action 'self' https://checkout.stripe.com https://billing.stripe.com https://connect.stripe.com https://*.supabase.co",
   "worker-src 'self' blob:",
   "media-src 'self' blob: data: https://*.supabase.co https://runwayml.com https://*.runwayml.com",
 ];

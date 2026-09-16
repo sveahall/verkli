@@ -72,9 +72,26 @@ test("the anonymous book delivery page never claims payment or exposes a downloa
   expect(response.status()).toBe(400);
 });
 
-test("private author and reader pages remain gated", async ({ page }) => {
-  for (const path of ["/author/home", "/reader/library"]) {
+test("private workspaces send expired sessions to sign in and preserve their destination", async ({ page }) => {
+  for (const [path, signIn] of [
+    ["/author/home", "/author/signin"],
+    ["/reader/library", "/reader/signin"],
+  ]) {
     await page.goto(path);
-    await expect(page).toHaveURL(/\/waitlist$/);
+    await expect(page).toHaveURL((url) =>
+      url.pathname === signIn && url.searchParams.get("next") === path
+    );
+  }
+});
+
+test("anonymous exports cannot bypass the beta gate with forged owner parameters", async ({ request }) => {
+  for (const path of [
+    "/api/billing/connect/payout-report?accountId=acct_attacker",
+    "/api/reader/export?userId=someone-else",
+  ]) {
+    const response = await request.get(path);
+    expect(response.status()).toBe(403);
+    expect(await response.json()).toEqual({ error: "Beta access required" });
+    expect(response.headers()["content-disposition"]).toBeUndefined();
   }
 });

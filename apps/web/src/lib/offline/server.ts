@@ -1,6 +1,7 @@
 import { canUserReadBook } from "@/lib/books/access";
 import { getBillingStateForUser } from "@/lib/billing/server";
 import { isOfflineReadingEnabled } from "@/lib/flags";
+import { SECURE_OFFLINE_SAVING_AVAILABLE } from "./availability";
 import { normalizeLanguage, normalizeLanguageOrNull } from "@/lib/languages";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -30,6 +31,7 @@ type OfflineVersionRow = {
   book_id: string;
   language_code: string;
   published_at: string | null;
+  published_chapter_count: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -67,7 +69,7 @@ export async function requireOfflineBookAccess(
   args: OfflineBookAccessArgs
 ):
   Promise<{ ok: true; context: OfflineBookAccessContext } | { ok: false; response: Response }> {
-  if (!isOfflineReadingEnabled()) {
+  if (!SECURE_OFFLINE_SAVING_AVAILABLE || !isOfflineReadingEnabled()) {
     return { ok: false, response: apiError(E_OFFLINE_FEATURE_DISABLED, 503) };
   }
 
@@ -123,7 +125,7 @@ export async function requireOfflineBookAccess(
 
   const { data: versions, error: versionsError } = await supabase
     .from("book_versions")
-    .select("id, book_id, language_code, published_at, created_at, updated_at")
+    .select("id, book_id, language_code, published_at, published_chapter_count, created_at, updated_at")
     .eq("book_id", bookRow.id)
     .not("published_at", "is", null)
     .order("created_at", { ascending: true });
