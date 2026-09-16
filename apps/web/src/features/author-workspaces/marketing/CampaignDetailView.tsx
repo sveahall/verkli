@@ -245,7 +245,10 @@ export default function CampaignDetailView({
     setCampaignError(null);
     try {
       const response = await fetch(`/api/author/marketing/campaigns/${campaign.id}`, { method: "POST" });
-      if (!response.ok) throw new Error("Could not resume generation. Refresh and try again.");
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { detail?: unknown };
+        throw new Error(typeof body.detail === "string" ? body.detail : "Could not resume generation. Refresh and try again.");
+      }
       router.refresh();
     } catch (error) {
       setCampaignError(error instanceof Error ? error.message : "Could not resume generation.");

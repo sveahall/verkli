@@ -1,3 +1,4 @@
+import { getMarketingQueueReadiness } from "@/lib/marketing/queue-readiness";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthorAndMarketingEnabled } from "@/lib/auth/require-author-marketing";
@@ -157,6 +158,9 @@ export async function POST(request: Request) {
     return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
+  const readiness = await getMarketingQueueReadiness();
+  if (!readiness.ok) return apiError(readiness.code, 503, { detail: readiness.detail });
+
   const normalizedLanguages = Array.from(
     new Set(input.languages.map((l) => normalizeLanguage(l)))
   );
@@ -191,21 +195,26 @@ export async function POST(request: Request) {
     return apiError(E_DATABASE_ERROR, 500);
   }
 
-  const jobId = await enqueueMarketingJob({
-    bookId: input.bookId,
-    authorId: gate.user.id,
-    channels: input.channels,
-    language: normalizedLanguages[0] ?? "en",
-    campaignPlanId: inserted.id,
-  });
+  let jobId: string | null = null;
+  try {
+    jobId = await enqueueMarketingJob({
+      bookId: input.bookId,
+      authorId: gate.user.id,
+      channels: input.channels,
+      language: normalizedLanguages[0] ?? "en",
+      campaignPlanId: inserted.id,
+    });
+  } catch {
+    console.error("[campaigns create] queueing failed", { campaignId: inserted.id });
+  }
 
   if (!jobId) {
-    // Mark plan as failed so the user sees a clear error
-    await supabase
+    const { error: restoreError } = await supabase
       .from("marketing_campaign_plans")
-      .update({ status: "failed", generation_error: "queue_unavailable" })
-      .eq("id", inserted.id);
-    return apiError(E_QUEUE_UNAVAILABLE, 503);
+      .update({ status: "failed", generation_error: "Campaign generation is temporarily unavailable. Please try again later." })
+      .eq("id", inserted.id).eq("author_id", gate.user.id).eq("status", "generating");
+    if (restoreError) console.error("[campaigns create] could not restore failed status:", restoreError.message);
+    return apiError(E_QUEUE_UNAVAILABLE, 503, { detail: "Could not start campaign generation. Please try again later from the campaign page." });
   }
 
   return NextResponse.json({

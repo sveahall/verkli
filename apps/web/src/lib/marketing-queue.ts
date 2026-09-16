@@ -1,3 +1,4 @@
+import { getMarketingQueueReadiness } from "@/lib/marketing/queue-readiness";
 /**
  * BullMQ marketing queue. Uses same REDIS_URL as other queues.
  * If REDIS_URL is missing, enqueue is skipped and null is returned.
@@ -57,6 +58,8 @@ export type MarketingJobData = {
 };
 
 export async function enqueueMarketingJob(data: MarketingJobData): Promise<string | null> {
+  const readiness = await getMarketingQueueReadiness();
+  if (!readiness.ok) return null;
   const url = getRedisUrl();
   if (!url || url.trim() === "") {
     console.warn("[marketing queue] REDIS_URL not set — job not enqueued.");

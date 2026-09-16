@@ -1,3 +1,4 @@
+import { getMarketingQueueReadiness } from "@/lib/marketing/queue-readiness";
 import { NextResponse } from "next/server";
 import { requireProBillingForApi } from "@/lib/billing/server";
 import { enqueueMarketingJob } from "@/lib/marketing-queue";
@@ -186,6 +187,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (!proGate.ok) return proGate.response;
   const { id } = await params;
   if (!isValidUuid(id)) return apiError(E_INVALID_BOOK_ID, 400);
+  const readiness = await getMarketingQueueReadiness();
+  if (!readiness.ok) return apiError(readiness.code, 503, { detail: readiness.detail });
   const supabase = await createClient();
   const { data: plan, error } = await supabase.from("marketing_campaign_plans")
     .update({ status: "generating", generation_error: null })
@@ -209,6 +212,6 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
       .update({ status: "failed", generation_error: "Queue unavailable. Please try again." })
       .eq("id", id).eq("author_id", gate.user.id).eq("status", "generating");
     if (restoreError) console.error("[campaign retry] could not restore failed status:", restoreError.message);
-    return apiError("QUEUE_UNAVAILABLE", 503);
+    return apiError("QUEUE_UNAVAILABLE", 503, { detail: "Could not resume campaign generation. Your saved drafts are unchanged. Please try again later." });
   }
 }
