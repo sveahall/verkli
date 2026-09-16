@@ -21,7 +21,7 @@ import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 import type { SocialPublishJobData } from "../src/lib/social-publish-queue";
 import { decryptToken, encryptToken } from "../src/lib/social/token-crypto";
 import { PUBLISHABLE_PLATFORMS } from "../src/lib/social/platform-constraints";
-import { truncateForPlatform } from "../src/lib/social/platform-constraints";
+import { validateForPlatform } from "../src/lib/social/platform-constraints";
 import { refreshAccessToken } from "../src/lib/social/oauth";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { Sentry } from "./sentry-worker-init";
@@ -50,7 +50,8 @@ async function publishToX(
   accessToken: string,
   text: string
 ): Promise<PlatformResult> {
-  const truncated = truncateForPlatform(text, "x");
+  const validation = validateForPlatform(text, "x");
+  if (!validation.valid || !text.trim()) return { status: "failed", error: validation.error ?? "Caption is empty" };
 
   if (MOCK_MODE) {
     return { status: "ok", postId: `mock-x-${Date.now()}` };
@@ -62,147 +63,17 @@ async function publishToX(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ text: truncated }),
+    body: JSON.stringify({ text }),
+    signal: AbortSignal.timeout(20_000),
   });
 
   if (!res.ok) {
-    const errBody = await res.text().catch(() => "");
-    return { status: "failed", error: `X API error ${res.status}: ${errBody.slice(0, 200)}` };
+    return { status: "failed", error: `X API error ${res.status}. Verify delivery in X before retrying.` };
   }
 
   const data = (await res.json()) as { data?: { id?: string } };
-  return { status: "ok", postId: data.data?.id };
-}
-
-async function publishToInstagram(
-  accessToken: string,
-  text: string
-): Promise<PlatformResult> {
-  const truncated = truncateForPlatform(text, "instagram");
-
-  if (MOCK_MODE) {
-    return { status: "ok", postId: `mock-ig-${Date.now()}` };
-  }
-
-  // Instagram Graph API: create a media container, then publish it.
-  // Text-only posts require a "carousel" or image. For now we create a
-  // text-based story/caption.  Instagram requires media — if no media is
-  // attached we post as a caption with a placeholder image from the campaign.
-  // Step 1: Create media container (requires image_url for feed posts)
-  const igUserId = "me"; // Graph API uses /me/ with user-scoped token
-  const createRes = await fetch(
-    `https://graph.instagram.com/v21.0/${igUserId}/media`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        caption: truncated,
-        // For text campaigns without media, we skip — Graph API requires image_url
-        // The campaign UI should enforce media attachment for Instagram
-        access_token: accessToken,
-      }),
-    }
-  );
-
-  if (!createRes.ok) {
-    const errBody = await createRes.text().catch(() => "");
-    return { status: "failed", error: `Instagram create media error ${createRes.status}: ${errBody.slice(0, 200)}` };
-  }
-
-  const createData = (await createRes.json()) as { id?: string };
-  const containerId = createData.id;
-  if (!containerId) {
-    return { status: "failed", error: "Instagram: no container ID returned" };
-  }
-
-  // Step 2: Publish the container
-  const publishRes = await fetch(
-    `https://graph.instagram.com/v21.0/${igUserId}/media_publish`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        creation_id: containerId,
-        access_token: accessToken,
-      }),
-    }
-  );
-
-  if (!publishRes.ok) {
-    const errBody = await publishRes.text().catch(() => "");
-    return { status: "failed", error: `Instagram publish error ${publishRes.status}: ${errBody.slice(0, 200)}` };
-  }
-
-  const publishData = (await publishRes.json()) as { id?: string };
-  return { status: "ok", postId: publishData.id };
-}
-
-async function publishToTikTok(
-  accessToken: string,
-  text: string
-): Promise<PlatformResult> {
-  const truncated = truncateForPlatform(text, "tiktok");
-
-  if (MOCK_MODE) {
-    return { status: "ok", postId: `mock-tiktok-${Date.now()}` };
-  }
-
-  // TikTok Content Posting API (v2)
-  // Step 1: Initialize the post (creator_info endpoint for text/photo posts)
-  const initRes = await fetch(
-    "https://open.tiktokapis.com/v2/post/publish/content/init/",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json; charset=UTF-8",
-      },
-      body: JSON.stringify({
-        post_info: {
-          title: truncated.slice(0, 150),
-          description: truncated,
-          privacy_level: "SELF_ONLY", // Default to private; user can change in TikTok app
-          disable_comment: false,
-        },
-        source_info: {
-          source: "PULL_FROM_URL",
-          // TikTok requires a video or photo URL. Text-only posts are not supported.
-          // The campaign UI should enforce media attachment for TikTok.
-        },
-      }),
-    }
-  );
-
-  if (!initRes.ok) {
-    const errBody = await initRes.text().catch(() => "");
-    return { status: "failed", error: `TikTok init error ${initRes.status}: ${errBody.slice(0, 200)}` };
-  }
-
-  const initData = (await initRes.json()) as { data?: { publish_id?: string } };
-  const publishId = initData.data?.publish_id;
-
-  return { status: "ok", postId: publishId };
-}
-
-async function publishToEmail(
-  smtpConfig: { smtpHost: string; smtpPort: string; smtpUser: string; smtpPass: string; fromEmail: string },
-  subject: string,
-  body: string
-): Promise<PlatformResult> {
-  if (MOCK_MODE) {
-    return { status: "ok", messageId: `mock-email-${Date.now()}` };
-  }
-
-  // Use nodemailer-style SMTP sending via fetch to a local relay or Resend
-  // For now, log and return success placeholder
-  console.log("[social-publish worker] email publish:", {
-    from: smtpConfig.fromEmail,
-    host: smtpConfig.smtpHost,
-    subject: subject.slice(0, 50),
-    bodyLength: body.length,
-  });
-
-  return { status: "ok", messageId: `email-${Date.now()}` };
+  if (!data.data?.id) return { status: "failed", error: "X returned no post ID. Verify delivery in X before retrying." };
+  return { status: "ok", postId: data.data.id };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -227,16 +98,18 @@ async function processJob(payload: SocialPublishJobData) {
     if (status === "completed" || status === "failed") updates.finished_at = now;
     if (error) updates.error = sanitizeJobErrorForStorage(error);
 
-    const { data: current } = await supabase
+    const { data: current, error: readError } = await supabase
       .from("ai_jobs")
       .select("output")
       .eq("id", jobId)
       .single();
 
+    if (readError) throw new Error("Could not read publishing job status");
     const currentOutput = (current?.output ?? {}) as Record<string, unknown>;
     updates.output = { ...currentOutput, ...outputUpdate } as TablesUpdate<"ai_jobs">["output"];
 
-    await supabase.from("ai_jobs").update(updates).eq("id", jobId);
+    const { error: updateError } = await supabase.from("ai_jobs").update(updates).eq("id", jobId);
+    if (updateError) throw new Error("Could not save publishing job status");
   };
 
   try {
@@ -286,16 +159,23 @@ async function processJob(payload: SocialPublishJobData) {
 
     const camp = { ...campaign, content: campaign.caption };
 
-    await updateJob("processing");
+    const { data: previousJob, error: previousError } = await supabase.from("ai_jobs").select("output").eq("id", jobId).single();
+    if (previousError) throw new Error("Could not read previous publishing attempt");
+    const previousOutput = (previousJob?.output ?? {}) as { simulated?: boolean; results?: Record<string, PlatformResult>; dispatched?: Record<string, boolean> };
+    if (previousOutput.simulated && !MOCK_MODE) throw new UnrecoverableError("A simulation cannot be resumed as a live publishing job");
+    const dispatched = { ...previousOutput.dispatched };
+    await updateJob("processing", { simulated: MOCK_MODE });
 
     const content = camp.content ?? "";
-    const results: Record<string, PlatformResult> = {};
+    const results: Record<string, PlatformResult> = { ...previousOutput.results };
 
     // Fetch user's social connections
-    const { data: connections } = await supabase
+    const { data: connections, error: connectionsError } = await supabase
       .from("social_connections")
       .select("platform, access_token_enc, refresh_token_enc, token_expires_at, email_config_enc, status")
       .eq("user_id", userId);
+
+    if (connectionsError) throw new Error("Could not load connected accounts");
 
     // The row type, not Record<string, unknown>. The cast that used to be here
     // turned every column into `unknown`, so the token columns had to be
@@ -316,6 +196,11 @@ async function processJob(payload: SocialPublishJobData) {
         continue;
       }
 
+      if (results[platform]?.status === "ok") continue;
+      if (dispatched[platform]) {
+        results[platform] = { status: "failed", error: "Previous delivery is uncertain. Verify the post in your connected account before starting another publish." };
+        continue;
+      }
       const conn = connMap.get(platform);
       if (!conn || conn.status !== "active") {
         results[platform] = { status: "failed", error: "Platform not connected" };
@@ -350,23 +235,12 @@ async function processJob(payload: SocialPublishJobData) {
 
         if (platform === "x") {
           const accessToken = await getAccessToken("x");
+          // Persist before the external side effect. An ambiguous retry requires
+          // manual reconciliation instead of automatically creating a duplicate.
+          dispatched[platform] = true;
+          await updateJob("processing", { dispatched, results, simulated: MOCK_MODE });
           results[platform] = await publishToX(accessToken, content);
-        } else if (platform === "instagram") {
-          const accessToken = await getAccessToken("instagram");
-          results[platform] = await publishToInstagram(accessToken, content);
-        } else if (platform === "tiktok") {
-          const accessToken = await getAccessToken("tiktok");
-          results[platform] = await publishToTikTok(accessToken, content);
-        } else if (platform === "email") {
-          if (!conn.email_config_enc) {
-            results[platform] = { status: "failed", error: "Email config missing" };
-            continue;
-          }
-          const configJson = decryptToken(String(conn.email_config_enc));
-          const smtpConfig = JSON.parse(configJson) as {
-            smtpHost: string; smtpPort: string; smtpUser: string; smtpPass: string; fromEmail: string;
-          };
-          results[platform] = await publishToEmail(smtpConfig, `Campaign: ${campaignId}`, content);
+          await updateJob("processing", { results, simulated: MOCK_MODE });
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -381,12 +255,12 @@ async function processJob(payload: SocialPublishJobData) {
       (p) => results[p]?.status === "ok"
     );
 
-    if (publishablePlatforms.length > 0 && !allPublishableSucceeded) {
+    if (publishablePlatforms.length !== platforms.length || !allPublishableSucceeded || platforms.length === 0) {
       // At least one publishable platform failed to post — the job must NOT be
       // reported as "completed" (that made the author's UI show a successful
       // publish while nothing was posted). Mark it failed and surface which
       // platforms failed, keeping the per-platform results for detail.
-      const failedPlatforms = publishablePlatforms.filter(
+      const failedPlatforms = platforms.filter(
         (p) => results[p]?.status !== "ok"
       );
       await updateJob(
@@ -397,7 +271,7 @@ async function processJob(payload: SocialPublishJobData) {
     } else {
       await updateJob("completed", { results });
 
-      if (allPublishableSucceeded && publishablePlatforms.length > 0) {
+      if (!MOCK_MODE && allPublishableSucceeded && publishablePlatforms.length > 0) {
         await supabase
           .from("marketing_campaigns")
           .update({ status: "published" })

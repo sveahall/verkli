@@ -77,7 +77,7 @@ export const updatePostBodySchema = z.object({
   hashtags: z.string().max(2000).optional(),
   cta: z.string().max(500).optional(),
   status: z
-    .enum(["draft", "ready", "asset_pending", "asset_failed", "posted", "skipped"])
+    .enum(["draft", "ready", "posted", "skipped"])
     .optional(),
   postedUrl: z.string().url().max(2000).optional(),
 });

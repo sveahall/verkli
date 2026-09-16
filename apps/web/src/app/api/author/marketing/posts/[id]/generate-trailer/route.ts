@@ -247,7 +247,7 @@ export async function POST(
     await supabase
       .from("marketing_posts")
       .update({
-        status: "ready",
+        status: "draft",
         media_asset_id: assetId,
         media_asset_url: upload.publicUrl,
         caption: trailerCaption || post.caption,

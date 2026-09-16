@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { requireProBillingForApi } from "@/lib/billing/server";
+import { enqueueMarketingJob } from "@/lib/marketing-queue";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthorAndMarketingEnabled } from "@/lib/auth/require-author-marketing";
 import {
@@ -173,4 +175,39 @@ export async function DELETE(
   }
 
   return NextResponse.json({ ok: true });
+}
+
+/** Resume only failed generation; saved/approved posts are retained by the worker. */
+export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const gate = await requireAuthorAndMarketingEnabled();
+  if (gate.response) return gate.response;
+  const proGate = await requireProBillingForApi(gate.user.id);
+  if (!proGate.ok) return proGate.response;
+  const { id } = await params;
+  if (!isValidUuid(id)) return apiError(E_INVALID_BOOK_ID, 400);
+  const supabase = await createClient();
+  const { data: plan, error } = await supabase.from("marketing_campaign_plans")
+    .update({ status: "generating", generation_error: null })
+    .eq("id", id).eq("author_id", gate.user.id).eq("status", "failed")
+    .select("id, book_id, channels, languages").maybeSingle();
+  if (error) {
+    console.error("[campaign retry] could not claim plan:", error.message);
+    return apiError(E_DATABASE_ERROR, 500);
+  }
+  if (!plan) return apiError("CAMPAIGN_NOT_RETRYABLE", 409, { detail: "Refresh the campaign. Only failed generation can be resumed." });
+  try {
+    const jobId = await enqueueMarketingJob({
+      campaignPlanId: id, bookId: plan.book_id, authorId: gate.user.id,
+      channels: plan.channels, language: plan.languages[0] ?? "en",
+    });
+    if (!jobId) throw new Error("Queue unavailable");
+    return NextResponse.json({ jobId, status: "generating" }, { status: 202 });
+  } catch {
+    console.error("[campaign retry] queue unavailable", { campaignId: id });
+    const { error: restoreError } = await supabase.from("marketing_campaign_plans")
+      .update({ status: "failed", generation_error: "Queue unavailable. Please try again." })
+      .eq("id", id).eq("author_id", gate.user.id).eq("status", "generating");
+    if (restoreError) console.error("[campaign retry] could not restore failed status:", restoreError.message);
+    return apiError("QUEUE_UNAVAILABLE", 503);
+  }
 }

@@ -225,4 +225,11 @@ describe("POST /api/social/publish", () => {
 
     expect(res.status).toBe(404);
   });
+  it.each(["instagram", "tiktok", "email"])("refuses incomplete %s transport before enqueue", async (platform) => {
+    mockAuthSuccess(); mockBillingOk();
+    const res = await POST(makeRequest({ campaignId: "camp-1", platforms: [platform] }));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe("SOCIAL_PUBLISH_NOT_IMPLEMENTED");
+  });
+
 });
