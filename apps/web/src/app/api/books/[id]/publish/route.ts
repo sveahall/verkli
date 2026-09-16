@@ -66,6 +66,9 @@ export async function POST(
   const { id } = await params;
   if (!isValidUuid(id)) return apiError(E_INVALID_BOOK_ID, 400);
   const body = await request.json().catch(() => ({}));
+  if (body?.scope !== undefined && body.scope !== "book" && body.scope !== "chapter") {
+    return NextResponse.json({ error: "INVALID_SCOPE", detail: "Publication scope must be book or chapter." }, { status: 400 });
+  }
   const versionFromBody =
     body?.versionId != null && String(body.versionId).trim() !== ""
       ? String(body.versionId).trim()
@@ -339,7 +342,7 @@ export async function POST(
         "Database schema is outdated: missing book_versions.published_chapter_count. Run the latest Supabase migrations.",
     });
   }
-  if (version.published_at && !chapterReleaseMode && version.published_chapter_count === null) {
+  if (version.published_at && !chapterReleaseMode && (version.published_chapter_count === null || body?.scope !== "book")) {
     if (requestedVisibility && requestedVisibility !== version.visibility) {
       const { error: versionUpdateError } = await supabase
         .from("book_versions")

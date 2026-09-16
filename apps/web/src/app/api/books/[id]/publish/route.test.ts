@@ -630,6 +630,17 @@ describe("POST /api/books/[id]/publish", () => {
     expect(db.versionUpdates[0]?.published_chapter_count).toBe(2);
   });
 
+  it.each([undefined, "bok", "BOOK", null])("does not expand a partial release without exact explicit book scope (%s)", async (scope) => {
+    publishableBook();
+    const version = { ...draftVersion(), published_at: "2026-09-15T10:00:00Z", published_chapter_count: 1 };
+    const db = buildSupabaseMock({ version, chapters: [{ id: "ch-1", content: "First" }, { id: "ch-2", content: "Second" }] });
+    const res = await POST(makeRequest({ scope }), makeParams());
+    expect(res.status).toBe(scope === undefined ? 200 : 400);
+    if (scope === undefined) expect(await res.json()).toMatchObject({ alreadyPublished: true });
+    expect(version.published_chapter_count).toBe(1);
+    expect(db.versionUpdates).toEqual([]);
+  });
+
   it("preserves explicit all-chapters publishing for a partially released edition", async () => {
     publishableBook();
     const version = { ...draftVersion(), published_at: "2026-09-15T10:00:00Z", published_chapter_count: 1 };
