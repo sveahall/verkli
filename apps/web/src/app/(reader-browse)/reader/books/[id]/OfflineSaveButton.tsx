@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { OFFLINE_UNAVAILABLE_MESSAGE } from "@/lib/offline/availability";
-import { clearOfflineDatabase } from "@/lib/offline/idb";
-import { clearAllOfflineContentUrls } from "@/lib/offline/service-worker";
+import { retireOfflineServiceWorker } from "@/lib/offline/service-worker";
 
 type Props = {
   bookId: string;
@@ -22,7 +21,7 @@ export default function OfflineSaveButton(props: Props) {
     setStatus(null);
     setError(null);
     try {
-      await Promise.all([clearAllOfflineContentUrls(), clearOfflineDatabase()]);
+      await retireOfflineServiceWorker();
       setStatus("Previously saved copies have been removed from this device.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not remove saved copies. Close other Verkli tabs and try again.");
