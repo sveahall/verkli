@@ -287,7 +287,7 @@ export default function PublishPanel({
             </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground dark:text-muted-foreground">
-            <span>{totalCount} chapters</span>
+            <span>{totalCount} {totalCount === 1 ? "chapter" : "chapters"}</span>
             {isPublished && <span>{liveCount}/{totalCount} live</span>}
             {versionLanguages.length > 0 && <span>{versionLanguages.join(", ")}</span>}
           </div>
