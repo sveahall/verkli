@@ -291,7 +291,7 @@ export default function AuthorSidebar({
               alt="Verkli"
               width={1429}
               height={265}
-              className="h-[26px] w-auto"
+              className="h-auto w-28"
               priority
             />
           </Link>

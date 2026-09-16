@@ -107,10 +107,10 @@ export default function ReaderAppShell({
               alt="Verkli"
               width={1429}
               height={265}
-              className="h-8 w-auto dark:hidden"
+              className="h-auto w-28 dark:hidden"
               priority
             />
-            <Image src="/favicon.svg?v=20260916" alt="Verkli" width={1429} height={265} className="hidden h-8 w-auto dark:block" priority />
+            <Image src="/favicon.svg?v=20260916" alt="Verkli" width={1429} height={265} className="hidden h-auto w-28 dark:block" priority />
           </Link>
           <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Your reading space</p>
         </div>

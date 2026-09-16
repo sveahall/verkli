@@ -17,8 +17,8 @@ export default function Footer({ variant = "reader" }: { variant?: FooterVariant
       <div className="grid gap-x-8 gap-y-10 border-t border-border py-10 sm:grid-cols-2 md:grid-cols-[1.6fr_1fr_1fr_1fr] md:gap-12 md:py-14">
         <div className="space-y-5">
           <Link href="/" className="inline-block">
-            <Image src="/logo-dark.svg?v=20260916" alt="Verkli" width={1429} height={265} className="h-9 w-auto dark:hidden" />
-            <Image src="/favicon.svg?v=20260916" alt="Verkli" width={1429} height={265} className="hidden h-9 w-auto dark:block" />
+            <Image src="/logo-dark.svg?v=20260916" alt="Verkli" width={1429} height={265} className="h-auto w-28 dark:hidden" />
+            <Image src="/favicon.svg?v=20260916" alt="Verkli" width={1429} height={265} className="hidden h-auto w-28 dark:block" />
           </Link>
           <p className="max-w-[280px] text-[15px] leading-[1.7] text-muted-foreground ">
             One story. Every possibility. Writing, translation, audiobooks and publishing, together in Verkli.
