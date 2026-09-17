@@ -327,4 +327,49 @@ describe("whole-book analysis API", () => {
     expect(history.filter((query) => query.patch?.status === "failed")).toHaveLength(0);
     expect(mocks.notes).toHaveBeenCalledOnce(); expect(mocks.release).not.toHaveBeenCalled();
   });
+  it("explicitly abandons a stranded claim without refund, retry or configuration requirements", async () => {
+    const analysis = await start(); tables.ai_jobs[0].status = "processing";
+    tables.ai_jobs[0].output = { ...savedRun(), receipts: [{ step: 0, reservedUnits: 20000, usage }] };
+    mocks.enabled.mockReturnValue(false); vi.stubEnv("EDITORIAL_DAILY_BUDGET", ""); vi.stubEnv("ANTHROPIC_API_KEY", "");
+    const response = await post({ action: "abandon", jobId: analysis.jobId });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ analysis: { status: "failed", report: null } });
+    expect(savedRun().receipts).toEqual([{ step: 0, reservedUnits: 20000, usage }]);
+    expect(mocks.notes).not.toHaveBeenCalled(); expect(mocks.release).not.toHaveBeenCalled();
+  });
+  it("preserves abandonment when an in-flight provider response arrives later", async () => {
+    const analysis = await start();
+    let finish!: () => void;
+    let started!: () => void;
+    const entered = new Promise<void>((resolve) => { started = resolve; });
+    mocks.notes.mockImplementationOnce(async (_part, onUsage) => {
+      await onUsage(usage); started(); await new Promise<void>((resolve) => { finish = resolve; }); return [];
+    });
+    const active = advance(analysis.jobId, 0); await entered;
+    const stopped = await post({ action: "abandon", jobId: analysis.jobId });
+    finish(); await active;
+    expect(stopped.status).toBe(200); expect(tables.ai_jobs[0].status).toBe("failed");
+    expect(tables.ai_jobs[0].error).toContain("Stopped by you");
+    expect(savedRun().report).toBeNull(); expect(savedRun().receipts[0].usage).toEqual(usage);
+    expect(mocks.release).not.toHaveBeenCalled();
+    const fresh = await start(); expect(fresh.jobId).not.toBe(analysis.jobId);
+  });
+  it("cannot abandon another owner's run or a completed report", async () => {
+    const analysis = await start();
+    tables.ai_jobs[0].user_id = otherId;
+    expect((await post({ action: "abandon", jobId: analysis.jobId })).status).toBe(404);
+    tables.ai_jobs[0].user_id = authorId; await finishParts(analysis.jobId, analysis.totalParts); await advance(analysis.jobId, analysis.totalParts);
+    expect((await post({ action: "abandon", jobId: analysis.jobId })).status).toBe(409);
+    expect(tables.ai_jobs[0].status).toBe("completed");
+  });
+  it("resumes after a daily budget reset without rereading already paid parts", async () => {
+    const analysis = await start(); await advance(analysis.jobId, 0);
+    const paid = savedRun();
+    mocks.budget.mockRejectedValueOnce(new BudgetExceededError({ userId: authorId, pipeline: "editorial", day: "2026-09-17", key: "test", current: 100, limit: 100, jobId: analysis.jobId }));
+    expect((await advance(analysis.jobId, 1)).status).toBe(429);
+    expect(tables.ai_jobs[0].status).toBe("pending"); expect(savedRun()).toEqual(paid);
+    expect((await advance(analysis.jobId, 1)).status).toBe(200);
+    expect(savedRun().completedParts).toBe(2); expect(mocks.notes).toHaveBeenCalledTimes(2);
+    expect(mocks.release).not.toHaveBeenCalled();
+  });
 });

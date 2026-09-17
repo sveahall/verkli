@@ -22,6 +22,7 @@ const headers = { "Cache-Control": "no-store" };
 class AnalysisError extends Error { constructor(message: string, readonly status: number) { super(message); } }
 const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("start"), versionId: z.string().uuid() }),
+  z.object({ action: z.literal("abandon"), versionId: z.string().uuid(), jobId: z.string().uuid() }),
   z.object({ action: z.literal("advance"), versionId: z.string().uuid(), jobId: z.string().uuid(), expectedPart: z.number().int().min(0).max(100) }),
 ]);
 type Job = { id: string; status: string; created_at: string; input: unknown; output: unknown; error: string | null; progress: number };
@@ -90,10 +91,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   let completionAttempted = false;
   let reservationId = "";
   try {
-    if (!isAiChatEnabled()) throw new AnalysisError("Editorial AI is currently turned off. Your manuscript has not changed.", 503);
-    const cap = Number(process.env.EDITORIAL_DAILY_BUDGET);
-    if (!Number.isSafeInteger(cap) || cap <= 0) throw new AnalysisError("Whole-book analysis is unavailable until the daily editorial AI allowance is configured.", 503);
-    if (!process.env.ANTHROPIC_API_KEY?.trim()) throw new AnalysisError("Editorial AI is not configured. Please contact support.", 503);
     const origin = request.headers.get("origin");
     if (origin && origin !== request.nextUrl.origin) throw new AnalysisError("Request origin is not allowed.", 403);
     const { id } = await params;
@@ -101,11 +98,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!z.string().uuid().safeParse(id).success || !parsed.success) throw new AnalysisError("Choose a valid edition and analysis step.", 400);
     if (!(await limiter.check(userId)).allowed) throw new AnalysisError("Too many analysis requests. Wait a minute and continue.", 429);
     const body = parsed.data;
+    if (body.action !== "abandon") {
+    if (!isAiChatEnabled()) throw new AnalysisError("Editorial AI is currently turned off. Your manuscript has not changed.", 503);
+    const cap = Number(process.env.EDITORIAL_DAILY_BUDGET);
+    if (!Number.isSafeInteger(cap) || cap <= 0) throw new AnalysisError("Whole-book analysis is unavailable until the daily editorial AI allowance is configured.", 503);
+    if (!process.env.ANTHROPIC_API_KEY?.trim()) throw new AnalysisError("Editorial AI is not configured. Please contact support.", 503);
+    }
     const db = await createClient();
     const current = await manuscript(db, id, body.versionId, userId);
     let parts;
-    try { parts = splitBookAnalysis(current.chapters); } catch (error) { throw new AnalysisError(error instanceof Error ? error.message : "This manuscript is too large to analyse.", 422); }
-    if (current.chapters.filter((chapter) => chapter.text.trim()).length < 2) throw new AnalysisError("Add text to at least two chapters for a cross-chapter analysis. You can review a single chapter with the existing chapter tools.", 422);
+    try { parts = body.action === "abandon" ? [] : splitBookAnalysis(current.chapters); } catch (error) { throw new AnalysisError(error instanceof Error ? error.message : "This manuscript is too large to analyse.", 422); }
+    if (body.action !== "abandon" && current.chapters.filter((chapter) => chapter.text.trim()).length < 2) throw new AnalysisError("Add text to at least two chapters for a cross-chapter analysis. You can review a single chapter with the existing chapter tools.", 422);
     admin = createAdminClient();
     if (body.action === "start") {
       const manifest: AnalysisManifest = { protocol: "whole-book-v1", versionId: body.versionId, fingerprint: current.fingerprint, partCount: parts.length,
@@ -121,6 +124,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!found) throw new AnalysisError("Analysis not found in this book.", 404);
     const job = found as Job;
     const stored = parseJob(job);
+    if (body.action === "abandon") {
+      if (job.status !== "pending" && job.status !== "processing") throw new AnalysisError("Only an unfinished analysis can be stopped. Refresh its status.", 409);
+      const { data: stopped, error: stopError } = await admin.from("ai_jobs").update({ status: "failed",
+        error: "Stopped by you. Requests already sent may still finish and count towards your AI allowance. Start a new analysis when ready.", finished_at: new Date().toISOString() })
+        .eq("id", job.id).eq("user_id", userId).eq("status", job.status).eq("progress", job.progress)
+        .eq("output->>completedParts", String(stored.run.completedParts)).select(columns).maybeSingle();
+      // Preserve the stored output and paid receipts, including usage written
+      // concurrently. Never retry or refund a potentially dispatched request.
+      if (stopError || !stopped) throw new AnalysisError("The analysis changed while stopping it. Refresh its status before trying again.", 409);
+      return response({ analysis: result(stopped as Job, current.fingerprint) });
+    }
     if (stored.manifest.fingerprint !== current.fingerprint) throw new AnalysisError("Your manuscript changed since this analysis started. Start a new analysis to include those changes.", 409);
     if (job.status === "completed" || body.expectedPart < stored.run.completedParts) return response({ analysis: result(job, current.fingerprint) });
     if (job.status !== "pending" || body.expectedPart !== stored.run.completedParts) throw new AnalysisError(job.status === "processing" ? "This part is still processing. Check its status before continuing; do not start the same work again." : "This analysis cannot continue. Start a new analysis.", 409);
@@ -163,11 +177,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   } catch (error) {
     if (reserved && !modelStarted) { try { await releaseBudget({ pipeline: "editorial", jobId: reservationId }); } catch { console.error("[book analysis] reservation release unavailable", { reservationId }); } }
     const uncertain = completionAttempted && ownedJob !== null;
-    const message = error instanceof BudgetExceededError ? "This analysis exceeds your remaining daily editorial AI allowance. The analysis is incomplete; try again after the daily reset."
+    const budgetPaused = error instanceof BudgetExceededError && !modelStarted;
+    const message = error instanceof BudgetExceededError ? "This analysis exceeds your remaining daily editorial AI allowance. Your completed parts are saved; continue this analysis after the daily reset."
       : error instanceof AnalysisError ? error.message : modelStarted ? "The AI could not complete this analysis. No complete report was produced; your manuscript has not changed." : "Analysis limits or receipt storage are unavailable. No AI work was started.";
     if (ownedJob && admin && !uncertain) {
-      try { await admin.from("ai_jobs").update({ status: "failed", error: message, finished_at: new Date().toISOString(), output: run as unknown as Json })
-        .eq("id", ownedJob.id).eq("user_id", userId).eq("status", "processing"); } catch { console.error("[book analysis] failure receipt unavailable", { jobId: ownedJob.id }); }
+      try { await admin.from("ai_jobs").update({ status: budgetPaused ? "pending" : "failed", error: message,
+        ...(!budgetPaused ? { finished_at: new Date().toISOString() } : {}), output: run as unknown as Json })
+        .eq("id", ownedJob.id).eq("user_id", userId).eq("status", "processing")
+        .eq("output->>completedParts", String(ownedJob.output && analysisRunSchema.parse(ownedJob.output).completedParts)); } catch { console.error("[book analysis] failure receipt unavailable", { jobId: ownedJob.id }); }
     }
     console.error("[book analysis] step failed", { jobId: ownedJob?.id, modelStarted, uncertain, errorType: error instanceof Error ? error.name : "unknown" });
     return response({ error: uncertain ? "The save response was interrupted. Refresh the analysis status before continuing; the step may already be saved." : message }, error instanceof BudgetExceededError ? 429 : error instanceof AnalysisError ? error.status : modelStarted ? 502 : 503);
