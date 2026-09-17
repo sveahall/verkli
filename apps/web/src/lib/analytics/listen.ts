@@ -182,7 +182,9 @@ export function shouldFlushOnUnload(input: {
   positionSeconds: number;
   lastSavedPositionSeconds: number;
 }): boolean {
-  if (!Number.isFinite(input.positionSeconds) || input.positionSeconds <= 0) return false;
+  if (!Number.isFinite(input.positionSeconds) || input.positionSeconds < 0) return false;
+  // Zero is a real rewind after listening, but not a new chapter page view.
+  if (input.positionSeconds === 0 && input.lastSavedPositionSeconds < 0) return false;
   return shouldWritePosition(input);
 }
 
