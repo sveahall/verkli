@@ -11,7 +11,11 @@ type Chapter = { id: string; title: string; content: string | null; order: numbe
 export type WholeBookAnalysisProps = { bookId: string; versionId: string | null; chapters: Chapter[]; saveBlocked: boolean; request?: typeof fetch };
 const labels: Record<AnalysisCategory, string> = { plot: "Plot", timeline: "Timeline", perspective: "Perspective", characters: "Characters" };
 
-export default function WholeBookAnalysisPanel({ bookId, versionId, chapters, saveBlocked, request = fetch }: WholeBookAnalysisProps) {
+export default function WholeBookAnalysisPanel(props: WholeBookAnalysisProps) {
+  return <EditionAnalysisPanel key={`${props.bookId}:${props.versionId}`} {...props} />;
+}
+
+function EditionAnalysisPanel({ bookId, versionId, chapters, saveBlocked, request = fetch }: WholeBookAnalysisProps) {
   const [analysis, setAnalysis] = useState<BookAnalysisResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -69,6 +73,19 @@ export default function WholeBookAnalysisPanel({ bookId, versionId, chapters, sa
     } catch (value) { if (token === generation.current) setError(value instanceof Error ? value.message : "Connection interrupted. Refresh to check whether the current part was saved."); }
     finally { if (token === generation.current) setRunning(false); }
   }
+  async function abandon() {
+    if (!versionId || !analysis || running || loading) return;
+    const token = ++generation.current;
+    setLoading(true); setError(null);
+    try {
+      const res = await request(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "abandon", versionId, jobId: analysis.jobId }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not stop the analysis. Refresh its status.");
+      if (token !== generation.current) return;
+      setAnalysis(data.analysis); setPaused(false);
+    } catch (value) { if (token === generation.current) setError(value instanceof Error ? value.message : "Could not stop the analysis. Refresh its status."); }
+    finally { if (token === generation.current) setLoading(false); }
+  }
   function download() {
     if (!analysis?.report) return;
     const file = new Blob([JSON.stringify({ ...analysis, stale }, null, 2)], { type: "application/json" });
@@ -94,6 +111,10 @@ export default function WholeBookAnalysisPanel({ bookId, versionId, chapters, sa
         <button type="button" className={styles.secondary} disabled={running || loading} onClick={() => void load()} aria-label="Refresh analysis status"><RefreshCw size={16} /></button>
       </div>
     </div>
+    {!running && analysis && (analysis.status === "pending" || analysis.status === "processing") && <div className={styles.notice}>
+      <p>If this run is stuck, stop it before starting a new analysis. Requests already sent may still finish and use your allowance. A new analysis has its own cost.</p>
+      <button type="button" className={styles.secondary} disabled={loading} onClick={() => void abandon()}>Stop this analysis</button>
+    </div>}
     {saveBlocked && <p className={styles.notice} role="status">Finish saving or resolve the manuscript conflict before starting an analysis.</p>}
     {loading && <p className={styles.notice} role="status">Loading your saved analysis…</p>}
     {error && <div className={styles.error} role="alert"><strong>Analysis needs attention</strong><p>{error}</p><p>No new complete report is available. Refresh the status before retrying.</p></div>}
