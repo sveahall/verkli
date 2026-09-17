@@ -1,8 +1,9 @@
 # Worker Production Deployment — Sprint 0.5 Task 5
 
-> Status: **runbook + recommendation only.** See
-> `docs/sprint-0.5-deferred.md` §D4 for why the actual deployment build
-> is deferred.
+> Historical Fly.io proposal; never deployed. Do not use the commands, Node 20
+> image or provider assumptions below for the current release. Production uses
+> Railway with separate worker services; see [railway-deployment.md](./railway-deployment.md)
+> for the dated inventory and [workers-runbook.md](./workers-runbook.md) for operations.
 
 The 7 BullMQ workers (`import`, `translation`, `audiobook`,
 `social-publish`, `recommendations`, `marketing`, `notifications`) need a

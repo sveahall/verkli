@@ -5,6 +5,32 @@
 > executed). Keep that file for the Fly runbook if we ever move; this file is what
 > production actually uses.
 
+## 17 September 2026 — verified production inventory
+
+Read-only Railway and Redis checks at 12:58 UTC found web, import, translation,
+audiobook and recommendations on release `4a1dda8fb656819040755061c5124342371abefc`,
+all with deployment status `SUCCESS`. The four worker heartbeats were 9–26
+seconds old. All seven known queues had zero waiting, active and delayed jobs.
+This is a dated runtime snapshot, not proof of successful end-to-end jobs.
+
+| Concern | Platform | Verified state |
+|---|---|---|
+| Next.js web app | Railway | Web service on the same release as the workers |
+| Postgres + Auth + Storage | Supabase | Project `glfipbnsyxowqsmcuzcm` |
+| Import / translation / audiobook / recommendations | Railway | Four separate worker services with fresh heartbeats |
+| Marketing / social-publish / notifications | No deployed worker service | No heartbeat; do not start all consumers to make health checks green |
+| Redis | Railway | All seven queue states read successfully |
+
+Editorial runs in the web service; `EDITORIAL_DAILY_BUDGET` was absent. Marketing
+flags and both marketing budget settings were absent. These features require
+explicit allowance/activation decisions and real output verification. Normal
+follow/comment notifications write directly to the database; the separate
+notifications queue has no producer. See [workers-runbook.md](./workers-runbook.md).
+
+Evidence is retained in the release handoff
+`Completion-2026-09-17/runtime-budget/{deployment-and-configuration,redis-queues}.json`.
+No service, environment, queue or budget was changed during this check.
+
 ## 14 September 2026 — worker runtime incident
 
 An import attempted at 12:16 UTC failed twice with `Node.js detected but native WebSocket not found`. Every worker Dockerfile still used Node 20, below the repository's Node 22.12 minimum. Supabase client construction failed before the import's error handler, leaving its database row pending at 0% with no error message. A running container was therefore not proof that imports worked.
@@ -25,7 +51,13 @@ Operator QA:
 
 Older sections below describe earlier deployment phases; their Node/Opus assumptions do not supersede the incident evidence above.
 
-## What runs where
+## Historical August rollout proposal — not the current service inventory
+
+The remaining sections record the original rollout plan. References to Vercel,
+seven deployed services, account creation and disabled translation are historical;
+use the dated inventory above before deciding which service needs work.
+
+### What was proposed to run where
 
 | Concern | Platform | Notes |
 |---|---|---|
