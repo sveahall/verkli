@@ -60,6 +60,8 @@ export function getTranslationQueue(): Queue | null {
 }
 
 export type TranslationJobData = {
+  /** Service-generated recovery identity, durably set by the worker before any ledger/model work. */
+  reviewedRunId?: string;
   bookId: string;
   sourceLanguage?: string | null;
   sourceVersionId: string;
