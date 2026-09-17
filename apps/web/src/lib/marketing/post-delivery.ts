@@ -14,13 +14,18 @@ export function assertLocalCampaignSimulation(simulated: boolean): void {
   if (!simulated || !["development", "test"].includes(process.env.NODE_ENV ?? "")) {
     throw new DeliveryError("Campaign delivery is available only as a local development simulation. Live publishing requires a protected server delivery ledger.", 503);
   }
-  if (process.env.NODE_ENV !== "test") {
-    const urls = [process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL].filter(Boolean);
-    const local = urls.length > 0 && urls.every(value => {
-      try { return ["localhost", "127.0.0.1", "[::1]"].includes(new URL(value!).hostname); }
-      catch { return false; }
-    });
-    if (!local) throw new DeliveryError("Local development simulation requires a loopback Supabase URL. Remote databases are not allowed.", 503);
+  const isLoopback = (value: string | undefined, protocols: string[]) => {
+    try {
+      const url = new URL(value ?? "");
+      return protocols.includes(url.protocol) && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+    } catch { return false; }
+  };
+  const urls = [process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL].filter(Boolean);
+  if (!urls.length || !urls.every(value => isLoopback(value, ["http:", "https:"]))) {
+    throw new DeliveryError("Local development simulation requires a loopback Supabase URL. Remote databases are not allowed.", 503);
+  }
+  if (!isLoopback(process.env.REDIS_URL, ["redis:", "rediss:"])) {
+    throw new DeliveryError("Local development simulation requires a loopback Redis URL. Remote or missing queues are not allowed.", 503);
   }
 }
 async function readPost(client: Client, postId: string, userId: string): Promise<Post> {
@@ -46,7 +51,7 @@ async function save(client: Client, post: Post, delivery: PostDelivery): Promise
  * it MUST NOT become a live dispatch authority without a protected ledger. */
 export async function changePostDelivery(input: {
   client: Client; postId: string; userId: string; expectedUpdatedAt: string;
-  action: "schedule" | "cancel" | "retry"; scheduledFor?: string; simulated: boolean;
+  action: "schedule" | "cancel" | "retry" | "recover"; scheduledFor?: string; simulated: boolean;
   enqueue: (job: PostDeliveryJob) => Promise<string | null>;
 }): Promise<Post> {
   assertLocalCampaignSimulation(input.simulated);
@@ -54,6 +59,14 @@ export async function changePostDelivery(input: {
   let post = await readPost(client, postId, userId);
   if (post.updated_at !== input.expectedUpdatedAt) throw new DeliveryError("This post changed. Reload and review the current version.");
   const previous = getPostDelivery(post.metadata);
+  if (action === "recover") {
+    if (!previous || previous.state !== "processing" || previous.simulated !== true || previous.dispatched || post.status !== "ready") {
+      throw new DeliveryError("Only an interrupted local simulation without an uncertain dispatch can be completed.");
+    }
+    const text = [post.caption, post.hashtags, post.cta, post.share_url].filter(v => v?.trim()).join("\n\n");
+    if (text !== previous.text) throw new DeliveryError("This post changed. Its interrupted simulation cannot be completed.");
+    return save(client, post, { ...previous, state: "simulated" });
+  }
   if (action === "cancel") {
     if (!previous || !["scheduled", "failed"].includes(previous.state)) throw new DeliveryError("Cannot cancel a delivery already in progress or uncertain. Verify your connected account.");
     return save(client, post, { ...previous, state: "cancelled" });
@@ -97,7 +110,8 @@ export async function consumePostDelivery(input: {
   try { post = await readPost(client, postId, userId); }
   catch (error) { if (error instanceof DeliveryError && error.status === 404) return; throw error; }
   const saved = getPostDelivery(post.metadata);
-  if (!saved || saved.jobId !== jobId || saved.state !== "scheduled" || post.status !== "ready") return;
+  if (!saved || saved.jobId !== jobId || !["scheduled", "processing"].includes(saved.state) || post.status !== "ready") return;
+  if (saved.dispatched) throw new DeliveryError("An uncertain dispatch cannot be recovered as a local simulation.");
   if (saved.simulated !== input.simulated) throw new DeliveryError("A simulation cannot be resumed as a live delivery.");
   if (Date.parse(saved.scheduledFor) > (input.now ?? Date.now())) return;
   if (post.channel !== "x" || post.content_type !== "text") throw new DeliveryError("Unsupported campaign delivery format.");
@@ -107,8 +121,12 @@ export async function consumePostDelivery(input: {
     return;
   }
   const delivery: PostDelivery = { ...saved, state: "processing" };
-  try { post = await save(client, post, delivery); }
-  catch (error) { if (error instanceof DeliveryError && error.status === 409) return; throw error; }
+  if (saved.state === "scheduled") {
+    try { post = await save(client, post, delivery); }
+    catch (error) { if (error instanceof DeliveryError && error.status === 409) return; throw error; }
+  }
+  // A processing claim has no external side effect. Replay may finish that
+  // same job after a failed final write; CAS prevents overwriting another result.
   // Deliberately no publisher callback or transport. Even forged metadata in a
   // local test can produce only this simulated receipt, never an external post.
   await save(client, post, { ...delivery, state: "simulated" });

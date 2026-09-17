@@ -3,8 +3,11 @@ const m = vi.hoisted(() => ({ health: vi.fn() }));
 vi.mock("@/lib/health/worker-heartbeat", () => ({ getHeartbeats: m.health, getHeartbeatStaleMs: () => 180_000 }));
 import { isCampaignPublisherReady } from "./publish-readiness";
 import { QUEUE_NAMES } from "@/lib/queue-names";
-beforeEach(() => vi.clearAllMocks());
-afterEach(() => vi.useRealTimers());
+beforeEach(() => {
+  vi.clearAllMocks(); vi.stubEnv("SOCIAL_MOCK_MODE", "true");
+  vi.stubEnv("SUPABASE_URL", "http://127.0.0.1:54321"); vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://127.0.0.1:54321"); vi.stubEnv("REDIS_URL", "redis://127.0.0.1:6379");
+});
+afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 describe("local campaign publisher admission", () => {
   it("requires Redis and a fresh noncrashed consumer", async () => {
     m.health.mockResolvedValue({ redis: true, heartbeats: { [QUEUE_NAMES.SOCIAL_PUBLISH]: { lastSeen: new Date().toISOString(), stale: false, crashed: false } } });

@@ -3,6 +3,7 @@
  * Job tracking uses existing ai_jobs table with kind='social_publish'.
  */
 
+import { assertLocalCampaignSimulation } from "@/lib/marketing/post-delivery";
 import { Queue } from "bullmq";
 import { getRedisConnectionOptions, getRedisUrl } from "@/lib/env";
 import { QUEUE_NAMES } from "@/lib/queue-names";
@@ -60,6 +61,7 @@ export type SocialPublishJobData = {
  * Returns the BullMQ job ID or null if queue unavailable.
  */
 export async function enqueueSocialPublishJob(data: SocialPublishJobData): Promise<string | null> {
+  if ("postId" in data) assertLocalCampaignSimulation(process.env.SOCIAL_MOCK_MODE === "true");
   const url = getRedisUrl();
   if (!url || url.trim() === "") {
     console.warn("[social-publish queue] REDIS_URL not set — job not enqueued.");

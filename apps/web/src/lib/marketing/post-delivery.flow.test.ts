@@ -28,13 +28,14 @@ const id = "11111111-1111-4111-8111-111111111111";
 let post: Record<string, unknown>;
 let tick: number;
 let connected: boolean;
+let failReceipt: boolean;
 const delivery = () => (post.metadata as { delivery: Record<string, unknown> }).delivery;
 const request = (body: object) => new Request("http://localhost/api/post", { method: "POST", body: JSON.stringify({ expectedUpdatedAt: post.updated_at, ...body }) });
 const params = { params: Promise.resolve({ id }) };
 const schedule = () => POST(request({ action: "schedule", scheduledFor: new Date(Date.now() + 60_000).toISOString() }), params);
 const run = async () => { vi.setSystemTime(Date.now() + 120_000); await m.processor!({ name: "publish", data: m.queued.at(-1)!.data }); };
 beforeEach(async () => {
-  vi.clearAllMocks(); vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-17T12:00:00Z")); tick = Date.now(); connected = true;
+  vi.clearAllMocks(); vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-17T12:00:00Z")); tick = Date.now(); connected = true; failReceipt = false;
   m.queued = []; m.queueFail = false; m.ready = true; m.social = true; m.pro = true; m.allowed = true;
   post = { id, book_id: "book", author_id: "author", status: "draft", channel: "x", content_type: "text", caption: "Original draft", hashtags: "#book", cta: "Read now", share_url: null, metadata: {}, updated_at: new Date(tick).toISOString() };
   m.from.mockImplementation((table: string) => {
@@ -43,6 +44,7 @@ beforeEach(async () => {
     const result = () => {
       const row = table === "books" ? { id: "book", author_id: "author" } : table === "social_connections" ? { user_id: "author", platform: "x", status: connected ? "active" : "expired", access_token_enc: "encrypted" } : post;
       if (!filters.every(([key, value]) => row[key as keyof typeof row] === value)) return { data: null, error: null };
+      if (update && failReceipt && (update.metadata as { delivery?: { state?: string } })?.delivery?.state === "simulated") return { data: null, error: { message: "receipt write unavailable" } };
       if (update) post = { ...post, ...update, updated_at: new Date(++tick).toISOString() };
       return { data: structuredClone(table === "marketing_posts" ? post : row), error: null };
     };
@@ -85,6 +87,15 @@ describe("local approval → API → publishing queue → real consumer simulati
     expect((await POST(request({ action: "retry" }), params)).status).toBe(202);
     await run(); const revision = post.updated_at; await run();
     expect(post.updated_at).toBe(revision); expect(delivery().jobId).toBe(jobId); expect(delivery().state).toBe("simulated"); expect(m.fetch).not.toHaveBeenCalled();
+  });
+  it("recovers a failed final save through the owner API without readmission or a new job", async () => {
+    await PATCH(request({ status: "ready" }), params); await schedule(); failReceipt = true;
+    await expect(run()).rejects.toThrow(/save/i); expect(delivery().state).toBe("processing");
+    failReceipt = false; m.pro = false; m.ready = false; m.allowed = false; m.social = false;
+    const jobId = delivery().jobId;
+    expect((await POST(request({ action: "recover" }), params)).status).toBe(200);
+    expect(delivery()).toMatchObject({ state: "simulated", jobId }); expect(m.queued).toHaveLength(1);
+    await run(); expect(m.fetch).not.toHaveBeenCalled(); expect(post.status).toBe("ready");
   });
   it.each(["ready", "social", "pro", "allowed"] as const)("does not mutate or enqueue when %s admission fails", async key => {
     await PATCH(request({ status: "ready" }), params); m[key] = false;
