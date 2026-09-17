@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import styles from "./ReviewPanel.module.css";
+import WholeBookAnalysisPanel from "./WholeBookAnalysisPanel";
 import EditorialReviewPanel, { type ApplyReview } from "./EditorialReviewPanel";
 import { useMemo, useState } from "react";
 import { getLanguageLabel } from "@/lib/languages";
@@ -245,6 +246,7 @@ export default function ReviewPanel({
         <h2 className="font-display text-[clamp(24px,3vw,32px)] font-medium tracking-tight">Give your manuscript a fresh eye.</h2>
         <p>Review your writing, consider each suggestion, and keep your own voice. You decide when the story is ready.</p>
       </header>
+      <WholeBookAnalysisPanel key={`whole-${activeVersion?.id ?? bookId}`} bookId={bookId} versionId={activeVersion?.id ?? null} chapters={chapters} saveBlocked={saveBlocked} />
       <EditorialReviewPanel key={activeVersion?.id ?? bookId} bookId={bookId} chapters={chapters} activeVersionId={activeVersion?.id ?? null} bookVersions={bookVersions} onApplyReview={onApplyReview} saveBlocked={saveBlocked} />
       {!hasContent && <button type="button" className={styles.continueButton} onClick={() => onNavigate("edit")}>Return to your manuscript <ArrowRight size={16} aria-hidden /></button>}
       <details className={styles.overview}>
