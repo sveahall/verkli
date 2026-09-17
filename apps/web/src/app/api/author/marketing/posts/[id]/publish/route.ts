@@ -13,12 +13,12 @@ import { assertLocalCampaignSimulation, changePostDelivery, DeliveryError } from
 import { getPostDelivery } from "@/lib/marketing/post-delivery-state";
 
 export const runtime = "nodejs";
-const schema = z.object({ action: z.enum(["schedule", "cancel", "retry"]), expectedUpdatedAt: z.string().datetime({ offset: true }), scheduledFor: z.string().datetime({ offset: true }).optional() });
+const schema = z.object({ action: z.enum(["schedule", "cancel", "retry", "recover"]), expectedUpdatedAt: z.string().datetime({ offset: true }), scheduledFor: z.string().datetime({ offset: true }).optional() });
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const simulated = process.env.SOCIAL_MOCK_MODE === "true";
   try { assertLocalCampaignSimulation(simulated); }
   catch (error) {
-    console.error("[campaign delivery] live admission blocked: protected ledger unavailable");
+    console.error("[campaign delivery] simulation admission blocked: environment is not isolated");
     return apiError("CAMPAIGN_SIMULATION_ONLY", 503, { detail: (error as Error).message });
   }
   const { id } = await params;
@@ -26,11 +26,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return apiError("INVALID_DELIVERY_REQUEST", 400, { detail: "Reload the post and choose a valid publishing time." });
   const { action } = parsed.data;
-  const gate = action === "cancel" ? await requireAuthorRoleForApi() : await requireAuthorAndMarketingEnabled();
+  const localOnlyAction = action === "cancel" || action === "recover";
+  const gate = localOnlyAction ? await requireAuthorRoleForApi() : await requireAuthorAndMarketingEnabled();
   if (gate.response) return gate.response;
   // Stopping an admitted job must remain possible after billing, a feature flag,
   // connection or worker health changes. Admission checks apply to sends only.
-  if (action !== "cancel") {
+  if (!localOnlyAction) {
     if (!isSocialEnabled()) return apiError("SOCIAL_FEATURE_DISABLED", 403, { detail: "Connected publishing is unavailable. You can still copy and share manually." });
     const pro = await requireProBillingForApi(gate.user.id);
     if (!pro.ok) return pro.response;
@@ -47,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       simulated,
       enqueue: async job => enqueueSocialPublishJob({ ...job, campaignId: "", bookId: "", platforms: ["x"] }),
     });
-    return NextResponse.json({ delivery: getPostDelivery(post.metadata), updatedAt: post.updated_at, status: post.status }, { status: action === "cancel" ? 200 : 202 });
+    return NextResponse.json({ delivery: getPostDelivery(post.metadata), updatedAt: post.updated_at, status: post.status }, { status: localOnlyAction ? 200 : 202 });
   } catch (error) {
     console.error("[campaign delivery] request failed:", error instanceof Error ? error.message : "Unknown error");
     return apiError("CAMPAIGN_DELIVERY_FAILED", error instanceof DeliveryError ? error.status : 500, {

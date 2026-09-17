@@ -555,7 +555,7 @@ export function PostDrawer({
   });
   const delivery = getPostDelivery(post.metadata);
   const deliveryLocked = isPostDeliveryLocked(post.metadata);
-  const sendDelivery = async (action: "schedule" | "cancel" | "retry") => {
+  const sendDelivery = async (action: "schedule" | "cancel" | "retry" | "recover") => {
     if (!onDelivery || busy) return;
     setBusy(true); setActionError(null);
     try {
@@ -766,7 +766,8 @@ export function PostDrawer({
               <p className="text-sm text-muted-foreground">Development test only. API simulation requires Pro access. No external post is sent and no connected account is used. Live scheduling requires a protected delivery ledger; share approved copy manually.</p>
               {delivery ? <p role="status" className="text-sm">Delivery: {delivery.state === "simulated" ? "Simulated — no external post was sent" : delivery.state}</p> : null}
               {delivery?.error ? <p role="alert" className="text-sm text-red-700">{delivery.error}</p> : null}
-              {delivery?.state === "processing" ? <p className="text-sm text-muted-foreground">Delivery is in progress. If this persists after a worker interruption, verify your X account with support; a missing receipt is never retried automatically.</p> : null}
+              {delivery?.state === "processing" ? <p className="text-sm text-muted-foreground">Local simulation is in progress. If its final save was interrupted, complete this same simulation below. This does not send an external post.</p> : null}
+              {delivery?.state === "processing" && delivery.simulated && !delivery.dispatched ? <Button size="sm" onClick={() => sendDelivery("recover")} disabled={busy}>Complete interrupted simulation</Button> : null}
               {post.postedUrl ? <a className="text-sm underline" href={post.postedUrl} target="_blank" rel="noopener noreferrer">View published post</a> : null}
               {!deliveryLocked && post.status !== "posted" ? <>
                 <label htmlFor="post-publish-time" className="block text-sm">Simulate at (your local time)</label>

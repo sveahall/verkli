@@ -1,3 +1,4 @@
+import { assertLocalCampaignSimulation } from "./post-delivery";
 import { getHeartbeats, getHeartbeatStaleMs } from "@/lib/health/worker-heartbeat";
 import { QUEUE_NAMES } from "@/lib/queue-names";
 
@@ -5,6 +6,7 @@ import { QUEUE_NAMES } from "@/lib/queue-names";
 export async function isCampaignPublisherReady(): Promise<boolean> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
+    assertLocalCampaignSimulation(process.env.SOCIAL_MOCK_MODE === "true");
     const health = await Promise.race([
       getHeartbeats(),
       new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("Publisher health timed out")), 3_000); }),
