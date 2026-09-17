@@ -142,6 +142,10 @@ describe("shouldWritePosition", () => {
 });
 
 describe("shouldFlushOnUnload", () => {
+  it("keeps an intentional rewind to the beginning on immediate navigation", () => {
+    expect(shouldFlushOnUnload({ positionSeconds: 0, lastSavedPositionSeconds: 120 })).toBe(true);
+  });
+
   it("skips the flush when nothing ever played", () => {
     expect(shouldFlushOnUnload({ positionSeconds: 0, lastSavedPositionSeconds: -1 })).toBe(false);
   });

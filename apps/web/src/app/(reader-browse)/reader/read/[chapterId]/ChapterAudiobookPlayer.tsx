@@ -143,6 +143,14 @@ export default function ChapterAudiobookPlayer({
             }
             return;
           }
+          if (response.status === 401 || response.status === 403) {
+            if (!cancelled) {
+              setError(response.status === 401
+                ? "Sign in again to listen to this chapter."
+                : "Your account does not have access to this audiobook. Open the book page to check your access.");
+            }
+            return;
+          }
           throw new Error(`Chapter audiobook request failed (${response.status})`);
         }
 
