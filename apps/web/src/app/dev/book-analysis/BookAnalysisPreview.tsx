@@ -13,11 +13,14 @@ function PreparedAnalysis({ mode }: { mode: string }) {
     const body = init?.body ? JSON.parse(String(init.body)) : null;
     const requestedEdition = body?.versionId ?? new URL(String(input), "http://localhost").searchParams.get("versionId") ?? versionId;
     let current = jobs.current.get(requestedEdition) ?? null;
-    const initial = (): BookAnalysisResult => ({ jobId: crypto.randomUUID(), status: mode === "stuck" ? "processing" : "pending", createdAt: "2026-09-17T12:00:00Z",
+    const stuck = mode === "stuck" || mode === "disabled-stuck";
+    const reason = mode.startsWith("disabled") ? "Whole-book analysis is not enabled yet. You can still read saved reports or stop an unfinished analysis."
+      : mode === "unavailable" ? "Editorial AI is not configured. Please contact support." : null;
+    const initial = (): BookAnalysisResult => ({ jobId: crypto.randomUUID(), status: stuck ? "processing" : "pending", createdAt: "2026-09-17T12:00:00Z",
       completedParts: 0, totalParts: 3, emptyChapters: 0, chapters: fixtureChapters.map(({ id, title, order }) => ({ id, title, order })), report: null, error: null, stale: false });
     if (!body) {
-      if (!current && mode === "stuck") { current = initial(); jobs.current.set(requestedEdition, current); }
-      return Response.json({ analysis: current });
+      if (!current && stuck) { current = initial(); jobs.current.set(requestedEdition, current); }
+      return Response.json({ analysis: current, available: reason === null, unavailableReason: reason });
     }
     if (body.action === "abandon" && current) {
       current.status = "failed"; current.error = "Stopped by you. Requests already sent may still count towards your AI allowance.";
@@ -27,7 +30,7 @@ function PreparedAnalysis({ mode }: { mode: string }) {
       current.error = "This analysis exceeds your remaining daily editorial AI allowance. Your completed parts are saved; continue this analysis after the daily reset.";
       return Response.json({ error: current.error }, { status: 429 });
     }
-    if (mode === "unavailable") return Response.json({ error: "Editorial AI is not configured. Please contact support." }, { status: 503 });
+    if (reason) return Response.json({ error: reason }, { status: 503 });
     await new Promise((resolve) => setTimeout(resolve, mode === "slow" ? 1600 : 400));
     if (body.action === "start") {
       current = initial();
@@ -51,7 +54,7 @@ export default function BookAnalysisPreview() {
   const [mode, setMode] = useState("ready");
   return <main className="mx-auto max-w-6xl px-4 py-8 sm:px-8"><div className="flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
     <p>Development preview · prepared cross-chapter findings · no model or database calls</p>
-    <div className="flex flex-wrap gap-3"><label className="flex items-center gap-2">State<select className="min-h-11 rounded-xl border border-border bg-card px-3 text-base" value={mode} onChange={(event) => setMode(event.target.value)}>{["ready", "slow", "stuck", "failure", "budget", "unavailable", "empty", "conflict"].map((value) => <option key={value}>{value}</option>)}</select></label>
+    <div className="flex flex-wrap gap-3"><label className="flex items-center gap-2">State<select className="min-h-11 rounded-xl border border-border bg-card px-3 text-base" value={mode} onChange={(event) => setMode(event.target.value)}>{["ready", "slow", "stuck", "failure", "budget", "disabled", "disabled-stuck", "unavailable", "empty", "conflict"].map((value) => <option key={value}>{value}</option>)}</select></label>
       </div>
     </div><PreparedAnalysis key={mode} mode={mode} /></main>;
 }

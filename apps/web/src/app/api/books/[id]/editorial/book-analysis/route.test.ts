@@ -141,6 +141,7 @@ beforeEach(() => {
   });
   mocks.report.mockImplementation(async (_chapters, _notes, onUsage: (value: EditorialUsage) => Promise<void>) => { await onUsage(usage); return report; });
   vi.stubEnv("EDITORIAL_DAILY_BUDGET", "1000000"); vi.stubEnv("ANTHROPIC_API_KEY", "test");
+  vi.stubEnv("WHOLE_BOOK_ANALYSIS_ENABLED", "true");
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
@@ -176,7 +177,21 @@ describe("whole-book analysis API", () => {
     expect(mocks.report).toHaveBeenCalledOnce();
   });
   it("returns an empty saved state before the first run", async () => {
-    expect(await (await get()).json()).toEqual({ analysis: null });
+    expect(await (await get()).json()).toMatchObject({ analysis: null, available: true, unavailableReason: null });
+  });
+  it.each([undefined, "", "false", "TRUE", "1"])("keeps whole-book work disabled with flag %s even when chapter AI is configured", async (flag) => {
+    const analysis = await start();
+    vi.stubEnv("WHOLE_BOOK_ANALYSIS_ENABLED", flag);
+    mocks.db.mockClear(); mocks.admin.mockClear();
+    const before = clone(tables.ai_jobs);
+    expect((await post({ action: "start" })).status).toBe(503);
+    expect((await advance(analysis.jobId, 0)).status).toBe(503);
+    expect(mocks.db).not.toHaveBeenCalled(); expect(mocks.admin).not.toHaveBeenCalled();
+    expect(mocks.budget).not.toHaveBeenCalled(); expect(mocks.notes).not.toHaveBeenCalled(); expect(mocks.report).not.toHaveBeenCalled();
+    expect(tables.ai_jobs).toEqual(before);
+    expect(await (await get()).json()).toMatchObject({ analysis: { jobId: analysis.jobId }, available: false, unavailableReason: expect.stringContaining("not enabled") });
+    expect((await post({ action: "abandon", jobId: analysis.jobId })).status).toBe(200);
+    expect(savedRun().receipts).toEqual([]);
   });
   it("preserves the author auth gate for reads and writes", async () => {
     mocks.gate.mockResolvedValue({ response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) });
@@ -203,13 +218,14 @@ describe("whole-book analysis API", () => {
     const analysis = await start(); tables.ai_jobs[0][field] = otherId;
     expect((await advance(analysis.jobId, 0)).status).toBe(404);
     expect(mocks.notes).not.toHaveBeenCalled(); expect(mocks.budget).not.toHaveBeenCalled();
-    expect(await (await get()).json()).toEqual({ analysis: null });
+    expect(await (await get()).json()).toMatchObject({ analysis: null });
   });
   it.each(["off", "cap", "provider"])("fails closed with %s unconfigured", async (reason) => {
     if (reason === "off") mocks.enabled.mockReturnValue(false);
     if (reason === "cap") vi.stubEnv("EDITORIAL_DAILY_BUDGET", "");
     if (reason === "provider") vi.stubEnv("ANTHROPIC_API_KEY", "");
     expect((await post({ action: "start" })).status).toBe(503);
+    expect(await (await get()).json()).toMatchObject({ available: false, unavailableReason: expect.any(String) });
     expect(mocks.notes).not.toHaveBeenCalled(); expect(mocks.budget).not.toHaveBeenCalled(); expect(tables.ai_jobs).toHaveLength(0);
   });
   it("rejects cross-origin, invalid IDs, rate limits and single-chapter manuscripts before creating a job", async () => {

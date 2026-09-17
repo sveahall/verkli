@@ -28,6 +28,17 @@ const bodySchema = z.discriminatedUnion("action", [
 type Job = { id: string; status: string; created_at: string; input: unknown; output: unknown; error: string | null; progress: number };
 const response = (data: unknown, status = 200) => NextResponse.json(data, { status, headers });
 
+function unavailableReason(): string | null {
+  // Chapter review shares the allowance and provider, but must not activate this
+  // separate workflow before its own release checks have been completed.
+  if (process.env.WHOLE_BOOK_ANALYSIS_ENABLED !== "true") return "Whole-book analysis is not enabled yet. You can still read saved reports or stop an unfinished analysis.";
+  if (!isAiChatEnabled()) return "Editorial AI is currently turned off. Your manuscript has not changed.";
+  const cap = Number(process.env.EDITORIAL_DAILY_BUDGET);
+  if (!Number.isSafeInteger(cap) || cap <= 0) return "Whole-book analysis is unavailable until the daily editorial AI allowance is configured.";
+  if (!process.env.ANTHROPIC_API_KEY?.trim()) return "Editorial AI is not configured. Please contact support.";
+  return null;
+}
+
 async function manuscript(db: Awaited<ReturnType<typeof createClient>>, bookId: string, versionId: string, userId: string) {
   const { data: book, error: bookError } = await db.from("books").select("id,author_id,deleted_at").eq("id", bookId).maybeSingle();
   if (bookError) throw new AnalysisError("Could not load your book. Please try again.", 503);
@@ -76,7 +87,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const current = await manuscript(db, id, versionId!, userId);
     const { data, error } = await db.from("ai_jobs").select(columns).eq("book_id", id).eq("book_version_id", versionId!).eq("user_id", userId).eq("kind", kind).order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (error) throw new AnalysisError("Could not load the saved analysis.", 503);
-    return response({ analysis: data ? result(data as Job, current.fingerprint) : null });
+    const reason = unavailableReason();
+    return response({ analysis: data ? result(data as Job, current.fingerprint) : null, available: reason === null, unavailableReason: reason });
   } catch (error) { return handleError(error); }
 }
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -99,10 +111,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!(await limiter.check(userId)).allowed) throw new AnalysisError("Too many analysis requests. Wait a minute and continue.", 429);
     const body = parsed.data;
     if (body.action !== "abandon") {
-    if (!isAiChatEnabled()) throw new AnalysisError("Editorial AI is currently turned off. Your manuscript has not changed.", 503);
-    const cap = Number(process.env.EDITORIAL_DAILY_BUDGET);
-    if (!Number.isSafeInteger(cap) || cap <= 0) throw new AnalysisError("Whole-book analysis is unavailable until the daily editorial AI allowance is configured.", 503);
-    if (!process.env.ANTHROPIC_API_KEY?.trim()) throw new AnalysisError("Editorial AI is not configured. Please contact support.", 503);
+      const reason = unavailableReason();
+      if (reason) throw new AnalysisError(reason, 503);
     }
     const db = await createClient();
     const current = await manuscript(db, id, body.versionId, userId);

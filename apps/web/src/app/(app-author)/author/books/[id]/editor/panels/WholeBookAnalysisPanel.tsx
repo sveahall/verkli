@@ -17,6 +17,8 @@ export default function WholeBookAnalysisPanel(props: WholeBookAnalysisProps) {
 
 function EditionAnalysisPanel({ bookId, versionId, chapters, saveBlocked, request = fetch }: WholeBookAnalysisProps) {
   const [analysis, setAnalysis] = useState<BookAnalysisResult | null>(null);
+  const [available, setAvailable] = useState(false);
+  const [unavailableReason, setUnavailableReason] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +42,9 @@ function EditionAnalysisPanel({ bookId, versionId, chapters, saveBlocked, reques
       if (!res.ok) throw new Error(data.error || "Could not load the saved analysis.");
       if (token !== generation.current) return;
       setAnalysis(data.analysis); setLoadedKey(sourceKey);
-    } catch (value) { if (token === generation.current) setError(value instanceof Error ? value.message : "Could not load your analysis."); }
+      setAvailable(data.available === true);
+      setUnavailableReason(data.available === true ? null : data.unavailableReason || "Whole-book analysis is currently unavailable. Your saved report is still available.");
+    } catch (value) { if (token === generation.current) { setAvailable(false); setError(value instanceof Error ? value.message : "Could not load your analysis."); } }
     finally { if (token === generation.current) setLoading(false); }
   }, [endpoint, request, sourceKey, versionId]);
   // Read once for this edition. Text edits invalidate the existing result instead
@@ -53,7 +57,7 @@ function EditionAnalysisPanel({ bookId, versionId, chapters, saveBlocked, reques
   useEffect(() => { if (stale || saveBlocked) stop.current = true; }, [stale, saveBlocked]);
 
   async function advance(create: boolean) {
-    if (!versionId || running || saveBlocked) return;
+    if (!versionId || running || saveBlocked || !available) return;
     stop.current = false; setPaused(false); setRunning(true); setError(null);
     const token = ++generation.current;
     let current = create ? null : analysis;
@@ -106,7 +110,7 @@ function EditionAnalysisPanel({ bookId, versionId, chapters, saveBlocked, reques
         <p>Uses your editorial AI allowance. Your manuscript stays unchanged.</p></div>
       <div className={styles.actions}>
         {running ? <button type="button" className={styles.secondary} onClick={() => { stop.current = true; setPaused(true); }}><Pause size={16} />{paused ? "Pausing after this part…" : "Pause after this part"}</button>
-          : <button type="button" className={styles.primary} disabled={loading || saveBlocked || nonempty < 2 || !versionId || analysis?.status === "processing"} onClick={() => void advance(!(analysis?.status === "pending" && !stale))}>
+          : <button type="button" className={styles.primary} disabled={loading || !available || saveBlocked || nonempty < 2 || !versionId || analysis?.status === "processing"} onClick={() => void advance(!(analysis?.status === "pending" && !stale))}>
             {analysis?.status === "pending" && !stale ? "Continue analysis" : report || stale || analysis?.status === "failed" ? "Analyse again" : "Analyse whole book"}<ArrowRight size={16} /></button>}
         <button type="button" className={styles.secondary} disabled={running || loading} onClick={() => void load()} aria-label="Refresh analysis status"><RefreshCw size={16} /></button>
       </div>
@@ -117,9 +121,10 @@ function EditionAnalysisPanel({ bookId, versionId, chapters, saveBlocked, reques
     </div>}
     {saveBlocked && <p className={styles.notice} role="status">Finish saving or resolve the manuscript conflict before starting an analysis.</p>}
     {loading && <p className={styles.notice} role="status">Loading your saved analysis…</p>}
+    {!loading && unavailableReason && <p className={styles.notice} role="status">{unavailableReason}</p>}
     {error && <div className={styles.error} role="alert"><strong>Analysis needs attention</strong><p>{error}</p><p>No new complete report is available. Refresh the status before retrying.</p></div>}
     {stale && <p className={styles.notice} role="status">This report belongs to an earlier manuscript. Analyse again to include your latest changes.</p>}
-    {!loading && !analysis && !error && <div className={styles.empty}><p>{nonempty < 2 ? "Add text to at least two chapters to compare how your story develops." : "Start with the full picture."}</p><span>Chapters are read in parts, then considered together. This is an editorial aid, not a professional sign-off.</span></div>}
+    {!loading && available && !analysis && !error && <div className={styles.empty}><p>{nonempty < 2 ? "Add text to at least two chapters to compare how your story develops." : "Start with the full picture."}</p><span>Chapters are read in parts, then considered together. This is an editorial aid, not a professional sign-off.</span></div>}
     {analysis && !report && <div className={styles.progress} aria-live="polite">
       <div><strong>{analysis.status === "failed" ? "Analysis incomplete" : paused ? "Paused between parts" : analysis.completedParts === analysis.totalParts ? "Bringing the chapters together" : "Reading the manuscript"}</strong><span>{analysis.completedParts} of {analysis.totalParts} parts read</span></div>
       <progress value={progress} max={100} aria-label="Whole-book analysis progress" />
