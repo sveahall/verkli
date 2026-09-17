@@ -51,6 +51,8 @@ export type SocialPublishJobData = {
   bookId: string;
   userId: string;
   platforms: string[];
+  postId?: string;
+  scheduledFor?: string;
 };
 
 /**
@@ -85,6 +87,6 @@ export async function enqueueSocialPublishJob(data: SocialPublishJobData): Promi
     }
   }
 
-  const job = await q.add("publish", data, { jobId: data.jobId });
+  const job = await q.add("publish", data, { jobId: data.jobId, delay: data.scheduledFor ? Math.max(0, Date.parse(data.scheduledFor) - Date.now()) : 0 });
   return job.id ?? null;
 }

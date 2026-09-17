@@ -108,6 +108,7 @@ export default async function MarketingCampaignPage({
     postedAt: p.posted_at,
     postedUrl: p.posted_url,
     mode: p.mode,
+    metadata: p.metadata,
     updatedAt: p.updated_at,
   }));
 

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { getPostDelivery, isPostDeliveryLocked } from "@/lib/marketing/post-delivery-state";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ type Post = {
   postedUrl: string | null;
   updatedAt: string;
   mode: string;
+  metadata?: Record<string, unknown>;
 };
 
 const CHANNEL_DOT: Record<string, string> = {
@@ -127,19 +129,19 @@ export default function CampaignDetailView({
   const posts = useMemo<Post[]>(
     () =>
       initialPosts.map((p) =>
-        patches[p.id] ? { ...p, ...patches[p.id] } : p
+        patches[p.id] && Date.parse(patches[p.id].updatedAt ?? "") >= Date.parse(p.updatedAt) ? { ...p, ...patches[p.id] } : p
       ),
     [initialPosts, patches]
   );
 
   // Auto-refresh while plan is generating
   useEffect(() => {
-    if (campaign.status !== "generating") return;
+    if (campaign.status !== "generating" && !posts.some(p => ["scheduled", "processing"].includes(getPostDelivery(p.metadata)?.state ?? ""))) return;
     const interval = setInterval(() => {
       router.refresh();
     }, 4000);
     return () => clearInterval(interval);
-  }, [campaign.status, router]);
+  }, [campaign.status, posts, router]);
 
   const grouped = useMemo(() => {
     const filtered = posts.filter((p) => {
@@ -202,6 +204,15 @@ export default function CampaignDetailView({
     if (!res.ok || !latest?.updatedAt) throw new Error("Could not load the latest saved copy. Your draft is still here. Try again.");
     patchLocal(postId, latest);
     return latest;
+  };
+
+  const handleDelivery = async (postId: string, body: Record<string, unknown>) => {
+    const res = await fetch(`/api/author/marketing/posts/${postId}/publish`, {
+      method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({})) as { detail?: string };
+    if (!res.ok) throw new Error(data.detail ?? "Could not update delivery. Refresh and try again.");
+    return handleReloadPost(postId);
   };
 
   const handleGenerateTrailer = async (postId: string) => {
@@ -438,7 +449,7 @@ export default function CampaignDetailView({
                                 STATUS_STYLES[post.status] ?? STATUS_STYLES.draft
                               )}
                             >
-                              {STATUS_LABEL[post.status] ?? post.status}
+                              {getPostDelivery(post.metadata)?.state ?? STATUS_LABEL[post.status] ?? post.status}
                             </span>
                           </div>
                           <p className="line-clamp-2 text-[13px] text-foreground dark:text-foreground">
@@ -468,6 +479,7 @@ export default function CampaignDetailView({
         onUpdate={handlePostUpdate}
         onReload={handleReloadPost}
         onGenerateTrailer={handleGenerateTrailer}
+        onDelivery={process.env.NODE_ENV === "development" ? handleDelivery : undefined}
       />
     ) : null}
     </>
@@ -509,12 +521,14 @@ export function PostDrawer({
   onUpdate,
   onReload,
   onGenerateTrailer,
+  onDelivery,
 }: {
   post: Post;
   onClose: () => void;
   onUpdate: (id: string, body: Record<string, unknown>) => Promise<Partial<Post> & { updatedAt: string }>;
   onReload: (id: string) => Promise<Post>;
   onGenerateTrailer: (id: string) => Promise<void>;
+  onDelivery?: (id: string, body: Record<string, unknown>) => Promise<Post>;
 }) {
   // PostDrawer is remounted per post via `key={post.id}` from the parent,
   // so initializing local edit state from props here is safe.
@@ -534,6 +548,25 @@ export function PostDrawer({
   const [copyFlash, setCopyFlash] = useState<"none" | "caption" | "hashtags" | "all">("none");
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const [publishTime, setPublishTime] = useState(() => {
+    const date = new Date(Math.max(Date.parse(post.scheduledFor), Date.now() + 60_000));
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+  });
+  const delivery = getPostDelivery(post.metadata);
+  const deliveryLocked = isPostDeliveryLocked(post.metadata);
+  const sendDelivery = async (action: "schedule" | "cancel" | "retry") => {
+    if (!onDelivery || busy) return;
+    setBusy(true); setActionError(null);
+    try {
+      const saved = await onDelivery(post.id, {
+        action, expectedUpdatedAt: action === "schedule" ? draftRevision : post.updatedAt,
+        ...(action === "schedule" ? { scheduledFor: new Date(publishTime).toISOString() } : {}),
+      });
+      setDraftRevision(saved.updatedAt);
+    } catch (error) { setActionError(error instanceof Error ? error.message : "Could not update delivery."); }
+    finally { setBusy(false); }
+  };
 
   const copy = async (text: string, kind: "caption" | "hashtags" | "all") => {
     try {
@@ -687,7 +720,7 @@ export function PostDrawer({
             <label htmlFor="post-caption" className="text-eyebrow">Caption</label>
             <textarea
               id="post-caption"
-              disabled={post.status === "posted" || busy}
+              disabled={post.status === "posted" || deliveryLocked || busy}
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               rows={6}
@@ -701,7 +734,7 @@ export function PostDrawer({
               >
                 {copyFlash === "caption" ? "Copied!" : "Copy caption"}
               </Button>
-              <Button size="sm" variant="ghost" onClick={saveText} isLoading={busy} disabled={post.status === "posted" || conflicted}>
+              <Button size="sm" variant="ghost" onClick={saveText} isLoading={busy} disabled={post.status === "posted" || deliveryLocked || conflicted}>
                 {savedFlash ? "Saved!" : "Save edits"}
               </Button>
             </div>
@@ -712,7 +745,7 @@ export function PostDrawer({
             <label htmlFor="post-hashtags" className="text-eyebrow">Hashtags</label>
             <textarea
               id="post-hashtags"
-              disabled={post.status === "posted" || busy}
+              disabled={post.status === "posted" || deliveryLocked || busy}
               value={hashtags}
               onChange={(e) => setHashtags(e.target.value)}
               rows={2}
@@ -726,6 +759,26 @@ export function PostDrawer({
               {copyFlash === "hashtags" ? "Copied!" : "Copy hashtags"}
             </Button>
           </section>
+
+          {onDelivery && post.channel === "x" && post.contentType === "text" ? (
+            <section className="space-y-3 rounded-2xl border border-border p-4" aria-label="Local publishing simulation">
+              <p className="text-eyebrow">Local publishing simulation</p>
+              <p className="text-sm text-muted-foreground">Development test only. API simulation requires Pro access. No external post is sent and no connected account is used. Live scheduling requires a protected delivery ledger; share approved copy manually.</p>
+              {delivery ? <p role="status" className="text-sm">Delivery: {delivery.state === "simulated" ? "Simulated — no external post was sent" : delivery.state}</p> : null}
+              {delivery?.error ? <p role="alert" className="text-sm text-red-700">{delivery.error}</p> : null}
+              {delivery?.state === "processing" ? <p className="text-sm text-muted-foreground">Delivery is in progress. If this persists after a worker interruption, verify your X account with support; a missing receipt is never retried automatically.</p> : null}
+              {post.postedUrl ? <a className="text-sm underline" href={post.postedUrl} target="_blank" rel="noopener noreferrer">View published post</a> : null}
+              {!deliveryLocked && post.status !== "posted" ? <>
+                <label htmlFor="post-publish-time" className="block text-sm">Simulate at (your local time)</label>
+                <input id="post-publish-time" type="datetime-local" value={publishTime} onChange={event => setPublishTime(event.target.value)} disabled={busy} className="w-full rounded-lg border border-border bg-background p-2 text-sm" />
+                <Button size="sm" onClick={() => sendDelivery("schedule")} disabled={busy || conflicted || hasUnsavedEdits || post.status !== "ready" || !publishTime}>Schedule local simulation</Button>
+              </> : null}
+              {delivery?.state === "failed" ? <Button size="sm" onClick={() => sendDelivery("retry")} disabled={busy || conflicted || hasUnsavedEdits}>Retry simulation</Button> : null}
+              {delivery && ["scheduled", "failed"].includes(delivery.state) ? <Button size="sm" variant="ghost" onClick={() => sendDelivery("cancel")} disabled={busy}>Cancel simulation</Button> : null}
+            </section>
+          ) : null}
+
+          {!onDelivery ? <p className="text-sm text-muted-foreground">Automatic publishing is unavailable. Copy and share your approved post manually.</p> : null}
 
           {/* Quick actions */}
           <section className="rounded-2xl bg-black/[0.03] p-4 dark:bg-card">
@@ -762,7 +815,7 @@ export function PostDrawer({
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {post.status !== "posted" && (post.status !== "ready" || hasUnsavedEdits) ? (
                 <Button size="sm" onClick={() => update({ caption, hashtags, status: "ready" })}
-                  disabled={conflicted || !caption.trim() || (post.contentType !== "text" && !post.mediaAssetUrl)} isLoading={busy}>
+                  disabled={deliveryLocked || conflicted || !caption.trim() || (post.contentType !== "text" && !post.mediaAssetUrl)} isLoading={busy}>
                   Approve final copy
                 </Button>
               ) : null}
@@ -775,7 +828,7 @@ export function PostDrawer({
                   size="sm"
                   variant="ghost"
                   onClick={markPosted}
-                  disabled={conflicted || post.status !== "ready" || hasUnsavedEdits}
+                  disabled={deliveryLocked || conflicted || post.status !== "ready" || hasUnsavedEdits}
                   isLoading={busy}
                 >
                   Mark as posted
@@ -786,7 +839,7 @@ export function PostDrawer({
                   size="sm"
                   variant="ghost"
                   onClick={markSkipped}
-                  disabled={conflicted}
+                  disabled={deliveryLocked || conflicted}
                   isLoading={busy}
                 >
                   Skip this one
