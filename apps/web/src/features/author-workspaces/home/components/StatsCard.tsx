@@ -109,7 +109,7 @@ export default function StatsCard({
   );
 
   if (href) {
-    return <Link href={href} {...interactions}>{content}</Link>;
+    return <Link href={href} aria-label={`${label}: ${value}`} {...interactions}>{content}</Link>;
   }
 
   return content;
