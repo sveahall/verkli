@@ -29,12 +29,11 @@ Local workers load `apps/web/.env.local`; production receives its environment fr
 
 ## 3. Start Workers
 
-From repo root:
+Production runs one worker per Railway service; see the dated inventory in
+[railway-deployment.md](./railway-deployment.md). Restart or deploy the intended
+service only. From repo root, isolate a queue locally with:
 
 ```bash
-npm run start-workers      # canonical unified runtime
-
-# or start a single worker when debugging one queue
 npm run import-worker      # book-import-extract queue
 npm run translate-worker   # book-translation queue
 npm run audiobook-worker   # audiobook-generation queue
@@ -43,9 +42,11 @@ npm run audiobook-worker   # audiobook-generation queue
 Additional single-worker scripts are available for `marketing`, `social-publish`,
 `recommendations`, and `notifications`.
 
-The canonical production path is the unified runtime in
-`apps/web/scripts/start-workers.ts`; single-worker scripts are primarily for
-local isolation and debugging.
+`npm run start-workers` imports all seven consumers unconditionally. It can
+start paid marketing generation and external social publishing, including
+already queued work; it also duplicates consumers if the separate services are
+running. Do not use it as a production health repair. A currently empty queue
+does not make starting an additional consumer a read-only operation.
 
 ## 4. Worker Hardening Config (Beta)
 
@@ -74,6 +75,12 @@ The shared guard in `apps/web/src/lib/workers/budget.ts` reserves units atomical
 | Marketing | `MARKETING_DAILY_BUDGET`, explicit positive safe integer required | `MARKETING_JOB_CAP_UNITS`, explicit positive safe integer required |
 
 These are technical units selected by callers, **not SEK, invoices, a monthly budget or a platform-wide spending ceiling**. Editorial/marketing use conservative token bounds. Missing editorial/marketing configuration fails closed. Redis must be reachable; do not bypass the guard or delete budget keys to make a failed job run. Set approved limits consistently on web and worker services before enabling those features. Provider limits, concurrency and actual usage require separate monitoring.
+
+Editorial review and single marketing drafts run synchronously in the web
+service. Editorial has no separate worker. Campaign generation additionally
+requires the marketing consumer and its budget configuration. Budget limits
+apply per user, pipeline and UTC day, so enabling an allowance in production
+affects every eligible user rather than one internal test account.
 
 ## 6. Stalled Jobs — How It Works
 
@@ -149,3 +156,9 @@ For an incident, stop new submissions through the appropriate feature control, r
 ## 7. Monitoring
 
 Use `GET /api/health/workers` with an admin session or the configured `x-ops-health-token`. Inspect `redis.connected`, `queueDepths`, `heartbeats` and `crashed`; `queueDepths[name]=null` means that queue could not be read (inspect service logs). The aggregate metrics can still contain zeros in that case. HTTP 200 alone only establishes Redis availability here, not successful jobs. The public `/api/health` only proves the web process/version. A completed import/translation/audio journey needs its own job and output evidence. See [INCIDENT_RUNBOOK.md](./INCIDENT_RUNBOOK.md).
+
+The notifications queue currently has no producer (`scripts/check-queue-consumers.ts`,
+`NO_PRODUCER`). Follow/comment notifications are inserted directly by
+`src/lib/notifications/server.ts`; starting the queue consumer does not verify
+that path or deliver email/push. Assess intentionally inactive queues separately
+from a missing consumer for an enabled feature.

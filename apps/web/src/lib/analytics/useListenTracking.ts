@@ -126,8 +126,8 @@ export function useListenTracking({
       }
 
       // Queue behind whatever is already in flight. The beacon path above returns
-      // early and stays unserialized: it fires once, during unload, when there is
-      // no later write left to race against.
+      // early and stays unserialized for pagehide only. Actual browser exit is
+      // best-effort; chapter navigation uses the ordered fetch chain below.
       writeChainRef.current = writeChainRef.current.then(() =>
         fetch(url, {
           method: "POST",
@@ -154,6 +154,12 @@ export function useListenTracking({
       event: ListenEventType | null,
       options?: { beacon?: boolean }
     ) => {
+      // A periodic/event write supersedes a pending pause/seek snapshot.
+      // Otherwise the old debounce can run later and move the saved place back.
+      if (state.debounceTimer) {
+        clearTimeout(state.debounceTimer);
+        state.debounceTimer = null;
+      }
       state.lastSavedPositionSeconds = positionSeconds;
       state.lastSaveAtMs = Date.now();
       if (event) state.lastEventPositionSeconds = positionSeconds;
@@ -165,6 +171,11 @@ export function useListenTracking({
   /** Cancels any queued debounced save, then queues a fresh one. */
   const queueDebouncedSave = useCallback(
     (state: TrackerState, positionSeconds: number, durationSeconds: number | null) => {
+      // Also cancel when the reader scrubs back to the already saved position.
+      if (state.debounceTimer) {
+        clearTimeout(state.debounceTimer);
+        state.debounceTimer = null;
+      }
       // Nothing moved since the last write. Notably this is what stops the seek
       // fired by restoring a saved offset from writing that offset straight back.
       if (
@@ -175,7 +186,6 @@ export function useListenTracking({
       ) {
         return;
       }
-      if (state.debounceTimer) clearTimeout(state.debounceTimer);
       state.debounceTimer = setTimeout(() => {
         state.debounceTimer = null;
         write(state, positionSeconds, durationSeconds, null);
@@ -320,7 +330,7 @@ export function useListenTracking({
   useEffect(() => {
     if (!enabled) return;
 
-    const flush = () => {
+    const flush = (beacon: boolean) => {
       const state = stateRef.current;
       if (state.debounceTimer) {
         clearTimeout(state.debounceTimer);
@@ -335,13 +345,16 @@ export function useListenTracking({
       ) {
         return;
       }
-      write(state, position, state.lastKnownDurationSeconds, null, { beacon: true });
+      write(state, position, state.lastKnownDurationSeconds, null, { beacon });
     };
 
-    window.addEventListener("pagehide", flush);
+    const onPageHide = () => flush(true);
+    window.addEventListener("pagehide", onPageHide);
     return () => {
-      window.removeEventListener("pagehide", flush);
-      flush();
+      window.removeEventListener("pagehide", onPageHide);
+      // SPA chapter navigation keeps the document alive, so preserve ordering
+      // with in-flight writes instead of letting a beacon overtake them.
+      flush(false);
     };
   }, [enabled, write]);
 
