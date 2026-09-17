@@ -24,6 +24,7 @@ import { PUBLISHABLE_PLATFORMS } from "../src/lib/social/platform-constraints";
 import { validateForPlatform } from "../src/lib/social/platform-constraints";
 import { refreshAccessToken } from "../src/lib/social/oauth";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
+import { assertLocalCampaignSimulation, consumePostDelivery } from "../src/lib/marketing/post-delivery";
 import { Sentry } from "./sentry-worker-init";
 
 const QUEUE_NAME = QUEUE_NAMES.SOCIAL_PUBLISH;
@@ -83,6 +84,15 @@ async function publishToX(
 async function processJob(payload: SocialPublishJobData) {
   const { jobId, campaignId, userId, platforms } = payload;
   const supabase = createAdminClient();
+  if ("postId" in payload) {
+    assertLocalCampaignSimulation(MOCK_MODE);
+    if (typeof payload.postId !== "string" || !payload.postId) throw new UnrecoverableError("Invalid local simulation post ID");
+    await consumePostDelivery({
+      client: supabase, postId: payload.postId, jobId, userId, simulated: MOCK_MODE,
+    });
+    return;
+  }
+
 
   const updateJob = async (
     status: string,

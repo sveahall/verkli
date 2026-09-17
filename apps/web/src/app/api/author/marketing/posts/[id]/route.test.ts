@@ -35,6 +35,11 @@ beforeEach(() => {
  });
 });
 describe("campaign post review", () => {
+ it.each(["scheduled", "processing", "uncertain"])("locks %s delivery against edits and manual status changes", async state => {
+   post!.status = "ready"; post!.metadata = { delivery: { state } };
+   expect((await patch({ caption: "Changed" })).status).toBe(409);
+   expect(m.update).not.toHaveBeenCalled();
+ });
  it("approves reviewed text", async () => { expect((await patch({ status: "ready" })).status).toBe(200); expect(m.update).toHaveBeenCalledWith({ status: "ready" }); });
  it("invalidates previous approval when copy changes", async () => { post!.status = "ready"; await patch({ caption: "Changed" }); expect(m.update).toHaveBeenCalledWith({ caption: "Changed", status: "draft" }); });
  it("cannot approve missing trailer media", async () => { post!.content_type = "trailer"; expect((await patch({ status: "ready" })).status).toBe(422); expect(m.update).not.toHaveBeenCalled(); });
