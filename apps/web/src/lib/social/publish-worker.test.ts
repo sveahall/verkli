@@ -15,6 +15,7 @@ let campaignUpdates: Array<Record<string, unknown>>;
 let connectionError: boolean;
 async function run(platforms = ["x"], mockMode = false) {
   vi.resetModules();
+  vi.stubEnv("SUPABASE_URL", "http://127.0.0.1:54321"); vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "http://127.0.0.1:54321");
   vi.stubEnv("REDIS_URL", "redis://localhost:6379");
   vi.stubEnv("NODE_ENV", "development");
   vi.stubEnv("SOCIAL_MOCK_MODE", String(mockMode));

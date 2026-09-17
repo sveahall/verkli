@@ -24,16 +24,15 @@ import { PUBLISHABLE_PLATFORMS } from "../src/lib/social/platform-constraints";
 import { validateForPlatform } from "../src/lib/social/platform-constraints";
 import { refreshAccessToken } from "../src/lib/social/oauth";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
+import { assertLocalCampaignSimulation, consumePostDelivery } from "../src/lib/marketing/post-delivery";
 import { Sentry } from "./sentry-worker-init";
 
 const QUEUE_NAME = QUEUE_NAMES.SOCIAL_PUBLISH;
 
-// Hard check: mock mode only allowed in development
-if (process.env.SOCIAL_MOCK_MODE === "true" && process.env.NODE_ENV !== "development") {
-  throw new Error("SOCIAL_MOCK_MODE is only allowed in development");
-}
-
-const MOCK_MODE = process.env.SOCIAL_MOCK_MODE === "true" && process.env.NODE_ENV === "development";
+// A mock worker must never attach to a remote/shared queue before a job is read.
+// The separate nonmock legacy worker retains its existing remote Redis support.
+const MOCK_MODE = process.env.SOCIAL_MOCK_MODE === "true";
+if (MOCK_MODE) assertLocalCampaignSimulation(true);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Platform publishers
@@ -82,8 +81,17 @@ async function publishToX(
 
 async function processJob(payload: SocialPublishJobData) {
   const { jobId, campaignId, userId, platforms } = payload;
-  const supabase = createAdminClient();
+  if ("postId" in payload) {
+    assertLocalCampaignSimulation(MOCK_MODE);
+    if (typeof payload.postId !== "string" || !payload.postId) throw new UnrecoverableError("Invalid local simulation post ID");
+    await consumePostDelivery({
+      client: createAdminClient(), postId: payload.postId, jobId, userId, simulated: MOCK_MODE,
+    });
+    return;
+  }
 
+
+  const supabase = createAdminClient();
   const updateJob = async (
     status: string,
     outputUpdate: Record<string, unknown> = {},

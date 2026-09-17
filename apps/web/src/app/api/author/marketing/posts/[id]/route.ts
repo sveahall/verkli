@@ -1,3 +1,4 @@
+import { isPostDeliveryLocked } from "@/lib/marketing/post-delivery-state";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthorAndMarketingEnabled } from "@/lib/auth/require-author-marketing";
@@ -41,13 +42,16 @@ export async function PATCH(
 
   const supabase = await createClient();
   const { data: current, error: readError } = await supabase.from("marketing_posts")
-    .select("id, status, content_type, caption, hashtags, cta, media_asset_url, updated_at")
+    .select("id, status, content_type, caption, hashtags, cta, media_asset_url, metadata, updated_at")
     .eq("id", id).eq("author_id", gate.user.id).maybeSingle();
   if (readError) {
     console.error("[marketing post] read failed:", readError.message);
     return apiError(E_DATABASE_ERROR, 500);
   }
   if (!current) return apiError("POST_NOT_FOUND", 404);
+  if (isPostDeliveryLocked(current.metadata)) {
+    return apiError("POST_DELIVERY_LOCKED", 409, { detail: "Cancel the scheduled delivery before editing. A delivery already in progress or uncertain must be verified in your connected account." });
+  }
   const input = parsed.data;
   if (input.expectedUpdatedAt !== current.updated_at) {
     return apiError("POST_CHANGED", 409, { detail: "This post changed in another tab. Your draft has been kept. Load the latest saved copy to compare before reviewing again." });
@@ -72,6 +76,12 @@ export async function PATCH(
   if (parsed.data.status !== undefined) update.status = parsed.data.status;
   if (parsed.data.postedUrl !== undefined) update.posted_url = parsed.data.postedUrl;
 
+  if (current.metadata && (copyChanged || input.status !== undefined)) {
+    const metadata = { ...(current.metadata as Record<string, import("@/lib/supabase/types").Json>) };
+    delete metadata.delivery;
+    update.metadata = metadata;
+  }
+
   if (copyChanged && input.status !== "ready") update.status = "draft";
 
   // Auto-stamp posted_at when status flips to "posted"
@@ -87,7 +97,7 @@ export async function PATCH(
     .eq("status", current.status)
     .eq("updated_at", input.expectedUpdatedAt)
     .select(
-      `id, status, caption, hashtags, cta, posted_at, posted_url, updated_at`
+      `id, status, caption, hashtags, cta, posted_at, posted_url, metadata, updated_at`
     )
     .maybeSingle();
 
@@ -99,7 +109,7 @@ export async function PATCH(
   if (!data) return apiError("POST_CHANGED", 409, { detail: "This post changed. Refresh and review the latest version." });
   return NextResponse.json({ post: {
     id: data.id, status: data.status, caption: data.caption, hashtags: data.hashtags,
-    cta: data.cta, postedAt: data.posted_at, postedUrl: data.posted_url, updatedAt: data.updated_at,
+    cta: data.cta, postedAt: data.posted_at, postedUrl: data.posted_url, metadata: data.metadata, updatedAt: data.updated_at,
   } });
 }
 

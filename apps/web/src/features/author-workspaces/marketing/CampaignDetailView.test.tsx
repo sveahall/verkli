@@ -103,4 +103,13 @@ describe("post review revision", () => {
     expect(button(tree, "Mark as posted").props.disabled).toBe(true);
     expect(props.onClose).not.toHaveBeenCalled();
   });
+  it("offers version-bound completion only for an interrupted local simulation", async () => {
+    props.post = { ...post, metadata: { delivery: { state: "processing", simulated: true } } };
+    props.onDelivery = vi.fn().mockResolvedValue({ ...props.post, updatedAt: revisionB });
+    await button(render(), "Complete interrupted simulation").props.onClick!();
+    expect(props.onDelivery).toHaveBeenCalledWith(post.id, { action: "recover", expectedUpdatedAt: revisionA });
+    props.post = { ...post, metadata: { delivery: { state: "processing", simulated: true, dispatched: true } } };
+    expect(button(render(), "Complete interrupted simulation")).toBeUndefined();
+  });
+
 });

@@ -3,6 +3,7 @@
  * Job tracking uses existing ai_jobs table with kind='social_publish'.
  */
 
+import { assertLocalCampaignSimulation } from "@/lib/marketing/post-delivery";
 import { Queue } from "bullmq";
 import { getRedisConnectionOptions, getRedisUrl } from "@/lib/env";
 import { QUEUE_NAMES } from "@/lib/queue-names";
@@ -51,6 +52,8 @@ export type SocialPublishJobData = {
   bookId: string;
   userId: string;
   platforms: string[];
+  postId?: string;
+  scheduledFor?: string;
 };
 
 /**
@@ -58,6 +61,7 @@ export type SocialPublishJobData = {
  * Returns the BullMQ job ID or null if queue unavailable.
  */
 export async function enqueueSocialPublishJob(data: SocialPublishJobData): Promise<string | null> {
+  if ("postId" in data) assertLocalCampaignSimulation(process.env.SOCIAL_MOCK_MODE === "true");
   const url = getRedisUrl();
   if (!url || url.trim() === "") {
     console.warn("[social-publish queue] REDIS_URL not set — job not enqueued.");
@@ -85,6 +89,6 @@ export async function enqueueSocialPublishJob(data: SocialPublishJobData): Promi
     }
   }
 
-  const job = await q.add("publish", data, { jobId: data.jobId });
+  const job = await q.add("publish", data, { jobId: data.jobId, delay: data.scheduledFor ? Math.max(0, Date.parse(data.scheduledFor) - Date.now()) : 0 });
   return job.id ?? null;
 }
