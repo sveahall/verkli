@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author"
 import { isTranslationsEnabled } from "@/lib/flags"
+import { reviewedTranslationActivationReady } from "@/lib/translation-commit"
 import { isSupportedLanguage } from "@/lib/languages"
 import { isTranslationPairSupported } from "@/lib/translation-pairs"
 import { createTranslationCheckoutSession } from "@/lib/payments/stripe"
@@ -10,6 +11,7 @@ import { getRequestBaseUrl } from "@/lib/request-url"
 import {
   apiError,
   E_TRANSLATION_FEATURE_DISABLED,
+  E_TRANSLATION_SERVICE_UNAVAILABLE,
   E_INVALID_REQUEST_BODY,
   E_BOOK_NOT_FOUND,
   E_FORBIDDEN,
@@ -31,6 +33,9 @@ export async function POST(
 ) {
   if (!isTranslationsEnabled()) {
     return apiError(E_TRANSLATION_FEATURE_DISABLED, 403)
+  }
+  if (!reviewedTranslationActivationReady()) {
+    return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
   }
 
   const { user, response } = await requireAuthorRoleForApi()

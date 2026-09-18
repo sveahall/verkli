@@ -4,6 +4,8 @@ const mocks = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
   checkRedisHealth: vi.fn(),
   getTranslationQueue: vi.fn(),
+  activation: vi.fn(),
+  enabled: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/require-author", () => ({
@@ -18,11 +20,16 @@ vi.mock("@/lib/translation-queue", () => ({
   getTranslationQueue: mocks.getTranslationQueue,
 }));
 
+vi.mock("@/lib/translation-commit", () => ({ reviewedTranslationActivationReady: mocks.activation }));
+vi.mock("@/lib/flags", () => ({ isTranslationsEnabled: mocks.enabled }));
+
 const { GET } = await import("./route");
 
 describe("GET /api/translation/availability", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.activation.mockReturnValue(true);
+    mocks.enabled.mockReturnValue(true);
     mocks.requireAuthorRoleForApi.mockResolvedValue({
       user: { id: "author-1" },
       response: null,
@@ -42,6 +49,16 @@ describe("GET /api/translation/availability", () => {
 
     expect(res.status).toBe(401);
     await expect(res.json()).resolves.toMatchObject({ error: "UNAUTHORIZED" });
+  });
+
+  it.each(["rollout", "feature"])("does not advertise availability while %s is disabled", async (disabled) => {
+    (disabled === "rollout" ? mocks.activation : mocks.enabled).mockReturnValue(false);
+    mocks.checkRedisHealth.mockResolvedValue(true);
+    mocks.getTranslationQueue.mockReturnValue({ getJobCounts: vi.fn().mockResolvedValue({}) });
+    const res = await GET();
+    await expect(res.json()).resolves.toEqual({ available: false });
+    expect(mocks.checkRedisHealth).not.toHaveBeenCalled();
+    expect(mocks.getTranslationQueue).not.toHaveBeenCalled();
   });
 
   it("returns available=false when Redis is unavailable", async () => {

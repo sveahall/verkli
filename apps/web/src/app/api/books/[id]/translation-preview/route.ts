@@ -1,3 +1,8 @@
+import { randomUUID } from "node:crypto"
+import { isTranslationsEnabled } from "@/lib/flags"
+import { reviewedTranslationActivationReady } from "@/lib/translation-commit"
+import { createPerUserRateLimiter } from "@/lib/rate-limit"
+import { checkBudget, validateJobCost, BudgetExceededError, JobCostExceededError } from "@/lib/workers/budget"
 import { NextResponse } from "next/server"
 import { getTranslatorForPair } from "@/lib/ai/providers/server"
 import { AIProviderError } from "@/lib/ai/providers/types"
@@ -19,7 +24,10 @@ import {
   E_SAME_SOURCE_TARGET_LANGUAGE,
   E_SOURCE_LANGUAGE_MISSING,
   E_TRANSLATION_SERVICE_UNAVAILABLE,
+  E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors"
+
+const previewLimiter = createPerUserRateLimiter({ name: "translation-preview", maxPerMinute: 2 })
 
 export async function GET(
   request: Request,
@@ -29,6 +37,15 @@ export async function GET(
 
   const { user, response } = await requireAuthorRoleForApi()
   if (response) return response
+  if (!isTranslationsEnabled() || !reviewedTranslationActivationReady()) {
+    return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
+  }
+  const limit = await previewLimiter.check(user.id)
+  if (!limit.allowed) {
+    return NextResponse.json({ error: E_RATE_LIMIT_EXCEEDED }, {
+      status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds ?? 60) },
+    })
+  }
 
   const { id: bookId } = await params
   const targetLanguage = new URL(request.url).searchParams.get("targetLanguage")?.trim().toLowerCase() ?? ""
@@ -63,6 +80,7 @@ export async function GET(
     supabase,
     bookId,
     book,
+    requestedSourceVersionId: new URL(request.url).searchParams.get("sourceVersionId"),
   })
 
   if (!sourceContext.sourceVersionId) {
@@ -129,6 +147,11 @@ export async function GET(
         pairUnsupported: true,
       })
     }
+    const reservationKey = `translation-preview:${randomUUID()}`
+    validateJobCost({ userId: user.id, pipeline: "translation", jobId: reservationKey, jobSize: originalText.length })
+    await checkBudget({ userId: user.id, pipeline: "translation", jobId: reservationKey, units: Math.ceil(originalText.length / 4) })
+    // Every request owns a fresh reservation. Once the provider is invoked its
+    // cost may be incurred even if its response is lost, so retain the allowance.
     const result = await translator.translate({
       text: originalText,
       sourceLanguage: sourceContext.sourceLanguage,
@@ -141,7 +164,12 @@ export async function GET(
       previewText: result.translatedText,
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    if (error instanceof BudgetExceededError) {
+      return NextResponse.json({ error: "This preview exceeds the remaining daily AI allowance. Try again after the daily reset." }, { status: 429 })
+    }
+    if (error instanceof JobCostExceededError) {
+      return NextResponse.json({ error: "This preview exceeds the translation size limit. Choose a shorter chapter." }, { status: 422 })
+    }
 
     if (error instanceof AIProviderError && error.code === "PROVIDER_UNAVAILABLE") {
       console.warn("[book translation preview] local preview unavailable", {
@@ -152,7 +180,6 @@ export async function GET(
         userId: user.id,
         provider: error.provider,
         code: error.code,
-        message,
       })
 
       return NextResponse.json({
@@ -169,7 +196,7 @@ export async function GET(
       sourceLanguage: sourceContext.sourceLanguage,
       targetLanguage,
       userId: user.id,
-      message,
+      errorType: error instanceof Error ? error.name : "UnknownError",
     })
     return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
   }

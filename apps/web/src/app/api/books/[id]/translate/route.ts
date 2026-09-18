@@ -7,6 +7,7 @@ import { requireAuthorRoleForApi } from "@/lib/auth/require-author"
 import { evaluateDemoGuard } from "@/lib/demo-guard"
 import { requireProBillingForApi } from "@/lib/billing/server"
 import { isTranslationsEnabled } from "@/lib/flags"
+import { reviewedTranslationActivationReady } from "@/lib/translation-commit"
 import { getStripeCheckoutSession } from "@/lib/payments/stripe"
 import {
   claimStripeSessionRedemption,
@@ -14,11 +15,7 @@ import {
 } from "@/lib/payments/session-redemption"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isTranslationPairSupported } from "@/lib/translation-pairs"
-import {
-  deleteBookTranslationState,
-  resolveTranslationSourceContext,
-  upsertBookTranslationState,
-} from "@/lib/book-translation"
+import { resolveTranslationSourceContext } from "@/lib/book-translation"
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -173,31 +170,6 @@ async function queueTranslationTarget({
     }
   }
 
-  if (!requestedChapterId) {
-    try {
-      await upsertBookTranslationState(supabase, {
-        bookId,
-        language: targetLanguage,
-        status: "queued",
-        progress: 0,
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      console.error("[book translate] failed to upsert queued translation state", {
-        bookId,
-        targetLanguage,
-        userId,
-        message,
-      })
-      return {
-        ok: false,
-        targetLanguage,
-        error: E_DATABASE_ERROR,
-        status: 500,
-      }
-    }
-  }
-
   const targetVersionId = typeof existingVersion?.id === "string" ? existingVersion.id : null
   const jobId = await enqueueTranslationJob({
     bookId,
@@ -211,20 +183,6 @@ async function queueTranslationTarget({
   })
 
   if (!jobId) {
-    if (!requestedChapterId) {
-      try {
-        await deleteBookTranslationState(supabase, bookId, targetLanguage)
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        console.error("[book translate] failed to clean queued translation state", {
-          bookId,
-          targetLanguage,
-          userId,
-          message,
-        })
-      }
-    }
-
     return {
       ok: false,
       targetLanguage,
@@ -250,6 +208,9 @@ export async function POST(
 
   if (!isTranslationsEnabled()) {
     return apiError(E_TRANSLATION_FEATURE_DISABLED, 403)
+  }
+  if (!reviewedTranslationActivationReady()) {
+    return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
   }
 
   const body = await request.json().catch(() => ({}))
