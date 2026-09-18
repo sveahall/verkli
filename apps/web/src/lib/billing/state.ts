@@ -24,6 +24,8 @@ export type BillingState = {
   stripeSubscriptionId: string | null;
   isPlusActive: boolean;
   isProActive: boolean;
+  /** Pro access granted by the server's author beta offer, independent of Stripe status. */
+  isBetaProActive: boolean;
   /** True when user has an active Plus subscription that is set to cancel at period end (avslutad men fortfarande aktiv). */
   plusCancelAtPeriodEnd: boolean;
   /** When Plus is cancelling, the date it ends (ISO). */
@@ -62,6 +64,7 @@ export function deriveBillingState(row: BillingAccountRow | null): BillingState 
     stripeSubscriptionId: row?.stripe_subscription_id ?? null,
     isPlusActive: resolvedPlanKey === "plus",
     isProActive: resolvedPlanKey === "pro",
+    isBetaProActive: false,
     plusCancelAtPeriodEnd: false,
     plusPeriodEnd: null,
   };
