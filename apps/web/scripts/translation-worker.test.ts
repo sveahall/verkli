@@ -1,3 +1,4 @@
+import { TranslationQualityError } from "../src/lib/ai/translation-quality/pipeline";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { UnrecoverableError, type Job } from "bullmq";
 import type { QualityInput, QualityReport } from "../src/lib/ai/translation-quality/types";
@@ -413,6 +414,26 @@ describe("translation worker atomic protocol", () => {
     const initial = db.targetChapters();
     await expect(start()).rejects.toThrow("needs editorial review");
     expect(db.targetChapters()).toEqual(initial); expect(db.rpc).not.toHaveBeenCalled();
+    expect((db.tables.ai_jobs[0].output as Row).usageReceipts).toHaveLength(2);
+    expect(mocks.releaseBudget).not.toHaveBeenCalled();
+  });
+  it("persists an actionable draft failure without leaking provider text or retrying paid work", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    mocks.translate.mockImplementationOnce(async (input: QualityInput) => {
+      await input.onUsage?.({ stage: "TRANSLATION", model: "test", cacheCreationTokens: 0, cacheReadTokens: 0, inputTokens: 2, outputTokens: 2 });
+      throw new TranslationQualityError("INVALID_TRANSLATION", "SECRET PROVIDER TEXT");
+    });
+    const initial = db.targetChapters();
+    await expect(start()).rejects.toThrow("Translation draft returned missing, empty, or unexpected segments (INVALID_TRANSLATION). No chapter changes were saved. Please try again.");
+    expect(db.targetChapters()).toEqual(initial);
+    expect(db.rpc).not.toHaveBeenCalled();
+    expect(mocks.translate).toHaveBeenCalledTimes(1);
+    expect(db.tables.ai_jobs[0]).toMatchObject({ status: "failed", error: expect.stringContaining("INVALID_TRANSLATION"), output: { error: expect.stringContaining("INVALID_TRANSLATION") } });
+    expect(db.tables.book_versions[1]).toMatchObject({ status: "failed", error_message: expect.stringContaining("INVALID_TRANSLATION") });
+    expect(JSON.stringify(db.tables.ai_jobs[0])).not.toContain("SECRET");
+    const logs = JSON.stringify(log.mock.calls);
+    log.mockRestore();
+    expect(logs).not.toContain("SECRET");
     expect((db.tables.ai_jobs[0].output as Row).usageReceipts).toHaveLength(2);
     expect(mocks.releaseBudget).not.toHaveBeenCalled();
   });
