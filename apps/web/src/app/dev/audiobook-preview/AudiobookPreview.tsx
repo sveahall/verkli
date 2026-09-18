@@ -28,6 +28,7 @@ export default function AudiobookPreview() {
   const [ready, setReady] = useState(false);
   const [state, setState] = useState<PreviewState>("ready");
   const stateRef = useRef(state);
+  const [language, setLanguage] = useState("en");
   const [scope, setScope] = useState<AudiobookGenerationScope>("book");
   const [selected, setSelected] = useState<string[]>([]);
   const [picker, setPicker] = useState(false);
@@ -62,13 +63,16 @@ export default function AudiobookPreview() {
     const timer = window.setTimeout(() => { setAudioUrl(url); setBrokenUrl(broken); setReady(true); }, 0);
     return () => { window.clearTimeout(timer); window.fetch = originalFetch; URL.revokeObjectURL(url); URL.revokeObjectURL(broken); document.removeEventListener("submit", preventWrite, true); };
   }, []);
-  const chapters = state === "empty" ? [] : CHAPTERS;
+  const chapters = state === "empty" ? [] : CHAPTERS.map((chapter) => ({ ...chapter, book_version_id: `sample-edition-${language}` }));
   const active = state === "generating" || state === "paused";
   const requested = scope === "book" ? chapters.map((chapter) => chapter.id) : scope === "current" ? ["sample-1"] : selected;
   return <>
     <section aria-label="Audiobook preview controls" className="flex flex-wrap items-center gap-4 border-b border-border bg-muted px-4 py-2 text-xs">
       <label className="flex min-h-11 items-center gap-2">Preview state<select className="min-h-11 rounded border border-border bg-background px-2" value={state} onChange={(event) => { setState(event.target.value as PreviewState); setError(null); setCheckout(false); }}>
         {STATES.map((value) => <option key={value}>{value}</option>)}
+      </select></label>
+      <label className="flex min-h-11 items-center gap-2">Selected edition<select className="min-h-11 rounded border border-border bg-background px-2" value={language} onChange={(event) => setLanguage(event.target.value)}>
+        <option value="en">English · older edition</option><option value="sv">Swedish · newer edition</option>
       </select></label>
       <button className="min-h-11 px-3" onClick={() => document.documentElement.classList.toggle("dark")}>Toggle theme</button>
       <p>Synthetic manuscript · local test tone · no generation, payments or saved changes</p>
@@ -78,7 +82,7 @@ export default function AudiobookPreview() {
       <div className="border-b border-border px-6 py-5 text-sm text-muted-foreground">Library <span className="mx-2">/</span> Den sista färjan <span className="mx-2">/</span> Audio</div>
       <div className="mx-auto max-w-[1320px] px-4 py-6 sm:px-8 lg:px-10">
         <AgentCompanion agent="august" onTalk={() => setMessage("August connection selected. This local fixture does not send chat messages.")} />
-        <AudiobookPanel key={state} bookId="audio-preview-only" bookLanguage="en" bookOriginalLanguage="en" chapters={chapters} selectedChapterId="sample-1" activeVersion={{ id: "sample-edition", book_id: "audio-preview-only", language_code: "en", status: "draft" }} activeLanguage="en" totalBookWordCount={chapters.length * 1440}
+        <AudiobookPanel key={state} bookId="audio-preview-only" bookLanguage="en" bookOriginalLanguage="en" chapters={chapters} selectedChapterId="sample-1" activeVersion={{ id: `sample-edition-${language}`, book_id: "audio-preview-only", language_code: language, status: "draft" }} activeLanguage={language} totalBookWordCount={chapters.length * 1440}
           billingLoading={state === "billing-loading"} billingIsProActive={state !== "payment"} audiobookFeatureEnabled={state !== "disabled"} isAudiobookActive={active} audiobookStatusUi={state === "generating" ? "generating" : state === "paused" ? "paused" : state === "failed" ? "failed" : state === "completed" ? "completed" : "idle"}
           audiobookError={error} effectiveAudiobookError={state === "failed" ? "Generation stopped at chapter 2. Please try again." : null} effectiveAudiobookProgress={active ? { totalChapters: 3, completedChapters: 1, currentChapterTitle: "A letter from home", estimatedSecondsRemaining: 120 } : null} audiobookEtaText={active ? "About 2 minutes remaining" : null}
           audiobookScope={scope} setAudiobookScope={setScope} audiobookSelectedChapterIds={selected} setAudiobookSelectedChapterIds={setSelected} isAudiobookChapterPickerOpen={picker} setIsAudiobookChapterPickerOpen={setPicker} audiobookRequestedChapterIds={requested} audiobookControlPending={null} canPauseAudiobook={state === "generating"} canResumeAudiobook={state === "paused"} canCancelAudiobook={active}

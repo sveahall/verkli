@@ -17,9 +17,11 @@ import {
   E_BOOK_NOT_FOUND,
   E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE,
   E_INVALID_BOOK_ID,
+  E_INVALID_BOOK_VERSION,
   E_INVALID_CHAPTER_ID,
   E_RATE_LIMIT_EXCEEDED,
   E_SOURCE_LANGUAGE_MISSING,
+  E_CHAPTER_NEEDS_CONTENT,
   E_TTS_PREVIEW_INVALID_INPUT,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
@@ -82,6 +84,7 @@ export async function POST(
     // No body or invalid JSON — use default
   }
   const scopedPronunciation = Boolean(body && typeof body === "object" && ("pronunciation" in body || "chapterId" in body));
+  const scopedEdition = Boolean(body && typeof body === "object" && "versionId" in body);
   if (scopedPronunciation) {
     const parsed = pronunciationPreviewSchema.safeParse(body);
     if (!parsed.success) {
@@ -118,12 +121,43 @@ export async function POST(
       return apiError(E_TTS_PREVIEW_INVALID_INPUT, 400, { detail: "The preview sample must contain the pronunciation word and a spoken form of at most 200 characters." });
     }
     previewLanguage = version.language_code;
+  } else if (scopedEdition) {
+    const versionId = (body as { versionId: unknown }).versionId;
+    if (typeof versionId !== "string" || !isValidUuid(versionId)) {
+      console.warn("[audiobook preview] invalid edition request", { bookId });
+      return apiError(E_INVALID_BOOK_VERSION, 400, { detail: "Choose a valid edition before previewing its voice." });
+    }
+    const { data: version, error: versionError } = await supabase.from("book_versions")
+      .select("id, book_id, language_code")
+      .eq("id", versionId).eq("book_id", bookId).maybeSingle();
+    if (versionError || !version || version.book_id !== bookId) {
+      console.warn("[audiobook preview] selected edition unavailable", { bookId, versionId, reason: versionError?.message ?? "not found for this book" });
+      return apiError(E_BOOK_VERSION_NOT_FOUND_FOR_LANGUAGE, 404, { detail: "The selected edition is not available in this book. Reopen it before previewing." });
+    }
+    if (!version.language_code?.trim()) {
+      console.warn("[audiobook preview] selected edition has no language", { bookId, versionId });
+      return apiError(E_SOURCE_LANGUAGE_MISSING, 400, { detail: "Set a language for this edition before previewing its voice." });
+    }
+    const { data: chapters, error: chaptersError } = await supabase.from("chapters")
+      .select("content").eq("book_id", bookId).eq("book_version_id", versionId)
+      .is("deleted_at", null).order("order", { ascending: true });
+    if (chaptersError) {
+      console.error("[audiobook preview] selected edition chapters unavailable", { bookId, versionId, reason: chaptersError.message });
+      return apiError(E_VALIDATION_FAILED, 500, { detail: "Could not load this edition's chapters. Please try again." });
+    }
+    const text = chapters?.map((chapter) => extractAgentChapterText(chapter.content).trim()).find(Boolean);
+    if (!text) {
+      console.warn("[audiobook preview] selected edition has no text", { bookId, versionId });
+      return apiError(E_CHAPTER_NEEDS_CONTENT, 400, { detail: "Add text to a chapter in this edition before previewing its voice." });
+    }
+    previewText = text.slice(0, MAX_PREVIEW_CHARS);
+    previewLanguage = version.language_code.trim();
   } else if (body && typeof body === "object" && "text" in body && typeof body.text === "string" && body.text.trim()) {
     previewText = body.text.trim().slice(0, MAX_PREVIEW_CHARS);
   }
 
   // If no custom text, try to grab first chapter content
-  if (!scopedPronunciation && previewText === DEFAULT_PREVIEW_TEXT) {
+  if (!scopedPronunciation && !scopedEdition && previewText === DEFAULT_PREVIEW_TEXT) {
     const { data: version } = await supabase.from("book_versions")
       .select("id, language_code").eq("book_id", bookId)
       .order("created_at", { ascending: false }).limit(1).maybeSingle();

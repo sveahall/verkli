@@ -10,6 +10,7 @@ import styles from "./AudiobookPanel.module.css";
 interface AudiobookPreviewPlayerProps {
   audioUrl: string | null;
   bookId: string;
+  versionId?: string;
   previewEnabled?: boolean;
   /** Re-signs storage URLs after their fifteen-minute expiry. */
   onRefreshAudioUrl?: () => Promise<void>;
@@ -17,7 +18,7 @@ interface AudiobookPreviewPlayerProps {
 
 const MAX_REFRESH_ATTEMPTS = 2;
 
-export function AudiobookPreviewPlayer({ audioUrl, bookId, onRefreshAudioUrl, previewEnabled = true }: AudiobookPreviewPlayerProps) {
+export function AudiobookPreviewPlayer({ audioUrl, bookId, versionId, onRefreshAudioUrl, previewEnabled = true }: AudiobookPreviewPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -32,10 +33,27 @@ export function AudiobookPreviewPlayer({ audioUrl, bookId, onRefreshAudioUrl, pr
   const refreshingRef = useRef(false);
   const autoplayRef = useRef(false);
   const previewRequestRef = useRef<AbortController | null>(null);
+  const [previewScope, setPreviewScope] = useState({ bookId, versionId });
+  // Reset before rendering a different edition, including callers without a React key.
+  if (previewScope.bookId !== bookId || previewScope.versionId !== versionId) {
+    setPreviewScope({ bookId, versionId });
+    setPreviewUrl(null);
+    setPreviewLoading(false);
+    setPreviewError(null);
+    setPlaybackError(null);
+    setPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+  }
   const effectiveAudioUrl = previewUrl ?? audioUrl;
 
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
-  useEffect(() => () => previewRequestRef.current?.abort(), []);
+  useEffect(() => () => {
+    previewRequestRef.current?.abort();
+    autoplayRef.current = false;
+    resumeAtRef.current = null;
+    refreshAttemptsRef.current = 0;
+  }, [bookId, versionId]);
 
   const play = useCallback(async () => {
     if (!audioRef.current) return;
@@ -80,10 +98,11 @@ export function AudiobookPreviewPlayer({ audioUrl, bookId, onRefreshAudioUrl, pr
     setPreviewError(null);
     try {
       const res = await fetch(`/api/books/${bookId}/audiobook/preview`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}), signal: controller.signal,
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ versionId }), signal: controller.signal,
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+        if (controller.signal.aborted) return;
         setPreviewError(body?.detail ?? "Could not create a preview. Please try again.");
         return;
       }
