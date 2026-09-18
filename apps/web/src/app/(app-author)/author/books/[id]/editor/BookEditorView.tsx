@@ -435,6 +435,7 @@ export default function BookEditorView({
       jobError={jobError}
       jobsForBanner={jobsForBanner}
       billingPastDue={billing.pastDue ?? false}
+      billingProActive={billing.isProActive}
       onJobRetry={handleJobRetry}
       suppressInDemo={isDemoEditorView}
     />
