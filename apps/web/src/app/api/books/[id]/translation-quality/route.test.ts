@@ -175,6 +175,21 @@ describe("translation quality authorization and failure handling", () => {
     expect(await res.json()).toEqual({ queue: { status: "unverified", chapterId: null } });
     expect(queryFilters).not.toContainEqual(["id", "legacy"]);
   });
+  it.each(["failed", "processing", "absent", "unavailable", "completed"])("uses the durable %s outcome even when the queue reports failure", async (outcome) => {
+    const runId = "00000000-0000-4000-8000-000000000010";
+    const receipt = { jobId: runId, versionId: "target", updatedAt: "2026-09-18T00:00:00Z", savedChapters: 1, replayed: false };
+    const run = outcome === "absent" || outcome === "unavailable" ? null : { id: runId, book_version_id: "target", status: outcome,
+      output: { status: outcome === "completed" ? "checks_passed" : outcome, error: "This translation is published.", _translationCommit: { receipt } } };
+    mocks.client.mockReturnValue({ from: (table: string) => {
+      const query = { select: () => query, eq: () => query, is: () => query,
+        maybeSingle: async () => ({ data: table === "books" ? { id, author_id: "author" } : run, error: table !== "books" && outcome === "unavailable" ? { message: "offline" } : null }) };
+      return query;
+    } });
+    mocks.queue.mockReturnValue({ getJob: async () => ({ id: "book-en", timestamp: 123, failedReason: "This translation is published.",
+      data: { bookId: id, sourceVersionId: sourceId, reviewedRunId: runId, reviewedQueueProtocol: "reviewed-atomic-v2" }, getState: async () => "failed" }) });
+    const res = await GET(new Request(`http://localhost/api/books/${id}/translation-quality?queueJobId=book-en`), params);
+    expect(await res.json()).toEqual({ queue: { status: outcome === "failed" || outcome === "completed" ? outcome : "pending", chapterId: null } });
+  });
   it("filters saved reports by authenticated owner and book", async () => {
     const res = await GET(new Request(`http://localhost/api/books/${id}/translation-quality?targetLanguage=en&scope=book`), params);
     expect(res.status).toBe(200); expect(queryFilters).toContainEqual(["user_id", "author"]); expect(queryFilters).toContainEqual(["book_id", id]);
