@@ -118,6 +118,8 @@ export async function processJob(payload: TranslationJobData, workerJobId?: stri
   let qualityJobId: string | null = null;
   let qualityRecord: TranslationQualityRecord | null = null;
   let qualityStarted = false;
+  let preflightOwned = false;
+  let ledgerAttempted = false;
   let reportWrite = Promise.resolve();
   function ownedJob(values: Database["public"]["Tables"]["ai_jobs"]["Update"]) {
     return supabase.from("ai_jobs").update(values).eq("id", qualityJobId!).eq("user_id", budgetUserId!)
@@ -179,6 +181,7 @@ export async function processJob(payload: TranslationJobData, workerJobId?: stri
     const { data: previousRuns, error: previousRunError } = await supabase.from("ai_jobs")
       .select("id").eq("kind", TRANSLATION_QUALITY_JOB_KIND).eq("input->>reservationKey", workerJobId).limit(1);
     if (previousRunError || previousRuns?.length) throw new TranslationOutcomeUnknownError();
+    preflightOwned = true;
 
     const { data: sourceVersion, error: sourceVersionError } = await supabase
       .from("book_versions")
@@ -234,10 +237,10 @@ export async function processJob(payload: TranslationJobData, workerJobId?: stri
       targetSnapshot = createdTarget;
     }
     if (normalizeLanguageOrNull(targetSnapshot.language_code) !== normalizedTarget) throw new UnrecoverableError("Target version language mismatch");
+    resolvedTargetVersionId = targetSnapshot.id;
     if (targetSnapshot.published_at) throw new UnrecoverableError("This translation is published. Unpublish the target edition before replacing its text.");
     if (targetSnapshot.status === "translating") throw new UnrecoverableError("A translation is already running for this edition. Wait for it to finish before starting another.");
     if (!targetSnapshot.updated_at || !targetSnapshot.status) throw new UnrecoverableError("Could not read the target edition revision. No translation was started.");
-    resolvedTargetVersionId = targetSnapshot.id;
 
     let chaptersQuery = supabase
       .from("chapters")
@@ -291,29 +294,6 @@ export async function processJob(payload: TranslationJobData, workerJobId?: stri
       }
       return sum + content.length;
     }, 0);
-    try {
-      // Count actual batches, including fragmented formatting runs. Character
-      // count alone cannot bound the number of reviewer calls.
-      const estimate = estimateTranslationQualityBook(chapterList);
-      validateJobCost({
-        userId: budgetUserId,
-        pipeline: "translation",
-        jobSize: estimate?.sourceChars ?? totalChars,
-        jobId: workerJobId ?? null,
-      });
-      await checkBudget({
-        userId: budgetUserId,
-        pipeline: "translation",
-        units: estimate?.estimatedCostUnits ?? Math.ceil(totalChars / 4),
-        jobId: workerJobId ?? null,
-      });
-    } catch (err) {
-      if (err instanceof BudgetExceededError) {
-        throw new UnrecoverableError("This reviewed translation exceeds the remaining daily AI allowance. Try fewer chapters or try again after the daily reset.");
-      }
-      if (err instanceof JobCostExceededError || err instanceof TranslationQualityBudgetError) throw new UnrecoverableError(err.message);
-      throw err;
-    }
 
     structuredLog("translation_job_started", {
       bookId,
@@ -335,25 +315,61 @@ export async function processJob(payload: TranslationJobData, workerJobId?: stri
       sourceHash: hashTranslationSource(chapterList), status: "processing", profile: null,
       batches: [], usageReceipts: [], checkedAt: new Date().toISOString(), error: null,
     };
-    const { data: createdJob, error: reportError } = await supabase.from("ai_jobs").insert({
-      id: qualityJobId, user_id: budgetUserId, book_id: bookId,
-      book_version_id: resolvedTargetVersionId, kind: TRANSLATION_QUALITY_JOB_KIND,
-      language: normalizedTarget, status: "processing", started_at: new Date().toISOString(),
-      input: { protocol: REVIEWED_TRANSLATION_PROTOCOL, sourceVersionId, sourceHash: qualityRecord.sourceHash,
-        scope: qualityRecord.scope, reservationKey: workerJobId, targetClaimMarker, chapterId: selectedChapterId, overwrite: overwrite === true },
-      output: qualityRecord as unknown as Json,
-    }).select("id, updated_at").single();
+    ledgerAttempted = true;
+    let ledgerResult;
+    try {
+      ledgerResult = await supabase.from("ai_jobs").insert({
+        id: qualityJobId, user_id: budgetUserId, book_id: bookId,
+        book_version_id: resolvedTargetVersionId, kind: TRANSLATION_QUALITY_JOB_KIND,
+        language: normalizedTarget, status: "processing", started_at: new Date().toISOString(),
+        input: { protocol: REVIEWED_TRANSLATION_PROTOCOL, sourceVersionId, sourceHash: qualityRecord.sourceHash,
+          scope: qualityRecord.scope, reservationKey: workerJobId, targetClaimMarker, chapterId: selectedChapterId, overwrite: overwrite === true },
+        output: qualityRecord as unknown as Json,
+      }).select("id, updated_at").single();
+    } catch { throw new TranslationOutcomeUnknownError(); }
+    const { data: createdJob, error: reportError } = ledgerResult;
     if (reportError || !createdJob?.updated_at) throw new TranslationOutcomeUnknownError();
     jobRevision = createdJob.updated_at;
 
+    // Only the unique ledger insertion winner may reserve its captured plan.
+    // A stalled duplicate must not seed an idempotent marker for a different plan.
+    try {
+      // Count actual batches, including fragmented formatting runs. Character
+      // count alone cannot bound the number of reviewer calls.
+      const estimate = estimateTranslationQualityBook(chapterList);
+      validateJobCost({
+        userId: budgetUserId,
+        pipeline: "translation",
+        jobSize: estimate.sourceChars,
+        jobId: workerJobId ?? null,
+      });
+      await checkBudget({
+        userId: budgetUserId,
+        pipeline: "translation",
+        units: estimate.estimatedCostUnits,
+        jobId: workerJobId ?? null,
+      });
+    } catch (err) {
+      if (err instanceof BudgetExceededError) {
+        throw new UnrecoverableError("This reviewed translation exceeds the remaining daily AI allowance. Try fewer chapters or try again after the daily reset.");
+      }
+      if (err instanceof JobCostExceededError || err instanceof TranslationQualityBudgetError) throw new UnrecoverableError(err.message);
+      throw err;
+    }
+
     // Claim exactly the unpublished edition inspected above. Publish uses the
     // same status/revision boundary, so only one operation can win.
-    const { data: claim, error: startError } = await supabase.from("book_versions")
-      .update({ status: "translating", error_message: targetClaimMarker })
-      .eq("id", resolvedTargetVersionId).eq("book_id", bookId)
-      .eq("status", targetSnapshot.status).eq("updated_at", targetSnapshot.updated_at)
-      .is("published_at", null).select("id, updated_at").maybeSingle();
-    if (startError || !claim?.updated_at) throw new UnrecoverableError("The target edition changed or was published before translation started. Refresh and try again.");
+    let claimResult;
+    try {
+      claimResult = await supabase.from("book_versions")
+        .update({ status: "translating", error_message: targetClaimMarker })
+        .eq("id", resolvedTargetVersionId).eq("book_id", bookId)
+        .eq("status", targetSnapshot.status).eq("updated_at", targetSnapshot.updated_at)
+        .is("published_at", null).select("id, updated_at").maybeSingle();
+    } catch { throw new TranslationOutcomeUnknownError(); }
+    const { data: claim, error: startError } = claimResult;
+    if (startError || (claim && !claim.updated_at)) throw new TranslationOutcomeUnknownError();
+    if (!claim) throw new UnrecoverableError("The target edition changed or was published before translation started. Refresh and try again.");
     targetClaimRevision = claim.updated_at;
 
     if (qualityRecord) {
@@ -465,10 +481,35 @@ export async function processJob(payload: TranslationJobData, workerJobId?: stri
     }
     const msg = err instanceof TranslationNeedsReviewError || err instanceof UnrecoverableError || commitAttempted
       ? (err as Error).message : "Translation review could not be completed. Open the saved report for details.";
-    // Parent CAS precedes the ledger CAS. If an RPC won, this cannot change its
-    // completed edition or receipt. A failed/ambiguous parent write authorizes no terminal ledger write.
+    // Preflight failure can win only an INSERT of this queue UUID. A stale
+    // handler must never update the ledger created by another execution.
     try {
-      if (resolvedTargetVersionId && targetClaimRevision && qualityRecord && jobRevision) {
+      if (preflightOwned && !ledgerAttempted && err instanceof UnrecoverableError) {
+        const failedReport: TranslationQualityRecord = {
+          formatVersion: 1, scope: selectedChapterId ? "chapter" : "book", sourceVersionId,
+          targetVersionId: resolvedTargetVersionId, sourceHash: hashTranslationSource([]),
+          status: "failed", profile: null, batches: [], usageReceipts: [], checkedAt: new Date().toISOString(), error: msg,
+        };
+        const { error } = await supabase.from("ai_jobs").insert({
+          id: payload.reviewedRunId!, user_id: budgetUserId!, book_id: bookId, book_version_id: resolvedTargetVersionId,
+          kind: TRANSLATION_QUALITY_JOB_KIND, language: normalizeLanguageOrNull(targetLanguage), status: "failed",
+          error: msg, finished_at: failedReport.checkedAt,
+          input: { protocol: REVIEWED_TRANSLATION_PROTOCOL, sourceVersionId, sourceHash: failedReport.sourceHash,
+            scope: failedReport.scope, reservationKey: workerJobId, targetClaimMarker: `translation-claim:${payload.reviewedRunId}`,
+            chapterId: selectedChapterId, overwrite: overwrite === true },
+          output: failedReport as unknown as Json,
+        });
+        if (error) console.warn("[translation quality] preflight report not inserted", { bookId, code: error.code });
+      } else if (!qualityStarted && !targetClaimRevision && qualityRecord && jobRevision) {
+        // This execution owns the ledger, has not called a model, and either has
+        // not attempted the edition claim or received a definitive CAS no-match.
+        // Unknown insert/claim responses return above and never reach this CAS.
+        const { error } = await ownedJob({ status: "failed", error: msg, finished_at: new Date().toISOString(),
+          output: { ...qualityRecord, status: "failed", error: msg } as unknown as Json });
+        if (error) console.error("[translation quality] pre-model report unavailable", { bookId, qualityJobId, code: error.code });
+      } else if (resolvedTargetVersionId && targetClaimRevision && qualityRecord && jobRevision) {
+        // After a claim, parent CAS precedes ledger CAS. An RPC winner or an
+        // ambiguous parent write never authorizes a terminal ledger overwrite.
         const { data: failedVersion, error } = await supabase.from("book_versions")
           .update({ status: "failed", error_message: msg.slice(0, 500) })
           .eq("id", resolvedTargetVersionId).eq("book_id", bookId).eq("status", "translating")
@@ -497,17 +538,17 @@ async function recoverTranslationRun(admin: ReturnType<typeof createAdminClient>
   const output = run?.output as (TranslationQualityRecord & { _translationCommit?: { requestDigest?: string; receipt?: unknown } }) | null;
   const targetId = run?.book_version_id;
   const marker = `translation-claim:${payload.reviewedRunId}`;
-  if (error || !run || !targetId || (payload.targetVersionId && targetId !== payload.targetVersionId) ||
+  if (error || !run || (targetId && payload.targetVersionId && targetId !== payload.targetVersionId) ||
       input?.targetClaimMarker !== marker || input.scope !== (payload.chapterId ? "chapter" : "book") ||
       input.chapterId !== (payload.chapterId?.trim() || null) || input.overwrite !== (payload.overwrite === true)) throw new TranslationOutcomeUnknownError();
-  if (run.status === "completed" && output?.status === "checks_passed" && output.sourceVersionId === payload.sourceVersionId &&
+  if (run.status === "failed") throw new TranslationQualityStoppedError("This translation run already stopped. Open its saved report before starting another.");
+  if (targetId && run.status === "completed" && output?.status === "checks_passed" && output.sourceVersionId === payload.sourceVersionId &&
       output.targetVersionId === targetId && output.scope === input.scope && output.sourceHash === input.sourceHash &&
       /^[a-f0-9]{64}$/.test(output._translationCommit?.requestDigest ?? "") &&
       isTranslationCommitReceipt(output._translationCommit?.receipt, run.id, targetId)) {
     console.log("[translation commit] recovered historical receipt", { jobId: run.id, targetVersionId: targetId });
     return;
   }
-  if (run.status === "failed") throw new TranslationQualityStoppedError("This translation run already stopped. Open its saved report before starting another.");
   throw new TranslationOutcomeUnknownError();
 }
 

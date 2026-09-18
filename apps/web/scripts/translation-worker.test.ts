@@ -26,19 +26,20 @@ vi.mock("../src/lib/ai/translation-quality/anthropic", () => ({ createAuthorProf
 vi.mock("../src/lib/import-extract", () => ({ contentHash: (text: string) => `hash:${text}` }));
 vi.mock("../src/lib/book-translation", async (original) => ({ ...await original<object>(), upsertBookTranslationState: mocks.state }));
 vi.mock("../src/lib/workers/idempotency", () => ({ isDuplicate: async () => false }));
-vi.mock("../src/lib/workers/budget", () => ({
+vi.mock("../src/lib/workers/budget", async (original) => ({
+  ...await original<object>(),
   checkBudget: mocks.checkBudget, releaseBudget: mocks.releaseBudget, validateJobCost: mocks.validateJobCost,
-  BudgetExceededError: class extends Error {}, JobCostExceededError: class extends Error {},
 }));
 vi.mock("../src/lib/translation-quality-budget", async (original) => ({
   ...await original<object>(),
-  estimateTranslationQualityBook: () => ({ sourceChars: 100, batchCount: 2, maxCalls: 13, estimatedCostUnits: 1000 }),
   translationQualityReservationKey: () => "queue-job-attempt",
 }));
 vi.mock("../src/lib/translation-commit", async (original) => ({ ...await original<object>(), reviewedTranslationActivationReady: mocks.activation }));
 vi.mock("../src/lib/health/worker-heartbeat", () => ({ startHeartbeatInterval: mocks.heartbeat }));
 
 import { createHash } from "node:crypto";
+import { estimateTranslationQualityBook } from "../src/lib/translation-quality-budget";
+import { BudgetExceededError, JobCostExceededError } from "../src/lib/workers/budget";
 import type { TranslationCommitRequest } from "../src/lib/translation-commit";
 type Row = Record<string, unknown>;
 type Write = { table: string; operation: string; values: Row[] };
@@ -74,7 +75,7 @@ function database() {
   let versionRevision = 0;
   const writes: Write[] = [];
   const events: string[] = [];
-  const state: { failStatusWrites: boolean; beforeMutation: (table: string, operation: string, values: Row[]) => void } = { failStatusWrites: false, beforeMutation: () => {} };
+  const state: { failStatusWrites: boolean; beforeMutation: (table: string, operation: string, values: Row[]) => void | Promise<void> } = { failStatusWrites: false, beforeMutation: () => {} };
   function from(table: string) {
     let operation = "select";
     let values: Row[] = [];
@@ -83,8 +84,8 @@ function database() {
     let conflictKeys: string[] = [];
     const filters: Array<(row: Row) => boolean> = [];
     const matches = (row: Row) => filters.every((filter) => filter(row));
-    const execute = () => {
-      state.beforeMutation(table, operation, values);
+    const execute = async () => {
+      await state.beforeMutation(table, operation, values);
       let rows = tables[table] ?? [];
       let returned: Row[] | null = null;
       if (operation !== "select") {
@@ -148,12 +149,12 @@ function database() {
       delete: () => { operation = "delete"; return query; },
       single: () => { single = true; return Promise.resolve(execute()); },
       maybeSingle: () => { single = true; return Promise.resolve(execute()); },
-      then: (resolve: (result: ReturnType<typeof execute>) => unknown) => Promise.resolve(execute()).then(resolve),
+      then: (resolve: (result: Awaited<ReturnType<typeof execute>>) => unknown) => Promise.resolve(execute()).then(resolve),
     };
     return query;
   }
   const rpc = vi.fn(async (_name: string, request: TranslationCommitRequest) => {
-    state.beforeMutation("rpc", "commit", [request as unknown as Row]);
+    await state.beforeMutation("rpc", "commit", [request as unknown as Row]);
     const job = tables.ai_jobs.find((row) => row.id === request.p_job_id)!;
     const digest = createHash("sha256").update(JSON.stringify(request)).digest("hex");
     const output = job.output as Row;
@@ -202,7 +203,8 @@ beforeEach(() => {
   mocks.activation.mockReturnValue(true);
   mocks.profile.mockImplementation(async (_input, onUsage) => { await onUsage({ stage: "PROFILE", inputTokens: 1, outputTokens: 1 }); return profile; });
   mocks.state.mockResolvedValue(undefined);
-  mocks.checkBudget.mockResolvedValue(undefined);
+  mocks.checkBudget.mockReset().mockResolvedValue(undefined);
+  mocks.validateJobCost.mockReset();
   mocks.translate.mockImplementation(async (input: QualityInput) => {
     db.events.push(`review:${input.texts[0]}`);
     await input.onUsage?.({ stage: "TRANSLATION", model: "test", cacheCreationTokens: 0, cacheReadTokens: 0, inputTokens: 1, outputTokens: 1 });
@@ -242,8 +244,12 @@ describe("translation worker atomic protocol", () => {
     const secondBlocked = new Promise<void>((resolve) => { releaseSecond = resolve; });
     const firstEntered = new Promise<void>((resolve) => { enteredFirst = resolve; });
     const secondEntered = new Promise<void>((resolve) => { enteredSecond = resolve; });
-    mocks.checkBudget.mockImplementationOnce(async () => { enteredFirst(); await firstBlocked; })
-      .mockImplementationOnce(async () => { enteredSecond(); await secondBlocked; });
+    let inserts = 0;
+    db.state.beforeMutation = async (table, operation) => {
+      if (table !== "ai_jobs" || operation !== "insert") return;
+      if (++inserts === 1) { enteredFirst(); await firstBlocked; }
+      else { enteredSecond(); await secondBlocked; }
+    };
     const queued = Object.freeze({ ...payload });
     const first = start(queued);
     await firstEntered;
@@ -259,6 +265,124 @@ describe("translation worker atomic protocol", () => {
     await expect(start(queued)).resolves.toBeUndefined();
     expect(mocks.profile).toHaveBeenCalledTimes(1);
   });
+  it.each([{ winner: 0, limit: 600000 }, { winner: 1, limit: 600000 }, { winner: 1, limit: 500000 }])("reserves only the insertion winner's immutable plan (%j)", async ({ winner, limit }) => {
+    const releases: Array<() => void> = [];
+    const enters: Array<() => void> = [];
+    const blocked = [0, 1].map((i) => new Promise<void>((resolve) => { releases[i] = resolve; }));
+    const entered = [0, 1].map((i) => new Promise<void>((resolve) => { enters[i] = resolve; }));
+    let arrivals = 0;
+    db.state.beforeMutation = async (table, operation) => {
+      if (table !== "ai_jobs" || operation !== "insert") return;
+      const i = arrivals++; enters[i](); await blocked[i];
+    };
+    const plans = [estimateTranslationQualityBook(db.tables.chapters.slice(0, 2) as Array<{ title: string; content: string }>).estimatedCostUnits];
+    let reserved = 0;
+    mocks.checkBudget.mockImplementation(async ({ units }) => {
+      if (!reserved && units > limit) throw new BudgetExceededError({ userId: "author", pipeline: "translation", day: "2026-09-18", key: "budget", current: 0, limit, jobId: "queue-job" });
+      if (!reserved) reserved = units;
+    });
+    const first = start().catch((error) => error);
+    await entered[0];
+    db.tables.chapters[0].content = JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: Array.from({ length: 160 }, () => ({ type: "text", text: "a" })) }] });
+    db.tables.chapters[0].version_number = 2;
+    plans.push(estimateTranslationQualityBook(db.tables.chapters.slice(0, 2) as Array<{ title: string; content: string }>).estimatedCostUnits);
+    const second = start().catch((error) => error);
+    await entered[1];
+    const runs = [first, second];
+    releases[winner](); await runs[winner];
+    const saved = structuredClone(db.tables);
+    releases[1 - winner](); await runs[1 - winner];
+    expect(plans[1]).toBeGreaterThan(plans[0]);
+    expect(mocks.checkBudget).toHaveBeenCalledTimes(1);
+    const admitted = plans[winner] <= limit;
+    expect(reserved).toBe(admitted ? plans[winner] : 0);
+    expect(mocks.profile).toHaveBeenCalledTimes(admitted ? 1 : 0);
+    expect(mocks.translate).toHaveBeenCalledTimes(admitted ? winner === 0 ? 2 : 4 : 0);
+    expect(db.tables.ai_jobs).toHaveLength(1);
+    expect(db.tables).toEqual(saved);
+    expect(db.tables.ai_jobs[0].status).toBe(winner === 0 || !admitted ? "failed" : "completed");
+    expect(mocks.releaseBudget).not.toHaveBeenCalled();
+  });
+
+  it("holds a duplicate after ledger insertion but before budget response without reserving or paying twice", async () => {
+    let entered!: () => void; let resume!: () => void;
+    const atBudget = new Promise<void>((resolve) => { entered = resolve; });
+    const blocked = new Promise<void>((resolve) => { resume = resolve; });
+    mocks.checkBudget.mockImplementation(async () => { entered(); await blocked; });
+    const first = start();
+    await atBudget;
+    expect(db.tables.ai_jobs[0]?.status).toBe("processing");
+    await expect(start()).rejects.toThrow("Checking whether");
+    expect(mocks.checkBudget).toHaveBeenCalledTimes(1);
+    expect(mocks.profile).not.toHaveBeenCalled();
+    resume(); await first;
+    expect(db.tables.ai_jobs[0].status).toBe("completed");
+    expect(mocks.profile).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["published", "empty", "size", "budget", "claim"])("persists a definitive %s failure without model work or manuscript changes", async (failure) => {
+    const before = db.targetChapters();
+    if (failure === "published") db.tables.book_versions[1].published_at = "2026-09-18T00:00:00Z";
+    if (failure === "empty") db.tables.chapters = db.tables.chapters.filter((row) => row.book_version_id !== "source-version");
+    if (failure === "size") mocks.validateJobCost.mockImplementation(() => { throw new JobCostExceededError({ userId: "author", pipeline: "translation", jobSize: 2, cap: 1, unit: "chars", jobId: "queue-job" }); });
+    if (failure === "budget") mocks.checkBudget.mockRejectedValue(new BudgetExceededError({ userId: "author", pipeline: "translation", day: "2026-09-18", key: "budget", current: 500000, limit: 500000, jobId: "queue-job" }));
+    if (failure === "claim") db.state.beforeMutation = (table, operation, values) => {
+      if (table === "book_versions" && operation === "update" && values[0].status === "translating") db.tables.book_versions[1].updated_at = "2026-09-18T00:00:00Z";
+    };
+    await expect(start()).rejects.toBeInstanceOf(UnrecoverableError);
+    expect(db.tables.ai_jobs).toHaveLength(1);
+    expect(db.tables.ai_jobs[0]).toMatchObject({ id: payload.reviewedRunId, status: "failed", output: { formatVersion: 1, status: "failed", batches: [], usageReceipts: [] } });
+    expect(db.targetChapters()).toEqual(before);
+    expect(mocks.profile).not.toHaveBeenCalled(); expect(mocks.translate).not.toHaveBeenCalled();
+    await expect(start()).rejects.toThrow("already stopped");
+    expect(mocks.releaseBudget).not.toHaveBeenCalled();
+  });
+
+  it("keeps an ambiguous ledger insertion pending without reserving or retrying paid work", async () => {
+    db.state.beforeMutation = (table, operation, values) => {
+      if (table === "ai_jobs" && operation === "insert") {
+        db.tables.ai_jobs.push({ ...structuredClone(values[0]), updated_at: "2026-09-18T12:00:00Z" });
+        throw new Error("ledger response lost");
+      }
+    };
+    await expect(start()).rejects.toThrow("Checking whether");
+    expect(db.tables.ai_jobs).toHaveLength(1);
+    expect(db.tables.ai_jobs[0].status).toBe("processing");
+    expect(mocks.checkBudget).not.toHaveBeenCalled(); expect(mocks.profile).not.toHaveBeenCalled();
+    await expect(start()).rejects.toThrow("Checking whether");
+    expect(mocks.checkBudget).not.toHaveBeenCalled(); expect(mocks.profile).not.toHaveBeenCalled();
+  });
+
+  it("keeps an ambiguous claim response pending and never starts paid work", async () => {
+    db.state.beforeMutation = (table, operation, values) => {
+      if (table === "book_versions" && operation === "update" && values[0].status === "translating") throw new Error("claim response lost");
+    };
+    await expect(start()).rejects.toThrow("Checking whether");
+    expect(db.tables.ai_jobs[0].status).toBe("processing");
+    expect(mocks.profile).not.toHaveBeenCalled();
+    expect(mocks.releaseBudget).not.toHaveBeenCalled();
+  });
+
+  it("does not overwrite a completed receipt when a stale preflight failure resumes", async () => {
+    let entered!: () => void; let resume!: () => void;
+    const atFailure = new Promise<void>((resolve) => { entered = resolve; });
+    const blocked = new Promise<void>((resolve) => { resume = resolve; });
+    db.state.beforeMutation = async (table, operation, values) => {
+      if (table === "ai_jobs" && operation === "insert" && values[0].status === "failed") { entered(); await blocked; }
+    };
+    db.tables.book_versions[1].published_at = "2026-09-18T00:00:00Z";
+    const stale = start().catch((error) => error);
+    await atFailure;
+    db.tables.book_versions[1].published_at = null;
+    await start();
+    const committed = structuredClone(db.tables);
+    resume(); await stale;
+    expect(db.tables).toEqual(committed);
+    expect(db.tables.ai_jobs).toHaveLength(1);
+    expect(db.tables.ai_jobs[0].status).toBe("completed");
+    expect(mocks.profile).toHaveBeenCalledTimes(1);
+  });
+
   it("does not claim a published edition", async () => {
     db.tables.book_versions[1].published_at = "2026-09-17T10:00:00Z";
     await expect(start()).rejects.toThrow("published"); expect(mocks.profile).not.toHaveBeenCalled();
