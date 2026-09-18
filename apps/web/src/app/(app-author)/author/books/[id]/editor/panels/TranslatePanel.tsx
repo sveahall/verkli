@@ -6,6 +6,7 @@ import { getLanguageLabel, LANGUAGE_OPTIONS, isSupportedLanguage, type Supported
 import { isTranslationPairSupported } from "@/lib/translation-pairs";
 import { ArrowRight, BookOpen, ChevronDown, Languages, Check } from "lucide-react";
 import styles from "./TranslatePanel.module.css";
+import TranslationQualityCard from "./TranslationQualityCard";
 import TranslationCheckoutModal from "./TranslationCheckoutModal";
 import { TranslateMoreLanguagesCard, TranslatePreviewPanes } from "./TranslatePanel.components";
 
@@ -28,6 +29,7 @@ export type TranslatePanelProps = {
   onMessage?: (message: string | null) => void;
   /** When true, do not render the book title/author row (parent shows shared header). */
   hideTitle?: boolean;
+  request?: typeof fetch;
 };
 
 export default function TranslatePanel({
@@ -43,6 +45,7 @@ export default function TranslatePanel({
   selectedChapterId = null,
   onMessage,
   hideTitle = false,
+  request = fetch,
 }: TranslatePanelProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -68,6 +71,8 @@ export default function TranslatePanel({
   const [translating, setTranslating] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const [pendingJobs, setPendingJobs] = useState<Array<{ id: string; language: string; startedAt: number }>>([]);
+
   const [translateScope, setTranslateScope] = useState<"book" | "chapter">("book");
 
   const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
@@ -75,6 +80,53 @@ export default function TranslatePanel({
   const checkoutHandledRef = useRef(false);
 
   const sourceLabel = getLanguageLabel(sourceLanguage);
+
+  const trackJob = useCallback((language: string, id: unknown) => {
+    if (typeof id !== "string" || !id) return;
+    setPendingJobs((jobs) => [...jobs.filter((job) => job.id !== id), { id, language, startedAt: Date.now() }]);
+  }, []);
+
+  useEffect(() => {
+    if (pendingJobs.length === 0) return;
+    const abort = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    async function poll() {
+      const outcomes = await Promise.all(pendingJobs.map(async (job) => {
+        const label = getLanguageLabel(job.language);
+        if (Date.now() - job.startedAt >= 15 * 60_000) {
+          return { id: job.id, message: `${label} translation may still be running. Use Refresh reports to check again later.` };
+        }
+        try {
+          const response = await request(`/api/books/${bookId}/translation-quality?queueJobId=${encodeURIComponent(job.id)}`, { cache: "no-store", signal: AbortSignal.any([abort.signal, AbortSignal.timeout(10_000)]) });
+          if (!response.ok) return null;
+          const result = await response.json();
+          if (abort.signal.aborted) return null;
+          const status = result?.queue?.status;
+          if (status !== "completed" && status !== "failed") return null;
+          window.dispatchEvent(new CustomEvent("translation-quality-updated", { detail: { bookId, targetLanguage: job.language } }));
+          return {
+            id: job.id,
+            message: status === "failed"
+              ? `${label} translation stopped. Open the saved quality report, if available, for details.`
+              : result.queue.chapterId
+                ? `${label} chapter translation job complete. Open the saved report to check its review status.`
+                : `${label} translation job complete. Open the saved report to check its review status.`,
+          };
+        } catch { return null; }
+      }));
+      if (abort.signal.aborted) return;
+      const finished = outcomes.filter((outcome) => outcome !== null);
+      if (finished.length > 0) {
+        setSuccessMessage(finished.map((outcome) => outcome.message).join(" "));
+        setPendingJobs((jobs) => jobs.filter((job) => !finished.some((outcome) => outcome.id === job.id)));
+        router.refresh();
+      } else {
+        timer = setTimeout(() => void poll(), 3000);
+      }
+    }
+    void poll();
+    return () => { abort.abort(); if (timer) clearTimeout(timer); };
+  }, [bookId, pendingJobs, request, router]);
 
   const triggerPaidTranslation = useCallback(async (languages: string[], stripeSessionId: string) => {
     if (!bookId || !sourceVersionId) return;
@@ -86,7 +138,7 @@ export default function TranslatePanel({
       const failed: Array<{ lang: string; error: string }> = [];
       for (const lang of languages) {
         try {
-          const res = await fetch(`/api/books/${bookId}/translate`, {
+          const res = await request(`/api/books/${bookId}/translate`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -101,6 +153,7 @@ export default function TranslatePanel({
             failed.push({ lang, error: data?.error ?? "Unknown error" });
           } else {
             succeeded.push(lang);
+            trackJob(lang, data.jobId);
           }
         } catch {
           failed.push({ lang, error: "Network error" });
@@ -123,7 +176,7 @@ export default function TranslatePanel({
     } finally {
       setTranslating(false);
     }
-  }, [bookId, sourceVersionId, reportMessage]);
+  }, [bookId, sourceVersionId, reportMessage, request, trackJob]);
 
   // Handle return from Stripe checkout. Runs once per mount via
   // checkoutHandledRef so re-renders from prop changes can't double-fire.
@@ -161,8 +214,8 @@ export default function TranslatePanel({
     setPreviewUnavailable(false);
     setPreviewError(null);
     try {
-      const res = await fetch(
-        `/api/books/${bookId}/translation-preview?targetLanguage=${encodeURIComponent(targetLanguage)}`,
+      const res = await request(
+        `/api/books/${bookId}/translation-preview?targetLanguage=${encodeURIComponent(targetLanguage)}&sourceVersionId=${encodeURIComponent(sourceVersionId ?? "")}`,
         { signal: controller.signal },
       );
       if (controller.signal.aborted) return;
@@ -191,7 +244,7 @@ export default function TranslatePanel({
         setLoadingPreview(false);
       }
     }
-  }, [bookId, targetLanguage]);
+  }, [bookId, targetLanguage, sourceVersionId, request]);
 
   useEffect(() => {
     void fetchPreview();
@@ -224,7 +277,7 @@ export default function TranslatePanel({
       const failed: Array<{ lang: string; error: string }> = [];
       for (const lang of toTranslate) {
         try {
-          const res = await fetch(`/api/books/${bookId}/translate`, {
+          const res = await request(`/api/books/${bookId}/translate`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -238,6 +291,7 @@ export default function TranslatePanel({
             failed.push({ lang, error: data?.error ?? "Unknown error" });
           } else {
             succeeded.push(lang);
+            trackJob(lang, data.jobId);
           }
         } catch {
           failed.push({ lang, error: "Network error" });
@@ -260,7 +314,7 @@ export default function TranslatePanel({
     } finally {
       setTranslating(false);
     }
-  }, [bookId, sourceVersionId, selectedLanguages, sourceLanguage, translating, billingLoading, isProLocked, reportMessage]);
+  }, [bookId, sourceVersionId, selectedLanguages, sourceLanguage, translating, billingLoading, isProLocked, reportMessage, request, trackJob]);
 
   const handleTranslateSingleLanguage = useCallback(async () => {
     if (!bookId || !sourceVersionId || translating || billingLoading || !isSupportedLanguage(targetLanguage)) return;
@@ -288,7 +342,7 @@ export default function TranslatePanel({
       if (translateScope === "chapter" && selectedChapterId) {
         body.chapterId = selectedChapterId;
       }
-      const res = await fetch(`/api/books/${bookId}/translate`, {
+      const res = await request(`/api/books/${bookId}/translate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -299,6 +353,7 @@ export default function TranslatePanel({
         setTranslating(false);
         return;
       }
+      trackJob(targetLanguage, data.jobId);
       const scopeLabel = translateScope === "chapter" ? "Chapter translation" : "Translation";
       setSuccessMessage(`${scopeLabel} started. You can keep working while we prepare your translation.`);
       reportMessage(null);
@@ -307,7 +362,7 @@ export default function TranslatePanel({
     } finally {
       setTranslating(false);
     }
-  }, [bookId, sourceVersionId, targetLanguage, translating, billingLoading, isProLocked, translateScope, selectedChapterId, reportMessage]);
+  }, [bookId, sourceVersionId, targetLanguage, translating, billingLoading, isProLocked, translateScope, selectedChapterId, reportMessage, request, trackJob]);
 
   const handleProSubscribe = useCallback(() => {
     setCheckoutModalOpen(false);
@@ -367,6 +422,7 @@ export default function TranslatePanel({
             </div>
           )}
         </div>
+        <p className="px-6 pt-4 text-xs text-muted-foreground">Quick preview · not yet reviewed. Check meaning and author voice below.</p>
         <TranslatePreviewPanes
           targetLanguage={targetLanguage} loadingPreview={loadingPreview}
           originalPreview={originalPreview} translationPreview={translationPreview}
@@ -390,6 +446,8 @@ export default function TranslatePanel({
         {successMessage && <p role="status"><Check size={18} aria-hidden />{successMessage}</p>}
         {actionError && <p role="alert" className={styles.error}>{actionError}</p>}
       </div>}
+
+      <TranslationQualityCard key={`${bookId}:${sourceVersionId}:${targetLanguage}`} bookId={bookId} sourceVersionId={sourceVersionId} targetLanguage={targetLanguage} request={request} />
 
       <details className={styles.more}>
         <summary>

@@ -219,6 +219,8 @@ export function BillingPageContent({
   }, [refetch]);
 
   const isPastDue = state?.status === "past_due";
+  const isBetaProActive = state?.isBetaProActive === true;
+  const hasSubscription = Boolean(state?.stripeSubscriptionId);
   const showNoPlan = !loading && state && !state.plan && !state.isProActive && !state.isPlusActive;
 
   const periodEndLabel = useMemo(() => {
@@ -296,7 +298,9 @@ export function BillingPageContent({
 
       {mounted && isPastDue && (
         <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/25 dark:text-red-200">
-          {pastDueMessage}
+          {isBetaProActive
+            ? "Your paid subscription has an overdue payment. Beta Pro access remains included until public launch."
+            : pastDueMessage}
         </div>
       )}
 
@@ -316,15 +320,15 @@ export function BillingPageContent({
             <>
               <p>
                 <span className="font-medium">Current plan:</span>{" "}
-                <span suppressHydrationWarning>{formatPlan(state?.plan ?? null)}</span>
+                <span suppressHydrationWarning>{isBetaProActive ? "Verkli Pro · Beta" : formatPlan(state?.plan ?? null)}</span>
               </p>
               <p>
-                <span className="font-medium">Status:</span>{" "}
-                <span suppressHydrationWarning>{formatStatus(state?.status ?? null)}</span>
+                <span className="font-medium">{isBetaProActive && state?.status ? "Subscription status:" : "Status:"}</span>{" "}
+                <span suppressHydrationWarning>{isBetaProActive && !state?.status ? "Beta access" : formatStatus(state?.status ?? null)}</span>
               </p>
               {periodEndLabel && (
                 <p>
-                  <span className="font-medium">Period end:</span>{" "}
+                  <span className="font-medium">{isBetaProActive ? "Subscription period end:" : "Period end:"}</span>{" "}
                   <span suppressHydrationWarning>{periodEndLabel}</span>
                 </p>
               )}
@@ -336,6 +340,12 @@ export function BillingPageContent({
             </>
           )}
         </div>
+        {isBetaProActive && (
+          <div className="mt-4 text-sm leading-relaxed">
+            <p>Included until public launch. No card required.</p>
+            <p className="mt-1 text-muted-foreground">Generation limits still apply.</p>
+          </div>
+        )}
       </div>
 
       {mounted && (error || actionError) && (
@@ -344,7 +354,7 @@ export function BillingPageContent({
         </div>
       )}
 
-      {annualAvailable && (
+      {annualAvailable && !isBetaProActive && (
         <div className="mb-6 flex w-fit items-center gap-1 rounded-full border border-border bg-card p-1">
           {(["month", "year"] as const).map((value) => (
             <button
@@ -366,6 +376,7 @@ export function BillingPageContent({
 
       <div className="grid gap-4 md:grid-cols-2">
         {planCards.map((plan) => {
+          const isBetaPlan = plan.id === "pro" && isBetaProActive;
           const isActive =
             plan.id === "plus" ? state?.isPlusActive : state?.isProActive;
           const isCurrentPlan = state?.plan === plan.id && Boolean(isActive);
@@ -388,7 +399,7 @@ export function BillingPageContent({
                     : "Start Pro";
           return (
             <div key={plan.id} className="flex flex-col rounded-2xl border border-border bg-card p-6 sm:p-7">
-              <h2 className="text-section-title">{plan.name}</h2>
+              <h2 className="text-section-title">{isBetaPlan ? "Verkli Pro · Beta" : plan.name}</h2>
               {mounted && isPlusCancelledButActive && plusEndsAtLabel && (
                 <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
                   Cancelled but active until {plusEndsAtLabel}.
@@ -400,7 +411,9 @@ export function BillingPageContent({
                   <li key={bullet} className="flex items-start gap-3"><span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#907AFF]" />{bullet}</li>
                 ))}
               </ul>
-              {mounted && isPlusCancelledButActive ? (
+              {isBetaPlan ? (
+                <p className="mt-auto text-sm font-medium">Included in your beta access</p>
+              ) : mounted && isPlusCancelledButActive ? (
                 <button
                   type="button"
                   onClick={() => void openPortal()}
@@ -435,14 +448,16 @@ export function BillingPageContent({
             {syncingFromStripe ? "Syncing..." : "Sync subscription from Stripe"}
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => void openPortal()}
-          disabled={!mounted || openingPortal || pendingPlan !== null}
-          className="min-h-11 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
-        >
-          {!mounted ? "Manage subscription" : openingPortal ? "Opening portal..." : "Manage subscription"}
-        </button>
+        {hasSubscription && (
+          <button
+            type="button"
+            onClick={() => void openPortal()}
+            disabled={!mounted || openingPortal || pendingPlan !== null}
+            className="min-h-11 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60"
+          >
+            {!mounted ? "Manage subscription" : openingPortal ? "Opening portal..." : "Manage subscription"}
+          </button>
+        )}
       </div>
     </div>
   );

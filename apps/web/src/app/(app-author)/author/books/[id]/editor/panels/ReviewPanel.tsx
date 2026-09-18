@@ -398,7 +398,7 @@ export default function ReviewPanel({
                     {isActive && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground dark:text-muted-foreground">(current edition)</span>}
                   </span>
                   <div className="flex items-center gap-2">
-                    {v.error_message && (
+                    {v.error_message && !v.error_message.startsWith("translation-claim:") && (
                       <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:bg-rose-500/20 dark:text-rose-400">Error</span>
                     )}
                     <span

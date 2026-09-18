@@ -21,6 +21,7 @@ vi.mock("@/lib/billing/server", () => ({
 
 const { getBillingStateForUser } = await import("@/lib/billing/server");
 const { GET } = await import("./route");
+const { deriveBillingState } = await import("@/lib/billing/state");
 
 describe("GET /api/billing/state", () => {
   beforeEach(() => {
@@ -42,6 +43,7 @@ describe("GET /api/billing/state", () => {
         cancelAtPeriodEnd: false,
         isPlusActive: false,
         isProActive: false,
+        isBetaProActive: false,
         plusCancelAtPeriodEnd: false,
         plusPeriodEnd: null,
         stripeCustomerId: null,
@@ -66,6 +68,20 @@ describe("GET /api/billing/state", () => {
     expect(res.status).toBe(401);
   });
 
+  it("includes beta access and real subscription details without changing their status", async () => {
+    mockResolveBillingRole.mockResolvedValue("author");
+    const state = {
+      ...deriveBillingState(null), plan: "pro" as const, isProActive: true, isBetaProActive: true,
+      status: "past_due", stripeCustomerId: "cus_real", stripeSubscriptionId: "sub_real",
+      currentPeriodEnd: "2026-10-01T00:00:00Z", cancelAtPeriodEnd: true,
+    };
+    vi.mocked(getBillingStateForUser).mockResolvedValue({ ok: true, row: null, state });
+    const res = await GET(new Request("http://localhost/api/billing/state", { headers: { cookie: "active_role=author" } }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject(state);
+    expect(res.headers.get("Cache-Control")).toContain("no-store");
+  });
+
   it("returns role-scoped state for reader: only Plus (isProActive false)", async () => {
     mockResolveBillingRole.mockResolvedValue("reader");
     vi.mocked(getBillingStateForUser).mockResolvedValue({
@@ -78,6 +94,7 @@ describe("GET /api/billing/state", () => {
         cancelAtPeriodEnd: false,
         isPlusActive: true,
         isProActive: false,
+        isBetaProActive: false,
         plusCancelAtPeriodEnd: false,
         plusPeriodEnd: null,
         stripeCustomerId: null,
@@ -109,6 +126,7 @@ describe("GET /api/billing/state", () => {
         cancelAtPeriodEnd: false,
         isPlusActive: true,
         isProActive: true,
+        isBetaProActive: false,
         plusCancelAtPeriodEnd: false,
         plusPeriodEnd: null,
         stripeCustomerId: null,
@@ -139,6 +157,7 @@ describe("GET /api/billing/state", () => {
         cancelAtPeriodEnd: false,
         isPlusActive: false,
         isProActive: false,
+        isBetaProActive: false,
         plusCancelAtPeriodEnd: false,
         plusPeriodEnd: null,
         stripeCustomerId: null,
@@ -171,6 +190,7 @@ describe("GET /api/billing/state", () => {
             stripeSubscriptionId: "sub_plus",
             isPlusActive: true,
             isProActive: false,
+            isBetaProActive: false,
             plusCancelAtPeriodEnd: false,
             plusPeriodEnd: null,
           },
@@ -188,6 +208,7 @@ describe("GET /api/billing/state", () => {
           stripeSubscriptionId: "sub_pro",
           isPlusActive: true,
           isProActive: true,
+          isBetaProActive: false,
           plusCancelAtPeriodEnd: false,
           plusPeriodEnd: null,
         },

@@ -9,6 +9,7 @@ interface BookEditorStatusBannersProps {
   jobError: string | null;
   jobsForBanner: UnifiedJob[];
   billingPastDue: boolean;
+  billingProActive: boolean;
   onJobRetry: (job: UnifiedJob) => Promise<void>;
   /** Investor-pitch demo: suppress the "Loading status..." flash and billing
    * past-due warning so the pitch surfaces never show housekeeping chrome. */
@@ -20,6 +21,7 @@ export function BookEditorStatusBanners({
   jobError,
   jobsForBanner,
   billingPastDue,
+  billingProActive,
   onJobRetry,
   suppressInDemo = false,
 }: BookEditorStatusBannersProps) {
@@ -51,7 +53,10 @@ export function BookEditorStatusBanners({
       role="alert"
     >
       <p className="text-sm text-red-800 dark:text-red-200">
-        Your subscription is <strong>past_due</strong>. Billing features are locked until payment is updated.{" "}
+        Your subscription is <strong>past_due</strong>.{" "}
+        {billingProActive
+          ? "Your Pro access remains active."
+          : "Billing features are locked until payment is updated."}{" "}
         <Link href="/author/billing" className="underline">
           Manage subscription
         </Link>

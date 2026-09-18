@@ -24,9 +24,11 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import type { TranslatorProvider, TranslateOptions, TranslateResult } from "./types";
 import { AIProviderError } from "./types";
+import { assertTranslationSegments } from "../translation-quality/pipeline";
 
 const MODEL_ID = "claude-sonnet-5";
-const MAX_TOKENS = 8000;
+export const ANTHROPIC_TRANSLATOR_MAX_TOKENS = 8000;
+export const ANTHROPIC_TRANSLATOR_MAX_RETRIES = 2;
 const REQUEST_TIMEOUT_MS = 120_000;
 
 /**
@@ -74,7 +76,7 @@ function getClient(): Anthropic {
       "anthropic"
     );
   }
-  return new Anthropic({ apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: 2 });
+  return new Anthropic({ apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: ANTHROPIC_TRANSLATOR_MAX_RETRIES });
 }
 
 function buildSystemPrompt(sourceLanguage: string, targetLanguage: string): string {
@@ -96,7 +98,7 @@ function buildSystemPrompt(sourceLanguage: string, targetLanguage: string): stri
  * still shows up occasionally. Recover the array rather than failing a whole
  * chapter over punctuation.
  */
-function parseSegments(raw: string, expected: number): string[] {
+function parseSegments(raw: string, source: string[]): string[] {
   const trimmed = raw.trim();
   const start = trimmed.indexOf("[");
   const end = trimmed.lastIndexOf("]");
@@ -111,8 +113,8 @@ function parseSegments(raw: string, expected: number): string[] {
   let parsed: unknown;
   try {
     parsed = JSON.parse(trimmed.slice(start, end + 1));
-  } catch (err) {
-    throw AIProviderError.fromError(err, "anthropic");
+  } catch {
+    throw new AIProviderError("Anthropic returned invalid translation JSON.", "MODEL_ERROR", "anthropic");
   }
 
   if (!Array.isArray(parsed) || !parsed.every((s) => typeof s === "string")) {
@@ -125,12 +127,18 @@ function parseSegments(raw: string, expected: number): string[] {
 
   // A length mismatch would silently shift every later paragraph onto the
   // wrong source text, so it fails loudly instead.
-  if (parsed.length !== expected) {
+  if (parsed.length !== source.length) {
     throw new AIProviderError(
-      `Anthropic returned ${parsed.length} segments for ${expected} inputs.`,
+      `Anthropic returned ${parsed.length} segments for ${source.length} inputs.`,
       "MODEL_ERROR",
       "anthropic"
     );
+  }
+
+  try {
+    assertTranslationSegments(source, parsed);
+  } catch {
+    throw new AIProviderError("Anthropic returned empty or invalid translation segments.", "MODEL_ERROR", "anthropic");
   }
 
   return parsed as string[];
@@ -144,7 +152,7 @@ async function translateChunk(
 ): Promise<string[]> {
   const response = await client.messages.create({
     model: MODEL_ID,
-    max_tokens: MAX_TOKENS,
+    max_tokens: ANTHROPIC_TRANSLATOR_MAX_TOKENS,
     system: buildSystemPrompt(sourceLanguage, targetLanguage),
     messages: [
       {
@@ -154,12 +162,16 @@ async function translateChunk(
     ],
   });
 
+  if (response.stop_reason !== "end_turn") {
+    throw new AIProviderError("Anthropic returned an incomplete translation.", "MODEL_ERROR", "anthropic");
+  }
+
   const text = response.content
     .filter((block): block is Anthropic.TextBlock => block.type === "text")
     .map((block) => block.text)
     .join("");
 
-  return parseSegments(text, texts.length);
+  return parseSegments(text, texts);
 }
 
 export class AnthropicTranslator implements TranslatorProvider {

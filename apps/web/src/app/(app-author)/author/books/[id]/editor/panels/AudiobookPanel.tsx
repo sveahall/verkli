@@ -142,6 +142,7 @@ export default function AudiobookPanel({
           key={`${bookId}:${activeVersion?.id ?? activeLanguage}`}
           audioUrl={shouldShowGeneratedAudiobookPlayer ? fallbackGeneratedAudiobookUrl : null}
           bookId={bookId}
+          versionId={activeVersion?.id}
           onRefreshAudioUrl={refreshAudioUrl}
           previewEnabled={audiobookFeatureEnabled}
         />
