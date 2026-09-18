@@ -150,7 +150,7 @@ export async function GET(request: Request, context: Context) {
       const job = await queue?.getJob(queueJobId);
       if (!job || job.data.bookId !== bookId) return failure("Translation job not found.", 404);
       let status: string = await job.getState();
-      if (job.data.reviewedRunId) {
+      if (job.data.reviewedRunId && job.data.reviewedQueueProtocol === REVIEWED_TRANSLATION_PROTOCOL) {
         const { data: run, error } = await supabase.from("ai_jobs").select("id, book_version_id, status, output")
           .eq("id", job.data.reviewedRunId).eq("user_id", user.id).eq("book_id", bookId)
           .eq("kind", TRANSLATION_QUALITY_JOB_KIND).eq("input->>protocol", REVIEWED_TRANSLATION_PROTOCOL)
@@ -189,7 +189,7 @@ export async function GET(request: Request, context: Context) {
       try {
         const [id, timestamp] = JSON.parse(input.reservationKey.slice("translation-quality:".length));
         const queueJob = typeof id === "string" ? await getTranslationQueue()?.getJob(id) : null;
-        trusted = !!queueJob && queueJob.timestamp === timestamp && queueJob.data.reviewedRunId === row.id && queueJob.data.bookId === bookId && queueJob.data.sourceVersionId === output?.sourceVersionId;
+        trusted = !!queueJob && queueJob.data.reviewedQueueProtocol === REVIEWED_TRANSLATION_PROTOCOL && queueJob.timestamp === timestamp && queueJob.data.reviewedRunId === row.id && queueJob.data.bookId === bookId && queueJob.data.sourceVersionId === output?.sourceVersionId;
       } catch { /* Legacy or unavailable queue proof never grants a quality badge. */ }
     }
     let stale: boolean | null = null;

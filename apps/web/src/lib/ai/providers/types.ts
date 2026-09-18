@@ -64,6 +64,8 @@ export class AIProviderError extends Error {
 // ─────────────────────────────────────────────────────────────
 
 export interface TranslateOptions {
+  /** Preview-only cap, enforced before a chained provider consumes intermediate text. */
+  maxIntermediateBytes?: number;
   text: string;
   sourceLanguage: string;
   targetLanguage: string;
