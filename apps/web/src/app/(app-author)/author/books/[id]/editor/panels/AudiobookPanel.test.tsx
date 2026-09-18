@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/dynamic", () => ({ default: () => () => null }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const previewPlayer = vi.hoisted(() => vi.fn(() => null));
+vi.mock("./AudiobookPanel.components", () => ({ AudiobookPreviewPlayer: previewPlayer, AudiobookCheckoutModal: () => null }));
 import AudiobookPanel from "./AudiobookPanel";
 
 const props: React.ComponentProps<typeof AudiobookPanel> = {
@@ -22,6 +24,10 @@ const props: React.ComponentProps<typeof AudiobookPanel> = {
 };
 
 describe("Audiobook edition navigation", () => {
+  it("passes the selected edition into the voice preview request", () => {
+    renderToStaticMarkup(<AudiobookPanel {...props} />);
+    expect(previewPlayer).toHaveBeenLastCalledWith(expect.objectContaining({ bookId: "book", versionId: "swedish" }), undefined);
+  });
   it.each(["edit", "translate"])("keeps the active Swedish edition when opening %s", (panel) => {
     const html = renderToStaticMarkup(<AudiobookPanel {...props} />);
     expect(html).toContain(`href="/author/books/book?panel=${panel}&amp;lang=sv"`);
