@@ -16,8 +16,8 @@ export async function GET(
   const supabase = await createClient()
   const { data: book, error: bookError } = await supabase
     .from("books")
-    .select("id, author_id")
-    .eq("id", bookId)
+    .select("id, author_id, original_language, language")
+    .eq("id", bookId).is("deleted_at", null)
     .maybeSingle()
 
   if (bookError) {
@@ -34,8 +34,8 @@ export async function GET(
   }
 
   const { data: rows, error: translationsError } = await supabase
-    .from("book_translations")
-    .select("id, language, status, progress, created_at")
+    .from("book_versions")
+    .select("id, language_code, status, created_at")
     .eq("book_id", bookId)
     .order("created_at", { ascending: false })
 
@@ -50,11 +50,11 @@ export async function GET(
 
   return NextResponse.json({
     bookId,
-    translations: (rows ?? []).map((row) => ({
+    translations: (rows ?? []).filter((row) => row.language_code !== (book.original_language ?? book.language)).map((row) => ({
       id: row.id,
-      language: row.language,
-      status: row.status,
-      progress: row.progress,
+      language: row.language_code,
+      status: row.status === "done" ? "completed" : row.status === "translating" ? "running" : row.status,
+      progress: row.status === "done" ? 100 : 0,
       created_at: row.created_at,
     })),
   })

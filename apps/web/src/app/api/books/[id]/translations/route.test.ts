@@ -16,27 +16,29 @@ vi.mock("@/lib/supabase/server", () => ({
 
 const { GET } = await import("./route");
 
-function makeSupabaseMock(bookAuthorId: string) {
+function makeSupabaseMock(bookAuthorId: string, deleted = false) {
   const from = (table: string) => {
     if (table === "books") {
       return {
         select: () => ({
           eq: () => ({
-            maybeSingle: async () => ({
-              data: {
+            is: (column: string, value: null) => {
+              expect([column, value]).toEqual(["deleted_at", null]);
+              return { maybeSingle: async () => ({
+              data: deleted ? null : {
                 id: "00000000-0000-4000-8000-000000000001",
                 author_id: bookAuthorId,
                 original_language: "en",
                 language: "en",
               },
               error: null,
-            }),
+            }) }; },
           }),
         }),
       };
     }
 
-    if (table === "book_translations") {
+    if (table === "book_versions") {
       return {
         select: () => ({
           eq: () => ({
@@ -44,9 +46,8 @@ function makeSupabaseMock(bookAuthorId: string) {
               data: [
                 {
                   id: "tx-1",
-                  language: "en",
-                  status: "running",
-                  progress: 42,
+                  language_code: "sv",
+                  status: "translating",
                   created_at: "2026-02-11T11:00:00.000Z",
                 },
               ],
@@ -101,6 +102,15 @@ describe("GET /api/books/[id]/translations", () => {
     expect(body.error).toBe(E_BOOK_NOT_FOUND);
   });
 
+  it("returns 404 for a soft-deleted book", async () => {
+    mocks.requireAuthorRoleForApi.mockResolvedValueOnce({ user: { id: "author-1" }, response: null });
+    mocks.createClient.mockResolvedValueOnce(makeSupabaseMock("author-1", true));
+    const res = await GET(new Request("http://localhost/api/books/book-1/translations"), {
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
   it("returns translation versions for owned book", async () => {
     mocks.requireAuthorRoleForApi.mockResolvedValueOnce({
       user: { id: "author-1" },
@@ -118,9 +128,9 @@ describe("GET /api/books/[id]/translations", () => {
     expect(body.translations).toHaveLength(1);
     expect(body.translations[0]).toMatchObject({
       id: "tx-1",
-      language: "en",
+      language: "sv",
       status: "running",
-      progress: 42,
+      progress: 0,
     });
   });
 });
