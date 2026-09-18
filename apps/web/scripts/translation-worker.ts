@@ -12,6 +12,7 @@ import { createAdminClient } from "../src/lib/supabase/admin";
 import type { TranslationJobData } from "../src/lib/translation-queue";
 import { getProviderForPair } from "../src/lib/translation-pairs";
 import { createAuthorProfile } from "../src/lib/ai/translation-quality/anthropic";
+import { TranslationQualityError } from "../src/lib/ai/translation-quality/pipeline";
 import { buildBookProfileSample, translateQualityChapter, TranslationNeedsReviewError } from "../src/lib/translation-quality-chapter";
 import { hashTranslationSource, hashTranslationTarget, TRANSLATION_QUALITY_JOB_KIND, type TranslationQualityRecord } from "../src/lib/translation-quality-report";
 import { estimateTranslationQualityBook, translationQualityReservationKey, TranslationQualityBudgetError } from "../src/lib/translation-quality-budget";
@@ -412,7 +413,7 @@ export async function processJob(payload: TranslationJobData, workerJobId?: stri
           structuredLog("chapter_translation_failed", {
             chapterId: ch.id,
             chapterOrder: ch.order,
-            error: msg.slice(0, 500),
+            error: err instanceof TranslationQualityError ? err.code : msg.slice(0, 500),
           });
           throw err;
         }
@@ -479,7 +480,9 @@ export async function processJob(payload: TranslationJobData, workerJobId?: stri
       console.warn("[translation commit] outcome pending", { bookId, qualityJobId });
       throw new TranslationQualityStoppedError(err.message);
     }
-    const msg = err instanceof TranslationNeedsReviewError || err instanceof UnrecoverableError || commitAttempted
+    const msg = err instanceof TranslationQualityError && err.code === "INVALID_TRANSLATION"
+      ? "Translation draft returned missing, empty, or unexpected segments (INVALID_TRANSLATION). No chapter changes were saved. Please try again."
+      : err instanceof TranslationNeedsReviewError || err instanceof UnrecoverableError || commitAttempted
       ? (err as Error).message : "Translation review could not be completed. Open the saved report for details.";
     // Preflight failure can win only an INSERT of this queue UUID. A stale
     // handler must never update the ledger created by another execution.

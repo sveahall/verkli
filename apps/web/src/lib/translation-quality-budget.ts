@@ -68,7 +68,9 @@ const PROFILE_OUTPUT = 2500;
 const DRAFT_OUTPUT = 8000;
 const REVIEW_OUTPUT = 5000;
 const REVISION_OUTPUT = 8000;
-const FRAMING_UNITS_PER_CALL = 4000;
+// Covers static instructions and the exact-key output schema at 80 segments.
+// Adapter tests measure the real serialized prompt/schema against this bound.
+export const TRANSLATION_QUALITY_FRAMING_UNITS_PER_CALL = 6000;
 
 function jsonUnits(value: unknown): number {
   // UTF-8 bytes avoid assuming Latin prose's approximate four chars per token,
@@ -91,10 +93,10 @@ function estimate(batches: ChapterPlan["batches"], sourceChars: number, profileS
     throw new TranslationQualityBudgetError(`This translation requires too many review batches. Select fewer chapters: a job can use at most ${MAX_TRANSLATION_QUALITY_BATCHES} review batches (${MAX_TRANSLATION_QUALITY_CALLS} model calls including one correction round).`);
   }
   const guidance = guidanceUnits(authorGuidance);
-  let estimatedCostUnits = profileSourceUnits + guidance + FRAMING_UNITS_PER_CALL + PROFILE_OUTPUT;
+  let estimatedCostUnits = profileSourceUnits + guidance + TRANSLATION_QUALITY_FRAMING_UNITS_PER_CALL + PROFILE_OUTPUT;
   for (const batch of batches) {
     const source = jsonUnits(batch.texts);
-    const repeatedContext = 6 * (source + guidance + PROFILE_OUTPUT + FRAMING_UNITS_PER_CALL);
+    const repeatedContext = 6 * (source + guidance + PROFILE_OUTPUT + TRANSLATION_QUALITY_FRAMING_UNITS_PER_CALL);
     // Draft appears in both initial reviews and the revision. Re-reviews see
     // the original untouched runs plus all replacement text, at most both caps.
     const repeatedGeneratedText = 3 * DRAFT_OUTPUT + 2 * REVIEW_OUTPUT + 2 * (DRAFT_OUTPUT + REVISION_OUTPUT);
