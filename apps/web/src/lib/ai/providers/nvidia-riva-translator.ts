@@ -12,6 +12,7 @@ import { AIProviderError } from "./types";
 
 const NVIDIA_NIM_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions";
 const MODEL_ID = "nvidia/riva-translate-4b-instruct-v1.1";
+export const RIVA_TRANSLATOR_MAX_TOKENS = 4096;
 
 /** Max concurrent API requests when batch-translating. */
 const MAX_CONCURRENT = 5;
@@ -83,7 +84,7 @@ async function translateSingle(
           },
         ],
         temperature: 0.2,
-        max_tokens: Math.min(Math.max(Math.ceil(text.length / 2), 512), 4096),
+        max_tokens: Math.min(Math.max(Math.ceil(text.length / 2), 512), RIVA_TRANSLATOR_MAX_TOKENS),
       }),
       signal: controller.signal,
     });

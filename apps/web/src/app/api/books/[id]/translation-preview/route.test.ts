@@ -128,6 +128,19 @@ describe("GET /api/books/[id]/translation-preview", () => {
     expect(mocks.release).not.toHaveBeenCalled()
   })
 
+  it("reserves the full output and retry cap for a one-character preview, even on truncation", async () => {
+    mocks.requireAuthorRoleForApi.mockResolvedValueOnce({ user: { id: "author-1" }, response: null })
+    mocks.collectTranslationPreviewText.mockResolvedValueOnce("x")
+    const translate = vi.fn().mockRejectedValue(new AIProviderError("Incomplete response", "MODEL_ERROR", "anthropic"))
+    mocks.getTranslatorForPair.mockReturnValueOnce({ translate })
+    const response = await GET(new Request("http://localhost/api/books/book-1/translation-preview?targetLanguage=en"), {
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
+    })
+    expect(response.status).toBe(503)
+    expect(mocks.budget.mock.lastCall![0].units).toBeGreaterThan(3 * 8000)
+    expect(mocks.release).not.toHaveBeenCalled()
+  })
+
   it("forwards auth failure response", async () => {
     mocks.requireAuthorRoleForApi.mockResolvedValueOnce({
       user: null,

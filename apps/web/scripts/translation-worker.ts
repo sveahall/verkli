@@ -10,7 +10,6 @@ import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 import { Worker, UnrecoverableError, type Job } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import type { TranslationJobData } from "../src/lib/translation-queue";
-import { randomUUID } from "node:crypto";
 import { getProviderForPair } from "../src/lib/translation-pairs";
 import { createAuthorProfile } from "../src/lib/ai/translation-quality/anthropic";
 import { buildBookProfileSample, translateQualityChapter, TranslationNeedsReviewError } from "../src/lib/translation-quality-chapter";
@@ -92,10 +91,14 @@ function assertQualityProviderEnv(): void {
   }
 }
 
-export async function processJob(payload: TranslationJobData, workerJobId?: string, persistRunId?: (id: string) => Promise<void>) {
+export async function processJob(payload: TranslationJobData, workerJobId?: string) {
   if (!reviewedTranslationActivationReady()) throw new TranslationQualityStoppedError("Reviewed translation is awaiting the approved database rollout. No translation was started.");
   if (PIPELINE_SMOKE_MODE) throw new TranslationQualityStoppedError("Smoke output cannot be saved as a reviewed translation.");
   if (!workerJobId) throw new TranslationQualityStoppedError("Translation queue identity is missing. No translation was started.");
+  if (payload.reviewedQueueProtocol !== REVIEWED_TRANSLATION_PROTOCOL ||
+      !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(payload.reviewedRunId ?? "")) {
+    throw new TranslationQualityStoppedError("This queued translation predates the approved rollout. Start a new translation to continue.");
+  }
   const {
     bookId,
     sourceVersionId,
@@ -167,11 +170,12 @@ export async function processJob(payload: TranslationJobData, workerJobId?: stri
 
     budgetUserId = payload.authorId ?? book.author_id;
     if (!budgetUserId) throw new TranslationQualityStoppedError("Missing translation owner.");
-    // The UUID is written to the service-controlled queue BEFORE ledger creation.
-    // Never trust a legacy client-writable row or a timestamp/protocol label alone.
-    if (payload.reviewedRunId) {
-      return await recoverTranslationRun(supabase, payload, workerJobId, budgetUserId);
-    }
+    // The UUID was minted atomically with the trusted service queue entry.
+    // Stalled handlers share it and can never replace another handler's identity.
+    const { data: boundRun, error: boundRunError } = await supabase.from("ai_jobs")
+      .select("id").eq("id", payload.reviewedRunId!).maybeSingle();
+    if (boundRunError) throw new TranslationOutcomeUnknownError();
+    if (boundRun) return await recoverTranslationRun(supabase, payload, workerJobId, budgetUserId);
     const { data: previousRuns, error: previousRunError } = await supabase.from("ai_jobs")
       .select("id").eq("kind", TRANSLATION_QUALITY_JOB_KIND).eq("input->>reservationKey", workerJobId).limit(1);
     if (previousRunError || previousRuns?.length) throw new TranslationOutcomeUnknownError();
@@ -323,10 +327,8 @@ export async function processJob(payload: TranslationJobData, workerJobId?: stri
 
     const reviewedTargets: Array<{ title: string; content: string; order: number }> = [];
     const pendingChapters: Array<{ book_id: string; book_version_id: string; title: string; content: string; source_text: string; content_hash: string; order: number }> = [];
-    qualityJobId = randomUUID();
+    qualityJobId = payload.reviewedRunId!;
     targetClaimMarker = `translation-claim:${qualityJobId}`;
-    if (!persistRunId) throw new TranslationQualityStoppedError("Could not persist the queue identity. No model work was started.");
-    await persistRunId(qualityJobId);
     qualityRecord = {
       formatVersion: 1, scope: selectedChapterId ? "chapter" : "book",
       sourceVersionId, targetVersionId: resolvedTargetVersionId,
@@ -511,7 +513,7 @@ async function recoverTranslationRun(admin: ReturnType<typeof createAdminClient>
 
 /** A stalled or failed queue job is not evidence that its database transaction failed. */
 export async function reconcileFailedTranslation(job: Job | undefined, err: Error): Promise<void> {
-  if (!job?.data?.reviewedRunId) return;
+  if (!job?.data?.reviewedRunId || job.data.reviewedQueueProtocol !== REVIEWED_TRANSLATION_PROTOCOL) return;
   try {
     const payload = job.data as TranslationJobData;
     if (!payload.authorId) return;
@@ -550,9 +552,7 @@ function main() {
       if (job.name === "translate" && job.data) {
         console.log("[translation-worker] processing job", job.id);
         const workerJobId = translationQualityReservationKey(job);
-        await processJob(job.data as TranslationJobData, workerJobId, async (reviewedRunId) => {
-          await job.updateData({ ...job.data, reviewedRunId });
-        });
+        await processJob(job.data as TranslationJobData, workerJobId);
       }
     },
     {

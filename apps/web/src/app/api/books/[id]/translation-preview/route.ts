@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto"
+import { estimateTranslationPreviewCost, PREVIEW_MAX_INTERMEDIATE_BYTES } from "@/lib/translation-preview-budget"
 import { isTranslationsEnabled } from "@/lib/flags"
 import { reviewedTranslationActivationReady } from "@/lib/translation-commit"
 import { createPerUserRateLimiter } from "@/lib/rate-limit"
@@ -104,7 +105,8 @@ export async function GET(
   // Always collect source text so the "Original text" panel is populated
   // even when the translation pair is unsupported.
   // Use shorter preview for API-based translation (Riva 8K context limit).
-  const previewWordLimit = getProviderForPair(sourceContext.sourceLanguage, targetLanguage) === "opus" ? 1000 : 300
+  const previewProvider = getProviderForPair(sourceContext.sourceLanguage, targetLanguage)
+  const previewWordLimit = previewProvider === "opus" ? 1000 : 300
   let originalText = ""
   try {
     originalText = await collectTranslationPreviewText(supabase, sourceContext.sourceVersionId, previewWordLimit)
@@ -149,10 +151,11 @@ export async function GET(
     }
     const reservationKey = `translation-preview:${randomUUID()}`
     validateJobCost({ userId: user.id, pipeline: "translation", jobId: reservationKey, jobSize: originalText.length })
-    await checkBudget({ userId: user.id, pipeline: "translation", jobId: reservationKey, units: Math.ceil(originalText.length / 4) })
+    await checkBudget({ userId: user.id, pipeline: "translation", jobId: reservationKey, units: estimateTranslationPreviewCost(originalText, previewProvider) })
     // Every request owns a fresh reservation. Once the provider is invoked its
     // cost may be incurred even if its response is lost, so retain the allowance.
     const result = await translator.translate({
+      ...(previewProvider === "chain" ? { maxIntermediateBytes: PREVIEW_MAX_INTERMEDIATE_BYTES } : {}),
       text: originalText,
       sourceLanguage: sourceContext.sourceLanguage,
       targetLanguage,

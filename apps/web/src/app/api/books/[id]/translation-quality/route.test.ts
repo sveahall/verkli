@@ -169,6 +169,12 @@ describe("translation quality authorization and failure handling", () => {
     sourceContent = "";
     expect((await POST(request(), params)).status).toBe(422); expect(mocks.translate).not.toHaveBeenCalled();
   });
+  it("does not trust a legacy completed queue entry carrying a worker-minted ID", async () => {
+    mocks.queue.mockReturnValue({ getJob: async () => ({ data: { bookId: id, reviewedRunId: "legacy" }, getState: async () => "completed" }) });
+    const res = await GET(new Request(`http://localhost/api/books/${id}/translation-quality?queueJobId=legacy`), params);
+    expect(await res.json()).toEqual({ queue: { status: "unverified", chapterId: null } });
+    expect(queryFilters).not.toContainEqual(["id", "legacy"]);
+  });
   it("filters saved reports by authenticated owner and book", async () => {
     const res = await GET(new Request(`http://localhost/api/books/${id}/translation-quality?targetLanguage=en&scope=book`), params);
     expect(res.status).toBe(200); expect(queryFilters).toContainEqual(["user_id", "author"]); expect(queryFilters).toContainEqual(["book_id", id]);

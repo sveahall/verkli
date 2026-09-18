@@ -27,7 +27,8 @@ import { AIProviderError } from "./types";
 import { assertTranslationSegments } from "../translation-quality/pipeline";
 
 const MODEL_ID = "claude-sonnet-5";
-const MAX_TOKENS = 8000;
+export const ANTHROPIC_TRANSLATOR_MAX_TOKENS = 8000;
+export const ANTHROPIC_TRANSLATOR_MAX_RETRIES = 2;
 const REQUEST_TIMEOUT_MS = 120_000;
 
 /**
@@ -75,7 +76,7 @@ function getClient(): Anthropic {
       "anthropic"
     );
   }
-  return new Anthropic({ apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: 2 });
+  return new Anthropic({ apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: ANTHROPIC_TRANSLATOR_MAX_RETRIES });
 }
 
 function buildSystemPrompt(sourceLanguage: string, targetLanguage: string): string {
@@ -151,7 +152,7 @@ async function translateChunk(
 ): Promise<string[]> {
   const response = await client.messages.create({
     model: MODEL_ID,
-    max_tokens: MAX_TOKENS,
+    max_tokens: ANTHROPIC_TRANSLATOR_MAX_TOKENS,
     system: buildSystemPrompt(sourceLanguage, targetLanguage),
     messages: [
       {

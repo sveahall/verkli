@@ -45,6 +45,7 @@ type Write = { table: string; operation: string; values: Row[] };
 const payload: TranslationJobData = {
   bookId: "book", authorId: "author", sourceVersionId: "source-version",
   targetVersionId: "target-version", sourceLanguage: "sv", targetLanguage: "en", overwrite: true,
+  reviewedRunId: "00000000-0000-4000-8000-000000000010", reviewedQueueProtocol: "reviewed-atomic-v2",
 };
 const profile = { voice: "Spare", rhythm: "Repetition", dialogue: "Abrupt", preserve: [], glossary: [] };
 const report: QualityReport = {
@@ -212,16 +213,16 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-const start = (data: TranslationJobData = { ...payload }) => worker.processJob(data, "queue-job", async (id) => { data.reviewedRunId = id; db.events.push("queue:bound"); });
+const start = (data: TranslationJobData = { ...payload }) => worker.processJob(data, "queue-job");
 describe("translation worker atomic protocol", () => {
   it("holds activation before reading or spending", async () => {
     mocks.activation.mockReturnValue(false);
     await expect(start()).rejects.toThrow("awaiting");
     expect(db.writes).toEqual([]); expect(mocks.profile).not.toHaveBeenCalled();
   });
-  it("durably binds queue identity before the ledger, claim and paid work", async () => {
+  it("uses the immutable enqueue identity before the ledger, claim and paid work", async () => {
     await start();
-    expect(db.events.indexOf("queue:bound")).toBeLessThan(db.events.indexOf("ai_jobs:insert"));
+    expect(db.tables.ai_jobs[0].id).toBe(payload.reviewedRunId);
     expect(db.events.indexOf("ai_jobs:insert")).toBeLessThan(db.events.indexOf("book_versions:update"));
     expect(db.tables.ai_jobs[0].status).toBe("completed");
     expect(db.rpc).toHaveBeenCalledTimes(1);
@@ -229,9 +230,34 @@ describe("translation worker atomic protocol", () => {
     expect(mocks.state).not.toHaveBeenCalled();
     expect(Object.keys(db.rpc.mock.calls[0][1])).toHaveLength(15);
   });
-  it("does not start paid work when durable queue binding fails", async () => {
-    await expect(worker.processJob({ ...payload }, "queue-job", async () => { throw new Error("redis unavailable"); })).rejects.toBeInstanceOf(UnrecoverableError);
+  it.each([{ reviewedRunId: undefined }, { reviewedQueueProtocol: undefined }])("holds legacy queue jobs before reads or paid work: %j", async (legacy) => {
+    await expect(start({ ...payload, ...legacy })).rejects.toBeInstanceOf(UnrecoverableError);
+    expect(mocks.client).not.toHaveBeenCalled();
     expect(db.tables.ai_jobs).toEqual([]); expect(mocks.profile).not.toHaveBeenCalled();
+  });
+  it("keeps the winning enqueue identity when a stalled duplicate resumes", async () => {
+    let releaseFirst!: () => void; let releaseSecond!: () => void;
+    let enteredFirst!: () => void; let enteredSecond!: () => void;
+    const firstBlocked = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const secondBlocked = new Promise<void>((resolve) => { releaseSecond = resolve; });
+    const firstEntered = new Promise<void>((resolve) => { enteredFirst = resolve; });
+    const secondEntered = new Promise<void>((resolve) => { enteredSecond = resolve; });
+    mocks.checkBudget.mockImplementationOnce(async () => { enteredFirst(); await firstBlocked; })
+      .mockImplementationOnce(async () => { enteredSecond(); await secondBlocked; });
+    const queued = Object.freeze({ ...payload });
+    const first = start(queued);
+    await firstEntered;
+    const second = start(queued).catch((error) => error);
+    await secondEntered;
+    releaseFirst(); await first;
+    const committed = structuredClone(db.tables);
+    releaseSecond(); await second;
+    expect(db.tables.ai_jobs).toHaveLength(1);
+    expect(db.tables.ai_jobs[0]).toMatchObject({ id: queued.reviewedRunId, status: "completed" });
+    expect(db.tables).toEqual(committed);
+    expect(mocks.profile).toHaveBeenCalledTimes(1);
+    await expect(start(queued)).resolves.toBeUndefined();
+    expect(mocks.profile).toHaveBeenCalledTimes(1);
   });
   it("does not claim a published edition", async () => {
     db.tables.book_versions[1].published_at = "2026-09-17T10:00:00Z";
