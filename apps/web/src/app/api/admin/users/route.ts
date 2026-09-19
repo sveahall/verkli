@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminRoleForApi } from "@/lib/admin-auth";
 import { apiError, E_DATABASE_ERROR, E_INVALID_USER_ID, isValidUuid } from "@/lib/api-errors";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
+import { getBetaDeliveryStates } from "@/lib/emails/beta-delivery";
 import { getUserEmailMap } from "@/lib/admin/user-emails";
 
 export async function GET(request: Request) {
@@ -69,6 +70,17 @@ export async function GET(request: Request) {
     beta_enabled: betaEnabledIds.has(p.user_id as string),
   }));
 
+  if (url.searchParams.get("includeDelivery") === "true") {
+    try {
+      const withEmail = users.filter(u => u.email);
+      const states = await getBetaDeliveryStates(admin, withEmail.map(u => ({ email: u.email!, audience: u.role === "reader" ? "reader" : "author", invitedAt: null })));
+      const byId = new Map(withEmail.map((u, index) => [u.user_id, states[index]]));
+      return NextResponse.json({ users: users.map(u => ({ ...u, deliveryState: byId.get(u.user_id) ?? null })), total: count ?? 0, page, limit });
+    } catch {
+      console.error("[beta invitations] account delivery status unavailable");
+      return apiError("Invitation delivery history could not be loaded. Please retry.", 503);
+    }
+  }
   return NextResponse.json({ users, total: count ?? 0, page, limit });
 }
 

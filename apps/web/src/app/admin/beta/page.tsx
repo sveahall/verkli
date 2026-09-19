@@ -15,6 +15,8 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LoadingState, ErrorState, EmptyState } from "@/components/ui/states";
 
+import BetaInvitationsPanel from "./BetaInvitationsPanel";
+
 type EventCount = { event_name: string; count: number };
 
 /**
@@ -73,6 +75,7 @@ export default function AdminBetaPage() {
         title="Beta Cohort"
         description="Soft-launch funnel and kill-criteria thresholds, over the last 7 days."
       />
+      <BetaInvitationsPanel />
       <div className="mt-8">
         <Body state={state} breakdown={breakdown} />
       </div>
