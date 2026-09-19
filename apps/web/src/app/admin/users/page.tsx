@@ -157,6 +157,7 @@ export default function AdminUsersPage() {
         title="User management"
         description="Search users, open a profile, and manage beta access."
       />
+      <a href="/admin/beta" className="mt-4 inline-block text-sm text-accent-foreground underline">Enable beta access and send a welcome email →</a>
 
       <div className="mt-8 space-y-6">
         <Card>

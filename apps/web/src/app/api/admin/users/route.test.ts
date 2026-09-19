@@ -14,8 +14,10 @@ const mocks = vi.hoisted(() => ({
   requireAdminRoleForApi: vi.fn(),
   getUserEmailMap: vi.fn(),
   from: vi.fn(),
+  delivery: vi.fn(),
 }));
 
+vi.mock("@/lib/emails/beta-delivery", () => ({ getBetaDeliveryStates: mocks.delivery }));
 vi.mock("@/lib/admin-auth", () => ({
   requireAdminRoleForApi: mocks.requireAdminRoleForApi,
 }));
@@ -74,6 +76,13 @@ describe("GET /api/admin/users — beta column", () => {
     expect(mocks.from).toHaveBeenCalledWith("user_flags");
   });
 
+  it("loads persisted mail status for existing-account invitations", async () => {
+    stubTables([]); mocks.getUserEmailMap.mockResolvedValue(new Map([["granted-1", "author@example.com"]]));
+    mocks.delivery.mockResolvedValue(["Accepted by mail provider"]);
+    const body = await (await GET(new Request("http://localhost/api/admin/users?includeDelivery=true"))).json();
+    expect(body.users[0].deliveryState).toBe("Accepted by mail provider");
+    expect(mocks.delivery).toHaveBeenCalledWith(expect.anything(), [{ email: "author@example.com", audience: "author", invitedAt: null }]);
+  });
   it("fails loudly when the flag read errors instead of showing everyone as disabled", async () => {
     stubTables(null, { message: "connection reset" });
 

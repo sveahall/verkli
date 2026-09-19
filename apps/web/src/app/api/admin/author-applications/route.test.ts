@@ -15,6 +15,9 @@ const mocks = vi.hoisted(() => ({
   getServerEnv: vi.fn(),
   resendSend: vi.fn(),
   getUserEmailMap: vi.fn(),
+  getUserById: vi.fn(),
+  ensureBetaAuthorAccess: vi.fn(),
+  sendBetaWelcome: vi.fn(),
 }));
 
 vi.mock("@/lib/admin-auth", () => ({
@@ -28,6 +31,14 @@ vi.mock("@/lib/admin/user-emails", () => ({
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: mocks.createAdminClient,
+}));
+
+vi.mock("@/lib/auth/beta", () => ({
+  ensureBetaAuthorAccess: mocks.ensureBetaAuthorAccess,
+}));
+
+vi.mock("@/lib/emails/beta-delivery", () => ({
+  sendBetaWelcome: mocks.sendBetaWelcome,
 }));
 
 vi.mock("@/lib/env", async (importOriginal) => {
@@ -85,7 +96,7 @@ function buildFromMock(tables: Record<string, unknown>) {
     if (table in tables) return tables[table];
     throw new Error(`Unexpected table in test: ${table}`);
   });
-  mocks.createAdminClient.mockReturnValue({ from });
+  mocks.createAdminClient.mockReturnValue({ from, auth: { admin: { getUserById: mocks.getUserById } } });
   return from;
 }
 
@@ -165,6 +176,9 @@ describe("PATCH /api/admin/author-applications", () => {
       RESEND_FROM_EMAIL: "noreply@test.com",
     });
     mocks.resendSend.mockResolvedValue({ error: null });
+    mocks.getUserById.mockResolvedValue({ data: { user: { id: "u1", email: "account@example.com" } }, error: null });
+    mocks.ensureBetaAuthorAccess.mockResolvedValue({ ok: true });
+    mocks.sendBetaWelcome.mockResolvedValue({ status: "sent", message: "Welcome email accepted." });
   });
 
   it("returns 401 without authenticated user", async () => {
@@ -229,7 +243,14 @@ describe("PATCH /api/admin/author-applications", () => {
     expect(body.ok).toBe(true);
     expect(body.status).toBe("approved");
     expect(updateFn).toHaveBeenCalledWith({ status: "approved" });
-    expect(profileUpdateFn).toHaveBeenCalledWith({ role: "author" });
+    expect(mocks.ensureBetaAuthorAccess).toHaveBeenCalledWith(mocks.createAdminClient.mock.results[0].value, "u1");
+    expect(mocks.sendBetaWelcome).toHaveBeenCalledWith(mocks.createAdminClient.mock.results[0].value, {
+      actorId: "admin-1", entityId: "u1", email: "account@example.com", name: undefined,
+      accountExists: true, audience: "author",
+    });
+    expect(mocks.ensureBetaAuthorAccess.mock.invocationCallOrder[0]).toBeLessThan(mocks.sendBetaWelcome.mock.invocationCallOrder[0]);
+    expect(body.email).toEqual({ status: "sent", message: "Welcome email accepted." });
+    expect(mocks.resendSend).not.toHaveBeenCalled();
   });
 
   it("rejects an existing application", async () => {
@@ -259,6 +280,9 @@ describe("PATCH /api/admin/author-applications", () => {
     expect(body.ok).toBe(true);
     expect(body.status).toBe("rejected");
     expect(updateFn).toHaveBeenCalledWith({ status: "rejected" });
+    expect(mocks.resendSend).toHaveBeenCalledWith(expect.objectContaining({ to: "account@example.com" }));
+    expect(mocks.sendBetaWelcome).not.toHaveBeenCalled();
+    expect(mocks.ensureBetaAuthorAccess).not.toHaveBeenCalled();
   });
 
   it("creates a new application record when none exists", async () => {
@@ -292,7 +316,7 @@ describe("PATCH /api/admin/author-applications", () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(insertFn).toHaveBeenCalledWith({ user_id: "u1", status: "approved" });
-    expect(profileUpdateFn).toHaveBeenCalledWith({ role: "author" });
+    expect(mocks.ensureBetaAuthorAccess).toHaveBeenCalledWith(mocks.createAdminClient.mock.results[0].value, "u1");
   });
 
   it("returns 500 when update fails", async () => {
@@ -335,5 +359,112 @@ describe("PATCH /api/admin/author-applications", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error).toBe(E_APPLICATION_CREATION_FAILED);
+  });
+
+  function setupApplication(options: { lookupError?: string; lookupThrows?: boolean; existing?: boolean } = {}) {
+    const update = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) }));
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    buildFromMock({
+      author_applications: {
+        select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: options.lookupThrows ? vi.fn().mockRejectedValue(new Error("lookup interrupted")) : vi.fn().mockResolvedValue({
+          data: options.existing === false ? null : { user_id: "u1", first_name: "Anna", email: "editable@example.com" },
+          error: options.lookupError ? { message: options.lookupError } : null,
+        }) })) })),
+        update,
+        insert,
+      },
+      profiles: { update: vi.fn(() => ({ eq: vi.fn(() => ({ neq: vi.fn().mockResolvedValue({ error: null }) })) })) },
+      audit_log: { insert: vi.fn().mockResolvedValue({ error: null }) },
+    });
+    return { update, insert };
+  }
+
+  it("fails closed when the application lookup fails", async () => {
+    adminAllowed();
+    const db = setupApplication({ lookupError: "lookup unavailable", existing: false });
+
+    const response = await PATCH(makeRequest("PATCH", { userId: "u1", status: "approved" }));
+
+    expect(response.status).toBe(500);
+    expect(db.update).not.toHaveBeenCalled();
+    expect(db.insert).not.toHaveBeenCalled();
+    expect(mocks.ensureBetaAuthorAccess).not.toHaveBeenCalled();
+    expect(mocks.sendBetaWelcome).not.toHaveBeenCalled();
+    expect(mocks.resendSend).not.toHaveBeenCalled();
+  });
+
+  it.each(["approved", "rejected"])("does not write or notify %s when canonical email lookup fails", async (status) => {
+    adminAllowed();
+    const db = setupApplication();
+    mocks.getUserById.mockResolvedValue({ data: { user: null }, error: { message: "auth unavailable" } });
+
+    const response = await PATCH(makeRequest("PATCH", { userId: "u1", status }));
+
+    expect(response.status).toBe(500);
+    expect(mocks.getUserById).toHaveBeenCalledWith("u1");
+    expect(db.update).not.toHaveBeenCalled();
+    expect(mocks.sendBetaWelcome).not.toHaveBeenCalled();
+    expect(mocks.resendSend).not.toHaveBeenCalled();
+  });
+
+  it("returns an actionable error when the application lookup throws", async () => {
+    adminAllowed();
+    const db = setupApplication({ lookupThrows: true });
+
+    const response = await PATCH(makeRequest("PATCH", { userId: "u1", status: "approved" }));
+
+    expect(response.status).toBe(500);
+    expect((await response.json()).detail).toContain("No decision was saved or email sent");
+    expect(db.update).not.toHaveBeenCalled();
+    expect(mocks.sendBetaWelcome).not.toHaveBeenCalled();
+  });
+
+  it("does not notify when the canonical user has no email", async () => {
+    adminAllowed();
+    setupApplication();
+    mocks.getUserById.mockResolvedValue({ data: { user: { id: "u1", email: null } }, error: null });
+
+    const response = await PATCH(makeRequest("PATCH", { userId: "u1", status: "approved" }));
+
+    expect(response.status).toBe(500);
+    expect(mocks.sendBetaWelcome).not.toHaveBeenCalled();
+    expect(mocks.resendSend).not.toHaveBeenCalled();
+  });
+
+  it("does not send a welcome when author or beta access could not be enabled", async () => {
+    adminAllowed();
+    setupApplication();
+    mocks.ensureBetaAuthorAccess.mockResolvedValue({ ok: false, error: "grant failed" });
+
+    const response = await PATCH(makeRequest("PATCH", { userId: "u1", status: "approved" }));
+
+    expect(response.status).toBe(500);
+    expect((await response.json()).detail).toContain("No welcome email was sent");
+    expect(mocks.sendBetaWelcome).not.toHaveBeenCalled();
+    expect(mocks.resendSend).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when author access throws", async () => {
+    adminAllowed();
+    setupApplication();
+    mocks.ensureBetaAuthorAccess.mockRejectedValue(new Error("access unavailable"));
+
+    const response = await PATCH(makeRequest("PATCH", { userId: "u1", status: "approved" }));
+
+    expect(response.status).toBe(500);
+    expect(mocks.sendBetaWelcome).not.toHaveBeenCalled();
+  });
+
+  it.each(["already_sent", "retry", "daily_limit", "unavailable", "review_required"])("reports %s email status separately from approval", async (deliveryStatus) => {
+    adminAllowed();
+    setupApplication();
+    const delivery = { status: deliveryStatus, message: "The welcome needs attention." };
+    mocks.sendBetaWelcome.mockResolvedValue(delivery);
+
+    const response = await PATCH(makeRequest("PATCH", { userId: "u1", status: "approved" }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ok: true, status: "approved", email: delivery });
+    expect(mocks.sendBetaWelcome).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ name: "Anna", email: "account@example.com" }));
   });
 });
