@@ -4,6 +4,23 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function signoutTarget(requested: string | null): string {
+  if (!requested || requested.length > 512) return "/";
+  const origin = "https://signout.invalid";
+  try {
+    for (const candidate of [requested, decodeURIComponent(requested)]) {
+      if (!candidate.startsWith("/") || candidate.startsWith("//") ||
+          /[\\\u0000-\u001f\u007f]/.test(candidate) ||
+          new URL(candidate, origin).origin !== origin) return "/";
+    }
+    const target = new URL(requested, origin);
+    if (target.pathname.startsWith("//")) return "/";
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return "/";
+  }
+}
+
 /**
  * Generic signout endpoint reachable from anywhere in the app. The reader
  * UI doesn't ship a visible logout button yet (the author shell does); in
@@ -31,17 +48,17 @@ async function handle(request: Request): Promise<NextResponse> {
     });
   }
 
-  // Honor an explicit ?redirect=... if it points back at our own origin;
-  // otherwise drop the user on the homepage.
+  // Relative Location keeps the browser on its public origin, even when the
+  // reverse proxy exposes an internal host in request.url. Never trust a
+  // forwarded host or a redirect that URL parsing can turn into another origin.
   const url = new URL(request.url);
-  const requested = url.searchParams.get("redirect");
-  let target = "/";
-  if (requested && (requested === "/" || /^\/[^/]/.test(requested))) {
-    target = requested;
-  }
-  const response = NextResponse.redirect(new URL(target, url.origin), { status: 303 });
-  response.headers.set("Cache-Control", "no-store");
-  return response;
+  return new NextResponse(null, {
+    status: 303,
+    headers: {
+      Location: signoutTarget(url.searchParams.get("redirect")),
+      "Cache-Control": "no-store",
+    },
+  });
 }
 
 export async function GET(request: Request) {
