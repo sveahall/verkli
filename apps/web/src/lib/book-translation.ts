@@ -84,8 +84,9 @@ export async function collectTranslationPreviewText(
 ): Promise<string> {
   const { data: chapters, error } = await supabase
     .from("chapters")
-    .select("content, source_text")
+    .select("content")
     .eq("book_version_id", sourceVersionId)
+    .is("deleted_at", null)
     .order("order", { ascending: true });
 
   if (error) {
@@ -97,9 +98,8 @@ export async function collectTranslationPreviewText(
 
   for (const chapter of chapters ?? []) {
     if (remainingWords <= 0) break;
-    const plainText = extractPlainText(
-      (chapter.source_text as string | null) ?? (chapter.content as string | null) ?? null
-    );
+    // Match the worker: source_text is an import/translation snapshot, not the saved manuscript.
+    const plainText = extractPlainText(chapter.content as string | null);
     if (!plainText) continue;
 
     const excerpt = takeWords(plainText, remainingWords);
@@ -192,15 +192,14 @@ export async function resolveTranslationSourceContext({
   if (!sourceLanguage) {
     const { data: firstChapter } = await supabase
       .from("chapters")
-      .select("content, source_text")
+      .select("content")
       .eq("book_version_id", sourceVersionId)
+      .is("deleted_at", null)
       .order("order", { ascending: true })
       .limit(1)
       .maybeSingle();
 
-    const sample = extractPlainText(
-      (firstChapter?.source_text as string | null) ?? (firstChapter?.content as string | null) ?? null
-    );
+    const sample = extractPlainText(firstChapter?.content as string | null);
     const detected = detectLanguageFromText(sample);
 
     if (detected) {
