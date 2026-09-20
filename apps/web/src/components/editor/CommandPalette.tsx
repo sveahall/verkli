@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Dialog } from "@/components/ui/dialog";
 
 export type CommandPaletteItem = {
@@ -93,6 +93,7 @@ function PaletteDialog({
 }: Omit<Props, "open">) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -172,6 +173,7 @@ function PaletteDialog({
             {title}
           </p>
           <input
+            ref={inputRef}
             type="text"
             aria-label={placeholder}
             value={query}
@@ -222,7 +224,11 @@ function PaletteDialog({
                           item.onHighlight?.();
                           setSelected(itemIndex);
                         }}
-                        onClick={() => item.onSelect()}
+                        onClick={() => {
+                          // A command may replace this button with the book picker.
+                          inputRef.current?.focus();
+                          item.onSelect();
+                        }}
                         className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition ${
                           isSelected
                             ? "bg-muted text-foreground dark:bg-card dark:text-foreground"

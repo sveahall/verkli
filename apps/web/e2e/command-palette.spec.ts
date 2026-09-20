@@ -26,3 +26,20 @@ test("keyboard focus stays in the command dialog and returns to its opener", asy
   await expect(dialog).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Open command palette", exact: true })).toBeFocused();
 });
+
+test("opening the book picker keeps keyboard navigation available", async ({ page }) => {
+  await page.keyboard.press("Escape");
+  await page.goto("/dev/studio-overview?view=analytics");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  const commands = page.getByRole("dialog", { name: "Command palette", exact: true });
+  await commands.getByRole("textbox").press("Tab");
+  await page.keyboard.press("Tab");
+  const openBook = commands.getByRole("button", { name: /Open book/ });
+  await expect(openBook).toBeFocused();
+  await page.keyboard.press("Enter");
+  const picker = page.getByRole("dialog", { name: "Choose book", exact: true });
+  const search = picker.getByRole("textbox", { name: "Select a book...", exact: true });
+  await expect(search).toBeFocused();
+  await search.press("Escape");
+  await expect(picker).toHaveCount(0);
+});
