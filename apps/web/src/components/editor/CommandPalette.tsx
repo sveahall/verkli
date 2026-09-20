@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { Dialog } from "@/components/ui/dialog";
 
 export type CommandPaletteItem = {
   id: string;
@@ -92,7 +93,6 @@ function PaletteDialog({
 }: Omit<Props, "open">) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -113,58 +113,69 @@ function PaletteDialog({
   }, [filteredItems]);
 
   useEffect(() => {
-    window.setTimeout(() => inputRef.current?.focus(), 50);
+    const opener = document.activeElement;
+    return () => {
+      if (opener instanceof HTMLElement && opener.isConnected) {
+        opener.focus({ preventScroll: true });
+      }
+    };
   }, []);
 
   useEffect(() => {
     filteredItems[selected]?.onHighlight?.();
   }, [filteredItems, selected]);
 
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (loading) return;
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        setSelected((current) => Math.min(current + 1, filteredItems.length - 1));
-        return;
-      }
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        setSelected((current) => Math.max(current - 1, 0));
-        return;
-      }
-      if (event.key === "Enter") {
-        event.preventDefault();
-        filteredItems[selected]?.onSelect();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [filteredItems, loading, onClose, selected]);
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (loading) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSelected((current) => Math.min(current + 1, filteredItems.length - 1));
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSelected((current) => Math.max(current - 1, 0));
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      filteredItems[selected]?.onSelect();
+    }
+  };
+
+  const handleDialogKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab") return;
+    const controls = event.currentTarget.querySelectorAll<HTMLInputElement | HTMLButtonElement>("input, button");
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && event.target === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && event.target === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  };
 
   let runningIndex = -1;
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/40 px-4 pt-[10vh] backdrop-blur-sm"
-      onClick={onClose}
+    <Dialog
+      open
+      onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}
+      aria-label={title}
+      className="top-[10dvh] bottom-auto m-0 mx-auto w-[calc(100%-2rem)] max-w-2xl overflow-hidden"
     >
-      <div
-        className="w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl dark:border-border dark:bg-card"
-        onClick={(event) => event.stopPropagation()}
-      >
+      <div className="w-full" onKeyDown={handleDialogKeyDown}>
         <div className="border-b border-border px-4 py-3 dark:border-border">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground dark:text-muted-foreground">
             {title}
           </p>
           <input
-            ref={inputRef}
             type="text"
+            aria-label={placeholder}
             value={query}
+            onKeyDown={handleSearchKeyDown}
             onChange={(event) => {
               setQuery(event.target.value);
               setSelected(0);
@@ -241,6 +252,6 @@ function PaletteDialog({
           )}
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
