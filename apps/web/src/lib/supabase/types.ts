@@ -1,3 +1,20 @@
+// GENERATED FILE — DO NOT EDIT.
+//
+// Regenerate:
+//   cd apps/web && npm run generate:types
+//
+// Two things that make this fail quietly:
+//   - `--schema` is not optional. The default is `public` alone, which silently
+//     drops the graphql_public block below. The script passes it; a hand-run
+//     command must too.
+//   - The CLI must be authenticated as the account that owns the verkli project.
+//     A token for the other account returns "your account does not have the
+//     necessary privileges" from the type-generation endpoint. Pass one via
+//     SUPABASE_ACCESS_TOKEN rather than re-running `supabase login`, so the
+//     existing login is left alone.
+//
+// Manual edits will be overwritten on the next regeneration.
+
 export type Json =
   | string
   | number
@@ -102,6 +119,167 @@ export type Database = {
           {
             foreignKeyName: "ai_jobs_book_version_id_fkey"
             columns: ["book_version_id"]
+            isOneToOne: false
+            referencedRelation: "book_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_memories: {
+        Row: {
+          book_id: string | null
+          content: string
+          created_at: string
+          edition_id: string | null
+          id: string
+          owner_id: string
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          book_id?: string | null
+          content: string
+          created_at?: string
+          edition_id?: string | null
+          id?: string
+          owner_id: string
+          scope: string
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string | null
+          content?: string
+          created_at?: string
+          edition_id?: string | null
+          id?: string
+          owner_id?: string
+          scope?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_memories_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_memories_edition_id_fkey"
+            columns: ["edition_id"]
+            isOneToOne: false
+            referencedRelation: "book_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_memory_settings: {
+        Row: {
+          enabled: boolean
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          owner_id: string
+          reply_id: string
+          request_id: string
+          role: string
+          state: string
+          thread_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          owner_id: string
+          reply_id?: string
+          request_id: string
+          role: string
+          state?: string
+          thread_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          reply_id?: string
+          request_id?: string
+          role?: string
+          state?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "ai_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_threads: {
+        Row: {
+          book_id: string
+          created_at: string
+          deleted_at: string | null
+          edition_id: string | null
+          id: string
+          owner_id: string
+          title: string
+          tool: string
+          updated_at: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          deleted_at?: string | null
+          edition_id?: string | null
+          id?: string
+          owner_id: string
+          title?: string
+          tool: string
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          edition_id?: string | null
+          id?: string
+          owner_id?: string
+          title?: string
+          tool?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_threads_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_threads_edition_id_fkey"
+            columns: ["edition_id"]
             isOneToOne: false
             referencedRelation: "book_versions"
             referencedColumns: ["id"]
@@ -3880,9 +4058,52 @@ export type Database = {
       }
     }
     Functions: {
+      ai_complete_request: {
+        Args: { p_content: string; p_request_id: string; p_thread_id: string }
+        Returns: Json
+      }
+      ai_delete_thread: {
+        Args: { p_book_id: string; p_thread_id: string }
+        Returns: boolean
+      }
+      ai_owns_scope: {
+        Args: { p_book_id: string; p_edition_id: string; p_owner_id: string }
+        Returns: boolean
+      }
+      ai_reserve_request: {
+        Args: {
+          p_book_id: string
+          p_content: string
+          p_edition_id?: string
+          p_request_id: string
+          p_thread_id?: string
+          p_tool: string
+        }
+        Returns: Json
+      }
       can_view_book: {
         Args: { book_id: string; viewer_id: string }
         Returns: boolean
+      }
+      commit_reviewed_translation: {
+        Args: {
+          p_author_id: string
+          p_book_id: string
+          p_chapters: Json
+          p_claim_marker: string
+          p_claim_revision: string
+          p_expected_source: Json
+          p_expected_target: Json
+          p_final_report: Json
+          p_job_id: string
+          p_job_revision: string
+          p_overwrite: boolean
+          p_scope: string
+          p_source_revision: string
+          p_source_version_id: string
+          p_target_version_id: string
+        }
+        Returns: Json
       }
       dm_consume_rate_limit: {
         Args: { p_max?: number; p_sender_id: string; p_window_seconds?: number }

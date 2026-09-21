@@ -12,11 +12,14 @@ import type { ExecuteAgentAction, ProposalContext } from "@/features/ai-team/act
 import { agentReplySchema, type AgentAction } from "@/lib/ai/agent-actions";
 import styles from "@/features/ai-team/AgentConversation.module.css";
 import type { Tool } from "../bookEditor.shared";
+import MemoryControls from "@/features/ai-team/memory/MemoryControls";
+import { useConversationMemory } from "@/features/ai-team/memory/useConversationMemory";
+import { restoreTranscript } from "@/features/ai-team/memory/transcript";
 import type { InlineAiAction } from "@/features/book-workspace/types";
 
 export type PendingAiRequest = { id: string; action: InlineAiAction; selectedText: string };
 export type AiAssistantPanelProps = {
-  bookId: string; bookTitle?: string; chapterId: string | null; chapterTitle?: string | null;
+  bookId: string; bookTitle?: string; editionId?: string | null; editionLabel?: string; initialTemporary?: boolean; chapterId: string | null; chapterTitle?: string | null;
   pendingRequest?: PendingAiRequest | null; onPendingRequestHandled?: () => void;
   variant?: "page" | "dock"; onClose?: () => void; activeTool?: Tool;
   getDraftText?: () => string | undefined;
@@ -24,11 +27,11 @@ export type AiAssistantPanelProps = {
 };
 type ChatMessage = {
   id: string; role: "user" | "assistant"; content: string;
-  source?: "llm" | "template"; failureReason?: "invalid_proposal" | "unavailable"; failed?: boolean; actions?: AgentAction[]; context?: ProposalContext;
+  historical?: boolean; persistence?: "saved" | "temporary" | "failed"; source?: "llm" | "template" | "history"; failureReason?: "invalid_proposal" | "unavailable"; failed?: boolean; actions?: AgentAction[]; context?: ProposalContext;
 };
 type Retry = { id: string; message: string; selectedText: string | null; chapterId: string | null };
-type Thread = { messages: ChatMessage[]; draft: string; sending: boolean; error: string | null; retry?: Retry };
-const emptyThread = (): Thread => ({ messages: [], draft: "", sending: false, error: null });
+type Thread = { lastMessageChange: number; messages: ChatMessage[]; draft: string; sending: boolean; error: string | null; retry?: Retry };
+const emptyThread = (): Thread => ({ lastMessageChange: 0, messages: [], draft: "", sending: false, error: null });
 const contextSchema = z.object({ chapterId: z.string().nullable(), chapterText: z.string().nullable() });
 const ACTION_PROMPTS: Partial<Record<InlineAiAction, string>> = {
   rewrite: "Suggest a rewrite of this passage. Keep the meaning and my voice.",
@@ -36,13 +39,16 @@ const ACTION_PROMPTS: Partial<Record<InlineAiAction, string>> = {
   expand: "Suggest an expanded version of this passage with more detail.",
 };
 
-export default function AiAssistantPanel({ bookId, bookTitle, chapterId, chapterTitle, variant = "page", onClose,
+export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, editionLabel, initialTemporary = false, chapterId, chapterTitle, variant = "page", onClose,
   activeTool = "edit", pendingRequest, onPendingRequestHandled, getDraftText, onExecuteAction,
 }: AiAssistantPanelProps) {
   const tool = conversationTool(activeTool);
   const persona = agentConversations[tool];
   const agent = getAgent(persona.agent);
-  const threadKey = `${bookId}:${tool}`;
+  const memory = useConversationMemory(bookId, editionId, tool, initialTemporary);
+  const threadKey = memory.contextKey;
+  const [memoryView, setMemoryView] = useState({ key: "", open: false });
+  const memoryOpen = memoryView.key === threadKey && memoryView.open;
   const [threads, setThreads] = useState<Record<string, Thread>>({});
   const threadsRef = useRef(threads);
   const thread = threads[threadKey] ?? emptyThread();
@@ -67,16 +73,23 @@ export default function AiAssistantPanel({ bookId, bookTitle, chapterId, chapter
     return () => { mounted.current = false; requests.forEach((controller) => controller.abort()); requests.clear(); urls.forEach(URL.revokeObjectURL); urls.clear(); };
   }, []);
 
+  useEffect(() => {
+    if (!memory.ready || memory.temporary) return;
+    // A history request may finish after a local turn; never erase that newer work.
+    updateThread(threadKey, (previous) => previous.sending || previous.lastMessageChange >= memory.loadStartedAt
+      ? previous : { ...previous, messages: restoreTranscript(memory.messages) });
+  }, [memory.ready, memory.temporary, memory.messages, memory.loadStartedAt, threadKey, updateThread]);
+
   const send = useCallback(async (message: string, selectedText: string | null = null, retryId?: string) => {
     const value = message.trim();
-    if (!value || inFlight.current.has(threadKey)) return;
+    if (!value || !memory.ready || memory.pending || inFlight.current.has(threadKey)) return;
     const selection = selectedText?.slice(0, 2000) || null;
     const controller = new AbortController();
     inFlight.current.set(threadKey, controller);
     const preceding = (threadsRef.current[threadKey]?.messages ?? []).filter((item) => item.id !== retryId && !item.failed);
     const history = buildConversationHistory(preceding.map((item) => ({ ...item, outcomes: item.actions?.map((_, index) => results[`${threadKey}:${item.id}:${index}`]?.message ?? null) })));
     const id = retryId ?? crypto.randomUUID();
-    updateThread(threadKey, (previous) => ({ ...previous, sending: true, error: null, retry: undefined,
+    updateThread(threadKey, (previous) => ({ ...previous, lastMessageChange: performance.now(), sending: true, error: null, retry: undefined,
       messages: [...previous.messages.filter((item) => item.id !== retryId), { id, role: "user", content: selection ? `${value}\n\n“${selection}”` : value }].slice(-60) as ChatMessage[],
     }));
     const timeout = setTimeout(() => controller.abort(), 65_000);
@@ -84,9 +97,11 @@ export default function AiAssistantPanel({ bookId, bookTitle, chapterId, chapter
       const draftText = chapterId ? getDraftText?.() : undefined;
       if (draftText && draftText.length > 60_000) throw new Error("This chapter is too long for a safe editing suggestion. Split it into smaller chapters first.");
       const response = await fetch(`/api/books/${bookId}/ai/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
-        body: JSON.stringify({ mode: "actions", tool, message: value, chapterId, selectedText: selection, history, ...(draftText !== undefined ? { draftText } : {}) }),
+        body: JSON.stringify({ mode: "actions", tool, message: value, chapterId, selectedText: selection, history, conversation: { ...(memory.thread ? { threadId: memory.thread.id } : {}), requestId: id, editionId, temporary: memory.temporary }, ...(draftText !== undefined ? { draftText } : {}) }),
       });
       if (!response.ok) throw new Error(response.status === 429 ? "You’ve reached the conversation limit for this minute. Wait a moment, then retry."
+        : response.status === 409 ? "This message is already being processed or this conversation changed. Reload saved history before trying again."
+        : response.status === 503 ? "Your conversation could not be saved. Your message is kept below; retry after the service recovers."
         : response.status === 401 ? "Your session has ended. Sign in again to continue."
         : response.status === 404 ? "That chapter is no longer available. Open a current chapter and try again."
         : response.status === 400 ? "That request could not be used. Try a shorter, more specific message."
@@ -95,13 +110,15 @@ export default function AiAssistantPanel({ bookId, bookTitle, chapterId, chapter
       const reply = agentReplySchema.parse({ content: json.content, actions: json.source === "llm" ? json.actions : [] });
       const context = contextSchema.parse(json.context);
       if (context.chapterId !== chapterId) throw new Error("The reply refers to a different chapter. Please ask again.");
-      updateThread(threadKey, (previous) => ({ ...previous, messages: [...previous.messages, {
-        id: crypto.randomUUID(), role: "assistant", content: reply.content,
-        source: json.source === "llm" ? "llm" : "template", failureReason: json.failureReason === "invalid_proposal" ? "invalid_proposal" : "unavailable", actions: reply.actions, context,
+      if (typeof json.threadId === "string" && json.persistence !== "temporary") memory.rememberReply(json.threadId, value);
+      updateThread(threadKey, (previous) => ({ ...previous, lastMessageChange: performance.now(), messages: [...previous.messages, {
+        id: typeof json.id === "string" ? json.id : crypto.randomUUID(), role: "assistant", content: reply.content,
+        persistence: json.persistence === "saved" || json.persistence === "temporary" ? json.persistence : "failed",
+        historical: json.source === "history", source: json.source === "history" ? "history" : json.source === "llm" ? "llm" : "template", failureReason: json.failureReason === "invalid_proposal" ? "invalid_proposal" : "unavailable", actions: reply.actions, context,
       }] }));
     } catch (error) {
       if (!mounted.current) return;
-      updateThread(threadKey, (previous) => ({ ...previous,
+      updateThread(threadKey, (previous) => ({ ...previous, lastMessageChange: performance.now(),
         messages: previous.messages.map((item) => item.id === id ? { ...item, failed: true } : item),
         error: error instanceof Error && error.name !== "AbortError" ? error.message : "The reply took too long. Your message is ready to retry.",
         retry: { id, message: value, selectedText: selection, chapterId },
@@ -111,17 +128,17 @@ export default function AiAssistantPanel({ bookId, bookTitle, chapterId, chapter
       inFlight.current.delete(threadKey);
       updateThread(threadKey, (previous) => ({ ...previous, sending: false }));
     }
-  }, [bookId, chapterId, tool, threadKey, getDraftText, updateThread, results]);
+  }, [bookId, editionId, chapterId, tool, threadKey, getDraftText, updateThread, results, memory]);
 
   const handledRequest = useRef<string | null>(null);
   useEffect(() => {
-    if (!pendingRequest || handledRequest.current === pendingRequest.id || inFlight.current.has(threadKey)) return;
+    if (!memory.ready || memory.pending || !pendingRequest || handledRequest.current === pendingRequest.id || inFlight.current.has(threadKey)) return;
     const prompt = ACTION_PROMPTS[pendingRequest.action];
     if (!prompt) return;
     handledRequest.current = pendingRequest.id;
     void send(prompt, pendingRequest.selectedText);
     onPendingRequestHandled?.();
-  }, [pendingRequest, threadKey, thread.sending, send, onPendingRequestHandled]);
+  }, [pendingRequest, threadKey, thread.sending, send, onPendingRequestHandled, memory.ready, memory.pending]);
   useEffect(() => {
     const transcript = transcriptRef.current;
     if (transcript) transcript.scrollTop = transcript.scrollHeight;
@@ -165,7 +182,7 @@ export default function AiAssistantPanel({ bookId, bookTitle, chapterId, chapter
     } finally { clearTimeout(deadline); inFlight.current.delete(requestKey); busyActions.current.delete(id); }
   };
   const submit = () => {
-    if (!thread.draft.trim() || inFlight.current.has(threadKey)) return;
+    if (!thread.draft.trim() || !memory.ready || memory.pending || inFlight.current.has(threadKey)) return;
     const value = thread.draft;
     updateThread(threadKey, (previous) => ({ ...previous, draft: "" }));
     void send(value);
@@ -176,9 +193,10 @@ export default function AiAssistantPanel({ bookId, bookTitle, chapterId, chapter
       <div className={styles.identity}><h2>{agent.name}</h2><p>{persona.role}</p></div>
       {onClose && <button type="button" className={styles.close} onClick={onClose} aria-label="Close AI assistant"><X size={17} aria-hidden /></button>}
     </header>
-    <div className={styles.context}>{bookTitle && <span><strong>Book</strong> {bookTitle}</span>}<span><strong>{chapterId ? "Chapter" : "Scope"}</strong> {chapterTitle || (chapterId ? "Current chapter" : "Whole book")}</span></div>
-    <div ref={transcriptRef} role="log" aria-label={`Conversation with ${agent.name}`} aria-live="polite" className={styles.transcript}>
-      {thread.messages.length === 0 && <div className={styles.welcome}>
+    <div className={styles.context}>{bookTitle && <span><strong>Book</strong> {bookTitle}</span>}{editionLabel && <span><strong>Edition</strong> {editionLabel}</span>}<span><strong>{chapterId ? "Chapter" : "Scope"}</strong> {chapterTitle || (chapterId ? "Current chapter" : "Whole book")}</span></div>
+    <MemoryControls key={threadKey} memory={memory} hasEdition={Boolean(editionId)} editionLabel={editionLabel} busy={thread.sending} transcript={thread.messages} onViewChange={(open) => setMemoryView({ key: threadKey, open })} />
+    <div hidden={memoryOpen} ref={transcriptRef} role="log" aria-label={`Conversation with ${agent.name}`} aria-live="polite" className={styles.transcript}>
+      {memory.ready && thread.messages.length === 0 && <div className={styles.welcome}>
         <div className={styles.portrait}><AgentAvatar agent={persona.agent} portrait /></div>
         <h3>Let’s work on it.</h3><p>{persona.greeting}</p>
         <div className={styles.prompts}>{persona.prompts.map((prompt) => <button type="button" key={prompt} onClick={() => {
@@ -188,7 +206,10 @@ export default function AiAssistantPanel({ bookId, bookTitle, chapterId, chapter
       {thread.messages.map((message) => <div key={message.id} className={styles.turn} data-role={message.role}>
         {message.role === "assistant" && <div className={styles.byline}><AgentAvatar agent={persona.agent} size={26} /><span>{agent.name}</span></div>}
         <div className={styles.message}>{message.content}</div>
-        {message.failed && <p className={styles.meta}>Not sent. You can retry below.</p>}
+        {message.failed && <p className={styles.meta}>Delivery unconfirmed. Reload saved history or retry this message.</p>}
+        {message.historical && message.role === "assistant" && <p className={styles.meta}>Saved conversation · ask for a fresh suggestion before applying changes.</p>}
+        {message.persistence === "saved" && <p className={styles.meta}>Conversation saved</p>}
+        {message.persistence === "failed" && <p className={styles.error} role="alert">This reply could not be saved. Copy any text you need before leaving.</p>}
         {message.source === "template" && <p className={styles.meta}>{message.failureReason === "invalid_proposal" ? "This suggestion failed validation. No changes were applied." : "The AI service is unavailable. This is general guidance, without changes to apply."}</p>}
         {message.context && message.actions?.map((action, index) => {
           const id = `${threadKey}:${message.id}:${index}`;
@@ -197,7 +218,7 @@ export default function AiAssistantPanel({ bookId, bookTitle, chapterId, chapter
       </div>)}
       {thread.sending && <div className={styles.thinking}><AgentAvatar agent={persona.agent} size={28} /><span>{agent.name} is working on it<span aria-hidden>…</span></span></div>}
     </div>
-    <div className={styles.composer}>
+    <div hidden={memoryOpen} className={styles.composer}>
       {thread.error && <div className={styles.error} role="alert"><p>{thread.error}</p>{thread.retry && thread.retry.chapterId === chapterId && <button type="button" disabled={thread.sending} onClick={() => {
         const retry = thread.retry!; void send(retry.message, retry.selectedText, retry.id);
       }}>Retry message</button>}</div>}
@@ -205,7 +226,7 @@ export default function AiAssistantPanel({ bookId, bookTitle, chapterId, chapter
       <textarea id={inputId} ref={inputRef} value={thread.draft} onChange={(event) => updateThread(threadKey, (previous) => ({ ...previous, draft: event.target.value }))}
         onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing && (event.metaKey || event.ctrlKey)) { event.preventDefault(); submit(); } }}
         placeholder={`Tell ${agent.name} what you’d like to change…`} maxLength={2000} rows={3} />
-      <div className={styles.composerActions}><span><CornerDownLeft size={12} aria-hidden /> Ctrl / ⌘ + Enter</span><button type="button" onClick={submit} disabled={thread.sending || !thread.draft.trim()} aria-label={`Send message to ${agent.name}`}><Send size={15} aria-hidden />Send</button></div>
+      <div className={styles.composerActions}><span><CornerDownLeft size={12} aria-hidden /> Ctrl / ⌘ + Enter</span><button type="button" onClick={submit} disabled={thread.sending || !memory.ready || memory.pending || !thread.draft.trim()} aria-label={`Send message to ${agent.name}`}><Send size={15} aria-hidden />Send</button></div>
       <p className={styles.disclosure}>AI suggestions can be wrong. Review each proposed change.</p>
     </div>
   </div>;

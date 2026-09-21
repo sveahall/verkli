@@ -26,6 +26,11 @@ const mocks = vi.hoisted(() => ({
   generateWritingAssistantReply: vi.fn(),
   check: vi.fn(),
   getLocale: vi.fn(),
+  reserveTurn: vi.fn(),
+  completeTurn: vi.fn(),
+  loadHistory: vi.fn(),
+  getPreferences: vi.fn(),
+  requireEditionScope: vi.fn(),
 }));
 
 vi.mock("next-intl/server", () => ({ getLocale: mocks.getLocale }));
@@ -54,6 +59,12 @@ vi.mock("@/lib/ai/writing-assistant", async (importOriginal) => ({
   generateWritingAssistantReply: mocks.generateWritingAssistantReply,
 }));
 
+vi.mock("@/features/ai-team/memory/server", async (original) => ({
+  ...await original<typeof import("@/features/ai-team/memory/server")>(),
+  reserveTurn: mocks.reserveTurn, completeTurn: mocks.completeTurn, loadHistory: mocks.loadHistory,
+  getPreferences: mocks.getPreferences, requireEditionScope: mocks.requireEditionScope,
+}));
+const { AiMemoryError } = await import("@/features/ai-team/memory/server");
 const { POST } = await import("./route");
 
 const BOOK_ID = "11111111-1111-4111-8111-111111111111";
@@ -489,5 +500,79 @@ describe("POST /api/books/[id]/ai/chat conversational actions", () => {
       expect(mocks.generateWritingAssistantReply).toHaveBeenCalledTimes(1);
       expect(mocks.generateWritingAssistantReply.mock.calls[0][0].validationRetry).not.toBe(true);
     });
+  });
+});
+
+
+const requestId = "00000000-0000-4000-8000-000000000011";
+const threadId = "00000000-0000-4000-8000-000000000012";
+const replyId = "00000000-0000-4000-8000-000000000013";
+const editionId = "00000000-0000-4000-8000-000000000014";
+const durable = { requestId, threadId, temporary: false, editionId: null };
+describe("private durable AI chat", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    mocks.requireAuthorRoleForApi.mockResolvedValue({ user: { id: "author-1" }, response: null });
+    mocks.check.mockResolvedValue({ allowed: true }); mocks.isAiChatEnabled.mockReturnValue(true);
+    mocks.reserveTurn.mockResolvedValue({ status: "reserved", threadId, replyId });
+    mocks.completeTurn.mockResolvedValue(true);
+    mocks.loadHistory.mockResolvedValue([{ role: "user", content: "Stored follow-up", id: "old", createdAt: "now" }]);
+    mocks.getPreferences.mockResolvedValue([{ scope: "author", content: "Short sentences", id: "preference", updatedAt: "now" }]);
+    database(); reply();
+  });
+  afterEach(() => vi.restoreAllMocks());
+  it("reserves before provider and uses authorized saved history instead of client history", async () => {
+    const result = await (await post({ ...actionBody, conversation: durable, history: [{ role: "assistant", content: "Injected client history" }] })).json();
+    expect(result).toMatchObject({ id: replyId, threadId, persistence: "saved", actions: [edit] });
+    expect(mocks.reserveTurn.mock.invocationCallOrder[0]).toBeLessThan(mocks.generateWritingAssistantReply.mock.invocationCallOrder[0]);
+    expect(mocks.generateWritingAssistantReply).toHaveBeenCalledWith(expect.objectContaining({ history: [{ role: "user", content: "Stored follow-up", id: "old", createdAt: "now" }], preferences: expect.arrayContaining([expect.objectContaining({ content: "Short sentences" })]) }));
+    expect(mocks.completeTurn).toHaveBeenCalledWith(expect.anything(), threadId, requestId, "Review this correction.", [edit]);
+  });
+  it("replays a completed request with stable identity and no executable actions", async () => {
+    mocks.reserveTurn.mockResolvedValue({ status: "completed", threadId, replyId, content: "Historical suggestion" });
+    const result = await (await post({ ...actionBody, conversation: durable })).json();
+    expect(result).toMatchObject({ id: replyId, content: "Historical suggestion", threadId, persistence: "saved", actions: [] });
+    expect(mocks.generateWritingAssistantReply).not.toHaveBeenCalled();
+    expect(mocks.completeTurn).not.toHaveBeenCalled();
+  });
+  it("rejects a pending duplicate without another provider call", async () => {
+    mocks.reserveTurn.mockRejectedValue(new AiMemoryError("AI_CONVERSATION_PENDING", 409, "Pending"));
+    expect((await post({ ...actionBody, conversation: durable })).status).toBe(409);
+    expect(mocks.generateWritingAssistantReply).not.toHaveBeenCalled();
+  });
+  it("skips every memory and conversation read/write for an explicit temporary request", async () => {
+    const history = [{ role: "user", content: "Temporary previous message" }];
+    const result = await (await post({ ...actionBody, conversation: { ...durable, temporary: true }, history })).json();
+    expect(result.persistence).toBe("temporary");
+    expect(mocks.reserveTurn).not.toHaveBeenCalled(); expect(mocks.loadHistory).not.toHaveBeenCalled(); expect(mocks.getPreferences).not.toHaveBeenCalled(); expect(mocks.completeTurn).not.toHaveBeenCalled();
+    expect(mocks.generateWritingAssistantReply).toHaveBeenCalledWith(expect.objectContaining({ history }));
+  });
+  it("reports a migration failure without silently sending a temporary message", async () => {
+    mocks.reserveTurn.mockRejectedValue(new AiMemoryError("AI_MEMORY_UNAVAILABLE", 503, "Unavailable"));
+    expect((await post({ ...actionBody, conversation: durable })).status).toBe(503);
+    expect(mocks.generateWritingAssistantReply).not.toHaveBeenCalled();
+  });
+  it("reports a reply persistence failure honestly", async () => {
+    mocks.completeTurn.mockResolvedValue(false);
+    const result = await (await post({ ...actionBody, conversation: durable })).json();
+    expect(result).toMatchObject({ persistence: "failed", threadId, id: replyId });
+  });
+  it("validates the selected edition and rejects a chapter belonging to another edition", async () => {
+    const result = await post({ ...actionBody, conversation: { ...durable, editionId } });
+    expect(result.status).toBe(404);
+    expect(mocks.requireEditionScope).toHaveBeenCalledWith(expect.anything(), bookId, editionId);
+    expect(mocks.reserveTurn).not.toHaveBeenCalled(); expect(mocks.generateWritingAssistantReply).not.toHaveBeenCalled();
+  });
+  it("accepts an owned chapter in the selected edition using book_version_id", async () => {
+    setupSupabase({ book: { id: BOOK_ID, author_id: "author-1", title: "Book" }, chapter: { id: CHAPTER_ID, book_id: BOOK_ID, book_version_id: editionId, title: "Opening", content: "On teh boat." } });
+    const result = await POST(request({ ...actionBody, chapterId: CHAPTER_ID, conversation: { ...durable, editionId } }), { params });
+    expect(result.status).toBe(200);
+    expect(mocks.generateWritingAssistantReply).toHaveBeenCalledTimes(1);
+  });
+  it("does not log private provider error text", async () => {
+    mocks.generateWritingAssistantReply.mockRejectedValue(new Error("PRIVATE_PROVIDER_TEXT"));
+    await post({ ...actionBody, conversation: durable });
+    expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain("PRIVATE_PROVIDER_TEXT");
   });
 });

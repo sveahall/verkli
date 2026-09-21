@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { conversationInputSchema, type Memory } from "@/features/ai-team/memory/contracts";
+import { completeTurn, getPreferences, loadHistory, memoryErrorResponse, requireEditionScope, reserveTurn, type Reservation } from "@/features/ai-team/memory/server";
 import { z } from "zod";
 import { getLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
@@ -6,7 +8,7 @@ import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { isAiChatEnabled, isAudiobookEnabled, isMarketingEnabled, isTranslationsEnabled } from "@/lib/flags";
 import { contentToPlainText } from "@/lib/tiptap-content";
-import { assistantToolSchema, extractAgentChapterText, parseAgentReply } from "@/lib/ai/agent-actions";
+import { assistantToolSchema, extractAgentChapterText, parseAgentReply, type AgentAction } from "@/lib/ai/agent-actions";
 import {
   generateWritingAssistantReply,
   WritingAssistantError,
@@ -41,6 +43,7 @@ const bodySchema = z.object({
     content: z.string().trim().min(1).max(4000),
   })).max(12).optional(),
   draftText: z.string().max(60000).optional(),
+  conversation: conversationInputSchema.optional(),
 }).refine((body) => body.draftText === undefined || Boolean(body.chapterId), {
   message: "A chapterId is required for draftText.", path: ["chapterId"],
 });
@@ -90,7 +93,7 @@ export async function POST(
     console.warn("[ai.chat] invalid request body", { bookId, fields: parsedBody.error.issues.map((issue) => issue.path.join(".")) });
     return apiError(E_INVALID_REQUEST_BODY, 400);
   }
-  const { message, chapterId, selectedText, mode, tool, history, draftText } = parsedBody.data;
+  const { message, chapterId, selectedText, mode, tool, history, draftText, conversation } = parsedBody.data;
   const actionMode = mode === "actions";
 
   // Verify the book exists AND the caller owns it (RLS normally enforces this,
@@ -101,16 +104,21 @@ export async function POST(
     // `author_id`, not `user_id` — books has no such column, so this select
     // errored and every request answered BOOK_NOT_FOUND. The route had never
     // worked for anyone; an E2E account signing in as an author found it.
-    .select("id, author_id, title")
+    .select("id, author_id, title, deleted_at")
     .eq("id", bookId)
     .maybeSingle();
 
-  if (bookError || !book) {
-    console.warn("[ai.chat] book unavailable", { bookId, reason: bookError?.message ?? "not found" });
+  if (bookError || !book || book.deleted_at) {
+    console.warn("[ai.chat] book unavailable", { bookId, reason: bookError?.code ?? "not found" });
     return apiError(E_BOOK_NOT_FOUND, 404);
   }
   if (book.author_id !== user.id) {
     return apiError(E_FORBIDDEN, 403);
+  }
+
+  if (conversation) {
+    try { await requireEditionScope(supabase, bookId, conversation.editionId ?? null); }
+    catch (error) { return memoryErrorResponse(error); }
   }
 
   const bookTitle =
@@ -130,7 +138,7 @@ export async function POST(
   if (chapterId) {
     const { data: chapter, error: chapterError } = await supabase
       .from("chapters")
-      .select("id, book_id, title, content")
+      .select("id, book_id, book_version_id, title, content")
       .eq("id", chapterId)
       // Scoped to the book in the URL, which was already checked for ownership.
       // Without this, a chapterId from someone else's book could be pulled into
@@ -142,12 +150,16 @@ export async function POST(
       console.warn("[ai.chat] chapter context unavailable", {
         bookId,
         chapterId,
-        reason: chapterError?.message ?? "not found for this book",
+        reason: chapterError?.code ?? "not found for this book",
       });
-      if (actionMode) {
+      if (actionMode || conversation) {
         return apiError(E_INVALID_CHAPTER_ID, 404, { detail: "The chapter is not available in this book. Reopen the chapter before asking for changes." });
       }
     } else {
+      if (conversation && (chapter.book_version_id ?? null) !== (conversation.editionId ?? null)) {
+        console.warn("[ai memory] chapter edition mismatch", { bookId, chapterId });
+        return apiError(E_INVALID_CHAPTER_ID, 404, { detail: "The chapter does not belong to the selected edition. Reopen the chapter before sending your message." });
+      }
       resolvedChapterId = chapter.id;
       const title = (chapter as { title?: unknown }).title;
       chapterTitle = typeof title === "string" && title.trim() ? title : null;
@@ -168,6 +180,29 @@ export async function POST(
     audiobookEnabled: isAudiobookEnabled(),
     translationsEnabled: isTranslationsEnabled(),
   };
+  let reservation: Reservation | undefined;
+  let savedHistory = history;
+  let preferences: Memory[] | undefined;
+  if (conversation && !conversation.temporary) {
+    try {
+      reservation = await reserveTurn(supabase, { bookId, editionId: conversation.editionId ?? null, tool, threadId: conversation.threadId, requestId: conversation.requestId, message });
+      if (reservation.status === "completed") {
+        return NextResponse.json({ id: reservation.replyId, role: "assistant", content: reservation.content, actions: [], context, bookId, chapterId: chapterId ?? null, source: "history", provider: null, threadId: reservation.threadId, persistence: "saved" });
+      }
+      savedHistory = await loadHistory(supabase, user.id, reservation.threadId);
+      preferences = await getPreferences(supabase, user.id, bookId, conversation.editionId ?? null);
+    } catch (error) { return memoryErrorResponse(error); }
+  }
+  async function respond(payload: Record<string, unknown> & { content: string; actions?: AgentAction[] }) {
+    if (!conversation) return NextResponse.json({ ...payload, id: crypto.randomUUID() });
+    if (conversation.temporary) return NextResponse.json({ ...payload, id: crypto.randomUUID(), persistence: "temporary" });
+    let saved = false;
+    if (reservation) {
+      try { saved = await completeTurn(supabase, reservation.threadId, conversation.requestId, payload.content, payload.actions ?? []); }
+      catch { console.warn("[ai memory] reply persistence failed", { code: "unexpected" }); }
+    }
+    return NextResponse.json({ ...payload, id: reservation?.replyId ?? crypto.randomUUID(), threadId: reservation?.threadId, persistence: saved ? "saved" : "failed" });
+  }
   let fallbackMessage = "The AI conversation is unavailable right now. No changes have been made. You can continue using the workspace tools or try again later.";
   let failureReason: "invalid_proposal" | "unavailable" = "unavailable";
 
@@ -185,7 +220,8 @@ export async function POST(
         mode,
         ...(actionMode ? { replyLanguage: (await getLocale()) === "sv" ? "sv" : "en" } : {}),
         tool,
-        history,
+        history: savedHistory,
+        preferences,
         marketingEnabled: actionContext.marketingEnabled,
         audiobookEnabled: actionContext.audiobookEnabled,
         translationsEnabled: actionContext.translationsEnabled,
@@ -210,8 +246,7 @@ export async function POST(
             throw new WritingAssistantError("Assistant returned an invalid action proposal", "PROVIDER_FAILED");
           }
         }
-        return NextResponse.json({
-          id: crypto.randomUUID(),
+        return respond({
           role: "assistant",
           content: proposal?.content ?? llm.content,
           ...(actionMode ? { actions: proposal?.actions ?? [], context } : {}),
@@ -229,7 +264,6 @@ export async function POST(
         bookId,
         userId: user.id,
         code,
-        message: err instanceof Error ? err.message : String(err),
       });
       // fall through to templates
     }
@@ -237,8 +271,7 @@ export async function POST(
 
   const response = actionMode ? fallbackMessage : `${fallbackMessage}\n\n${buildTemplateReply(message, selectedText)}`;
 
-  return NextResponse.json({
-    id: crypto.randomUUID(),
+  return respond({
     role: "assistant",
     content: response,
     ...(actionMode ? { actions: [], context, provider: null, failureReason } : {}),

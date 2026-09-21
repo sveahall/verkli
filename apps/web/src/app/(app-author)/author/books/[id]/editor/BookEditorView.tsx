@@ -560,6 +560,9 @@ export default function BookEditorView({
         onAsideClose={() => setAssistantOpen(false)}
         aside={
           <AiAssistantDock
+            key={`${book.id}:${activeVersion?.id ?? "book"}`}
+            editionId={activeVersion?.id ?? null}
+            editionLabel={activeLanguage}
             bookTitle={bookTitle}
             bookId={book.id}
             chapterId={selectedChapterId}
