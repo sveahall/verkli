@@ -44,6 +44,17 @@ vi.mock("@/lib/billing/server", () => ({
   requireProBillingForApi: vi.fn(),
 }));
 
+// The route now reserves daily video budget before calling the provider; the
+// helper has its own unit tests and must not reach Redis from here.
+vi.mock("@/lib/marketing/video-budget", () => ({
+  reserveVideoBudget: vi.fn(async () => ({
+    ok: true as const,
+    reservation: { jobId: "test-job", units: 1 },
+  })),
+  refundVideoBudget: vi.fn(async () => {}),
+}));
+
+
 const { requireAuthorAndMarketingEnabled } = await import("@/lib/auth/require-author-marketing");
 const { requireProBillingForApi } = await import("@/lib/billing/server");
 const { uploadTrailerAndGetPublicUrl } = await import("@/lib/marketing/trailer-storage");
@@ -239,6 +250,34 @@ describe("POST /api/marketing/video/generate", () => {
         includeAudio: true,
       })
     );
+  });
+
+  it("forwards the normalized url, not the raw string the caller sent", async () => {
+    gateAuthor("author-1");
+    mockSupabase({ owned: true });
+    mockGenerateImageToVideo.mockResolvedValue({
+      requestId: "req-ssrf",
+      videoUrl: "https://cdn.example.com/video.mp4",
+    });
+    vi.mocked(uploadTrailerAndGetPublicUrl).mockResolvedValue({
+      publicUrl: PUBLIC_TRAILER_URL,
+    });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+      headers: { get: () => "video/mp4" },
+    }) as unknown as typeof fetch;
+
+    const confusable = "https://cdn.example.com\\@evil.tld/cover.jpg";
+    await POST(
+      makeRequest({ bookId: VALID_BOOK_ID, prompt: "a trailer", imageUrl: confusable })
+    );
+
+    expect(mockGenerateImageToVideo).toHaveBeenCalledTimes(1);
+    const forwarded = mockGenerateImageToVideo.mock.calls[0][0] as { imageUrl: string };
+    expect(forwarded.imageUrl).not.toBe(confusable);
+    expect(forwarded.imageUrl).not.toContain("\\");
+    expect(new URL(forwarded.imageUrl).hostname).toBe("cdn.example.com");
   });
 
   it("forwards audio=false to Higgsfield", async () => {

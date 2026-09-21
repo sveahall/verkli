@@ -52,6 +52,7 @@ describe("every credential the code reads is classified", () => {
   /** Read by the code but deliberately not pushed, with the reason. */
   const NOT_PUSHED: Record<string, string> = {
     ELEVENLABS_API_TIMEOUT_MS: "tuning knob with a code default",
+    OPENAI_MODEL: "tuning knob with a code default",
     STRIPE_CONNECT_DEFAULT_COUNTRY: "Stripe Connect is cut from September (plan §3)",
     STRIPE_CUSTOMER_PORTAL_RETURN_BASE: "superseded by STRIPE_CUSTOMER_PORTAL_RETURN_URL",
     SUPABASE_JWT_SECRET: "not read by the deployed app",
@@ -182,6 +183,7 @@ describe("verifyLaunchConfig", () => {
       NEXT_PUBLIC_TRANSLATIONS_ENABLED: "true",
       NEXT_PUBLIC_DISCOVERY_ENABLED: "true",
       NEXT_PUBLIC_AI_CHAT_ENABLED: "true",
+      AI_CRITIC_ENABLED: "true",
       NEXT_PUBLIC_SITE_URL: "https://verkli.com",
       NEXT_PUBLIC_SUPABASE_URL: "https://p.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",

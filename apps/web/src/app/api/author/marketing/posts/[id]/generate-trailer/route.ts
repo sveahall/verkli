@@ -6,6 +6,7 @@ import { requireProBillingForApi } from "@/lib/billing/server";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { generateTrailerPrompt } from "@/lib/ai/trailer-generation";
 import { generateImageToVideo } from "@/lib/higgsfield";
+import { reserveVideoBudget, refundVideoBudget } from "@/lib/marketing/video-budget";
 import { uploadTrailerAndGetPublicUrl } from "@/lib/marketing/trailer-storage";
 import { validateProviderImageUrl } from "@/lib/security/url-allowlist";
 import {
@@ -199,6 +200,11 @@ export async function POST(
   const sceneText = scenes.map((s) => s.visual_prompt).join(" — ");
   const prompt = sceneText.slice(0, 1900);
 
+  // The scenes concatenate into a single Higgsfield call, so this costs one
+  // unit regardless of scene count. Refunded below if it produces nothing.
+  const budget = await reserveVideoBudget({ userId: gate.user.id, units: 1 });
+  if (!budget.ok) return budget.response;
+
   const { data: assetInsert, error: insertErr } = await supabase
     .from("media_assets")
     .insert({
@@ -288,6 +294,7 @@ export async function POST(
       },
     });
   } catch (err) {
+    await refundVideoBudget(budget.reservation);
     const message = err instanceof Error ? err.message : "trailer generation failed";
     console.error("[trailer post] generation:", message);
 

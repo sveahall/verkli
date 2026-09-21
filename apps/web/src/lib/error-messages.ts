@@ -42,6 +42,10 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Audiobook narration is not configured on this deployment yet. Nothing was charged — contact support and we'll turn it on.",
   AUDIOBOOK_TOO_LONG:
     "This book is longer than audiobook narration currently supports. Nothing was charged. Split it into shorter volumes, or contact us about longer books.",
+  AI_BUDGET_EXCEEDED:
+    "You've reached today's video generation limit. Nothing was charged — try again tomorrow.",
+  AI_JOB_TOO_LARGE:
+    "This request is larger than a single video generation allows. Nothing was charged — try fewer scenes.",
   AUDIOBOOK_QUOTA_EXHAUSTED:
     "Narration capacity for this month is used up. Nothing was charged — we're topping it up, try again shortly.",
   AUDIOBOOK_QUOTA_UNKNOWN:

@@ -93,6 +93,10 @@ const COPY_FROM_LOCAL = [
   // NIM powers the writing-assistant fallback. Cover generation moved to
   // fal.ai after NVIDIA's image endpoints stopped answering for this account.
   "NVIDIA_NIM_API_KEY",
+  // Second opinion in the editorial and marketing critic pass
+  // (AI_CRITIC_ENABLED). Absent, both features degrade to single-model rather
+  // than failing, so this is optional-but-pushed like the other provider keys.
+  "OPENAI_API_KEY",
   "FAL_KEY",
   "HF_CREDENTIALS",
   "PRICE_PLUS",
