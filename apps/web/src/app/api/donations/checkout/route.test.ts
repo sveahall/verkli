@@ -194,10 +194,38 @@ describe("POST /api/donations/checkout", () => {
         currency: "USD",
         userId: "user-1",
         donationId: "donation-1",
-        creditsDelta: 100,
+        // Server-owned: the caller asked for 100 and gets 0. A donation's
+        // amount is the donor's to choose; its credit payout is not.
+        creditsDelta: 0,
         customerEmail: "donor@example.com",
       }),
     );
+  });
+
+  it("ignores a credit payout named by the caller", async () => {
+    mockAuthedUser();
+    mockAdminClient();
+    mocks.createDonationCheckoutSession.mockResolvedValue({
+      id: "cs_test_789",
+      url: "https://checkout.stripe.com/cs_test_789",
+    });
+
+    await POST(makeRequest({ amountMinor: 100, creditsDelta: 99_000_000 }));
+
+    expect(mocks.createDonationCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({ creditsDelta: 0 }),
+    );
+  });
+
+  it("rejects a currency it cannot charge instead of coercing it", async () => {
+    // Coercing an unknown code to SEK turns an intended 50 GBP into 5000 SEK.
+    mockAuthedUser();
+    mockAdminClient();
+
+    const res = await POST(makeRequest({ amountMinor: 5000, currency: "GBP" }));
+
+    expect(res.status).toBe(400);
+    expect(mocks.createDonationCheckoutSession).not.toHaveBeenCalled();
   });
 
   it("defaults currency to SEK when not provided", async () => {
