@@ -27,7 +27,7 @@
 .page header > span { color: var(--muted-foreground); font-size: 11px; }
 .translated { background: color-mix(in srgb, var(--accent) 18%, var(--card)); }
 .translated header h3 { color: var(--accent-foreground); }
-.manuscript { height: 300px; padding: 22px 26px 28px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.manuscript { height: 300px; padding: 22px 26px 28px; overflow-y: auto; scrollbar-width: thin; }
 .manuscript > p { font-family: Georgia, serif; font-size: 18px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
 .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; min-height: 100%; padding: 14px 8px; }
 .empty > svg { color: var(--accent-foreground); stroke-width: 1.3; }

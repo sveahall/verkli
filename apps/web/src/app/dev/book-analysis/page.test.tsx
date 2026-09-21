@@ -1,4 +1,3 @@
-import React from "react";
 import { afterEach, expect, it, vi } from "vitest";
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NOT_FOUND"); } }));
 vi.mock("./BookAnalysisPreview", () => ({ default: () => <div>Prepared demo</div> }));

@@ -36,7 +36,7 @@
 .chapterActions span { color:var(--muted-foreground); }
 .chapterActions button,.selectionActions button { min-height:44px; color:var(--accent-foreground); }
 .selectionActions { justify-content:flex-start; gap:20px; border-top:1px solid var(--border); }
-.chapterList { max-height:280px; overflow-y:auto; overscroll-behavior:contain; border-bottom:1px solid var(--border); }
+.chapterList { max-height:280px; overflow-y:auto; border-bottom:1px solid var(--border); }
 .chapterRow { display:flex; align-items:center; gap:12px; min-height:52px; padding:10px 2px; border-top:1px solid var(--border); font-size:13px; cursor:pointer; }
 .chapterRow span:last-child { overflow-wrap:anywhere; }
 .chapterRow input { width:16px; height:16px; flex-shrink:0; accent-color:var(--accent-foreground); }
