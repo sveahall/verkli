@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthorAndMarketingEnabled } from "@/lib/auth/require-author-marketing";
+import { requireProBillingForApi } from "@/lib/billing/server";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { assertBookOwned } from "@/lib/marketing/assert-book-owner";
 import { videoGenerateBodySchema } from "@/lib/marketing/schemas";
 import { evaluateDemoGuard } from "@/lib/demo-guard";
@@ -12,12 +14,17 @@ import {
   apiError,
   E_DATABASE_ERROR,
   E_INVALID_JSON,
+  E_RATE_LIMIT_EXCEEDED,
   E_TEXT_TO_VIDEO_FAILED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
+
+// Higgsfield bills per generation and each call runs up to 180s. One a minute
+// matches books/[id]/trailer/build, the other route that renders video.
+const videoLimiter = createPerUserRateLimiter({ name: "marketing-video-generate", maxPerMinute: 1 });
 const TRAILER_DOWNLOAD_TIMEOUT_MS = 20_000;
 
 /** Estimated cost per 5s Higgsfield trailer (USD). */
@@ -43,6 +50,16 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
 export async function POST(request: Request) {
   const gate = await requireAuthorAndMarketingEnabled();
   if (gate.response) return gate.response;
+
+  const rl = await videoLimiter.check(gate.user.id);
+  if (!rl.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429, {
+      retryAfterSeconds: rl.retryAfterSeconds,
+    });
+  }
+
+  const proGate = await requireProBillingForApi(gate.user.id);
+  if (!proGate.ok) return proGate.response;
 
   let body: unknown;
   try {
