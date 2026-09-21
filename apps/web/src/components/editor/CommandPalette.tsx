@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { Dialog } from "@/components/ui/dialog";
 
 export type CommandPaletteItem = {
   id: string;
@@ -113,50 +114,60 @@ function PaletteDialog({
   }, [filteredItems]);
 
   useEffect(() => {
-    window.setTimeout(() => inputRef.current?.focus(), 50);
+    const opener = document.activeElement;
+    return () => {
+      if (opener instanceof HTMLElement && opener.isConnected) {
+        opener.focus({ preventScroll: true });
+      }
+    };
   }, []);
 
   useEffect(() => {
     filteredItems[selected]?.onHighlight?.();
   }, [filteredItems, selected]);
 
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (loading) return;
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        setSelected((current) => Math.min(current + 1, filteredItems.length - 1));
-        return;
-      }
-      if (event.key === "ArrowUp") {
-        event.preventDefault();
-        setSelected((current) => Math.max(current - 1, 0));
-        return;
-      }
-      if (event.key === "Enter") {
-        event.preventDefault();
-        filteredItems[selected]?.onSelect();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [filteredItems, loading, onClose, selected]);
+  const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (loading) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSelected((current) => Math.min(current + 1, filteredItems.length - 1));
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSelected((current) => Math.max(current - 1, 0));
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      filteredItems[selected]?.onSelect();
+    }
+  };
+
+  const handleDialogKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab") return;
+    const controls = event.currentTarget.querySelectorAll<HTMLInputElement | HTMLButtonElement>("input, button");
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && event.target === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && event.target === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  };
 
   let runningIndex = -1;
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/40 px-4 pt-[10vh] backdrop-blur-sm"
-      onClick={onClose}
+    <Dialog
+      open
+      onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}
+      aria-label={title}
+      className="top-[10dvh] bottom-auto m-0 mx-auto w-[calc(100%-2rem)] max-w-2xl overflow-hidden"
     >
-      <div
-        className="w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl dark:border-border dark:bg-card"
-        onClick={(event) => event.stopPropagation()}
-      >
+      <div className="w-full" onKeyDown={handleDialogKeyDown}>
         <div className="border-b border-border px-4 py-3 dark:border-border">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground dark:text-muted-foreground">
             {title}
@@ -164,7 +175,9 @@ function PaletteDialog({
           <input
             ref={inputRef}
             type="text"
+            aria-label={placeholder}
             value={query}
+            onKeyDown={handleSearchKeyDown}
             onChange={(event) => {
               setQuery(event.target.value);
               setSelected(0);
@@ -211,7 +224,11 @@ function PaletteDialog({
                           item.onHighlight?.();
                           setSelected(itemIndex);
                         }}
-                        onClick={() => item.onSelect()}
+                        onClick={() => {
+                          // A command may replace this button with the book picker.
+                          inputRef.current?.focus();
+                          item.onSelect();
+                        }}
                         className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition ${
                           isSelected
                             ? "bg-muted text-foreground dark:bg-card dark:text-foreground"
@@ -241,6 +258,6 @@ function PaletteDialog({
           )}
         </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
