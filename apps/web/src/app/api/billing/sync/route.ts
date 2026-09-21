@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getConfirmedEmail } from "@/lib/auth/verified-email";
 import {
   getCheckoutSessionWithLineItems,
   getStripeCustomerSubscriptions,
@@ -184,8 +185,11 @@ export async function GET(request: Request) {
   if (!error && row?.stripe_customer_id?.trim()) {
     customerIdsToTry = [row.stripe_customer_id.trim()];
   } else {
-    // No row or no customer_id: try to find Stripe customer(s) by email (recover from Stripe).
-    const email = (user.email ?? "").trim();
+    // No row or no customer_id: try to find Stripe customer(s) by email
+    // (recover from Stripe). Confirmed address only — this reads another Stripe
+    // customer's subscription state onto this account, so the address is a key
+    // and has to be proven, not claimed.
+    const email = (getConfirmedEmail(user) ?? "").trim();
     if (email) {
       try {
         const customers = await listStripeCustomersByEmail(email);
