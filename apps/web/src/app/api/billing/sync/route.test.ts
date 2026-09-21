@@ -68,6 +68,45 @@ function makeGetReq() {
   return new Request("http://localhost/api/billing/sync");
 }
 
+describe("billing sync recovery ownership", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.createClient.mockResolvedValue({
+      auth: { getUser: async () => ({ data: { user: { id: "recovery-user", email: "shared@example.com", email_confirmed_at: "2026-09-21T00:00:00Z" } } }) },
+    });
+    mocks.createAdminClient.mockReturnValue({});
+    mocks.resolveBillingRole.mockResolvedValue("author");
+    mocks.getBillingAccountByUserIdAndRole.mockResolvedValue({ row: null, error: null });
+    mocks.listStripeCustomersByEmail.mockResolvedValue([{ id: "cus_recovered" }]);
+    mocks.resolveRolePlanFromPriceIds.mockResolvedValue({ role: "author", planKey: "pro" });
+    mocks.planToPersist.mockReturnValue("pro");
+    mocks.upsertBillingAccount.mockResolvedValue({ error: null });
+  });
+
+  it.each([{}, { user_id: "other-user" }])("does not adopt an email match without matching owner metadata: %j", async (metadata) => {
+    mocks.getStripeCustomerSubscriptions.mockResolvedValue([{ id: "sub_other", status: "active", price_ids: ["price_pro"], metadata }]);
+    const res = await GET(makeGetReq());
+    expect(await res.json()).toEqual({ ok: false, reason: "no_matching_subscription" });
+    expect(mocks.upsertBillingAccount).not.toHaveBeenCalled();
+  });
+
+  it("recovers an active subscription belonging to the authenticated user", async () => {
+    mocks.getStripeCustomerSubscriptions.mockResolvedValue([{ id: "sub_owned", status: "active", price_ids: ["price_pro"], metadata: { user_id: "recovery-user" } }]);
+    const res = await GET(makeGetReq());
+    expect(await res.json()).toEqual({ ok: true });
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledWith(expect.anything(), "recovery-user", "author", expect.objectContaining({ stripe_customer_id: "cus_recovered", stripe_subscription_id: "sub_owned" }));
+  });
+
+  it("continues syncing an already bound legacy customer without recovery metadata", async () => {
+    mocks.getBillingAccountByUserIdAndRole.mockResolvedValue({ row: { stripe_customer_id: "cus_bound" }, error: null });
+    mocks.getStripeCustomerSubscriptions.mockResolvedValue([{ id: "sub_bound", status: "active", price_ids: ["price_pro"], metadata: {} }]);
+    const res = await GET(makeGetReq());
+    expect(await res.json()).toEqual({ ok: true });
+    expect(mocks.listStripeCustomersByEmail).not.toHaveBeenCalled();
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledWith(expect.anything(), "recovery-user", "author", expect.objectContaining({ stripe_customer_id: "cus_bound" }));
+  });
+});
+
 describe("POST /api/billing/sync", () => {
   beforeEach(() => {
     vi.clearAllMocks();

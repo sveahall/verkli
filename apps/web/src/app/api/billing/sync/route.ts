@@ -182,13 +182,13 @@ export async function GET(request: Request) {
   const { row, error } = await getBillingAccountByUserIdAndRole(admin, user.id, role);
 
   let customerIdsToTry: string[] = [];
+  const recoveringCustomer = Boolean(error || !row?.stripe_customer_id?.trim());
   if (!error && row?.stripe_customer_id?.trim()) {
     customerIdsToTry = [row.stripe_customer_id.trim()];
   } else {
     // No row or no customer_id: try to find Stripe customer(s) by email
-    // (recover from Stripe). Confirmed address only — this reads another Stripe
-    // customer's subscription state onto this account, so the address is a key
-    // and has to be proven, not claimed.
+    // (recover from Stripe). Email narrows the search; subscription ownership
+    // is checked below before any billing state is adopted.
     const email = (getConfirmedEmail(user) ?? "").trim();
     if (email) {
       try {
@@ -233,6 +233,10 @@ export async function GET(request: Request) {
       });
     }
     for (const sub of active) {
+      if (recoveringCustomer && sub.metadata.user_id !== user.id) {
+        console.warn("[billing.sync] skipped recovery without matching subscription owner", { userId: user.id, subscriptionId: sub.id });
+        continue;
+      }
       const resolved = await resolveRolePlanFromPriceIds(sub.price_ids);
       if (resolved && resolved.role === role) {
         const plan = planToPersist(

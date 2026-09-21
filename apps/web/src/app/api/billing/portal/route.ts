@@ -77,8 +77,8 @@ async function ensureStripeCustomerId(
   }
 
   // Try to find existing Stripe customer by email with active subscription for
-  // this role. Confirmed address only — this branch ADOPTS another Stripe
-  // customer's subscription, so the address has to be proven, not claimed.
+  // this role. Email narrows the search; server-written subscription metadata
+  // must prove ownership before adopting a customer and opening its portal.
   const emailTrimmed = (confirmedEmail ?? "").trim();
   if (emailTrimmed) {
     try {
@@ -89,6 +89,10 @@ async function ensureStripeCustomerId(
           (s) => s.status && ACTIVE_STATUSES.has(s.status.toLowerCase())
         );
         for (const sub of active) {
+          if (sub.metadata.user_id !== userId) {
+            console.warn("[billing.portal] skipped recovery without matching subscription owner", { userId, subscriptionId: sub.id });
+            continue;
+          }
           const resolved = await resolveRolePlanFromPriceIds(sub.price_ids);
           if (resolved && resolved.role === role) {
             const plan = planToPersist(
