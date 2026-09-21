@@ -52,6 +52,7 @@ describe("every credential the code reads is classified", () => {
   /** Read by the code but deliberately not pushed, with the reason. */
   const NOT_PUSHED: Record<string, string> = {
     ELEVENLABS_API_TIMEOUT_MS: "tuning knob with a code default",
+    OPENAI_MODEL: "tuning knob with a code default",
     STRIPE_CONNECT_DEFAULT_COUNTRY: "Stripe Connect is cut from September (plan §3)",
     STRIPE_CUSTOMER_PORTAL_RETURN_BASE: "superseded by STRIPE_CUSTOMER_PORTAL_RETURN_URL",
     SUPABASE_JWT_SECRET: "not read by the deployed app",

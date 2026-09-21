@@ -8,10 +8,14 @@ import { evaluateDemoGuard } from "@/lib/demo-guard";
 import { uploadTrailerAndGetPublicUrl } from "@/lib/marketing/trailer-storage";
 import { generateImageToVideo } from "@/lib/higgsfield";
 import { validateProviderImageUrl } from "@/lib/security/url-allowlist";
+import { reserveVideoBudget, refundVideoBudget } from "@/lib/marketing/video-budget";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
+import { requireProBillingForApi } from "@/lib/billing/server";
 import {
   apiError,
   E_DATABASE_ERROR,
   E_INVALID_JSON,
+  E_RATE_LIMIT_EXCEEDED,
   E_TEXT_TO_VIDEO_FAILED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
@@ -22,6 +26,16 @@ const TRAILER_DOWNLOAD_TIMEOUT_MS = 20_000;
 
 /** Estimated cost per 5s Higgsfield trailer (USD). */
 const ESTIMATED_COST_USD = 0.15;
+
+// Spend gate. `requireAuthorAndMarketingEnabled` only checks the marketing flag
+// and the author role, so without these two lines any author could loop this
+// route and mint Higgsfield jobs at ESTIMATED_COST_USD each. Matches the limits
+// the sibling spenders already carry: books/[id]/trailer/build (1/min) and
+// ai/text-to-video (5/min), both also behind requireProBillingForApi.
+const rateLimiter = createPerUserRateLimiter({
+  name: "marketing-video-generate",
+  maxPerMinute: 1,
+});
 
 async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
@@ -44,6 +58,33 @@ export async function POST(request: Request) {
   const gate = await requireAuthorAndMarketingEnabled();
   if (gate.response) return gate.response;
 
+  const supabase = await createClient();
+
+  // Demo-mode short-circuit — keeps the demo profile from burning Higgsfield
+  // credits if anything stray fires this endpoint mid-pitch.
+  //
+  // This runs BEFORE the rate limit and the Pro gate, matching
+  // books/[id]/trailer/build. The `{ok:true, demo_mode:true}` body is
+  // contractual (see lib/demo-guard), so the demo account has to reach it: put
+  // the billing gate first and a demo profile without active author Pro gets a
+  // 403 instead, having spent its 1/min token on the way.
+  const guard = await evaluateDemoGuard(
+    () => Promise.resolve(supabase),
+    gate.user.id,
+    "marketing/video/generate"
+  );
+  if (guard.shouldSkip && guard.response) return guard.response;
+
+  const rl = await rateLimiter.check(gate.user.id);
+  if (!rl.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429, {
+      retryAfterSeconds: rl.retryAfterSeconds,
+    });
+  }
+
+  const proGate = await requireProBillingForApi(gate.user.id);
+  if (!proGate.ok) return proGate.response;
+
   let body: unknown;
   try {
     body = await request.json();
@@ -58,14 +99,7 @@ export async function POST(request: Request) {
 
   const { bookId, prompt, imageUrl, audio, metadata: requestMetadata } = parsed.data;
   const includeAudio = audio ?? true;
-  const supabase = await createClient();
   const admin = createAdminClient();
-
-  // Demo-mode short-circuit — keeps the demo profile from burning Higgsfield
-  // credits if anything stray fires this endpoint mid-pitch. Reuses the
-  // already-instantiated supabase client.
-  const guard = await evaluateDemoGuard(() => Promise.resolve(supabase), gate.user.id, "marketing/video/generate");
-  if (guard.shouldSkip && guard.response) return guard.response;
 
   const ownership = await assertBookOwned(supabase, gate.user.id, bookId);
   if (!ownership.ok) return ownership.response;
@@ -78,6 +112,11 @@ export async function POST(request: Request) {
     return apiError(E_VALIDATION_FAILED, 400, { detail: "imageUrl host not allowed" });
   }
   const safeImageUrl = urlCheck.url.toString();
+
+  // One image->video generation, so one unit. Reserved before the provider
+  // call and refunded below if it produces nothing.
+  const budget = await reserveVideoBudget({ userId: gate.user.id, units: 1 });
+  if (!budget.ok) return budget.response;
 
   const inputJson = {
     model: "dop-standard",
@@ -165,6 +204,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ assetId: inserted.id, url: uploadResult.publicUrl });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown Higgsfield error";
+    await refundVideoBudget(budget.reservation);
 
     const { data: updatedFailed, error: updateFailedError } = await supabase
       .from("media_assets")

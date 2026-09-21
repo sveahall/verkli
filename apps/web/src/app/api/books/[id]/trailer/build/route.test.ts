@@ -1,5 +1,15 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+// The budget helper has its own unit tests; here it must not reach Redis.
+vi.mock("@/lib/marketing/video-budget", () => ({
+  reserveVideoBudget: vi.fn(async () => ({
+    ok: true as const,
+    reservation: { jobId: "test-job", units: 1 },
+  })),
+  refundVideoBudget: vi.fn(async () => {}),
+}));
+
+
 // Ensure the cover-image SSRF allowlist accepts the fake test URL so the
 // behavioural tests exercise the non-validation code paths below.
 process.env.AI_IMAGE_URL_EXTRA_HOSTS = "cdn.example.com";
