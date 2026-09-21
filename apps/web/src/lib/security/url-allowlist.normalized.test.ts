@@ -76,7 +76,10 @@ describe("no call site forwards the raw url", () => {
   });
 
   it("finds the call sites at all", () => {
-    expect(callSites.length).toBeGreaterThanOrEqual(5);
+    // Four since content-generation/generate was deleted as unreachable. The
+    // floor only guards against the glob silently matching nothing, which
+    // would make every per-file assertion below vacuously pass.
+    expect(callSites.length).toBeGreaterThanOrEqual(4);
   });
 
   for (const file of callSites) {

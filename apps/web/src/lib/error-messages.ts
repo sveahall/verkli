@@ -13,8 +13,6 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_REQUEST_BODY: "Invalid request.",
   DATABASE_ERROR: "A database error occurred. Try again.",
   GENERIC_ERROR: "Something went wrong. Try again.",
-  MARKETING_AI_UNAVAILABLE: "AI marketing drafts are not configured yet. Contact support. Your existing copy has been kept.",
-  MARKETING_AI_FAILED: "Could not generate a usable AI draft. Please try again. Your existing copy has been kept.",
   VALIDATION_FAILED: "Validation failed. Please check the fields.",
 
   // Books
