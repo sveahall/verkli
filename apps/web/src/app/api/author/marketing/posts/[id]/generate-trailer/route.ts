@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthorAndMarketingEnabled } from "@/lib/auth/require-author-marketing";
+import { requireProBillingForApi } from "@/lib/billing/server";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { generateTrailerPrompt } from "@/lib/ai/trailer-generation";
 import { generateImageToVideo } from "@/lib/higgsfield";
 import { uploadTrailerAndGetPublicUrl } from "@/lib/marketing/trailer-storage";
@@ -10,6 +12,7 @@ import {
   apiError,
   E_DATABASE_ERROR,
   E_INVALID_BOOK_ID,
+  E_RATE_LIMIT_EXCEEDED,
   E_TEXT_TO_VIDEO_FAILED,
   E_TRAILER_GENERATION_FAILED,
   isValidUuid,
@@ -17,6 +20,10 @@ import {
 
 export const runtime = "nodejs";
 export const maxDuration = 240;
+
+// Same provider and the same per-generation cost as marketing/video/generate;
+// this one runs up to 240s. One a minute.
+const trailerLimiter = createPerUserRateLimiter({ name: "marketing-post-trailer", maxPerMinute: 1 });
 const TRAILER_DOWNLOAD_TIMEOUT_MS = 25_000;
 const ESTIMATED_COST_USD = 0.15;
 
@@ -53,6 +60,16 @@ export async function POST(
 ) {
   const gate = await requireAuthorAndMarketingEnabled();
   if (gate.response) return gate.response;
+
+  const rl = await trailerLimiter.check(gate.user.id);
+  if (!rl.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429, {
+      retryAfterSeconds: rl.retryAfterSeconds,
+    });
+  }
+
+  const proGate = await requireProBillingForApi(gate.user.id);
+  if (!proGate.ok) return proGate.response;
 
   const { id } = await params;
   if (!isValidUuid(id)) return apiError(E_INVALID_BOOK_ID, 400);
@@ -102,7 +119,10 @@ export async function POST(
   // anything that isn't on the approved host-list before handing it to
   // Higgsfield (which may fetch/redirect server-side on our behalf). Mirrors
   // the guard in books/[id]/trailer/build and marketing/video/generate.
-  if (!validateProviderImageUrl(book.cover_image).ok) {
+  // Keep the normalised url: the provider must fetch exactly what passed the
+  // allowlist, not the raw column value.
+  const coverUrlCheck = validateProviderImageUrl(book.cover_image);
+  if (!coverUrlCheck.ok) {
     await supabase
       .from("marketing_posts")
       .update({
@@ -112,6 +132,7 @@ export async function POST(
       .eq("id", post.id);
     return apiError(E_TRAILER_GENERATION_FAILED, 422);
   }
+  const safeCoverImageUrl = coverUrlCheck.url.toString();
 
   // Mark as generating
   await supabase
@@ -186,7 +207,7 @@ export async function POST(
       type: "video",
       status: "generating",
       provider: "higgsfield",
-      input_json: { model: "dop-standard", prompt, imageUrl: book.cover_image, audio: true },
+      input_json: { model: "dop-standard", prompt, imageUrl: safeCoverImageUrl, audio: true },
       duration_seconds: 5,
     })
     .select("id")
@@ -206,7 +227,7 @@ export async function POST(
   try {
     const { requestId, videoUrl } = await generateImageToVideo({
       prompt,
-      imageUrl: book.cover_image,
+      imageUrl: safeCoverImageUrl,
       includeAudio: true,
     });
 

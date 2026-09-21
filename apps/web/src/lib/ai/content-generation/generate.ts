@@ -219,15 +219,20 @@ async function generateVideo(
   // SSRF guard — coverImageUrl derives from the user-writable book cover
   // column and is fetched server-side by the Higgsfield provider. Enforce the
   // same host allowlist the other image->video routes apply.
-  if (!validateProviderImageUrl(coverImageUrl).ok) {
+  // Forward the NORMALISED url, not the string we were handed. The validator
+  // returns a parsed URL precisely so the provider fetches what we checked;
+  // passing the raw value back re-opens the hole the check exists to close.
+  const coverUrlCheck = validateProviderImageUrl(coverImageUrl);
+  if (!coverUrlCheck.ok) {
     throw new Error(
       "[content generate] Cover image URL failed the provider allowlist."
     );
   }
+  const safeCoverImageUrl = coverUrlCheck.url.toString();
 
   const result = await generateImageToVideo({
     prompt,
-    imageUrl: coverImageUrl,
+    imageUrl: safeCoverImageUrl,
     durationSeconds: request.durationSeconds,
     includeAudio: request.audio ?? true,
   });

@@ -114,6 +114,27 @@ export function WorkspaceMetric({
   );
 }
 
+/**
+ * Widest the canvas may shrink to before the assistant stops docking beside it
+ * and becomes a modal sheet instead. Measured on the workspace content box, not
+ * the viewport: the author navigation eats horizontal space too.
+ *
+ * 620px canvas + 360px dock + 28px gap = 1008, which is a 1072px browser window
+ * once the 64px of horizontal padding is added back.
+ *
+ * This number decides whether the page behind the assistant stays scrollable.
+ * Below the threshold the dialog opens with showModal() and the layout sets
+ * `body { overflow: hidden }` — correct for a phone-sized sheet, wrong for a
+ * laptop. The threshold used to demand an 820px canvas, putting the cutoff at a
+ * 1280px window, so anyone whose browser was not maximised opened the assistant
+ * and found the page frozen behind a panel that still looked docked.
+ */
+export const DOCK_MIN_CONTENT_WIDTH = 1008;
+
+export function hasDockSpaceForContentWidth(contentWidth: number): boolean {
+  return contentWidth >= DOCK_MIN_CONTENT_WIDTH;
+}
+
 export default function WorkspaceLayout({
   header,
   headerRight,
@@ -136,9 +157,9 @@ export default function WorkspaceLayout({
     const content = contentRef.current;
     if (!content) return;
     // Measure the workspace, not the viewport: the author navigation also
-    // consumes space. Leave at least 820px for the canvas beside a 360px dock.
+    // consumes space.
     const observer = new ResizeObserver(([entry]) => {
-      setHasDockSpace(entry.contentRect.width >= 1208);
+      setHasDockSpace(hasDockSpaceForContentWidth(entry.contentRect.width));
     });
     observer.observe(content);
     return () => observer.disconnect();
@@ -170,7 +191,12 @@ export default function WorkspaceLayout({
   return (
     <div className={cn("w-full", className)}>
       <div className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-[1520px] items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
+        {/* The book workspace bleeds to the edges: its layout pulls this bar up
+            by 16px, and 24px from lg (`-mt-4 lg:-mt-6` in books/[id]/layout.tsx).
+            A symmetric `py-4` therefore left the breadcrumb flush against the
+            browser chrome with no air above it. Pad the top by the pull plus the
+            28px the bar should actually have: 16+28=44, 24+28=52. */}
+        <div className="mx-auto flex max-w-[1520px] items-center justify-between gap-3 px-4 pb-4 pt-11 sm:px-6 lg:px-8 lg:pt-13">
           <div className="min-w-0">{header}</div>
           {headerRight ? <div className="shrink-0">{headerRight}</div> : null}
         </div>

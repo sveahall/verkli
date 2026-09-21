@@ -33,7 +33,19 @@ vi.mock("@/lib/marketing/trailer-storage", () => ({
   uploadTrailerAndGetPublicUrl: vi.fn(),
 }));
 
+// The real limiter is 1/min and in-memory, so without this the second test in
+// the file gets a 429 from the first test's request.
+const mockRateCheck = vi.fn();
+vi.mock("@/lib/rate-limit", () => ({
+  createPerUserRateLimiter: () => ({ check: (...a: unknown[]) => mockRateCheck(...a) }),
+}));
+
+vi.mock("@/lib/billing/server", () => ({
+  requireProBillingForApi: vi.fn(),
+}));
+
 const { requireAuthorAndMarketingEnabled } = await import("@/lib/auth/require-author-marketing");
+const { requireProBillingForApi } = await import("@/lib/billing/server");
 const { uploadTrailerAndGetPublicUrl } = await import("@/lib/marketing/trailer-storage");
 
 const PUBLIC_TRAILER_URL = "https://project.supabase.co/storage/v1/object/public/marketing-media/trailers/author-1/asset-1.mp4";
@@ -43,6 +55,8 @@ function gateAuthor(userId: string) {
     user: { id: userId } as never,
     response: null,
   });
+  mockRateCheck.mockResolvedValue({ allowed: true });
+  vi.mocked(requireProBillingForApi).mockResolvedValue({ ok: true } as never);
 }
 
 function mockBookOwned() {
@@ -283,5 +297,50 @@ describe("POST /api/marketing/video/generate", () => {
         error: "Higgsfield timeout",
       })
     );
+  });
+});
+
+describe("POST /api/marketing/video/generate — spend gates", () => {
+  // The provider spy accumulates across the file; these assertions are about
+  // this request only.
+  beforeEach(() => {
+    mockGenerateImageToVideo.mockClear();
+  });
+
+  const body = {
+    bookId: VALID_BOOK_ID,
+    prompt: "a lighthouse at dusk",
+    imageUrl: VALID_IMAGE_URL,
+  };
+  const request = () =>
+    new Request("http://localhost/api/marketing/video/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+  it("refuses a second generation inside the same minute", async () => {
+    gateAuthor("author-1");
+    mockRateCheck.mockResolvedValue({ allowed: false, retryAfterSeconds: 42 });
+
+    const res = await POST(request());
+
+    expect(res.status).toBe(429);
+    // Higgsfield bills per generation — the provider must not be reached.
+    expect(mockGenerateImageToVideo).not.toHaveBeenCalled();
+  });
+
+  it("refuses an author without Pro before spending anything", async () => {
+    gateAuthor("author-1");
+    const denial = new Response("pro required", { status: 402 });
+    vi.mocked(requireProBillingForApi).mockResolvedValue({
+      ok: false,
+      response: denial,
+    } as never);
+
+    const res = await POST(request());
+
+    expect(res.status).toBe(402);
+    expect(mockGenerateImageToVideo).not.toHaveBeenCalled();
   });
 });
