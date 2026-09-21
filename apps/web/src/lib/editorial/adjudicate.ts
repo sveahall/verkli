@@ -84,12 +84,28 @@ export type AdjudicationStats = {
   correctionsDropped: number;
 };
 
+/**
+ * Why the critic changed an item. Nothing consumes this in the request path —
+ * it exists so `scripts/compare-critic.ts` can show whether a drop was right,
+ * which is the only way to tell a critic that earns its cost from one that
+ * quietly deletes real findings.
+ */
+export type AdjudicationDecision = {
+  kind: "finding" | "correction";
+  verdict: "drop" | "amend";
+  reason: string;
+  /** A short label, never the item's full text. */
+  label: string;
+};
+
 const NO_OP: AdjudicationStats = {
   ran: false,
   findingsDropped: 0,
   findingsAmended: 0,
   correctionsDropped: 0,
 };
+
+const label = (text: string) => (text.length > 80 ? `${text.slice(0, 77)}...` : text);
 
 const SYSTEM = [
   "You are a second editor auditing another editor's report on a manuscript.",
@@ -110,11 +126,15 @@ const SYSTEM = [
 export async function adjudicateEditorialReport(input: {
   report: EditorialReport;
   text: string;
-}): Promise<{ report: EditorialReport; stats: AdjudicationStats }> {
+}): Promise<{
+  report: EditorialReport;
+  stats: AdjudicationStats;
+  decisions: AdjudicationDecision[];
+}> {
   const { report, text } = input;
-  if (!isOpenAiConfigured()) return { report, stats: NO_OP };
+  if (!isOpenAiConfigured()) return { report, stats: NO_OP, decisions: [] };
   if (report.findings.length === 0 && report.corrections.length === 0) {
-    return { report, stats: NO_OP };
+    return { report, stats: NO_OP, decisions: [] };
   }
 
   let verdicts: z.infer<typeof verdictsSchema>;
@@ -134,8 +154,10 @@ export async function adjudicateEditorialReport(input: {
   } catch {
     // Never log manuscript content, provider responses, or credentials.
     console.warn("[editorial adjudicate] critic pass unavailable, returning unadjudicated report");
-    return { report, stats: NO_OP };
+    return { report, stats: NO_OP, decisions: [] };
   }
+
+  const decisions: AdjudicationDecision[] = [];
 
   const findingVerdicts = new Map(verdicts.findings.map((verdict) => [verdict.index, verdict]));
   const correctionVerdicts = new Map(verdicts.corrections.map((verdict) => [verdict.index, verdict]));
@@ -149,9 +171,11 @@ export async function adjudicateEditorialReport(input: {
     if (!verdict || verdict.verdict === "keep") return [finding];
     if (verdict.verdict === "drop") {
       findingsDropped += 1;
+      decisions.push({ kind: "finding", verdict: "drop", reason: verdict.reason, label: label(finding.quote || finding.explanation) });
       return [];
     }
     findingsAmended += 1;
+    decisions.push({ kind: "finding", verdict: "amend", reason: verdict.reason, label: label(finding.quote || finding.explanation) });
     return [
       {
         ...finding,
@@ -162,10 +186,11 @@ export async function adjudicateEditorialReport(input: {
   });
 
   let correctionsDropped = 0;
-  const corrections = report.corrections.filter((_correction, index) => {
+  const corrections = report.corrections.filter((correction, index) => {
     const verdict = correctionVerdicts.get(index);
     if (verdict?.verdict === "drop") {
       correctionsDropped += 1;
+      decisions.push({ kind: "correction", verdict: "drop", reason: verdict.reason, label: label(correction.original) });
       return false;
     }
     return true;
@@ -174,5 +199,6 @@ export async function adjudicateEditorialReport(input: {
   return {
     report: { ...report, findings, corrections },
     stats: { ran: true, findingsDropped, findingsAmended, correctionsDropped },
+    decisions,
   };
 }
