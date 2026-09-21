@@ -23,7 +23,7 @@ export default function AgentTeamPreview() {
       {created && <p role="status">Create book action received.</p>}
       <div className="my-12 space-y-6">{agents.map((agent) => <AgentCompanion key={agent.id} agent={agent.id} />)}</div>
       <section className="mx-auto flex h-[740px] max-h-[85svh] max-w-[440px] flex-col" aria-label="Edith chat preview">
-        <AiAssistantPanel bookId="avatar-preview" chapterId={null} variant="dock" />
+        <AiAssistantPanel initialTemporary bookId="avatar-preview" chapterId={null} variant="dock" />
       </section>
     </main>
   );

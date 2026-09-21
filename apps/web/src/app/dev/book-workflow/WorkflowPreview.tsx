@@ -83,7 +83,7 @@ export default function WorkflowPreview() {
     const originalFetch = window.fetch;
     window.fetch = async (input, init) => {
       if (input === `/api/books/${PREVIEW_BOOK}/ai/chat`) {
-        return Response.json({ content: "This is a local UI preview. In your book workspace, the assistant uses your manuscript as context. No AI request was made here.", source: "template" });
+        return Response.json({ content: "This is a local UI preview. In your book workspace, the assistant uses your manuscript as context. No AI request was made here.", source: "template", persistence: "temporary", actions: [], context: { chapterId: null, chapterText: null } });
       }
       return originalFetch(input, init);
     };
@@ -120,7 +120,7 @@ export default function WorkflowPreview() {
           header={<div><p className="text-xs text-muted-foreground">Library / Book workspace</p><p className="mt-1 truncate text-sm font-medium">Den sista färjan</p></div>}
           headerRight={<Button size="sm" variant="secondary" onClick={() => setOpen(!open)} aria-expanded={open}><Sparkles size={15} /> AI Assistant</Button>}
           asideOpen={open} onAsideClose={() => setOpen(false)} asideLabel="AI assistant"
-          aside={<AiAssistantPanel bookId={PREVIEW_BOOK} chapterId={null} variant="dock" activeTool="cover" onClose={() => setOpen(false)} />}
+          aside={<AiAssistantPanel initialTemporary bookId={PREVIEW_BOOK} chapterId={null} variant="dock" activeTool="cover" onClose={() => setOpen(false)} />}
           main={<div className="@container/book-panel rounded-2xl border border-border bg-card shadow-surface-sm">
             <BookWorkflowHeader bookId="f992f520-7633-42fa-a3be-9bdeac037b72" activeTool="cover" tools={["edit", "cover", "audiobook", "translate", "pricing", "publish", "review"]} bare compact />
             <div className="px-4 pb-8 pt-6 @min-[680px]/book-panel:px-8 @min-[680px]/book-panel:pt-8">
