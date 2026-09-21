@@ -14,6 +14,7 @@ import { generateImageToVideo } from "@/lib/higgsfield";
 import { uploadTrailerAndGetPublicUrl } from "@/lib/marketing/trailer-storage";
 import { stitchSceneVideos } from "@/lib/marketing/trailer-ffmpeg";
 import { validateProviderImageUrl } from "@/lib/security/url-allowlist";
+import { reserveVideoBudget, refundVideoBudget } from "@/lib/marketing/video-budget";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -137,12 +138,6 @@ export async function POST(
   }
   const safeCoverImageUrl = coverUrlCheck.url.toString();
 
-  // Mark book as generating
-  await admin
-    .from("books")
-    .update({ trailer_status: "generating" })
-    .eq("id", bookId);
-
   let trailerResult: Awaited<ReturnType<typeof generateTrailerPrompt>>;
   try {
     trailerResult = await generateTrailerPrompt(parsed.data);
@@ -161,6 +156,19 @@ export async function POST(
       detail: "No trailer scenes returned.",
     });
   }
+
+  // One Higgsfield call per scene, so scene count is the real cost. Reserved
+  // before the first provider call and refunded below if none of it lands.
+  const budget = await reserveVideoBudget({ userId: user.id, units: scenes.length });
+  if (!budget.ok) return budget.response;
+
+  // Marked only once the build is actually going ahead. Everything above this
+  // point either costs nothing or refuses the request, and a book left in
+  // "generating" by a refusal shows a spinner that never resolves.
+  await admin
+    .from("books")
+    .update({ trailer_status: "generating" })
+    .eq("id", bookId);
 
   const { data: inserted, error: insertError } = await admin
     .from("media_assets")
@@ -247,6 +255,7 @@ export async function POST(
       err instanceof Error ? err.message : "Unknown trailer build error.";
 
     await markMediaAssetFailed(admin, inserted.id, user.id, message);
+    await refundVideoBudget(budget.reservation);
 
     // Mark book trailer as failed
     await admin

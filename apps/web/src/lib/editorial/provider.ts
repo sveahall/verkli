@@ -1,6 +1,8 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { editorialReportSchema, type EditorialReport, type ReviewMode } from "./review-schema";
+import { adjudicateEditorialReport } from "./adjudicate";
+import { isAiCriticEnabled } from "@/lib/flags";
 
 // Constrain the wire format as well as validating content locally. A prose-only
 // JSON instruction can still produce malformed quotes in a bilingual review.
@@ -76,6 +78,10 @@ export async function generateEditorialReview(input: EditorialInput, onUsage?: (
   if (quotations.some((quote) => !input.text.includes(quote))) {
     throw new Error("The AI returned a quotation that was not found in the text. Please run the review again.");
   }
+  // Clear before adjudicating: analysis mode discards corrections anyway, and
+  // paying a second model to judge items nobody will see is pure waste.
   if (input.mode === "analysis") report.corrections = [];
-  return report;
+  if (!isAiCriticEnabled()) return report;
+  const adjudicated = await adjudicateEditorialReport({ report, text: input.text });
+  return adjudicated.report;
 }

@@ -3,6 +3,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { getLanguageLabel } from "@/lib/languages";
 import { CHANNEL_CONSTRAINTS } from "@/lib/ai/content-generation/schemas";
+import { isAiCriticEnabled } from "@/lib/flags";
+import { canRunLaunchCopyCritic, generateLaunchCopyWithCritic } from "./critique";
 
 export type LaunchCopyInput = {
   authorId: string;
@@ -93,6 +95,19 @@ export async function generateLaunchCopy(input: LaunchCopyInput) {
     ...(input.campaign ? { campaign: input.campaign } : {}),
   });
   const parse = (raw: string) => schema.parse(JSON.parse(raw.trim()));
+
+  // Critic pass first when configured. It throws rather than degrading so a
+  // failure here lands on the proven single-model chain below. The caller has
+  // already reserved marketing budget; this spends it roughly 3x faster per
+  // draft, so the daily ceiling still holds but the per-job reservation is
+  // sized for one call, not three.
+  if (isAiCriticEnabled() && canRunLaunchCopyCritic()) {
+    try {
+      return await generateLaunchCopyWithCritic({ system, content, parse });
+    } catch {
+      console.warn("[marketing generate] critic pass failed, falling back to single model");
+    }
+  }
 
   if (anthropicKey) {
     const request = {

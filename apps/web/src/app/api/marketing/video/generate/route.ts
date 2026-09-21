@@ -9,6 +9,7 @@ import { videoGenerateBodySchema } from "@/lib/marketing/schemas";
 import { evaluateDemoGuard } from "@/lib/demo-guard";
 import { uploadTrailerAndGetPublicUrl } from "@/lib/marketing/trailer-storage";
 import { generateImageToVideo } from "@/lib/higgsfield";
+import { reserveVideoBudget, refundVideoBudget } from "@/lib/marketing/video-budget";
 import { validateProviderImageUrl } from "@/lib/security/url-allowlist";
 import {
   apiError,
@@ -96,6 +97,11 @@ export async function POST(request: Request) {
   }
   const safeImageUrl = urlCheck.url.toString();
 
+  // Pro gate and the per-minute limiter cap who and how often; this caps how
+  // much. One image->video generation, so one unit.
+  const budget = await reserveVideoBudget({ userId: gate.user.id, units: 1 });
+  if (!budget.ok) return budget.response;
+
   const inputJson = {
     model: "dop-standard",
     prompt,
@@ -181,6 +187,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ assetId: inserted.id, url: uploadResult.publicUrl });
   } catch (err) {
+    await refundVideoBudget(budget.reservation);
     const message = err instanceof Error ? err.message : "Unknown Higgsfield error";
 
     const { data: updatedFailed, error: updateFailedError } = await supabase

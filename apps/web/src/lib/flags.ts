@@ -169,6 +169,14 @@ export function isAiChatEnabled(): boolean {
   );
 }
 
+// Defaults OFF: the critic pass multiplies every editorial and marketing
+// generation by 2-3x. Opt in explicitly, and switch it back off without a
+// deploy if quality regresses or spend spikes. Server-only on purpose — there
+// is no client surface that should branch on it.
+export function isAiCriticEnabled(): boolean {
+  return parseBool(process.env.AI_CRITIC_ENABLED);
+}
+
 export function isFreemiumGateEnabled(): boolean {
   return parseBool(
     process.env.NEXT_PUBLIC_FREEMIUM_GATE_ENABLED ?? process.env.FREEMIUM_GATE_ENABLED

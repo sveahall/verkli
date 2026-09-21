@@ -1,6 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST, maxDuration } from "./route";
 
+// The budget helper has its own unit tests; here it must not reach Redis.
+vi.mock("@/lib/marketing/video-budget", () => ({
+  reserveVideoBudget: vi.fn(async () => ({
+    ok: true as const,
+    reservation: { jobId: "test-job", units: 1 },
+  })),
+  refundVideoBudget: vi.fn(async () => {}),
+}));
+
+
 // Allowlist the dummy test host so the route's SSRF guard (validateProviderImageUrl)
 // accepts VALID_IMAGE_URL. The guard reads this env at call time. Real production
 // imageUrls are Supabase-storage hosts, which the guard allows by default.
@@ -12,9 +22,26 @@ const VALID_IMAGE_URL = "https://cdn.example.com/book-cover.jpg";
 
 const mockFrom = vi.fn();
 const mockGenerateImageToVideo = vi.fn();
+const mockRateLimitCheck = vi.fn();
+const mockRequireProBillingForApi = vi.fn();
 
 vi.mock("@/lib/auth/require-author-marketing", () => ({
   requireAuthorAndMarketingEnabled: vi.fn(),
+}));
+
+// Spend gates. Both are real modules that would reach Redis/Supabase, and the
+// rate limiter's in-memory fallback keeps one bucket per limiter for the whole
+// file — so without these the first test consumes the 1/min allowance and every
+// later one gets a 429.
+vi.mock("@/lib/rate-limit", () => ({
+  createPerUserRateLimiter: vi.fn(() => ({
+    check: (...args: unknown[]) => mockRateLimitCheck(...args),
+  })),
+}));
+
+vi.mock("@/lib/billing/server", () => ({
+  requireProBillingForApi: (...args: unknown[]) =>
+    mockRequireProBillingForApi(...args),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -131,10 +158,44 @@ function makeRequest(payload: unknown) {
 describe("POST /api/marketing/video/generate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: both spend gates open, so the tests below exercise the routes
+    // real behaviour. The two gate tests override these.
+    mockRateLimitCheck.mockResolvedValue({ allowed: true });
+    mockRequireProBillingForApi.mockResolvedValue({ ok: true, state: {} });
   });
 
   it("enforces maxDuration 180s", () => {
     expect(maxDuration).toBe(180);
+  });
+
+  // These two exist because the route spends real Higgsfield credit per call
+  // (~$0.15). Nothing else asserts the gates are wired, and a gate nobody
+  // tests is a gate that gets refactored away.
+  it("returns 429 without generating when the per-user rate limit is spent", async () => {
+    gateAuthor("author-1");
+    mockRateLimitCheck.mockResolvedValue({ allowed: false, retryAfterSeconds: 42 });
+
+    const res = await POST(
+      makeRequest({ bookId: VALID_BOOK_ID, prompt: "a trailer", imageUrl: VALID_IMAGE_URL })
+    );
+
+    expect(res.status).toBe(429);
+    expect(mockGenerateImageToVideo).not.toHaveBeenCalled();
+  });
+
+  it("refuses without generating when the author has no active Pro billing", async () => {
+    gateAuthor("author-1");
+    mockRequireProBillingForApi.mockResolvedValue({
+      ok: false,
+      response: new Response(null, { status: 402 }),
+    });
+
+    const res = await POST(
+      makeRequest({ bookId: VALID_BOOK_ID, prompt: "a trailer", imageUrl: VALID_IMAGE_URL })
+    );
+
+    expect(res.status).toBe(402);
+    expect(mockGenerateImageToVideo).not.toHaveBeenCalled();
   });
 
   it("returns 400 for invalid JSON", async () => {
@@ -239,6 +300,39 @@ describe("POST /api/marketing/video/generate", () => {
         includeAudio: true,
       })
     );
+  });
+
+  // VALID_IMAGE_URL is already in normalized form, so every other assertion in
+  // this file passes whether the route forwards the raw body value or the
+  // guard's parsed url. This one cannot: a backslash before the `@` is folded
+  // to `/` by WHATWG, so the guard approves cdn.example.com while the raw bytes
+  // would resolve to evil.tld under an RFC-3986 parser at the provider.
+  it("forwards the normalized url, not the raw string the caller sent", async () => {
+    gateAuthor("author-1");
+    mockSupabase({ owned: true });
+    mockGenerateImageToVideo.mockResolvedValue({
+      requestId: "req-ssrf",
+      videoUrl: "https://cdn.example.com/video.mp4",
+    });
+    vi.mocked(uploadTrailerAndGetPublicUrl).mockResolvedValue({
+      publicUrl: PUBLIC_TRAILER_URL,
+    });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+      headers: { get: () => "video/mp4" },
+    }) as unknown as typeof fetch;
+
+    const confusable = "https://cdn.example.com\\@evil.tld/cover.jpg";
+    await POST(
+      makeRequest({ bookId: VALID_BOOK_ID, prompt: "a trailer", imageUrl: confusable })
+    );
+
+    expect(mockGenerateImageToVideo).toHaveBeenCalledTimes(1);
+    const forwarded = mockGenerateImageToVideo.mock.calls[0][0] as { imageUrl: string };
+    expect(forwarded.imageUrl).not.toBe(confusable);
+    expect(forwarded.imageUrl).not.toContain("\\");
+    expect(new URL(forwarded.imageUrl).hostname).toBe("cdn.example.com");
   });
 
   it("forwards audio=false to Higgsfield", async () => {

@@ -150,6 +150,12 @@ export const LAUNCH_FLAGS: readonly LaunchFlagSpec[] = [
     reason: "Demo artifact. Nothing on a public build should be badged as a demo.",
   },
   {
+    key: "AI_CRITIC_ENABLED",
+    value: "false",
+    reason:
+      "OFF at launch. Runs a second model over editorial reviews and marketing drafts, multiplying those calls 2-3x; it also needs OPENAI_API_KEY, which is not provisioned yet. Server-only with no NEXT_PUBLIC form, because no client code should branch on it. Turn on once the key exists and a sample run shows the critic earns its cost.",
+  },
+  {
     key: "NEXT_PUBLIC_AI_CHAT_ENABLED",
     serverTwin: "AI_CHAT_ENABLED",
     value: "true",
