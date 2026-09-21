@@ -102,7 +102,10 @@ export async function POST(
   // anything that isn't on the approved host-list before handing it to
   // Higgsfield (which may fetch/redirect server-side on our behalf). Mirrors
   // the guard in books/[id]/trailer/build and marketing/video/generate.
-  if (!validateProviderImageUrl(book.cover_image).ok) {
+  // Keep the normalised url: the provider must fetch exactly what passed the
+  // allowlist, not the raw column value.
+  const coverUrlCheck = validateProviderImageUrl(book.cover_image);
+  if (!coverUrlCheck.ok) {
     await supabase
       .from("marketing_posts")
       .update({
@@ -112,6 +115,7 @@ export async function POST(
       .eq("id", post.id);
     return apiError(E_TRAILER_GENERATION_FAILED, 422);
   }
+  const safeCoverImageUrl = coverUrlCheck.url.toString();
 
   // Mark as generating
   await supabase
@@ -186,7 +190,7 @@ export async function POST(
       type: "video",
       status: "generating",
       provider: "higgsfield",
-      input_json: { model: "dop-standard", prompt, imageUrl: book.cover_image, audio: true },
+      input_json: { model: "dop-standard", prompt, imageUrl: safeCoverImageUrl, audio: true },
       duration_seconds: 5,
     })
     .select("id")
@@ -206,7 +210,7 @@ export async function POST(
   try {
     const { requestId, videoUrl } = await generateImageToVideo({
       prompt,
-      imageUrl: book.cover_image,
+      imageUrl: safeCoverImageUrl,
       includeAudio: true,
     });
 
