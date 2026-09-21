@@ -114,6 +114,27 @@ export function WorkspaceMetric({
   );
 }
 
+/**
+ * Widest the canvas may shrink to before the assistant stops docking beside it
+ * and becomes a modal sheet instead. Measured on the workspace content box, not
+ * the viewport: the author navigation eats horizontal space too.
+ *
+ * 620px canvas + 360px dock + 28px gap = 1008, which is a 1072px browser window
+ * once the 64px of horizontal padding is added back.
+ *
+ * This number decides whether the page behind the assistant stays scrollable.
+ * Below the threshold the dialog opens with showModal() and the layout sets
+ * `body { overflow: hidden }` — correct for a phone-sized sheet, wrong for a
+ * laptop. The threshold used to demand an 820px canvas, putting the cutoff at a
+ * 1280px window, so anyone whose browser was not maximised opened the assistant
+ * and found the page frozen behind a panel that still looked docked.
+ */
+export const DOCK_MIN_CONTENT_WIDTH = 1008;
+
+export function hasDockSpaceForContentWidth(contentWidth: number): boolean {
+  return contentWidth >= DOCK_MIN_CONTENT_WIDTH;
+}
+
 export default function WorkspaceLayout({
   header,
   headerRight,
@@ -136,9 +157,9 @@ export default function WorkspaceLayout({
     const content = contentRef.current;
     if (!content) return;
     // Measure the workspace, not the viewport: the author navigation also
-    // consumes space. Leave at least 820px for the canvas beside a 360px dock.
+    // consumes space.
     const observer = new ResizeObserver(([entry]) => {
-      setHasDockSpace(entry.contentRect.width >= 1208);
+      setHasDockSpace(hasDockSpaceForContentWidth(entry.contentRect.width));
     });
     observer.observe(content);
     return () => observer.disconnect();
