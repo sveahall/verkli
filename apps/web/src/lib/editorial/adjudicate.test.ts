@@ -86,6 +86,29 @@ describe("adjudicateEditorialReport", () => {
     expect(result.stats.findingsAmended).toBe(1);
   });
 
+  it("returns the critic's reason per changed item, which is what makes a drop auditable", async () => {
+    callOpenAi.mockResolvedValue(
+      verdicts({
+        findings: [
+          { index: 0, verdict: "keep", reason: "", explanation: "", severity: "unchanged" },
+          { index: 1, verdict: "drop", reason: "Deliberate authorial voice.", explanation: "", severity: "unchanged" },
+        ],
+        corrections: [{ index: 1, verdict: "drop", reason: "Not a misspelling in this dialect." }],
+      })
+    );
+    const { decisions } = await adjudicateEditorialReport({ report: report(), text });
+    expect(decisions).toHaveLength(2);
+    expect(decisions[0]).toMatchObject({
+      kind: "finding",
+      verdict: "drop",
+      reason: "Deliberate authorial voice.",
+      label: "The dog barked loudly.",
+    });
+    expect(decisions[1]).toMatchObject({ kind: "correction", verdict: "drop", label: "allready" });
+    // Kept items produce no decision; only changes are auditable events.
+    expect(decisions.every((d) => d.verdict !== "keep")).toBe(true);
+  });
+
   it("keeps items the critic did not rule on, because silence is not a verdict", async () => {
     callOpenAi.mockResolvedValue(verdicts({ findings: [], corrections: [] }));
     const result = await adjudicateEditorialReport({ report: report(), text });

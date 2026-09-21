@@ -151,9 +151,9 @@ export const LAUNCH_FLAGS: readonly LaunchFlagSpec[] = [
   },
   {
     key: "AI_CRITIC_ENABLED",
-    value: "false",
+    value: "true",
     reason:
-      "OFF at launch. Runs a second model over editorial reviews and marketing drafts, multiplying those calls 2-3x; it also needs OPENAI_API_KEY, which is not provisioned yet. Server-only with no NEXT_PUBLIC form, because no client code should branch on it. Turn on once the key exists and a sample run shows the critic earns its cost.",
+      "ON — decided by Svea 2026-09-21 once OPENAI_API_KEY was provisioned. Runs gpt-6-astra over editorial reports, dropping findings a second reader judges wrong; false positives are a proofreader's dominant failure and the one an author notices. Costs 2 calls per chapter instead of 1. In practice this only reaches editorial review: the marketing half needs MARKETING_ENABLED, which plan §3 keeps off. Server-only with no NEXT_PUBLIC form, because no client code should branch on it. Without OPENAI_API_KEY on the service it degrades to single-model rather than failing, so verify with scripts/compare-critic.ts rather than by the flag reading true.",
   },
   {
     key: "NEXT_PUBLIC_AI_CHAT_ENABLED",

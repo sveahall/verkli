@@ -183,6 +183,7 @@ describe("verifyLaunchConfig", () => {
       NEXT_PUBLIC_TRANSLATIONS_ENABLED: "true",
       NEXT_PUBLIC_DISCOVERY_ENABLED: "true",
       NEXT_PUBLIC_AI_CHAT_ENABLED: "true",
+      AI_CRITIC_ENABLED: "true",
       NEXT_PUBLIC_SITE_URL: "https://verkli.com",
       NEXT_PUBLIC_SUPABASE_URL: "https://p.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
