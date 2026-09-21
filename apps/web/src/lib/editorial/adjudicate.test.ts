@@ -105,8 +105,8 @@ describe("adjudicateEditorialReport", () => {
       label: "The dog barked loudly.",
     });
     expect(decisions[1]).toMatchObject({ kind: "correction", verdict: "drop", label: "allready" });
-    // Kept items produce no decision; only changes are auditable events.
-    expect(decisions.every((d) => d.verdict !== "keep")).toBe(true);
+    // The kept finding produces no decision; only changes are auditable events.
+    expect(decisions.map((d) => d.label)).not.toContain("She where going home.");
   });
 
   it("keeps items the critic did not rule on, because silence is not a verdict", async () => {
