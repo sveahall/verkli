@@ -191,7 +191,12 @@ export default function WorkspaceLayout({
   return (
     <div className={cn("w-full", className)}>
       <div className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-[1520px] items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
+        {/* The book workspace bleeds to the edges: its layout pulls this bar up
+            by 16px, and 24px from lg (`-mt-4 lg:-mt-6` in books/[id]/layout.tsx).
+            A symmetric `py-4` therefore left the breadcrumb flush against the
+            browser chrome with no air above it. Pad the top by the pull plus the
+            28px the bar should actually have: 16+28=44, 24+28=52. */}
+        <div className="mx-auto flex max-w-[1520px] items-center justify-between gap-3 px-4 pb-4 pt-11 sm:px-6 lg:px-8 lg:pt-13">
           <div className="min-w-0">{header}</div>
           {headerRight ? <div className="shrink-0">{headerRight}</div> : null}
         </div>
