@@ -230,9 +230,13 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      // Pinned to this project's host, not "**.supabase.co". The wildcard let
+      // anyone point the optimizer at a bucket in a Supabase project they
+      // control, which is how GHSA-2xp9-vwfh-vxw4 was reachable here: the
+      // middleware matcher excludes /_next/image, so BETA_LOCK never covered it.
       {
         protocol: "https",
-        hostname: "**.supabase.co",
+        hostname: "glfipbnsyxowqsmcuzcm.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
     ],
