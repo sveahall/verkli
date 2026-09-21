@@ -44,6 +44,39 @@ vi.mock("@/lib/auth/billing-role", () => ({
 
 const { POST } = await import("./route");
 
+describe("portal recovery ownership", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.createClient.mockResolvedValue({
+      auth: { getUser: async () => ({ data: { user: { id: "recovery-user", email: "shared@example.com", email_confirmed_at: "2026-09-21T00:00:00Z" } } }) },
+    });
+    mocks.resolveBillingRole.mockResolvedValue("author");
+    mocks.createAdminClient.mockReturnValue({});
+    mocks.getBillingAccountByUserIdAndRole.mockResolvedValue({ row: null, error: null });
+    mocks.listStripeCustomersByEmail.mockResolvedValue([{ id: "cus_recovered" }]);
+    mocks.resolveRolePlanFromPriceIds.mockResolvedValue({ role: "author", planKey: "pro" });
+    mocks.createStripeCustomer.mockResolvedValue({ id: "cus_new" });
+    mocks.upsertBillingAccount.mockResolvedValue({ error: null });
+    mocks.createStripeCustomerPortalSession.mockResolvedValue({ url: "https://billing.stripe.com/session" });
+  });
+
+  it.each([{}, { user_id: "other-user" }])("does not adopt an email match without matching owner metadata: %j", async (metadata) => {
+    mocks.getStripeCustomerSubscriptions.mockResolvedValue([{ id: "sub_other", status: "active", price_ids: ["price_pro"], metadata }]);
+    const res = await POST(new Request("http://localhost/api/billing/portal", { method: "POST" }));
+    expect(res.status).toBe(200);
+    expect(mocks.createStripeCustomerPortalSession).toHaveBeenCalledWith(expect.objectContaining({ customerId: "cus_new" }));
+    expect(mocks.upsertBillingAccount).not.toHaveBeenCalledWith(expect.anything(), "recovery-user", "author", expect.objectContaining({ stripe_customer_id: "cus_recovered" }));
+  });
+
+  it("recovers an active subscription belonging to the authenticated user", async () => {
+    mocks.getStripeCustomerSubscriptions.mockResolvedValue([{ id: "sub_owned", status: "active", price_ids: ["price_pro"], metadata: { user_id: "recovery-user" } }]);
+    const res = await POST(new Request("http://localhost/api/billing/portal", { method: "POST" }));
+    expect(res.status).toBe(200);
+    expect(mocks.createStripeCustomer).not.toHaveBeenCalled();
+    expect(mocks.createStripeCustomerPortalSession).toHaveBeenCalledWith(expect.objectContaining({ customerId: "cus_recovered" }));
+  });
+});
+
 function mockAuthedUser() {
   mocks.createClient.mockResolvedValue({
     auth: { getUser: () => Promise.resolve({ data: { user: { id: "user-1", email: "a@b.com" } } }) },

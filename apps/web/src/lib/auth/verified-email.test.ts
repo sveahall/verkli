@@ -15,10 +15,10 @@ describe("getConfirmedEmail", () => {
     ).toBe("a@example.com");
   });
 
-  it("accepts the legacy confirmed_at field", () => {
+  it("does not treat phone confirmation as email confirmation", () => {
     expect(
-      getConfirmedEmail(user({ email: "a@example.com", confirmed_at: "2026-01-01T00:00:00Z" }))
-    ).toBe("a@example.com");
+      getConfirmedEmail(user({ email: "a@example.com", phone_confirmed_at: "2026-01-01T00:00:00Z", confirmed_at: "2026-01-01T00:00:00Z" }))
+    ).toBeNull();
   });
 
   // The whole point: an unconfirmed address is a claim. Returning it would let
