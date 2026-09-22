@@ -1,3 +1,4 @@
+import { recordUsage } from "@/lib/usage/meter";
 import { NextRequest, NextResponse } from "next/server";
 import { conversationInputSchema, type Memory } from "@/features/ai-team/memory/contracts";
 import { completeTurn, getPreferences, loadHistory, memoryErrorResponse, requireEditionScope, reserveTurn, type Reservation } from "@/features/ai-team/memory/server";
@@ -244,6 +245,20 @@ export async function POST(
         // Only rejected proposals reach the second attempt. Provider failures escape immediately.
         const llm = await generateWritingAssistantReply({ ...input, ...(attempt === 2 ? { validationRetry: true } : {}) });
         usage = combineUsage(usage, llm.usage);
+
+        // Metered per attempt, not on the combined total: a validation retry is
+        // a second real request that was really paid for. The assistant already
+        // returns its own usage block and both the Anthropic and NIM paths fill
+        // it in, so recording here covers both without threading a context
+        // through either provider.
+        if (llm.usage) {
+          await recordUsage({ userId: user.id, pipeline: "assistant", bookId }, [
+            { kind: "ai_call", provider: llm.provider, model: llm.model,
+              quantity: llm.usage.promptTokens ?? 0, unit: "input_tokens" },
+            { kind: "ai_call", provider: llm.provider, model: llm.model,
+              quantity: llm.usage.completionTokens ?? 0, unit: "output_tokens" },
+          ]);
+        }
         let proposal;
         if (actionMode) {
           try {
@@ -270,6 +285,7 @@ export async function POST(
           usage: usage ?? null,
         });
       }
+
     } catch (err) {
       const code = err instanceof WritingAssistantError ? err.code : "PROVIDER_FAILED";
       console.warn("[ai.chat] LLM fallback to templates", {

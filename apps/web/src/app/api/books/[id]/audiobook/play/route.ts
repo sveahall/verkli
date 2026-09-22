@@ -1,3 +1,4 @@
+import { recordEgressGrant } from "@/lib/usage/egress";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -238,6 +239,20 @@ export async function GET(
   const { data: signed, error: signedError } = await admin.storage
     .from(bucket)
     .createSignedUrl(audioPath, SIGNED_URL_TTL_SECONDS);
+
+  // Audio is the heaviest thing this platform hands out, so the grant is
+  // recorded here. Only for a signed-in listener: usage_events.user_id is NOT
+  // NULL, and an anonymous play has nobody to attribute the bytes to — that
+  // share shows up as the gap between this figure and Supabase's own total.
+  if (!signedError && signed?.signedUrl && user?.id) {
+    await recordEgressGrant({
+      userId: user.id,
+      bucket,
+      path: audioPath,
+      bookId: bookRow.id,
+      pipeline: "tts",
+    });
+  }
 
   if (signedError || !signed?.signedUrl) {
     console.error("[audiobook play] signed URL failed", {

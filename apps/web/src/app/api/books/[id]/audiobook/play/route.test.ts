@@ -418,7 +418,12 @@ describe("GET /api/books/[id]/audiobook/play", () => {
 
     expect(res.status).toBe(200);
     expect((await res.json()).audioUrl).toBe("https://signed");
-    expect(admin.storage.from).toHaveBeenCalledExactlyOnceWith("private-audiobooks");
+    // Twice, on purpose: once to sign the URL, once for the egress meter to
+    // read the object's size. Audio is the heaviest thing served here, and the
+    // bytes leave via a 302 straight from storage where nothing can count them,
+    // so one metadata call is what buys a per-user figure at all.
+    expect(admin.storage.from).toHaveBeenCalledTimes(2);
+    expect(admin.storage.from).toHaveBeenCalledWith("private-audiobooks");
     expect(admin.__createSignedUrl).toHaveBeenCalledExactlyOnceWith(audioPath, 900);
   });
 

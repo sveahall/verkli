@@ -14,6 +14,9 @@
  * lives under `text.format` instead of `response_format`.
  */
 
+import { recordUsage } from "@/lib/usage/meter";
+import type { MeterContext } from "@/lib/usage/types";
+
 /** Env-driven so a new model id never needs a deploy. */
 const DEFAULT_MODEL = "gpt-6-astra";
 
@@ -29,6 +32,11 @@ export type OpenAiCallInput = {
   timeoutMs?: number;
   /** When set, the reply is constrained to this schema on the wire. */
   schema?: OpenAiJsonSchema;
+  /**
+   * When present, token spend is billed to this user. Absent means the call is
+   * not measured, which is what scripts, seeds and tests want.
+   */
+  meter?: MeterContext;
 };
 
 export class OpenAiError extends Error {}
@@ -48,6 +56,7 @@ type ResponsesPayload = {
   incomplete_details?: { reason?: string };
   output_text?: string;
   output?: { type?: string; content?: { type?: string; text?: string }[] }[];
+  usage?: { input_tokens?: number; output_tokens?: number };
 };
 
 /** The raw JSON has no `output_text`; that is an SDK convenience. Rebuild it. */
@@ -104,5 +113,34 @@ export async function callOpenAi(input: OpenAiCallInput): Promise<string> {
   }
   const text = readOutputText(payload);
   if (!text) throw new OpenAiError("OpenAI returned an empty reply");
+
+  // Measured only once the reply is known good, and never in a way that can
+  // fail the call: `recordUsage` swallows its own errors by contract, because
+  // the tokens are already spent and a metering problem must not also cost the
+  // caller their result.
+  //
+  // A reply with no `usage` block gets an explicit marker row rather than a
+  // pair of zeros. Zeros would be dropped as unmeasured and the gap would then
+  // look identical to a user who simply spent nothing.
+  if (!input.meter) return text;
+
+  const usage = payload.usage;
+  if (usage) {
+    await recordUsage(input.meter, [
+      { kind: "ai_call", provider: "openai", model, quantity: usage.input_tokens ?? 0, unit: "input_tokens" },
+      { kind: "ai_call", provider: "openai", model, quantity: usage.output_tokens ?? 0, unit: "output_tokens" },
+    ]);
+  } else {
+    await recordUsage(input.meter, [
+      {
+        kind: "ai_call",
+        provider: "openai",
+        model,
+        quantity: 1,
+        unit: "ms",
+        meta: { usage_missing: true, note: "provider returned no usage block" },
+      },
+    ]);
+  }
   return text;
 }

@@ -1,3 +1,4 @@
+import type { MeterContext } from "@/lib/usage/types";
 import "server-only";
 import { z } from "zod";
 import { callOpenAi, isOpenAiConfigured } from "@/lib/ai/providers/openai";
@@ -126,6 +127,8 @@ const SYSTEM = [
 export async function adjudicateEditorialReport(input: {
   report: EditorialReport;
   text: string;
+  /** When present, the critic's token spend is billed to this user. */
+  meter?: MeterContext;
 }): Promise<{
   report: EditorialReport;
   stats: AdjudicationStats;
@@ -149,6 +152,7 @@ export async function adjudicateEditorialReport(input: {
       maxTokens: 4000,
       timeoutMs: 45_000,
       schema: { name: "editorial_adjudication", schema: wireSchema as unknown as Record<string, unknown> },
+      meter: input.meter,
     });
     verdicts = verdictsSchema.parse(JSON.parse(raw));
   } catch {

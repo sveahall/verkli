@@ -68,7 +68,8 @@ export async function POST(
   }
   let copy;
   try {
-    copy = await generateLaunchCopy({ authorId: user.id, title: book.title, description: book.description, language, channel });
+    copy = await generateLaunchCopy({ authorId: user.id, title: book.title, description: book.description, language, channel,
+      meter: { userId: user.id, pipeline: "marketing", bookId } });
   } catch (error) {
     const code = error instanceof LaunchCopyError ? error.code : "MARKETING_AI_FAILED";
     console.error("[marketing generate] draft failed:", code);

@@ -1,3 +1,4 @@
+import type { MeterContext } from "@/lib/usage/types";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { callOpenAi, isOpenAiConfigured } from "@/lib/ai/providers/openai";
@@ -73,12 +74,14 @@ export async function generateLaunchCopyWithCritic<T>(args: {
   system: string;
   content: string;
   parse: (raw: string) => T;
+  meter?: MeterContext;
 }): Promise<T> {
   const draft = await callOpenAi({
     system: args.system,
     user: args.content,
     maxTokens: 2400,
     timeoutMs: 20_000,
+    meter: args.meter,
   });
 
   // Parse eagerly: a valid draft is the safety net for a revision that breaks a
@@ -107,6 +110,7 @@ export async function generateLaunchCopyWithCritic<T>(args: {
     user: JSON.stringify({ bookData: args.content, previousDraft: draft, mustFix: issues }),
     maxTokens: 2400,
     timeoutMs: 20_000,
+    meter: args.meter,
   });
 
   try {

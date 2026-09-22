@@ -222,6 +222,7 @@ export async function POST(
       voiceId,
       modelId: modelId || "eleven_multilingual_v2",
       timeoutMs: 30_000,
+      meter: { userId: user.id, pipeline: "tts", bookId },
     });
 
     // Return audio directly as a binary response
