@@ -18,7 +18,7 @@ import {
 } from "@/lib/api-errors";
 import { extractTextFromTiptapNode } from "@/lib/tiptap-content";
 
-const previewLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const previewLimiter = createPerUserRateLimiter({ name: "books-audiobook-preview", maxPerMinute: 5 });
 
 /** Max characters for preview to keep ElevenLabs costs tiny */
 const MAX_PREVIEW_CHARS = 200;

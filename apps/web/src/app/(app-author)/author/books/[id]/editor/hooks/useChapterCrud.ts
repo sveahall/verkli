@@ -7,6 +7,7 @@ import { useToastHelpers } from "@/components/ui/toast";
 import { normalizeLanguage } from "@/lib/languages";
 import type { Book, BookVersion, Chapter } from "../BookEditorView.types";
 import { drainPendingSaves, type PersistChapter } from "./useChapterCrud.autosave";
+import { assertReviewCanApply, persistReviewedChapterContent } from "./useChapterCrud.review";
 
 interface UseChapterCrudOptions {
   book: Book;
@@ -73,6 +74,7 @@ export function useChapterCrud({
   const toast = useToastHelpers();
   // True while a drain is in flight. One writer at a time; everyone else queues.
   const savingRef = useRef(false);
+  const applyingReviewRef = useRef(false);
   // The write queue: latest unsaved content per chapter id. Every autosave call
   // enqueues here, including the one that goes on to drain it, so a payload can
   // never be written out of order with a newer one for the same chapter.
@@ -164,6 +166,40 @@ export function useChapterCrud({
     // here would show "Saved" over it.
     if (pendingSavesRef.current.size === 0) setHasUnsavedChanges(false);
   }, [setChapters, toast]);
+
+  const handleApplyReview = useCallback(async (
+    chapterId: string,
+    expectedContent: string | null,
+    nextContent: Record<string, unknown>,
+  ): Promise<void> => {
+    assertReviewCanApply({
+      chapter: chapters.find((chapter) => chapter.id === chapterId),
+      expectedContent,
+      hasUnsavedChanges,
+      isSaving,
+      isDraining: savingRef.current,
+      pendingCount: pendingSavesRef.current.size,
+      isApplying: applyingReviewRef.current,
+    });
+    applyingReviewRef.current = true;
+    try {
+      const content = await persistReviewedChapterContent(book.id, chapterId, expectedContent, nextContent);
+      setChapters((current) => current.map((chapter) => (
+        chapter.id === chapterId && chapter.content === expectedContent
+          ? { ...chapter, content }
+          : chapter
+      )));
+      setLastSaved(new Date());
+      // A newly mounted editor may have queued an edit while the request was in flight.
+      // Its autosave retains ownership of the pending/saved flags in that case.
+      // This operation starts with no unsaved changes, so never clear newer edits.
+      if (!savingRef.current && pendingSavesRef.current.size === 0) {
+        setSaveError(false);
+      }
+    } finally {
+      applyingReviewRef.current = false;
+    }
+  }, [book.id, chapters, hasUnsavedChanges, isSaving, setChapters]);
 
   const handleCreateChapter = useCallback(async () => {
     setIsCreating(true);
@@ -401,6 +437,7 @@ export function useChapterCrud({
     deletingChapterId,
     setDeletingChapterId,
     handleAutoSave,
+    handleApplyReview,
     handleCreateChapter,
     handleStartEditTitle,
     handleSaveTitle,

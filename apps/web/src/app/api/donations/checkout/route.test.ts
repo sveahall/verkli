@@ -194,10 +194,79 @@ describe("POST /api/donations/checkout", () => {
         currency: "USD",
         userId: "user-1",
         donationId: "donation-1",
-        creditsDelta: 100,
+        // Zero, NOT the 100 the caller asked for. A donation's amount is the
+        // donor's to choose; its credit payout is not. This assertion used to
+        // read `creditsDelta: 100`, which encoded the vulnerability as the
+        // expected behaviour.
+        creditsDelta: 0,
         customerEmail: "donor@example.com",
       }),
     );
+  });
+
+  it("never grants credits, whatever the caller puts in the body", async () => {
+    mockAuthedUser();
+    mockAdminClient();
+    mocks.createDonationCheckoutSession.mockResolvedValue({
+      id: "cs_test_999",
+      url: "https://checkout.stripe.com/cs_test_999",
+    });
+
+    await POST(
+      makeRequest({ amountMinor: 300, creditsDelta: 100_000_000, creditDelta: 100_000_000 }),
+    );
+
+    expect(mocks.createDonationCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({ creditsDelta: 0 }),
+    );
+  });
+
+  // Rejected, not coerced. Silently reading an unsupported code as SEK would
+  // charge 5000 SEK for an intended £50 — a silent fallback on currency changes
+  // what the payer pays, so it has to 400 like a bad amount does.
+  it("rejects an unsupported currency instead of quietly charging SEK", async () => {
+    mockAuthedUser();
+    mockAdminClient();
+
+    for (const currency of ["GBP", "XXX", "NOK", "sekk"]) {
+      const res = await POST(makeRequest({ amountMinor: 10000, currency }));
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe("INVALID_PRICE_CURRENCY");
+    }
+    expect(mocks.createDonationCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it("still accepts a supported code that only needed trimming or casing", async () => {
+    mockAuthedUser();
+    mockAdminClient();
+    mocks.createDonationCheckoutSession.mockResolvedValue({
+      id: "cs_test_trim",
+      url: "https://checkout.stripe.com/cs_test_trim",
+    });
+
+    await POST(makeRequest({ amountMinor: 10000, currency: " eur " }));
+
+    expect(mocks.createDonationCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({ currency: "EUR" }),
+    );
+  });
+
+  it("accepts the supported currencies", async () => {
+    for (const currency of ["SEK", "EUR", "USD"]) {
+      vi.clearAllMocks();
+      mockAuthedUser();
+      mockAdminClient();
+      mocks.createDonationCheckoutSession.mockResolvedValue({
+        id: "cs_test_cur",
+        url: "https://checkout.stripe.com/cs_test_cur",
+      });
+
+      await POST(makeRequest({ amountMinor: 10000, currency }));
+
+      expect(mocks.createDonationCheckoutSession).toHaveBeenCalledWith(
+        expect.objectContaining({ currency }),
+      );
+    }
   });
 
   it("defaults currency to SEK when not provided", async () => {

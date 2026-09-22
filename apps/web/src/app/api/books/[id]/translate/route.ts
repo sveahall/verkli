@@ -40,7 +40,7 @@ import {
 } from "@/lib/api-errors"
 import { createPerUserRateLimiter } from "@/lib/rate-limit"
 
-const translateLimiter = createPerUserRateLimiter({ maxPerMinute: 5 })
+const translateLimiter = createPerUserRateLimiter({ name: "books-translate", maxPerMinute: 5 })
 
 type TranslationStartSuccess = {
   ok: true

@@ -12,7 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 
-const limiter = createPerUserRateLimiter({ maxPerMinute: 10 });
+const limiter = createPerUserRateLimiter({ name: "auth-active-role", maxPerMinute: 10 });
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);

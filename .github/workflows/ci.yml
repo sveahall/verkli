@@ -11,6 +11,14 @@ on:
     # Kept `main` so a push there is still covered if it is ever revived.
     branches: [platform, main]
 
+# Least privilege for GITHUB_TOKEN. Without this block the token inherits the
+# repository default, which on older repos is read/write across contents,
+# packages, issues and pull-requests — so any step, or any action it calls,
+# could push commits or open releases. This workflow only needs to read the
+# tree. Declared at the top level so every job inherits it.
+permissions:
+  contents: read
+
 jobs:
   web:
     runs-on: ubuntu-latest
@@ -45,9 +53,13 @@ jobs:
     # Dockerfile runs.
 
     steps:
-      - uses: actions/checkout@v4
+      # Pinned to a commit SHA, not a tag. A tag is a movable pointer: whoever
+      # controls the action's repo can repoint `v4` at new code, and it runs
+      # here with this job's token and secrets. The SHA cannot be repointed.
+      # Renovate/Dependabot both understand the trailing version comment.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           # Matches the root package.json engines floor (>=22.12.0) and the
           # node:22-alpine the web image runs on Railway. On 20 the gate ran

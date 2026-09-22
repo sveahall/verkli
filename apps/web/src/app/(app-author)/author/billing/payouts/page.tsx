@@ -1,17 +1,7 @@
-// Author payouts ledger v0 — Week 1 of pre-raise plan.
-//
-// Three states:
-//   1. Not onboarded: "Set up payouts" CTA → POSTs to /api/billing/connect/onboard.
-//   2. Mid-onboarding (account row exists but payouts_enabled=false):
-//      "Continue setup" button → /api/billing/connect/refresh.
-//   3. Active: status block + payout schedule selector + ledger placeholder.
-//
-// Real ledger numbers (pending/available/paid_out) land in Week 3 alongside
-// PRO SKUs. v0 shows the structure so authors see where the data will appear.
-
 import { redirect } from "next/navigation";
-import { getTranslations } from "next-intl/server";
-import { createClient } from "@/lib/supabase/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { requireAuthorRole } from "@/lib/auth/require-author";
+import { getConnectedPayoutSnapshot, formatPayoutAmount, type PayoutSnapshot } from "@/lib/payments/stripe-payouts";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getPayoutAccount,
@@ -70,9 +60,7 @@ function NotOnboardedCard({ t }: { t: PayoutsTranslations }) {
       <p className="mt-2 text-sm text-muted-foreground">{t("setupBody")}</p>
 
       <ul className="mt-4 space-y-1 text-sm text-muted-foreground">
-        <li>• {t("platformFee")}</li>
         <li>• {t("schedule")}</li>
-        <li>• {t("taxForms")}</li>
       </ul>
 
       <form action="/api/billing/connect/onboard" method="POST" className="mt-6">
@@ -128,9 +116,13 @@ function OnboardingInProgressCard({
 
 function ActiveLedgerCard({
   account,
+  snapshot,
+  locale,
   t,
 }: {
   account: ConnectAccount;
+  snapshot: PayoutSnapshot;
+  locale: string;
   t: PayoutsTranslations;
 }) {
   return (
@@ -143,24 +135,53 @@ function ActiveLedgerCard({
               <span className="font-mono text-xs">{account.stripe_account_id}</span>
               {" · "}
               {account.country}
-              {" · "}
-              {account.payout_schedule}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge enabled={account.payouts_enabled} label={t("payoutsOk")} />
-            <StatusBadge enabled={account.charges_enabled} label={t("salesOk")} />
+            <StatusBadge enabled={account.charges_enabled} label={t(account.charges_enabled ? "salesOk" : "salesPending")} />
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <LedgerCell label={t("pending")} value="—" />
-        <LedgerCell label={t("available")} value="—" />
-        <LedgerCell label={t("paidOut")} value="—" />
+      {!snapshot.livemode ? <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">{t("testMode")}</p> : null}
+      <p className="text-sm text-muted-foreground">{t("balanceScope")}</p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <LedgerCell label={t("pending")} value={snapshot.pending.map((entry) => formatPayoutAmount(entry.amount, entry.currency, locale)).join(" · ") || t("noBalance")} />
+        <LedgerCell label={t("available")} value={snapshot.available.map((entry) => formatPayoutAmount(entry.amount, entry.currency, locale)).join(" · ") || t("noBalance")} />
       </div>
-
-      <p className="text-xs text-muted-foreground">{t("balanceComingSoon")}</p>
+      <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="author-section-title text-lg font-medium">{t("historyTitle")}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t("historyScope")}</p>
+          </div>
+          <a href="/api/billing/connect/payout-report" className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted">{t("downloadReport")}</a>
+        </div>
+        {snapshot.payouts.length === 0 ? (
+          <p className="mt-6 text-sm text-muted-foreground">{t("historyEmpty")}</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead><tr className="border-b border-border text-muted-foreground">
+                <th scope="col" className="py-3 pr-4">{t("created")}</th>
+                <th scope="col" className="py-3 pr-4">{t("amount")}</th>
+                <th scope="col" className="py-3 pr-4">{t("status")}</th>
+                <th scope="col" className="py-3">{t("arrival")}</th>
+              </tr></thead>
+              <tbody>{snapshot.payouts.map((payout) => (
+                <tr key={payout.id} className="border-b border-border last:border-0">
+                  <td className="py-3 pr-4 whitespace-nowrap">{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" }).format(payout.created * 1000)}</td>
+                  <td className="py-3 pr-4 whitespace-nowrap tabular-nums">{formatPayoutAmount(payout.amount, payout.currency, locale)}</td>
+                  <td className="py-3 pr-4">{t(`payoutStatus_${payout.status}`)}</td>
+                  <td className="py-3 whitespace-nowrap">{new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" }).format(payout.arrival_date * 1000)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
+        {snapshot.hasMore ? <p className="mt-4 text-xs text-muted-foreground">{t("moreHistory")}</p> : null}
+      </section>
     </div>
   );
 }
@@ -180,9 +201,7 @@ type PayoutsTranslations = (
     | "subtitle"
     | "setupTitle"
     | "setupBody"
-    | "platformFee"
     | "schedule"
-    | "taxForms"
     | "startOnboarding"
     | "continueOnboarding"
     | "kycRequired"
@@ -193,8 +212,21 @@ type PayoutsTranslations = (
     | "salesPending"
     | "pending"
     | "available"
-    | "paidOut"
-    | "balanceComingSoon"
+    | "balanceScope"
+    | "noBalance"
+    | "historyTitle"
+    | "historyScope"
+    | "historyEmpty"
+    | "downloadReport"
+    | "created"
+    | "amount"
+    | "status"
+    | "arrival"
+    | "moreHistory"
+    | "testMode"
+    | "loadError"
+    | "retry"
+    | `payoutStatus_${PayoutSnapshot["payouts"][number]["status"]}`
     | StatusBannerKey
 ) => string;
 
@@ -203,14 +235,23 @@ export default async function AuthorPayoutsPage({
 }: {
   searchParams?: Promise<SearchParams>;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/author/signin");
+  const auth = await requireAuthorRole();
+  if (!auth.ok) redirect(auth.status === 401 ? "/author/signin" : "/reader/home");
 
-  const admin = createAdminClient();
-  const account = await getPayoutAccount(admin, user.id);
+  let account: ConnectAccount | null = null;
+  let snapshot: PayoutSnapshot | null = null;
+  let loadFailed = false;
+  try {
+    account = await getPayoutAccount(createAdminClient(), auth.user.id);
+    if (account?.payouts_enabled) snapshot = await getConnectedPayoutSnapshot(account.stripe_account_id);
+  } catch (error) {
+    loadFailed = true;
+    console.error("[author payouts] load failed", {
+      userId: auth.user.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+  const locale = await getLocale();
 
   const resolvedParams = (await (searchParams ?? Promise.resolve({} as SearchParams))) as SearchParams;
   const statusParam = resolvedParams?.status;
@@ -244,12 +285,17 @@ export default async function AuthorPayoutsPage({
         </div>
       ) : null}
 
-      {!account ? (
+      {loadFailed ? (
+        <div role="alert" className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-6">
+          <p className="text-sm">{t("loadError")}</p>
+          <a href="/author/billing/payouts" className="mt-4 inline-block rounded-lg border border-border px-4 py-2 text-sm font-medium">{t("retry")}</a>
+        </div>
+      ) : !account ? (
         <NotOnboardedCard t={t} />
       ) : !account.payouts_enabled ? (
         <OnboardingInProgressCard account={account} t={t} />
       ) : (
-        <ActiveLedgerCard account={account} t={t} />
+        snapshot ? <ActiveLedgerCard account={account} snapshot={snapshot} locale={locale} t={t} /> : null
       )}
     </div>
   );

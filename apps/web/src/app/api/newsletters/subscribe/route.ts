@@ -14,7 +14,7 @@ import {
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 
-const subscribeLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const subscribeLimiter = createPerUserRateLimiter({ name: "newsletters-subscribe", maxPerMinute: 5 });
 
 const subscribeBodySchema = z.object({
   authorId: z.string().uuid("Invalid author ID"),
