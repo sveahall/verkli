@@ -8,6 +8,7 @@ import CoverEditorTextPanel from "./CoverEditorTextPanel";
 import CoverEditorFilterPanel from "./CoverEditorFilterPanel";
 import { useCoverEditor } from "./useCoverEditor";
 import { loadAllFonts } from "./cover-editor.fonts";
+import { encodeCover, type CoverExportFormat } from "./cover-editor.export";
 import { filtersToCss } from "./cover-editor.filters";
 import { saveCoverEditorState, loadCoverEditorState } from "./cover-editor.storage";
 
@@ -34,6 +35,10 @@ export default function CoverEditorModal({
   const [tab, setTab] = useState<Tab>("text");
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [exportError, setExportError] = useState("");
+  const [format, setFormat] = useState<CoverExportFormat>("png");
+  const [imageStatus, setImageStatus] = useState<"loading" | "ready" | "error">("loading");
   const [backgroundUrl, setBackgroundUrl] = useState(imageUrl);
 
   const editor = useCoverEditor();
@@ -62,6 +67,7 @@ export default function CoverEditorModal({
   // Keyboard shortcuts
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
+      if (savingRef.current) return;
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); editor.undo(); }
       if ((e.metaKey || e.ctrlKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); editor.redo(); }
       if (e.key === "Delete" || e.key === "Backspace") {
@@ -70,15 +76,17 @@ export default function CoverEditorModal({
           editor.removeTextLayer(editor.selectedLayerId);
         }
       }
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !savingRef.current) onClose();
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [editor, onClose]);
 
-  const handleExport = useCallback(async () => {
+  const handleExport = useCallback(async (downloadOnly = false) => {
     const stage = stageRef.current;
-    if (!stage) return;
+    if (!stage || savingRef.current || imageStatus !== "ready") return;
+    savingRef.current = true;
+    setExportError("");
 
     setSaving(true);
     editor.setExporting(true);
@@ -88,35 +96,32 @@ export default function CoverEditorModal({
 
     try {
       const dataUrl = stage.toDataURL({ pixelRatio: 2, mimeType: "image/png" });
-      const cssFilter = filtersToCss(editor.filters);
-      const needsFilter = cssFilter !== "brightness(1) contrast(1) saturate(1)";
-
-      // Convert data URL to image for canvas operations
       const img = new window.Image();
-      img.src = dataUrl;
-      await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = reject; });
-
-      const canvas = document.createElement("canvas");
-      canvas.width = CANVAS_WIDTH * 2;
-      canvas.height = CANVAS_HEIGHT * 2;
-      const ctx = canvas.getContext("2d")!;
-      if (needsFilter) ctx.filter = cssFilter;
-      ctx.drawImage(img, 0, 0);
-
-      const finalBlob = await new Promise<Blob>((resolve, reject) =>
-        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Export failed"))), "image/png")
-      );
-
-      // Persist editor state so layers can be restored on next edit
-      saveCoverEditorState(bookId, backgroundUrl, editor.textLayers, editor.filters);
-
-      const file = new File([finalBlob], "cover-edited.png", { type: "image/png" });
-      await onSave(file);
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Could not read the cover image."));
+        img.src = dataUrl;
+      });
+      const file = await encodeCover(img, CANVAS_WIDTH * 2, CANVAS_HEIGHT * 2, filtersToCss(editor.filters), format);
+      if (downloadOnly) {
+        const url = URL.createObjectURL(file);
+        const link = document.createElement("a");
+        link.href = url; link.download = file.name;
+        document.body.appendChild(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } else {
+        await onSave(file);
+        // Only a confirmed save may replace the last saved editing state.
+        saveCoverEditorState(bookId, backgroundUrl, editor.textLayers, editor.filters);
+      }
+    } catch {
+      setExportError("Could not export or save the cover. Your edits are still here. Try again or download a copy.");
     } finally {
+      savingRef.current = false;
       setSaving(false);
       editor.setExporting(false);
     }
-  }, [editor, onSave, bookId, backgroundUrl]);
+  }, [editor, onSave, bookId, backgroundUrl, format, imageStatus]);
 
   return (
     <div className="fixed inset-0 z-[1000] flex flex-col bg-background dark:bg-card">
@@ -129,26 +134,38 @@ export default function CoverEditorModal({
           <h2 className="text-[15px] font-semibold text-foreground dark:text-foreground">Cover Editor</h2>
           {!fontsLoaded && <span className="text-[12px] text-muted-foreground">Loading fonts...</span>}
         </div>
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={editor.undo} className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-muted-foreground dark:text-muted-foreground dark:hover:bg-accent" title="Undo (Ctrl+Z)">
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={editor.undo} disabled={saving} className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-muted-foreground dark:text-muted-foreground dark:hover:bg-accent" title="Undo (Ctrl+Z)">
             <Undo2 className="h-4 w-4" />
           </button>
-          <button type="button" onClick={editor.redo} className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-muted-foreground dark:text-muted-foreground dark:hover:bg-accent" title="Redo (Ctrl+Y)">
+          <button type="button" onClick={editor.redo} disabled={saving} className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-muted-foreground dark:text-muted-foreground dark:hover:bg-accent" title="Redo (Ctrl+Y)">
             <Redo2 className="h-4 w-4" />
           </button>
           <div className="mx-1 h-5 w-px bg-muted dark:bg-card" />
-          <button type="button" onClick={handleExport} disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50">
+          <label className="text-xs text-muted-foreground">Export format
+            <select aria-label="Export format" value={format} disabled={saving} onChange={(event) => setFormat(event.target.value as CoverExportFormat)} className="ml-2 rounded-lg border border-border bg-background p-2 text-foreground">
+              <option value="png">PNG</option><option value="jpeg">JPEG</option>
+            </select>
+          </label>
+          <button type="button" onClick={() => void handleExport(true)} disabled={saving || imageStatus !== "ready" || !fontsLoaded} className="rounded-xl border border-border px-4 py-2 text-sm disabled:opacity-50">Download copy</button>
+          <button type="button" onClick={() => void handleExport()} disabled={saving || imageStatus !== "ready" || !fontsLoaded} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 active:scale-[0.97] disabled:opacity-50">
             <Download className="h-4 w-4" />
             {saving ? "Saving..." : "Save cover"}
           </button>
-          <button type="button" onClick={onClose} aria-label="Close cover editor" className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-muted-foreground dark:text-muted-foreground dark:hover:bg-accent">
+          <button type="button" onClick={onClose} disabled={saving} aria-label="Close cover editor" className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-muted-foreground dark:text-muted-foreground dark:hover:bg-accent">
             <X className="h-4 w-4" />
           </button>
         </div>
       </header>
 
+      <div className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
+        Export size: 800 × 1200 px. Check your publisher’s dimensions before submitting.
+        {imageStatus === "loading" && <p role="status">Loading cover image…</p>}
+        {imageStatus === "error" && <p role="alert">Could not load the cover image. Close the editor and reopen it to try again.</p>}
+        {exportError && <p role="alert" className="mt-2 text-destructive">{exportError}</p>}
+      </div>
       {/* Main */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+      <div inert={saving} className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
         <div className="flex min-h-[360px] min-w-0 flex-1 items-start justify-start overflow-auto bg-muted/50 p-4 lg:items-center lg:justify-center lg:p-8 dark:bg-card">
           <CoverEditorCanvas
             imageUrl={backgroundUrl}
@@ -158,6 +175,7 @@ export default function CoverEditorModal({
             onSelectLayer={editor.setSelectedLayerId}
             onUpdateLayer={editor.updateTextLayer}
             stageRef={stageRef}
+            onImageStatus={setImageStatus}
           />
         </div>
 
