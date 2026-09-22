@@ -7,6 +7,7 @@ import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { reviewText, splitReviewText } from "@/lib/editorial/content";
 import { reviewModeSchema } from "@/lib/editorial/review-schema";
 import { generateEditorialReview, estimateEditorialUnits, EDITORIAL_MODEL, type EditorialUsage } from "@/lib/editorial/provider";
+import type { EditorialCriticReceipt } from "@/lib/editorial/adjudicate";
 import { isAiChatEnabled } from "@/lib/flags";
 import { checkBudget, releaseBudget, BudgetExceededError } from "@/lib/workers/budget";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -72,8 +73,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   let reserved = false;
   let modelStarted = false;
   let usage: EditorialUsage | null = null;
+  let critic: EditorialCriticReceipt | null = null;
   let admin: ReturnType<typeof createAdminClient> | null = null;
-  const receipt = () => ({ model: EDITORIAL_MODEL, reservedUnits, usage, modelStarted });
+  const receipt = () => ({ model: EDITORIAL_MODEL, reservedUnits, usage, modelStarted, critic });
   try {
     await checkBudget({ userId: gate.user.id, pipeline: "editorial", units: reservedUnits, jobId });
     reserved = true;
@@ -83,12 +85,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       started_at: new Date().toISOString(), input: { mode, chapterId, part, model: EDITORIAL_MODEL, reservedUnits } });
     if (insertError) throw new Error("EditorialLedgerUnavailable");
     modelStarted = true;
-    const report = await generateEditorialReview(input, async (value) => {
-      usage = value;
+    const persistReceipt = async () => {
       // Persist even refused, truncated and invalid responses: tokens were used.
       const { data, error } = await admin!.from("ai_jobs").update({ output: receipt() as unknown as Json })
         .eq("id", jobId).eq("user_id", gate.user.id).select("id").maybeSingle();
       if (error || !data) throw new Error("EditorialUsageReceiptUnavailable");
+    };
+    const report = await generateEditorialReview(input, async (value) => {
+      usage = value;
+      await persistReceipt();
+    }, async (value) => {
+      critic = value;
+      await persistReceipt();
     });
     const { data, error: saveError } = await admin.from("ai_jobs").update({ status: "completed", progress: 100,
       finished_at: new Date().toISOString(), output: { ...receipt(), report } as unknown as Json })

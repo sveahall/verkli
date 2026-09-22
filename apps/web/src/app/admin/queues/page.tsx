@@ -6,6 +6,7 @@
 // lib/queues/admin-queue-stats.ts (shared with the dashboard backlog).
 
 import { loadQueueRows } from "@/lib/queues/admin-queue-stats";
+import ImportJobLookup from "./ImportJobLookup";
 import { RetryFailedButton } from "./RetryFailedButton";
 import { PageHeader } from "@/components/ui/page-header";
 import { Breadcrumbs } from "@/components/ui/breadcrumbs";
@@ -38,6 +39,8 @@ export default async function AdminQueuesPage() {
         title="Queues"
         description="BullMQ job counts for all production queues. Service-role connected. Refresh the page to re-read."
       />
+
+      <ImportJobLookup />
 
       <Card className="mt-8 overflow-hidden p-0">
         <Table>

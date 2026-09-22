@@ -6,7 +6,7 @@ const { callOpenAi, isOpenAiConfigured } = vi.hoisted(() => ({
   callOpenAi: vi.fn(),
   isOpenAiConfigured: vi.fn(),
 }));
-vi.mock("@/lib/ai/providers/openai", () => ({ callOpenAi, isOpenAiConfigured }));
+vi.mock("@/lib/ai/providers/openai", async (importOriginal) => ({ ...await importOriginal<object>(), callOpenAi, isOpenAiConfigured }));
 
 const text = "The dog barked loudly. She where going home. It was allready late.";
 
@@ -45,6 +45,45 @@ describe("adjudicateEditorialReport", () => {
     const result = await adjudicateEditorialReport({ report: empty, text });
     expect(result.report).toEqual(empty);
     expect(callOpenAi).not.toHaveBeenCalled();
+  });
+
+  it("persists a started marker before calling the critic and retains unknown usage on timeout", async () => {
+    const onReceipt = vi.fn();
+    callOpenAi.mockRejectedValue(new Error("timeout"));
+    const result = await adjudicateEditorialReport({ report: report(), text, onReceipt });
+    expect(result.report).toEqual(report());
+    expect(onReceipt).toHaveBeenNthCalledWith(1, { status: "started", usage: null });
+    expect(onReceipt).toHaveBeenLastCalledWith({ status: "unknown", usage: null });
+    expect(onReceipt.mock.invocationCallOrder[0]).toBeLessThan(callOpenAi.mock.invocationCallOrder[0]);
+  });
+
+  it("retains usage when the critic returns malformed content", async () => {
+    const usage = { model: "actual", responseId: "resp", inputTokens: 12, outputTokens: 8, cachedInputTokens: 0, reasoningTokens: 3 };
+    callOpenAi.mockImplementationOnce(async ({ onUsage }) => { await onUsage(usage); return "bad json"; });
+    const onReceipt = vi.fn();
+    expect((await adjudicateEditorialReport({ report: report(), text, onReceipt })).report).toEqual(report());
+    expect(onReceipt).toHaveBeenLastCalledWith({ status: "received", usage });
+  });
+
+  it("does not start a critic if the ledger cannot store the started marker", async () => {
+    const onReceipt = vi.fn().mockRejectedValue(new Error("ledger unavailable"));
+    await expect(adjudicateEditorialReport({ report: report(), text, onReceipt })).rejects.toThrow("ledger unavailable");
+    expect(callOpenAi).not.toHaveBeenCalled();
+  });
+
+  it("does not hide failure to persist a paid critic receipt", async () => {
+    const onReceipt = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValue(new Error("ledger unavailable"));
+    callOpenAi.mockResolvedValue(verdicts({ findings: [], corrections: [] }));
+    await expect(adjudicateEditorialReport({ report: report(), text, onReceipt })).rejects.toThrow("ledger unavailable");
+  });
+
+  it("skips an intermediate report exceeding the reserved wire allowance", async () => {
+    const large = report();
+    large.findings = Array.from({ length: 25 }, () => ({ ...large.findings[0], explanation: "語".repeat(1500) }));
+    const onReceipt = vi.fn();
+    expect((await adjudicateEditorialReport({ report: large, text, onReceipt })).stats.ran).toBe(false);
+    expect(callOpenAi).not.toHaveBeenCalled();
+    expect(onReceipt).toHaveBeenLastCalledWith({ status: "skipped", usage: null });
   });
 
   it("drops findings and corrections the critic rejects", async () => {

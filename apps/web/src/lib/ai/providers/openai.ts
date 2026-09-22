@@ -22,7 +22,18 @@ export type OpenAiJsonSchema = {
   schema: Record<string, unknown>;
 };
 
+export type OpenAiUsage = {
+  model: string;
+  responseId: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  cachedInputTokens: number;
+  reasoningTokens: number;
+};
+
 export type OpenAiCallInput = {
+  /** Persist paid work before response content is validated. */
+  onUsage?: (usage: OpenAiUsage) => void | Promise<void>;
   system: string;
   user: string;
   maxTokens: number;
@@ -44,6 +55,11 @@ export function isOpenAiConfigured(): boolean {
 }
 
 type ResponsesPayload = {
+  id?: string;
+  model?: string;
+  usage?: { input_tokens: number; output_tokens: number;
+    input_tokens_details?: { cached_tokens?: number };
+    output_tokens_details?: { reasoning_tokens?: number } };
   status?: string;
   incomplete_details?: { reason?: string };
   output_text?: string;
@@ -63,33 +79,41 @@ function readOutputText(payload: ResponsesPayload): string {
     .trim();
 }
 
+function openAiRequest(input: OpenAiCallInput) {
+  return {
+    model: process.env.OPENAI_MODEL?.trim() || DEFAULT_MODEL,
+    instructions: input.system,
+    input: input.user,
+    max_output_tokens: input.maxTokens,
+    ...(input.schema
+      ? {
+          text: {
+            format: {
+              type: "json_schema",
+              name: input.schema.name,
+              strict: true,
+              schema: input.schema.schema,
+            },
+          },
+        }
+      : {}),
+  };
+}
+
+/** Conservative token units, not currency; includes all wire escaping and output/reasoning. */
+export function estimateOpenAiUnits(input: OpenAiCallInput): number {
+  return Buffer.byteLength(JSON.stringify(openAiRequest(input)), "utf8") + 4096 + input.maxTokens;
+}
+
 export async function callOpenAi(input: OpenAiCallInput): Promise<string> {
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key) throw new OpenAiError("OPENAI_API_KEY is not set");
-  const model = process.env.OPENAI_MODEL?.trim() || DEFAULT_MODEL;
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     signal: AbortSignal.timeout(input.timeoutMs ?? 30_000),
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      instructions: input.system,
-      input: input.user,
-      max_output_tokens: input.maxTokens,
-      ...(input.schema
-        ? {
-            text: {
-              format: {
-                type: "json_schema",
-                name: input.schema.name,
-                strict: true,
-                schema: input.schema.schema,
-              },
-            },
-          }
-        : {}),
-    }),
+    body: JSON.stringify(openAiRequest(input)),
   });
 
   if (!response.ok) {
@@ -97,6 +121,17 @@ export async function callOpenAi(input: OpenAiCallInput): Promise<string> {
     throw new OpenAiError(`OpenAI request failed with status ${response.status}`);
   }
   const payload = (await response.json()) as ResponsesPayload;
+  if (input.onUsage) {
+    const usage = payload.usage;
+    const counts = [usage?.input_tokens, usage?.output_tokens,
+      usage?.input_tokens_details?.cached_tokens ?? 0, usage?.output_tokens_details?.reasoning_tokens ?? 0];
+    if (!payload.model?.trim() || counts.some((count) => !Number.isSafeInteger(count) || count! < 0)
+      || counts[2]! > counts[0]! || counts[3]! > counts[1]!) {
+      throw new OpenAiError("OpenAI usage receipt is missing or invalid");
+    }
+    await input.onUsage({ model: payload.model, responseId: payload.id ?? null,
+      inputTokens: counts[0]!, outputTokens: counts[1]!, cachedInputTokens: counts[2]!, reasoningTokens: counts[3]! });
+  }
   if (payload.status === "incomplete") {
     throw new OpenAiError(
       `OpenAI reply was incomplete (${payload.incomplete_details?.reason ?? "unknown"})`
