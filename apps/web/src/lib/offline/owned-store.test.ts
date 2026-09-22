@@ -18,7 +18,12 @@ async function book(userId = "reader-a", expiresAt = now + 60_000) {
 beforeEach(() => {
   now = 1_800_000_000_000;
   state = emptyOfflineState();
-  storage = { atomic: async (fn) => fn(state) };
+  const blocked = new Set<string>();
+  storage = {
+    invalidate: (owner) => { blocked.add(owner.generation); },
+    isInvalidated: (owner) => blocked.has(owner.generation),
+    atomic: async (fn) => { const copy = structuredClone(state); const result = fn(copy); state = copy; return result; },
+  };
   store = new OwnedOfflineStore(storage, keys.publicKey, () => now);
 });
 
@@ -99,7 +104,49 @@ describe("owned offline text store", () => {
   });
   it("propagates storage/quota errors instead of claiming a completed save", async () => {
     const a = await store.activateOwner("reader-a");
-    const failing = new OwnedOfflineStore({ atomic: async () => { throw new Error("Storage quota exceeded"); } }, keys.publicKey, () => now);
+    const failing = new OwnedOfflineStore({ ...storage, atomic: async () => { throw new Error("Storage quota exceeded"); } }, keys.publicKey, () => now);
     await expect(failing.save(a, await book())).rejects.toThrow("quota");
   });
+  it("keeps both clients blocked when logout cleanup cannot commit", async () => {
+    const a = await store.activateOwner("reader-a");
+    await store.save(a, await book());
+    const failingStorage: OfflineStorage = { ...storage, atomic: async (fn) => {
+      const copy = structuredClone(state);
+      const result = fn(copy);
+      if (!copy.userId) throw new Error("Injected cleanup failure");
+      state = copy;
+      return result;
+    } };
+    const first = new OwnedOfflineStore(failingStorage, keys.publicKey, () => now);
+    const second = new OwnedOfflineStore(failingStorage, keys.publicKey, () => now);
+    await expect(first.activateOwner(null)).rejects.toThrow("cleanup");
+    expect(state.userId).toBe("reader-a"); // Failed transaction really preserved disk contents.
+    await expect(first.read(a, "book", "edition-1")).rejects.toThrow("blocked");
+    await expect(second.read(a, "book", "edition-1")).rejects.toThrow("blocked");
+    await expect(second.context()).rejects.toThrow("blocked");
+  });
+  it("invalidates before a failed revocation transaction and rejects late writes", async () => {
+    const a = await store.activateOwner("reader-a");
+    const downloaded = await book();
+    await store.save(a, downloaded);
+    const failing = new OwnedOfflineStore({ ...storage, atomic: async () => { throw new Error("Injected cleanup failure"); } }, keys.publicKey, () => now);
+    await expect(failing.revoke(a)).rejects.toThrow("cleanup");
+    await expect(store.read(a, "book", "edition-1")).rejects.toThrow("blocked");
+    await expect(store.save(a, downloaded)).rejects.toThrow("blocked");
+    const b = await store.activateOwner("reader-b");
+    await store.save(b, await book("reader-b"));
+    await failing.revoke(a).catch(() => {});
+    expect(await store.read(b, "book", "edition-1")).not.toBeNull();
+  });
+
+  it("keeps the current client locked even when the durable denial write fails", async () => {
+    const a = await store.activateOwner("reader-a");
+    await store.save(a, await book());
+    const unavailable = new OwnedOfflineStore({ ...storage, invalidate: () => { throw new Error("Denial storage unavailable"); } }, keys.publicKey, () => now);
+    await expect(unavailable.revoke(a)).rejects.toThrow("unavailable");
+    expect(state.userId).toBe("reader-a");
+    await expect(unavailable.context()).rejects.toThrow("blocked");
+    await expect(unavailable.read(a, "book", "edition-1")).rejects.toThrow("blocked");
+  });
+
 });

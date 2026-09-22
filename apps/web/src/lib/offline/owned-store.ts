@@ -4,6 +4,9 @@ export type OfflineOwner = { userId: string | null; generation: string };
 export type OfflineDownload = { lease: SignedOfflineLease; chapters: Array<{ id: string; text: string }> };
 export type OfflineState = OfflineOwner & { lastSeenAt: number; books: Record<string, OfflineDownload> };
 export interface OfflineStorage {
+  // A separate durable denial survives a failed IndexedDB cleanup transaction.
+  invalidate(owner: OfflineOwner): void;
+  isInvalidated(owner: OfflineOwner): boolean;
   // The callback must be synchronous and run in one read/write transaction.
   atomic<T>(update: (state: OfflineState) => T): Promise<T>;
 }
@@ -18,6 +21,16 @@ const sameOwner = (state: OfflineOwner, owner: OfflineOwner) => Boolean(owner.us
  * caller must authenticate the new owner ONLINE first; an offline caller can
  * only restore context(), not choose an identity. */
 export class OwnedOfflineStore {
+  private denied = new Set<string>();
+
+  invalidate(owner: OfflineOwner): void {
+    this.denied.add(owner.generation);
+    this.storage.invalidate(owner);
+  }
+
+  private isInvalidated(owner: OfflineOwner): boolean {
+    return this.denied.has(owner.generation) || this.storage.isInvalidated(owner);
+  }
   constructor(
     private storage: OfflineStorage,
     private publicKey: CryptoKey,
@@ -27,13 +40,18 @@ export class OwnedOfflineStore {
 
   async activateOwner(userId: string | null): Promise<OfflineOwner> {
     return this.storage.atomic((state) => {
-      Object.assign(state, emptyOfflineState(), { userId, lastSeenAt: this.now() });
+      if (state.userId) this.invalidate(state);
+      const next = emptyOfflineState();
+      // Fail closed if the durable denial store itself is unavailable.
+      this.storage.isInvalidated(next);
+      Object.assign(state, next, { userId, lastSeenAt: this.now() });
       return { userId: state.userId, generation: state.generation };
     });
   }
 
   private async checked<T>(owner: OfflineOwner | null, read: (state: OfflineState) => T): Promise<T> {
     const result = await this.storage.atomic((state) => {
+      if (state.userId && this.isInvalidated(state)) return { error: "Offline account access is blocked. Reconnect and select the account again." };
       const now = this.now();
       if (!Number.isSafeInteger(now) || now < state.lastSeenAt) {
         Object.assign(state, emptyOfflineState());
@@ -93,6 +111,7 @@ export class OwnedOfflineStore {
   /** Invoke immediately on an authenticated 401/403/revocation response. A
    * delayed response from an old account must never clear the new account. */
   async revoke(owner: OfflineOwner): Promise<void> {
+    this.invalidate(owner);
     await this.storage.atomic((state) => {
       if (sameOwner(state, owner)) Object.assign(state, emptyOfflineState());
     });
@@ -104,6 +123,12 @@ export class OwnedOfflineStore {
 export function createIndexedDbOfflineStorage(databaseName: string): OfflineStorage {
   if (!databaseName.startsWith("verkli-offline-owned-")) throw new Error("Use a dedicated owned offline database.");
   return {
+    invalidate(owner) {
+      localStorage.setItem(`${databaseName}:denied:${owner.generation}`, "1");
+    },
+    isInvalidated(owner) {
+      return localStorage.getItem(`${databaseName}:denied:${owner.generation}`) !== null;
+    },
     async atomic<T>(update: (state: OfflineState) => T): Promise<T> {
       return new Promise<T>((resolve, reject) => {
         const request = indexedDB.open(databaseName, 1);
