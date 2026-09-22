@@ -71,6 +71,8 @@ export function createMarketingWork(authorId: string) {
       } catch (error) { failure = error; failed = true; }
       // A paid request, including timeout, invalid response or failed save, is never refunded.
       await persist(true, failed);
+      // An uncertain paid outcome must not silently dispatch another model.
+      if (!usage) throw new MarketingWorkError("MARKETING_USAGE_UNAVAILABLE");
       if (failed) throw failure;
       return result as T;
     },

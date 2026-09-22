@@ -25,7 +25,7 @@ it("reserves each step before provider and applies the cumulative job cap", asyn
 });
 it("records unknown and retains reservation after an ambiguous provider failure", async () => {
   const work = createMarketingWork("author");
-  await expect(work.run({ stage: "draft", provider: "openai", units: 100, call: async () => { throw new Error("timeout"); } })).rejects.toThrow("timeout");
+  await expect(work.run({ stage: "draft", provider: "openai", units: 100, call: async () => { throw new Error("timeout"); } })).rejects.toMatchObject({ code: "MARKETING_USAGE_UNAVAILABLE" });
   expect(m.update).toHaveBeenLastCalledWith(expect.objectContaining({ output: { status: "unknown", usage: null } }));
   expect(m.release).not.toHaveBeenCalled();
 });
@@ -48,14 +48,14 @@ it("persists usage even when the caller later rejects model output", async () =>
 
 it("retains the logical cap after a failed paid call and refuses a fallback over it", async () => {
   const work = createMarketingWork("author");
-  await expect(work.run({ stage: "draft", provider: "openai", units: 100, call: async () => { throw new Error("timeout"); } })).rejects.toThrow();
+  await expect(work.run({ stage: "draft", provider: "openai", units: 100, call: async receipt => { await receipt(usage); throw new Error("invalid JSON"); } })).rejects.toThrow();
   m.validate.mockImplementationOnce(input => { throw new JobCostExceededError({ userId: "author", pipeline: "marketing", jobSize: input.jobSize, cap: 150, unit: "units", jobId: null }); });
   const fallback = vi.fn();
   await expect(work.run({ stage: "fallback", provider: "anthropic", units: 100, call: fallback })).rejects.toMatchObject({ code: "MARKETING_BUDGET_EXCEEDED" });
   expect(fallback).not.toHaveBeenCalled(); expect(m.reserve).toHaveBeenCalledOnce();
 });
 it("treats missing usage as unknown instead of inventing zero cost", async () => {
-  await expect(createMarketingWork("author").run({ stage: "draft", provider: "openai", units: 100, call: async () => "valid text without receipt" })).rejects.toThrow(/usage receipt missing/i);
+  await expect(createMarketingWork("author").run({ stage: "draft", provider: "openai", units: 100, call: async () => "valid text without receipt" })).rejects.toMatchObject({ code: "MARKETING_USAGE_UNAVAILABLE" });
   expect(m.update).toHaveBeenLastCalledWith(expect.objectContaining({ output: { status: "unknown", usage: null } }));
   expect(m.release).not.toHaveBeenCalled();
 });

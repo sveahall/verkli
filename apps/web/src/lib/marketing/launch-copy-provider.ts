@@ -1,4 +1,5 @@
 import { createMarketingWork, estimateMarketingUnits, anthropicMarketingUsage, MarketingWorkError } from "./model-work";
+import type { MarketingWork } from "./model-work";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { getLanguageLabel } from "@/lib/languages";
@@ -36,8 +37,7 @@ export class LaunchCopyError extends Error {
 }
 
 /** Generate a draft only: no publishing, scheduling, or claims about availability. */
-async function generateLaunchCopyUnchecked(input: LaunchCopyInput) {
-  const work = createMarketingWork(input.authorId);
+async function generateLaunchCopyUnchecked(input: LaunchCopyInput, work: MarketingWork) {
   const anthropicKey = process.env.ANTHROPIC_API_KEY?.trim();
   const nimKey = process.env.NVIDIA_NIM_API_KEY?.trim();
   if (!anthropicKey && !nimKey) throw new LaunchCopyError("MARKETING_AI_UNAVAILABLE");
@@ -143,8 +143,8 @@ async function generateLaunchCopyUnchecked(input: LaunchCopyInput) {
   throw new LaunchCopyError("MARKETING_AI_FAILED");
 }
 
-export async function generateLaunchCopy(input: LaunchCopyInput) {
-  try { return await generateLaunchCopyUnchecked(input); }
+export async function generateLaunchCopy(input: LaunchCopyInput, work: MarketingWork = createMarketingWork(input.authorId)) {
+  try { return await generateLaunchCopyUnchecked(input, work); }
   catch (error) {
     if (error instanceof MarketingWorkError) throw new LaunchCopyError(error.code);
     throw error;

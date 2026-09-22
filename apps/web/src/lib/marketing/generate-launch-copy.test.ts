@@ -73,9 +73,9 @@ describe("generateLaunchCopy", () => {
     await expect(generateLaunchCopy(input)).rejects.toThrow();
   });
 
-  it("falls back to the configured NIM provider when Anthropic fails", async () => {
+  it("reserves a fallback when Anthropic returns invalid content with a known receipt", async () => {
     vi.stubEnv("NVIDIA_NIM_API_KEY", "test-nim");
-    create.mockRejectedValue(new Error("provider unavailable"));
+    create.mockResolvedValue({ id: "bad-content", model: "actual-anthropic", usage: { input_tokens: 12, output_tokens: 8 }, content: [{ type: "text", text: "not JSON" }] });
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({
       id: "nim-response", model: "actual-nim", usage: { prompt_tokens: 20, completion_tokens: 10 },
       choices: [{ message: { content: JSON.stringify(copy) } }],
@@ -140,13 +140,11 @@ describe("critic budget and receipts through the real provider orchestration", (
     await expect(generateLaunchCopy(input)).rejects.toMatchObject({ code: "MARKETING_BUDGET_UNAVAILABLE" });
     expect(fetchMock).toHaveBeenCalledOnce(); expect(create).not.toHaveBeenCalled(); expect(reserve).toHaveBeenCalledTimes(2);
   });
-  it("preserves unknown paid work before reserving a distinct fallback", async () => {
+  it("retains unknown paid work and stops before automatic fallback", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("timeout"));
-    create.mockResolvedValueOnce({ id: "fallback-response", model: "actual-fallback", usage: { input_tokens: 20, output_tokens: 10 }, content: [{ type: "text", text: JSON.stringify(copy) }] });
-    expect(await generateLaunchCopy(input)).toEqual(copy);
-    expect(fetchMock).toHaveBeenCalledOnce(); expect(reserve).toHaveBeenCalledTimes(2);
-    expect(reserve.mock.calls[0][0].jobId).not.toBe(reserve.mock.calls[1][0].jobId);
-    expect(validate.mock.calls[1][0].jobSize).toBe(reserve.mock.calls[0][0].units + reserve.mock.calls[1][0].units);
+    await expect(generateLaunchCopy(input)).rejects.toMatchObject({ code: "MARKETING_USAGE_UNAVAILABLE" });
+    expect(fetchMock).toHaveBeenCalledOnce(); expect(reserve).toHaveBeenCalledOnce();
+    expect(create).not.toHaveBeenCalled();
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ output: { status: "unknown", usage: null } }));
   });
   it("does not spend on a fallback if storing paid usage failed", async () => {
