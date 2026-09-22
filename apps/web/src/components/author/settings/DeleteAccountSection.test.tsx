@@ -17,9 +17,12 @@ describe("delete account section", () => {
   it("offers a request a person will act on, never an immediate deletion", () => {
     const html = renderToStaticMarkup(<DeleteAccountSection requestedAt={null} />);
     expect(html).toContain("Request account deletion");
-    expect(html).toContain("A person reviews it before anything is removed");
+    expect(html).toContain("erase your personal details");
     expect(html).toContain("withdraw the request");
+    // Still no absolute language: the request is reversible for the whole
+    // grace window, and books and order history are deliberately kept.
     expect(html).not.toMatch(/permanently delete|cannot be undone|deleted immediately/i);
+    expect(html).toContain("bookkeeping law requires it");
   });
 
   it("does not put the destructive action one click away", () => {
@@ -31,7 +34,7 @@ describe("delete account section", () => {
   it("shows a withdrawable pending state once a request exists", () => {
     const html = renderToStaticMarkup(<DeleteAccountSection requestedAt="2026-09-22T10:00:00.000Z" />);
     expect(html).toContain("Deletion requested");
-    expect(html).toContain("Nothing has been deleted yet");
+    expect(html).toContain("readers who bought them keep their access");
     expect(html).toContain("Keep my account");
     expect(html).toContain("2026-09-22T10:00:00.000Z");
     // The request form is gone while one is pending, so it cannot be sent twice.

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { resolveErrorMessage } from "@/lib/error-messages";
+import { DELETION_GRACE_DAYS } from "@/lib/account/teardown";
 
 type Result = { ok: boolean; message: string };
 
@@ -33,6 +34,7 @@ async function call(method: "POST" | "DELETE"): Promise<Result> {
  */
 export default function DeleteAccountSection({ requestedAt }: { requestedAt: string | null }) {
   const router = useRouter();
+  const dueDate = new Date(new Date(requestedAt ?? 0).getTime() + DELETION_GRACE_DAYS * 86_400_000);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,9 +70,10 @@ export default function DeleteAccountSection({ requestedAt }: { requestedAt: str
             <h2 id="settings-deletion-pending-title" className="text-sm font-medium">Deletion requested</h2>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
               You asked us to delete this account on{" "}
-              <time dateTime={requestedAt}>{new Date(requestedAt).toLocaleDateString()}</time>. Nothing has been
-              deleted yet — we will contact you by email before anything is removed, and your books and readers are
-              unaffected until then. You can withdraw the request.
+              <time dateTime={requestedAt}>{new Date(requestedAt).toLocaleDateString()}</time>. Your personal details,
+              your private AI conversations and your sign-in are erased on{" "}
+              <time dateTime={dueDate.toISOString()}>{dueDate.toLocaleDateString()}</time>. Your books stay published
+              and readers who bought them keep their access. You can withdraw the request until then.
             </p>
             {error && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
             <button
@@ -94,9 +97,10 @@ export default function DeleteAccountSection({ requestedAt }: { requestedAt: str
     >
       <h2 id="settings-delete-title" className="text-sm font-medium">Delete account</h2>
       <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-        We record your request and sign you out. A person reviews it before anything is removed, because closing an
-        account has to unwind payouts, subscriptions and reader purchases in order. You can withdraw the request by
-        signing back in.
+        We record your request and sign you out. After {DELETION_GRACE_DAYS} days we erase your personal details,
+        your private AI conversations and your sign-in. Your published books stay available to readers who bought
+        them, and your order history is kept because bookkeeping law requires it. You can withdraw the request by
+        signing back in before then.
       </p>
 
       {error && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
@@ -112,8 +116,7 @@ export default function DeleteAccountSection({ requestedAt }: { requestedAt: str
       ) : (
         <div className="mt-4 rounded-xl border border-red-200 bg-red-50/60 p-4 dark:border-red-500/30 dark:bg-red-500/10">
           <p className="text-sm leading-relaxed">
-            Send the request and sign out? Your published books stay available to readers who bought them until the
-            request is processed.
+            Send the request and sign out? You have {DELETION_GRACE_DAYS} days to change your mind.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
