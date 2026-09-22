@@ -6,6 +6,10 @@
  *   import-worker, translation-worker, audiobook-worker, recommendations-worker,
  *   marketing-worker, social-publish-worker, notifications-worker
  *
+ * Also runs nightly usage maintenance (job sync, storage snapshot, rollup) at
+ * 03:00 UTC. In-process rather than a platform cron so it needs no scheduler
+ * configured to work, and idempotent so extra replicas are harmless.
+ *
  * Usage:  npx tsx apps/web/scripts/start-workers.ts
  * Env:    REDIS_URL, SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
@@ -13,6 +17,7 @@
 import "./load-dotenv";
 import { validateWorkerEnv } from "./worker-env";
 import { setWorkersStartedAt } from "../src/lib/health/worker-heartbeat";
+import { startUsageScheduler } from "../src/lib/usage/scheduler";
 
 validateWorkerEnv();
 
@@ -75,4 +80,9 @@ Promise.all(
   console.log(
     "[start-workers] workers: import, translation, audiobook, recommendations, marketing, social, notifications"
   );
+
+  // Nightly usage maintenance runs in-process rather than as a platform cron,
+  // so it needs no scheduler configured anywhere to work — it ships with this
+  // deploy. Started last: it must never delay or fail worker startup.
+  startUsageScheduler();
 });
