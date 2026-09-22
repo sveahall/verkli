@@ -8,6 +8,8 @@ import { getAgent } from "@/features/ai-team/agents";
 import { agentConversations, conversationTool } from "@/features/ai-team/agent-conversations";
 import { buildConversationHistory } from "@/features/ai-team/actions/conversation-history";
 import AgentProposalCard, { type ProposalState } from "@/features/ai-team/actions/AgentProposalCard";
+import AgentPlanCard, { type PlanState, type PlanStats } from "@/features/ai-team/actions/AgentPlanCard";
+import type { Plan } from "@/lib/ai/agent-runtime/plan";
 import type { ExecuteAgentAction, ProposalContext } from "@/features/ai-team/actions/editor-action";
 import { agentReplySchema, type AgentAction } from "@/lib/ai/agent-actions";
 import styles from "@/features/ai-team/AgentConversation.module.css";
@@ -24,6 +26,8 @@ export type AiAssistantPanelProps = {
   variant?: "page" | "dock"; onClose?: () => void; activeTool?: Tool;
   getDraftText?: () => string | undefined;
   onExecuteAction?: ExecuteAgentAction;
+  /** The agent writes chapters on the server; the workspace reloads them. */
+  onBookChanged?: () => void;
 };
 type ChatMessage = {
   id: string; role: "user" | "assistant"; content: string;
@@ -33,6 +37,13 @@ type Retry = { id: string; message: string; selectedText: string | null; chapter
 type Thread = { lastMessageChange: number; messages: ChatMessage[]; draft: string; sending: boolean; error: string | null; retry?: Retry };
 const emptyThread = (): Thread => ({ lastMessageChange: 0, messages: [], draft: "", sending: false, error: null });
 const contextSchema = z.object({ chapterId: z.string().nullable(), chapterText: z.string().nullable() });
+/**
+ * The two specialists that plan and act across the whole book. The others still
+ * answer through the advice route, which is scoped to the open chapter — so a
+ * tool only becomes agentic once it has tools worth having.
+ */
+const AGENTIC_TOOLS = new Set(["edit", "cover"]);
+type PlanEntry = { planId: string; plan: Plan; stats: PlanStats; state: PlanState };
 const ACTION_PROMPTS: Partial<Record<InlineAiAction, string>> = {
   rewrite: "Suggest a rewrite of this passage. Keep the meaning and my voice.",
   pacing: "Suggest a precise edit to improve the pacing of this passage.",
@@ -40,9 +51,10 @@ const ACTION_PROMPTS: Partial<Record<InlineAiAction, string>> = {
 };
 
 export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, editionLabel, initialTemporary = false, chapterId, chapterTitle, variant = "page", onClose,
-  activeTool = "edit", pendingRequest, onPendingRequestHandled, getDraftText, onExecuteAction,
+  activeTool = "edit", pendingRequest, onPendingRequestHandled, getDraftText, onExecuteAction, onBookChanged,
 }: AiAssistantPanelProps) {
   const tool = conversationTool(activeTool);
+  const agentic = AGENTIC_TOOLS.has(tool);
   const persona = agentConversations[tool];
   const agent = getAgent(persona.agent);
   const memory = useConversationMemory(bookId, editionId, tool, initialTemporary);
@@ -53,6 +65,7 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
   const threadsRef = useRef(threads);
   const thread = threads[threadKey] ?? emptyThread();
   const [results, setResults] = useState<Record<string, ProposalState>>({});
+  const [plans, setPlans] = useState<Record<string, PlanEntry>>({});
   const busyActions = useRef(new Set<string>());
   const inFlight = useRef(new Map<string, AbortController>());
   const audioUrls = useRef(new Set<string>());
@@ -95,9 +108,14 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
     const timeout = setTimeout(() => controller.abort(), 65_000);
     try {
       const draftText = chapterId ? getDraftText?.() : undefined;
-      if (draftText && draftText.length > 60_000) throw new Error("This chapter is too long for a safe editing suggestion. Split it into smaller chapters first.");
-      const response = await fetch(`/api/books/${bookId}/ai/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
-        body: JSON.stringify({ mode: "actions", tool, message: value, chapterId, selectedText: selection, history, conversation: { ...(memory.thread ? { threadId: memory.thread.id } : {}), requestId: id, editionId, temporary: memory.temporary }, ...(draftText !== undefined ? { draftText } : {}) }),
+      // Chapter length is no longer this panel's problem: the agent searches on
+      // the server, so a long chapter is read there or not at all.
+      const conversation = { ...(memory.thread ? { threadId: memory.thread.id } : {}), requestId: id, editionId, temporary: memory.temporary };
+      const response = await fetch(agentic ? `/api/books/${bookId}/agent/run` : `/api/books/${bookId}/ai/chat`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
+        body: JSON.stringify(agentic
+          ? { tool, versionId: editionId, conversation, message: selection ? `${value}\n\nThe author has selected this passage:\n"""\n${selection}\n"""` : value }
+          : { mode: "actions", tool, message: value, chapterId, selectedText: selection, history, conversation, ...(draftText !== undefined ? { draftText } : {}) }),
       });
       if (!response.ok) throw new Error(response.status === 429 ? "You’ve reached the conversation limit for this minute. Wait a moment, then retry."
         : response.status === 409 ? "This message is already being processed or this conversation changed. Reload saved history before trying again."
@@ -107,6 +125,20 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
         : response.status === 400 ? "That request could not be used. Try a shorter, more specific message."
         : "Your specialist could not reply. Your message is kept below for retry.");
       const json = await response.json();
+      if (agentic) {
+        const messageId = typeof json.id === "string" ? json.id : crypto.randomUUID();
+        if (typeof json.threadId === "string") memory.rememberReply(json.threadId, value);
+        if (typeof json.planId === "string" && json.plan) {
+          setPlans((previous) => ({ ...previous, [`${threadKey}:${messageId}`]: { planId: json.planId, plan: json.plan, stats: json.stats, state: {} } }));
+        }
+        updateThread(threadKey, (previous) => ({ ...previous, lastMessageChange: performance.now(), messages: [...previous.messages, {
+          id: messageId, role: "assistant",
+          content: typeof json.summary === "string" && json.summary.trim() ? json.summary : "I could not work that one out. Try asking for one change at a time.",
+          persistence: typeof json.threadId === "string" ? "saved" : "temporary",
+          historical: json.source === "history", source: json.source === "history" ? "history" : "llm",
+        }] }));
+        return;
+      }
       const reply = agentReplySchema.parse({ content: json.content, actions: json.source === "llm" ? json.actions : [] });
       const context = contextSchema.parse(json.context);
       if (context.chapterId !== chapterId) throw new Error("The reply refers to a different chapter. Please ask again.");
@@ -128,7 +160,7 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
       inFlight.current.delete(threadKey);
       updateThread(threadKey, (previous) => ({ ...previous, sending: false }));
     }
-  }, [bookId, editionId, chapterId, tool, threadKey, getDraftText, updateThread, results, memory]);
+  }, [bookId, editionId, chapterId, tool, agentic, threadKey, getDraftText, updateThread, results, memory]);
 
   const handledRequest = useRef<string | null>(null);
   useEffect(() => {
@@ -181,6 +213,36 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
       if (mounted.current) setResults((previous) => ({ ...previous, [id]: { error: error instanceof Error && error.name !== "AbortError" ? error.message : "This action took too long. Please retry." } }));
     } finally { clearTimeout(deadline); inFlight.current.delete(requestKey); busyActions.current.delete(id); }
   };
+  const applyPlan = async (key: string, selection: { stepIds: string[]; matchIds: string[] }) => {
+    const entry = plans[key];
+    if (!entry || entry.state.pending || entry.state.outcomes) return;
+    setPlans((previous) => ({ ...previous, [key]: { ...entry, state: { pending: true } } }));
+    const controller = new AbortController();
+    const requestKey = `plan:${key}`;
+    inFlight.current.set(requestKey, controller);
+    // Longer than a chat turn: this writes every approved chapter before it answers.
+    const deadline = setTimeout(() => controller.abort(), 120_000);
+    try {
+      const response = await fetch(`/api/books/${bookId}/agent/apply`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
+        body: JSON.stringify({ planId: entry.planId, ...selection }),
+      });
+      const json = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(typeof json?.message === "string" ? json.message
+          : response.status === 429 ? "You’ve reached this minute’s limit. Wait a moment, then press Run again."
+          : response.status === 401 ? "Your session has ended. Sign in again, then ask for a fresh plan."
+          : "Your book was not changed. Ask for a fresh plan and try again.");
+      }
+      if (!mounted.current) return;
+      setPlans((previous) => ({ ...previous, [key]: { ...entry, state: { outcomes: json?.outcomes ?? [], changed: json?.changed ?? 0 } } }));
+      if (json?.changed) onBookChanged?.();
+    } catch (error) {
+      if (mounted.current) setPlans((previous) => ({ ...previous, [key]: { ...entry, state: {
+        error: error instanceof Error && error.name !== "AbortError" ? error.message : "This took too long. Reload the chapter to see whether any of it was applied.",
+      } } }));
+    } finally { clearTimeout(deadline); inFlight.current.delete(requestKey); }
+  };
   const submit = () => {
     if (!thread.draft.trim() || !memory.ready || memory.pending || inFlight.current.has(threadKey)) return;
     const value = thread.draft;
@@ -203,7 +265,10 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
           updateThread(threadKey, (previous) => ({ ...previous, draft: prompt })); inputRef.current?.focus();
         }}><span>{prompt}</span><ArrowUpRight size={14} aria-hidden /></button>)}</div>
       </div>}
-      {thread.messages.map((message) => <div key={message.id} className={styles.turn} data-role={message.role}>
+      {thread.messages.map((message) => {
+        const planKey = `${threadKey}:${message.id}`;
+        const planned = plans[planKey];
+        return <div key={message.id} className={styles.turn} data-role={message.role}>
         {message.role === "assistant" && <div className={styles.byline}><AgentAvatar agent={persona.agent} size={26} /><span>{agent.name}</span></div>}
         <div className={styles.message}>{message.content}</div>
         {message.failed && <p className={styles.meta}>Delivery unconfirmed. Reload saved history or retry this message.</p>}
@@ -215,7 +280,11 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
           const id = `${threadKey}:${message.id}:${index}`;
           return <AgentProposalCard key={id} action={action} state={results[id]} onExecute={() => { void execute(id, action, message.context!); }} />;
         })}
-      </div>)}
+        {planned && <AgentPlanCard plan={planned.plan} stats={planned.stats} state={planned.state}
+          onApply={(selection) => { void applyPlan(planKey, selection); }}
+          onDismiss={() => setPlans((previous) => { const next = { ...previous }; delete next[planKey]; return next; })} />}
+      </div>;
+      })}
       {thread.sending && <div className={styles.thinking}><AgentAvatar agent={persona.agent} size={28} /><span>{agent.name} is working on it<span aria-hidden>…</span></span></div>}
     </div>
     <div hidden={memoryOpen} className={styles.composer}>

@@ -43,17 +43,23 @@ vi.mock("react", async (original) => ({
 
 import AiAssistantPanel, { type AiAssistantPanelProps } from "./AiAssistantPanel";
 import AgentProposalCard from "@/features/ai-team/actions/AgentProposalCard";
+import AgentPlanCard from "@/features/ai-team/actions/AgentPlanCard";
 import MemoryControls from "@/features/ai-team/memory/MemoryControls";
 import type { ConversationMemory } from "@/features/ai-team/memory/useConversationMemory";
 
 type Element = React.ReactElement<Record<string, unknown>>;
 const props: AiAssistantPanelProps = { bookId: "book", chapterId: null, activeTool: "edit" };
 const emptyConversations = () => ({ threads: [], thread: null, messages: [] });
+// Edith and Stella answer through /agent/run, the rest through /ai/chat. One
+// fixture carries both shapes so these regressions cover whichever the panel
+// picks, rather than quietly passing because the URL no longer matches.
 const savedReply = (overrides: Record<string, unknown> = {}) => ({
-  id: "assistant-reply", role: "assistant", content: "A saved suggestion", source: "llm", actions: [],
+  id: "assistant-reply", role: "assistant", content: "A saved suggestion", summary: "A saved suggestion",
+  source: "llm", actions: [], planId: null, plan: null, stats: null,
   context: { chapterId: null, chapterText: null }, bookId: "book", chapterId: null,
   threadId: "saved-thread", persistence: "saved", ...overrides,
 });
+const isReplyRequest = (url: string) => url.endsWith("/chat") || url.endsWith("/agent/run");
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => { resolve = done; });
@@ -93,11 +99,11 @@ function turns(tree: React.ReactNode) {
   return elements(tree).filter((element) => element.props["data-role"] === "user" || element.props["data-role"] === "assistant").map(text);
 }
 function mockApi(chat: () => Promise<Response> = async () => Response.json(savedReply())) {
-  const fetch = vi.fn(async (url: string) => {
-    if (url.endsWith("/chat")) return chat();
+  const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+    if (isReplyRequest(url)) return chat();
     if (url.includes("/memory")) return Response.json({ enabled: true, memories: [] });
     if (url.includes("/conversations")) return Response.json(emptyConversations());
-    throw new Error(`Unexpected assistant request: ${url}`);
+    throw new Error(`Unexpected assistant request: ${init?.method ?? "GET"} ${url}`);
   });
   vi.stubGlobal("fetch", fetch);
   return fetch;
@@ -113,6 +119,49 @@ beforeEach(() => {
 afterEach(() => {
   hooks.effects.forEach((effect) => effect.cleanup?.());
   vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals();
+});
+
+const planReply = () => savedReply({
+  planId: "plan-1",
+  plan: { versionId: "edition", steps: [{ id: "s1", tool: "replace_in_book", reason: "Rename.", replacement: "Jonas", matches: [
+    { matchId: "m1", chapterId: "c1", chapterTitle: "Hamnen", chapterHash: "h", from: 1, to: 6, text: "Johan", before: "", after: " gick.", replacement: "Jonas", preselected: true },
+  ] }] },
+  stats: { steps: 1, replacements: 1, optional: 0, chapters: [{ chapterId: "c1", chapterTitle: "Hamnen", count: 1 }] },
+});
+
+describe("whole-book plans", () => {
+  it("shows the plan for approval and writes nothing until it is approved", async () => {
+    const fetch = mockApi(async () => Response.json(planReply()));
+    await open(); changeDraft("Byt Johan mot Jonas i hela boken"); shortcut();
+    await vi.waitFor(() => expect(turns(render())).toHaveLength(2));
+
+    expect(elements(render()).some((element) => element.type === AgentPlanCard)).toBe(true);
+    expect(fetch.mock.calls.some(([url]) => url.endsWith("/agent/apply"))).toBe(false);
+  });
+
+  it("posts the plan id and the author's selection, never the steps themselves", async () => {
+    const fetch = mockApi(async () => Response.json(planReply()));
+    await open(); changeDraft("Byt Johan mot Jonas i hela boken"); shortcut();
+    await vi.waitFor(() => expect(turns(render())).toHaveLength(2));
+
+    fetch.mockImplementation(async (url: string) => url.endsWith("/agent/apply")
+      ? Response.json({ planId: "plan-1", changed: 1, outcomes: [{ stepId: "s1", status: "applied", detail: "1 passage changed.", changed: 1 }] })
+      : Response.json({ enabled: true, memories: [] }));
+    const card = elements(render()).find((element) => element.type === AgentPlanCard)!;
+    (card.props.onApply as (selection: { stepIds: string[]; matchIds: string[] }) => void)({ stepIds: ["s1"], matchIds: ["m1"] });
+
+    await vi.waitFor(() => expect(fetch.mock.calls.some(([url]) => url.endsWith("/agent/apply"))).toBe(true));
+    const call = fetch.mock.calls.find(([url]) => url.endsWith("/agent/apply"))!;
+    const body = JSON.parse(String(call[1]?.body));
+    expect(body).toEqual({ planId: "plan-1", stepIds: ["s1"], matchIds: ["m1"] });
+    expect(body).not.toHaveProperty("plan");
+    // The harness renders the panel only, so the result is read off the card's
+    // props rather than its markup.
+    await vi.waitFor(() => {
+      const applied = elements(render()).find((element) => element.type === AgentPlanCard)!;
+      expect(applied.props.state).toMatchObject({ changed: 1 });
+    });
+  });
 });
 
 describe("saved assistant conversation regressions", () => {
@@ -142,7 +191,7 @@ describe("saved assistant conversation regressions", () => {
     const save = memory(render()).saveMemory("Keep short sentences", "book");
     changeDraft("Send when memory is ready"); shortcut();
     expect(input(render()).props.value).toBe("Send when memory is ready");
-    expect(fetch.mock.calls.some(([url]) => url.endsWith("/chat"))).toBe(false);
+    expect(fetch.mock.calls.some(([url]) => isReplyRequest(url))).toBe(false);
     pending.resolve(Response.json({ enabled: true, memories: [] })); await save;
   });
 

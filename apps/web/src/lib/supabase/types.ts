@@ -56,6 +56,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_plans: {
+        Row: {
+          applied_at: string | null
+          book_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          outcome: Json | null
+          owner_id: string
+          steps: Json
+          summary: string
+          tool: string
+          version_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          book_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          outcome?: Json | null
+          owner_id: string
+          steps: Json
+          summary?: string
+          tool: string
+          version_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          book_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          outcome?: Json | null
+          owner_id?: string
+          steps?: Json
+          summary?: string
+          tool?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_plans_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_plans_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "book_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_jobs: {
         Row: {
           book_id: string | null

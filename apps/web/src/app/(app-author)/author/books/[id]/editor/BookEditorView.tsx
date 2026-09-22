@@ -571,6 +571,10 @@ export default function BookEditorView({
             chapterTitle={selectedChapter?.title}
             getDraftText={agentExecution.getDraftText}
             onExecuteAction={agentExecution.execute}
+            // The agent writes chapters on the server, so the workspace has to
+            // re-read them. The existing "saved elsewhere" banner covers the
+            // case where the author also has unsaved typing in this tab.
+            onBookChanged={() => router.refresh()}
             onClose={() => setAssistantOpen(false)}
             pendingRequest={pendingAiRequest}
             onPendingRequestHandled={() => setPendingAiRequest(null)}
