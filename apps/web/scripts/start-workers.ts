@@ -20,6 +20,7 @@ import { validateWorkerEnv } from "./worker-env";
 import { setWorkersStartedAt } from "../src/lib/health/worker-heartbeat";
 import { Sentry } from "./sentry-worker-init";
 import { startUsageScheduler } from "../src/lib/usage/scheduler";
+import { startAccountDeletionSweeper } from "../src/lib/account/sweeper";
 import { describeAlert } from "../src/lib/usage/alerts";
 
 validateWorkerEnv();
@@ -91,5 +92,12 @@ Promise.all(
     // A cost anomaly is not an exception, so it goes in as a warning message —
     // captureException would bury it under a synthetic stack trace.
     Sentry.captureMessage(`[usage] ${describeAlert(alert)}`, "warning");
+  });
+
+  // Deletion requests are carried out here for the same reason: in-process, so
+  // the promise the settings page makes cannot depend on a cron somebody has to
+  // remember to configure. Also started last, and its failures never stop it.
+  startAccountDeletionSweeper((error) => {
+    Sentry.captureException(error);
   });
 });

@@ -18,6 +18,7 @@ import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 import { Sentry } from "./sentry-worker-init";
 import { startUsageScheduler } from "../src/lib/usage/scheduler";
+import { startAccountDeletionSweeper } from "../src/lib/account/sweeper";
 import { describeAlert } from "../src/lib/usage/alerts";
 import type { RecommendationsJobData } from "../src/lib/recommendations-queue";
 
@@ -362,6 +363,16 @@ function main() {
     // A cost anomaly is not an exception; captureException would bury it under
     // a synthetic stack trace.
     Sentry.captureMessage(`[usage] ${describeAlert(alert)}`, "warning");
+  });
+
+  // Account deletion requests are carried out here for exactly the reason the
+  // comment above gives: this is a script production actually boots. Wiring it
+  // only into `start-workers.ts` would have meant the settings page promising a
+  // deletion that no process ever performs. Idempotent and self-limiting —
+  // carrying a request out clears `deletion_requested_at` — so replicas would
+  // race to the same already-finished rows rather than erase anything twice.
+  startAccountDeletionSweeper((error) => {
+    Sentry.captureException(error);
   });
 
   // Scheduled recomputation every 6 hours

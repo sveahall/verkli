@@ -3156,6 +3156,7 @@ export type Database = {
           bio: string | null
           cover_image: string | null
           created_at: string | null
+          deletion_completed_at: string | null
           deletion_requested_at: string | null
           demo_mode: boolean
           display_name: string | null
@@ -3177,6 +3178,7 @@ export type Database = {
           bio?: string | null
           cover_image?: string | null
           created_at?: string | null
+          deletion_completed_at?: string | null
           deletion_requested_at?: string | null
           demo_mode?: boolean
           display_name?: string | null
@@ -3198,6 +3200,7 @@ export type Database = {
           bio?: string | null
           cover_image?: string | null
           created_at?: string | null
+          deletion_completed_at?: string | null
           deletion_requested_at?: string | null
           demo_mode?: boolean
           display_name?: string | null
