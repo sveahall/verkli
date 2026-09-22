@@ -103,6 +103,26 @@ function StepBody({ step, ticked, onToggle }: {
       </>
     );
   }
+  if (step.tool === "set_book_description") {
+    return (
+      <>
+        <p className={styles.meta}>Book description</p>
+        <p className={styles.brief}>{step.description}</p>
+        <p className={styles.reason}>{step.reason}</p>
+      </>
+    );
+  }
+  if (step.tool === "add_front_matter_section") {
+    return (
+      <>
+        <p className={styles.meta}>New page · {step.kind.replace(/-/g, " ")}</p>
+        <div className={styles.comparison}>
+          <div data-new="true"><span>{step.title}</span><p>{step.body}</p></div>
+        </div>
+        <p className={styles.reason}>{step.reason}</p>
+      </>
+    );
+  }
   return (
     <>
       <div className={styles.comparison}>

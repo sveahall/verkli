@@ -80,6 +80,20 @@ export const toolInputSchemas = {
     reason,
   }).strict().refine(setsSomething, "Set at least one cover style field."),
 
+  set_book_description: z.object({
+    description: z.string().min(1).max(4000),
+    reason,
+  }).strict(),
+
+  add_front_matter_section: z.object({
+    // The three automatic pages (title, copyright, contents) are generated from
+    // the book's own fields and may exist only once, so they are not offered.
+    kind: z.enum(["dedication", "foreword", "preface", "acknowledgements", "afterword", "bibliography", "about-author", "custom"]),
+    title: z.string().min(1).max(180),
+    body: z.string().min(1).max(20_000),
+    reason,
+  }).strict(),
+
   generate_cover_image: z.object({
     prompt: z.string().min(1).max(2000),
     style: z.enum(["minimal", "photographic", "illustrated", "vintage"]),
@@ -98,6 +112,8 @@ export const TOOL_MODES: Record<ToolName, ToolMode> = {
   rewrite_passage: "write",
   set_cover_text: "write",
   set_cover_style: "write",
+  set_book_description: "write",
+  add_front_matter_section: "write",
   generate_cover_image: "write",
 };
 
@@ -206,6 +222,34 @@ export const TOOL_DEFINITIONS: { name: ToolName; description: string; input_sche
         reason: REASON_PROPERTY,
       },
       required: ["reason"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "set_book_description",
+    description: "Set the book's description — the blurb readers see on its page and in search. This replaces the whole description; read the book first if you are refining what is there rather than writing it fresh.",
+    input_schema: {
+      type: "object",
+      properties: {
+        description: { type: "string", description: "Plain text. Paragraph breaks are kept." },
+        reason: REASON_PROPERTY,
+      },
+      required: ["description", "reason"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "add_front_matter_section",
+    description: "Add a page before or after the manuscript: a dedication, foreword, preface, acknowledgements, afterword, bibliography, an about-the-author page, or a custom section. Its placement follows its kind. Use this for text that belongs to the book but not to a chapter. Title page, copyright and contents are generated automatically and cannot be added here.",
+    input_schema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["dedication", "foreword", "preface", "acknowledgements", "afterword", "bibliography", "about-author", "custom"] },
+        title: { type: "string", description: "The heading printed on the page." },
+        body: { type: "string", description: "The page's text. Plain text; paragraph breaks are kept." },
+        reason: REASON_PROPERTY,
+      },
+      required: ["kind", "title", "body", "reason"],
       additionalProperties: false,
     },
   },

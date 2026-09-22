@@ -152,6 +152,27 @@ describe("PlanBuilder", () => {
     expect(step.fields).toEqual({ backText: "En roman om att inte ge upp." });
   });
 
+  it("records a description and a front-matter page without touching the manuscript", () => {
+    const { builder } = planner();
+    builder.record("set_book_description", { description: "En roman om att inte ge upp.", reason: "The author asked for a blurb." });
+    builder.record("add_front_matter_section", { kind: "dedication", title: "Tillägnan", body: "Till Mira.", reason: "The author asked for a dedication." });
+
+    const [description, dedication] = builder.build().steps;
+    if (description.tool !== "set_book_description" || dedication.tool !== "add_front_matter_section") throw new Error("unexpected steps");
+    expect(description.description).toBe("En roman om att inte ge upp.");
+    expect({ kind: dedication.kind, title: dedication.title, body: dedication.body }).toEqual({ kind: "dedication", title: "Tillägnan", body: "Till Mira." });
+    // Neither counts as a changed passage: the summary line above the plan is
+    // about the manuscript, and these do not touch it.
+    expect(summarisePlan(builder.build())).toMatchObject({ steps: 2, replacements: 0, optional: 0, chapters: [] });
+  });
+
+  it("refuses the three automatic pages, which the book generates for itself", () => {
+    const { builder } = planner();
+    for (const kind of ["title", "copyright", "contents"]) {
+      expect(() => builder.record("add_front_matter_section", { kind, title: "x", body: "y", reason: "z" })).toThrow();
+    }
+  });
+
   it("summarises what the author is being asked to approve", () => {
     const { builder } = planner();
     builder.record("replace_in_book", { matchIds: ["m1", "m2"], optionalMatchIds: ["m3"], replacement: "Jonas", reason: "Rename." });

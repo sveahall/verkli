@@ -27,7 +27,7 @@ import { chapterSchema } from "@/lib/tiptap-schema";
 import {
   authorizeProductionEdition, loadProductionDraft, saveProductionDraft,
 } from "@/lib/book-production/server";
-import { createProductionSettings, type ProductionSettings } from "@/features/book-production/model";
+import { createProductionSection, createProductionSettings, type ProductionSettings } from "@/features/book-production/model";
 import type { AgentBook, AgentChapter } from "./book-context";
 import type { Plan, PlanStep } from "./plan";
 
@@ -188,8 +188,10 @@ async function applyChapter(
   return { applied: appliedByStep, failures };
 }
 
-async function applyCoverSteps(bookId: string, versionId: string, steps: PlanStep[], bookTitle: string): Promise<StepOutcome[]> {
-  const relevant = steps.filter((step) => step.tool === "set_cover_text" || step.tool === "set_cover_style");
+/** Everything stored in the edition's production settings: cover and front matter. */
+async function applyEditionSteps(bookId: string, versionId: string, steps: PlanStep[], bookTitle: string): Promise<StepOutcome[]> {
+  const relevant = steps.filter((step) =>
+    step.tool === "set_cover_text" || step.tool === "set_cover_style" || step.tool === "add_front_matter_section");
   if (!relevant.length) return [];
 
   try {
@@ -214,11 +216,19 @@ async function applyCoverSteps(bookId: string, versionId: string, steps: PlanSte
         };
       } else if (step.tool === "set_cover_style") {
         next = { ...next, cover: { ...next.cover, ...step.fields } };
+      } else if (step.tool === "add_front_matter_section") {
+        // Built from the same factory the panel uses, so placement, id and the
+        // recto rule come from one definition rather than being guessed here.
+        const section = { ...createProductionSection(step.kind), title: step.title, body: step.body };
+        next = { ...next, sections: [...next.sections, section] };
       }
     }
 
     await saveProductionDraft(context, next, draft.revision);
-    return relevant.map((step) => ({ stepId: step.id, tool: step.tool, status: "applied" as const, detail: "Saved to your cover." }));
+    return relevant.map((step) => ({
+      stepId: step.id, tool: step.tool, status: "applied" as const,
+      detail: step.tool === "add_front_matter_section" ? "Added to your book's pages." : "Saved to your cover.",
+    }));
   } catch (error) {
     const detail = error instanceof Error && error.message ? error.message : "The cover could not be saved. Open Cover and try again.";
     return relevant.map((step) => ({ stepId: step.id, tool: step.tool, status: "failed" as const, detail }));
@@ -258,7 +268,17 @@ export async function applyPlan(
     );
   }
 
-  outcomes.push(...await applyCoverSteps(book.bookId, book.versionId, steps, book.bookTitle));
+  outcomes.push(...await applyEditionSteps(book.bookId, book.versionId, steps, book.bookTitle));
+
+  for (const step of steps) {
+    if (step.tool !== "set_book_description") continue;
+    // The author's own client, so row-level security is the ownership check.
+    const { data, error } = await supabase
+      .from("books").update({ description: step.description }).eq("id", book.bookId).select("id");
+    outcomes.push(error || !data?.length
+      ? { stepId: step.id, tool: step.tool, status: "failed", detail: "The description could not be saved. Try again." }
+      : { stepId: step.id, tool: step.tool, status: "applied", detail: "Saved to your book." });
+  }
 
   for (const step of steps) {
     if (step.tool !== "generate_cover_image") continue;

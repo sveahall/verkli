@@ -227,6 +227,39 @@ describe("applyPlan", () => {
     expect(outcomes[0].detail).toMatch(/1 passage was in a chapter you have edited since/);
   });
 
+  it("appends a front-matter page through the production settings, keeping the existing ones", async () => {
+    authorize.mockResolvedValue({ marker: "context" });
+    loadDraft.mockResolvedValue({ settings: null, revision: 2 });
+    saveDraft.mockResolvedValue({ revision: 3 });
+
+    const outcomes = await applyPlan(fakeSupabase().client, book(), {
+      versionId: VERSION,
+      steps: [{ id: "s1", tool: "add_front_matter_section", reason: "Dedication.", kind: "dedication", title: "Tillägnan", body: "Till Mira." }],
+    });
+
+    const [, settings] = saveDraft.mock.calls[0];
+    // The seed already carries title, copyright and contents; a new page is
+    // appended rather than replacing them.
+    expect(settings.sections.map((section: { kind: string }) => section.kind)).toEqual(["title", "copyright", "contents", "dedication"]);
+    const added = settings.sections.at(-1);
+    expect({ title: added.title, body: added.body, placement: added.placement, enabled: added.enabled }).toEqual({
+      title: "Tillägnan", body: "Till Mira.", placement: "before", enabled: true,
+    });
+    expect(added.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(outcomes[0]).toMatchObject({ status: "applied" });
+  });
+
+  it("writes the description through the author's own client, so RLS is the ownership check", async () => {
+    const { client, writes } = fakeSupabase();
+    const outcomes = await applyPlan(client, book(), {
+      versionId: VERSION,
+      steps: [{ id: "s1", tool: "set_book_description", reason: "Blurb.", description: "En roman om att inte ge upp." }],
+    });
+
+    expect(writes).toEqual([{ table: "books", values: { description: "En roman om att inte ge upp." }, filters: { id: BOOK } }]);
+    expect(outcomes[0]).toMatchObject({ status: "applied" });
+  });
+
   it("hands cover generation back to the panel that owns its spend limit", async () => {
     const outcomes = await applyPlan(fakeSupabase().client, book(), {
       versionId: VERSION,

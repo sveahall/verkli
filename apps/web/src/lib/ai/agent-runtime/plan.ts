@@ -59,6 +59,15 @@ export const planStepSchema = z.discriminatedUnion("tool", [
     }),
   }),
   z.object({
+    id: z.string(), tool: z.literal("set_book_description"), reason: z.string(),
+    description: z.string(),
+  }),
+  z.object({
+    id: z.string(), tool: z.literal("add_front_matter_section"), reason: z.string(),
+    kind: z.enum(["dedication", "foreword", "preface", "acknowledgements", "afterword", "bibliography", "about-author", "custom"]),
+    title: z.string(), body: z.string(),
+  }),
+  z.object({
     id: z.string(), tool: z.literal("generate_cover_image"), reason: z.string(),
     prompt: z.string(), style: z.enum(["minimal", "photographic", "illustrated", "vintage"]),
   }),
@@ -109,6 +118,16 @@ export class PlanBuilder {
       case "set_cover_style": {
         const { reason, ...fields } = toolInputSchemas.set_cover_style.parse(rawInput);
         this.steps.push({ id, tool, reason, fields });
+        return JSON.stringify({ recorded: true, stepId: id, awaitingApproval: true });
+      }
+      case "set_book_description": {
+        const input = toolInputSchemas.set_book_description.parse(rawInput);
+        this.steps.push({ id, tool, reason: input.reason, description: input.description });
+        return JSON.stringify({ recorded: true, stepId: id, awaitingApproval: true });
+      }
+      case "add_front_matter_section": {
+        const input = toolInputSchemas.add_front_matter_section.parse(rawInput);
+        this.steps.push({ id, tool, reason: input.reason, kind: input.kind, title: input.title, body: input.body });
         return JSON.stringify({ recorded: true, stepId: id, awaitingApproval: true });
       }
       case "generate_cover_image": {
