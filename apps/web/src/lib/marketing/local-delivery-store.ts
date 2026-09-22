@@ -20,11 +20,26 @@ function freshPost(): LocalPost {
     mediaAssetId: null, mediaAssetUrl: null, assetError: null, postedAt: null, postedUrl: null,
     mode: "organic", updatedAt: new Date().toISOString(), metadata: {} };
 }
+/**
+ * The newest delivery for a post.
+ *
+ * `Array.prototype.findLast` would say this in one call, but it is ES2023 and
+ * this repo compiles against the ES2022 lib. Widening `lib` for two call sites
+ * in a server-only store would also let client code reach for ES2023 methods
+ * that nothing polyfills, so the scan is spelled out here instead.
+ */
+function lastDeliveryFor(deliveries: DeliveryRecord[], postId: string): DeliveryRecord | undefined {
+  for (let index = deliveries.length - 1; index >= 0; index -= 1) {
+    if (deliveries[index].postId === postId) return deliveries[index];
+  }
+  return undefined;
+}
+
 function touch(document: Document) {
   document.post.updatedAt = new Date(Math.max(Date.now(), Date.parse(document.post.updatedAt) + 1)).toISOString();
 }
 function view(document: Document): LocalDeliveryView {
-  const delivery = document.deliveries.findLast(record => record.postId === document.post.id);
+  const delivery = lastDeliveryFor(document.deliveries, document.post.id);
   return { post: { ...document.post, metadata: delivery ? { delivery: {
     jobId: delivery.id, state: delivery.state, approvedRevision: delivery.approvedRevision, text: delivery.text,
     scheduledFor: delivery.scheduledFor, simulated: true,
@@ -81,7 +96,7 @@ export async function localDeliveryAction(session: string, body: Record<string, 
       },
     };
     const action = body.action;
-    const current = document.deliveries.findLast(item => item.postId === document.post.id);
+    const current = lastDeliveryFor(document.deliveries, document.post.id);
     if (action && action !== "consume" && body.expectedUpdatedAt !== document.post.updatedAt) {
       throw new LocalDeliveryError("This post changed. Reload and review the current version.");
     }
