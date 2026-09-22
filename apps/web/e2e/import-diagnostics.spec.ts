@@ -7,6 +7,7 @@ test.beforeEach(async ({ page }) => {
 test("uses the author's exact reference for every admin status snapshot", async ({ page }) => {
   await page.getByRole("button", { name: "Author import status" }).click();
   const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Replacing an existing draft is temporarily unavailable to protect your manuscript. Import a separate copy instead.")).toBeVisible();
   await expect(dialog.getByText(`Support reference: ${id}`)).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByLabel("Import reference", { exact: true }).fill(id);
