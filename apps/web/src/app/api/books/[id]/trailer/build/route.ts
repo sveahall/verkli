@@ -27,6 +27,7 @@ import {
   E_VALIDATION_FAILED,
   E_INVALID_BOOK_ID,
 } from "@/lib/api-errors";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -68,6 +69,10 @@ export async function POST(
 ) {
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
+  // Account master AI switch. Server-side, so turning AI off is a real
+  // setting and not just a hidden button.
+  const aiOff = await aiDisabledResponse(user.id);
+  if (aiOff) return aiOff;
   if (!user) return apiError(E_UNAUTHORIZED, 401);
 
   if (!isMarketingEnabled()) {

@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { updateActiveRole } from "@/features/auth/roles";
 import { ACTIVE_ROLE_COOKIE } from "@/lib/active-role";
 import { requireAuthorRole } from "@/lib/auth/require-author";
+import { parseAiSettingsForm } from "@/features/ai-team/settings/contracts";
+import { AiSettingsError, saveAiSettings } from "@/features/ai-team/settings/server";
 
 export type ActionState = {
   ok: boolean;
@@ -165,6 +167,14 @@ export async function saveAuthorSettings(
     }
   }
 
+  // Validate every part of the form before writing any of it, so a rejected
+  // AI field cannot leave the profile half-saved.
+  const aiSettings = parseAiSettingsForm(formData);
+  if (!aiSettings.success) {
+    const field = aiSettings.error.issues[0]?.path.join(".") ?? "AI settings";
+    return { ok: false, message: `Check your AI settings (${field}) and try again.` };
+  }
+
   const supabase = await createClient();
   const { data: profile } = await supabase
     .from("profiles")
@@ -205,6 +215,17 @@ export async function saveAuthorSettings(
 
   if (error) {
     return { ok: false, message: "Could not save settings." };
+  }
+
+  try {
+    await saveAiSettings(supabase, user.id, aiSettings.data);
+  } catch (aiError) {
+    return {
+      ok: false,
+      message: aiError instanceof AiSettingsError
+        ? aiError.message
+        : "Your other settings were saved, but your AI settings could not be. Please try again.",
+    };
   }
 
   if (password) {

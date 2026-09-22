@@ -17,6 +17,7 @@ import { hashTranslationSource, hashTranslationTarget, TRANSLATION_QUALITY_JOB_K
 import type { Json } from "@/lib/supabase/types";
 import { checkBudget, releaseBudget, BudgetExceededError } from "@/lib/workers/budget";
 import { estimateTranslationQualitySample } from "@/lib/translation-quality-budget";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 export const maxDuration = 180;
 const limiter = createPerUserRateLimiter({ name: "translation-quality", maxPerMinute: 2, windowMs: 60_000 });
@@ -31,6 +32,10 @@ const failure = (error: string, status: number) => NextResponse.json({ error }, 
 async function authorize(context: Context) {
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return { response };
+  // Account master AI switch. Server-side, so turning AI off is a real
+  // setting and not just a hidden button.
+  const aiOff = await aiDisabledResponse(user.id);
+  if (aiOff) return { response: aiOff };
   const { id: bookId } = await context.params;
   if (!z.string().uuid().safeParse(bookId).success) return { response: failure("Invalid book ID.", 400) };
   const supabase = await createClient();

@@ -27,6 +27,7 @@ import {
   E_TRANSLATION_SERVICE_UNAVAILABLE,
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors"
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 const previewLimiter = createPerUserRateLimiter({ name: "translation-preview", maxPerMinute: 2 })
 
@@ -38,6 +39,14 @@ export async function GET(
 
   const { user, response } = await requireAuthorRoleForApi()
   if (response) return response
+
+  // Account master AI switch. Server-side, so turning AI off is a real
+
+  // setting and not just a hidden button.
+
+  const aiOff = await aiDisabledResponse(user.id);
+
+  if (aiOff) return aiOff;
   if (!isTranslationsEnabled() || !reviewedTranslationActivationReady()) {
     return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
   }

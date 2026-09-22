@@ -11,6 +11,9 @@ vi.mock("@/lib/flags", () => ({ isAudiobookEnabled: mocks.isAudiobookEnabled }))
 vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: mocks.check }) }));
 vi.mock("@/lib/tts/tts-provider", () => ({ resolveNarratorVoiceId: mocks.resolveNarratorVoiceId }));
 vi.mock("@/lib/tts/elevenlabs-tts-provider", () => ({ ElevenLabsTtsProvider: class { synthesize = mocks.synthesize; } }));
+// This route now checks the account's master AI switch first. Its own guard
+// test covers the blocked path; here the account simply has AI on.
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 
 const { POST } = await import("./route");
 const bookId = "00000000-0000-4000-8000-000000000001";

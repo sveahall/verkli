@@ -10,6 +10,8 @@ import {
 } from "@/lib/auth/author-approval";
 import AuthorAppShell from "@/features/author-shell/AuthorAppShell";
 import { isDemoModeActive } from "@/lib/flags";
+import { AiAvailabilityProvider } from "@/features/ai-team/settings/availability";
+import { getAiSettings } from "@/features/ai-team/settings/server";
 
 export default async function AppAuthorLayout({
   children,
@@ -61,12 +63,20 @@ export default async function AppAuthorLayout({
   // `check:english-default`.
   const locale = await getLocale();
   const messages = await getMessages();
+  // Presentation only: which AI surfaces render. If the row cannot be read we
+  // keep the surfaces visible rather than blanking the workspace — the server
+  // guard still refuses the request, so nothing runs behind a stale button.
+  const aiEnabled = await getAiSettings(supabase, user.id)
+    .then((settings) => settings.aiEnabled)
+    .catch(() => true);
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
-      <AuthorAppShell demoModeActive={demoModeActive}>
-        {children}
-      </AuthorAppShell>
+      <AiAvailabilityProvider enabled={aiEnabled}>
+        <AuthorAppShell demoModeActive={demoModeActive}>
+          {children}
+        </AuthorAppShell>
+      </AiAvailabilityProvider>
     </NextIntlClientProvider>
   );
 }

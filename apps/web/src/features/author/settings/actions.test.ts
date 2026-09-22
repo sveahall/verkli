@@ -4,6 +4,7 @@ const mockGetUser = vi.fn();
 const mockUpdateUser = vi.fn();
 const mockProfilesUpsert = vi.fn();
 const mockProfilesMaybeSingle = vi.fn();
+const mockAiSettingsUpsert = vi.fn();
 const mockUpdateActiveRole = vi.fn();
 const mockRequireAuthorRole = vi.fn();
 const mockRevalidatePath = vi.fn();
@@ -32,6 +33,11 @@ vi.mock("@/lib/supabase/server", () => ({
       updateUser: mockUpdateUser,
     },
     from: (table: string) => {
+      // Account AI preferences are saved by the same action as the rest of the
+      // settings form, so the one "Save settings" button keeps its promise.
+      if (table === "ai_memory_settings") {
+        return { upsert: mockAiSettingsUpsert };
+      }
       if (table !== "profiles") {
         throw new Error(`Unexpected table: ${table}`);
       }
@@ -68,6 +74,7 @@ describe("author settings actions", () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: "author-1" } } });
     mockUpdateUser.mockResolvedValue({ error: null });
     mockProfilesUpsert.mockResolvedValue({ error: null });
+    mockAiSettingsUpsert.mockResolvedValue({ error: null });
     mockProfilesMaybeSingle.mockResolvedValue({ data: { preferences: {} }, error: null });
     mockUpdateActiveRole.mockResolvedValue({ ok: true });
     mockRequireAuthorRole.mockResolvedValue({ ok: true, user: { id: "author-1" } });
@@ -122,6 +129,48 @@ describe("author settings actions", () => {
     });
     expect(mockRevalidatePath).toHaveBeenCalledWith("/author/profile");
     expect(mockRevalidatePath).toHaveBeenCalledWith("/author/settings");
+  });
+
+  it("saves AI preferences through the same action, so one save button covers the whole form", async () => {
+    const formData = new FormData();
+    formData.set("default_language", "en");
+    formData.set("default_visibility", "public");
+    formData.set("ai_enabled", "true");
+    formData.set("ai_memory_enabled", "false");
+    formData.set("ai_reply_style", "candid");
+    formData.set("ai_emoji", "less");
+    formData.set("ai_nickname", "  Svea  ");
+    formData.set("ai_instructions", "Never rewrite dialogue.");
+
+    const result = await saveAuthorSettings({ ok: false, message: "" }, formData);
+
+    expect(result).toEqual({ ok: true, message: "Settings saved." });
+    expect(mockAiSettingsUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        owner_id: "author-1",
+        ai_enabled: true,
+        enabled: false,
+        reply_style: "candid",
+        emoji: "less",
+        nickname: "Svea",
+        craft: null,
+        instructions: "Never rewrite dialogue.",
+      }),
+      { onConflict: "owner_id" }
+    );
+  });
+
+  it("rejects an invalid AI choice before writing anything", async () => {
+    const formData = new FormData();
+    formData.set("ai_enabled", "true");
+    formData.set("ai_reply_style", "sarcastic");
+
+    const result = await saveAuthorSettings({ ok: false, message: "" }, formData);
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("AI settings");
+    expect(mockProfilesUpsert).not.toHaveBeenCalled();
+    expect(mockAiSettingsUpsert).not.toHaveBeenCalled();
   });
 
   it("merges simplified settings into profile preferences", async () => {

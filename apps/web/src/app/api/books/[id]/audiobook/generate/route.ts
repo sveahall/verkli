@@ -33,6 +33,7 @@ import { isCancelStale, forceFailCancelledJob } from "@/lib/audiobook-stale-canc
 import { evaluateDemoGuard } from "@/lib/demo-guard";
 import type { Json } from "@/lib/supabase/types";
 import { asJsonObject } from "@/lib/supabase/json-object";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 const audiobookLimiter = createPerUserRateLimiter({ name: "books-audiobook-generate", maxPerMinute: 5 });
 const AI_JOB_KIND = "audiobook_generation";
@@ -185,6 +186,10 @@ export async function POST(
   // SECURITY: Require author role
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
+  // Account master AI switch. Server-side, so turning AI off is a real
+  // setting and not just a hidden button.
+  const aiOff = await aiDisabledResponse(user.id);
+  if (aiOff) return aiOff;
 
   const rl = await audiobookLimiter.check(user.id);
   if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });

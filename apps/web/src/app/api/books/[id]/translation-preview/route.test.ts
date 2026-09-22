@@ -42,6 +42,9 @@ vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: m
 vi.mock("@/lib/workers/budget", async (original) => ({
   ...await original<object>(), checkBudget: mocks.budget, releaseBudget: mocks.release, validateJobCost: mocks.validateCost,
 }))
+// This route now checks the account's master AI switch first. Its own guard
+// test covers the blocked path; here the account simply has AI on.
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 
 const { BudgetExceededError } = await import("@/lib/workers/budget")
 const { GET } = await import("./route")
