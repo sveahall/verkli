@@ -5,9 +5,17 @@
  * unzipping, every chapter passes through `htmlToTiptapDoc()` in
  * `apps/web/src/lib/tiptap-content.ts`. The TipTap document schema only
  * permits a closed set of block/inline node types (paragraph, heading,
- * blockquote, lists, plus inline text + hardBreak with bold/italic marks).
- * Script tags, event handlers, javascript: URIs, and inline styles cannot be
- * represented in that schema and so are dropped at the conversion boundary.
+ * image, blockquote, lists, plus inline text + hardBreak with bold/italic
+ * marks). Script tags, event handlers, javascript: URIs, and inline styles
+ * cannot be represented in that schema and so are dropped at the conversion
+ * boundary.
+ *
+ * `image` is the one node type carrying an attacker-controlled URL, so it has
+ * its own contract, asserted in "image srcs" below: a src survives only if it
+ * is http(s) or an allowlisted `data:image/…` bitmap type. `data:image/svg+xml`
+ * is excluded on purpose — an SVG is a document that can carry <script>, not a
+ * bitmap. An <img> whose src fails the check produces no node at all, so the
+ * "img onerror" and "javascript: image src" vectors below still yield nothing.
  *
  * This test asserts that contract for 12+ attack vectors from the OWASP HTML
  * Sanitization cheat sheet. We feed each malicious XHTML payload through the
@@ -87,7 +95,32 @@ const ATTACK_VECTORS: Array<{ name: string; xhtml: string }> = [
     name: "html entity-encoded script",
     xhtml: `<html><body><p>&#60;script&#62;alert(1)&#60;/script&#62;</p></body></html>`,
   },
+  {
+    name: "svg data URI as image src",
+    xhtml: `<html><body><img src="data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9ImFsZXJ0KDEpIj48L3N2Zz4=" /></body></html>`,
+  },
+  {
+    name: "data:text/html as image src",
+    xhtml: `<html><body><img src="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==" /></body></html>`,
+  },
+  {
+    name: "javascript: image src split by a tab",
+    xhtml: `<html><body><img src="java&#9;script:alert(1)" /></body></html>`,
+  },
+  {
+    name: "protocol-relative image src",
+    xhtml: `<html><body><img src="//evil.example.com/pixel.png" /></body></html>`,
+  },
+  {
+    name: "image src inside a paragraph, the shape mammoth emits",
+    xhtml: `<html><body><p><img src="javascript:alert(1)" alt="x" /></p></body></html>`,
+  },
 ];
+
+/** Mirrors safeImageSrc in tiptap-content-html.ts. Deliberately duplicated:
+ *  importing the real one would let a weakened allowlist pass its own test. */
+const ALLOWED_IMAGE_SRC =
+  /^(?:https?:\/\/[^/]|data:image\/(?:png|jpeg|jpg|gif|webp|avif);base64,[A-Za-z0-9+/=]+$)/i;
 
 const FORBIDDEN_NODE_TYPES = new Set([
   "script",
@@ -170,6 +203,19 @@ describe("hostile EPUB sanitization", () => {
             expect(lower.startsWith("data:text/html")).toBe(false);
           }
         }
+      }
+
+      // 4. Any image node that did survive carries a src we can vouch for.
+      //    An <img> the allowlist rejects must produce no node at all, so a
+      //    hostile vector never reaches this assertion with something to check.
+      for (const node of nodes) {
+        if (node.type !== "image") continue;
+        const src = node.attrs?.src;
+        expect(typeof src).toBe("string");
+        expect(
+          ALLOWED_IMAGE_SRC.test(String(src)),
+          `image src escaped the allowlist: ${String(src)}`
+        ).toBe(true);
       }
     });
   }
