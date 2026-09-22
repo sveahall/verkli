@@ -20,7 +20,7 @@ export default function VoiceList({ initialVoices }: { initialVoices: VoiceRow[]
   const [, startTransition] = useTransition();
 
   async function onDelete(voice: VoiceRow) {
-    if (!window.confirm(`Delete voice "${voice.name}"? This removes it from ElevenLabs as well.`)) {
+    if (!window.confirm(`Delete voice "${voice.name}"? If external ownership cannot be verified, nothing will be changed.`)) {
       return;
     }
     setPendingId(voice.id);
@@ -28,8 +28,8 @@ export default function VoiceList({ initialVoices }: { initialVoices: VoiceRow[]
     try {
       const res = await fetch(`/api/author/voices/${voice.id}`, { method: "DELETE" });
       if (!res.ok) {
-        const json = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(json?.error ?? `Delete failed (${res.status})`);
+        const json = (await res.json().catch(() => null)) as { error?: string; message?: string } | null;
+        throw new Error(json?.message ?? json?.error ?? `Delete failed (${res.status})`);
       }
       startTransition(() => {
         setVoices((cur) => cur.filter((v) => v.id !== voice.id));
