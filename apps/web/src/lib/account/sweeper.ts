@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { runAccountTeardownSweep } from "./teardown";
+import { DELETION_GRACE_DAYS, runAccountTeardownSweep } from "./teardown";
 
 /**
  * How often to look for deletion requests whose grace window has passed.
@@ -33,6 +33,10 @@ export function startAccountDeletionSweeper(onError: (error: unknown) => void = 
 
   timer = setInterval(() => void tick(), TICK_MS);
   timer.unref?.();
+  // Say so on start, the way the usage scheduler does. A silent sweeper reads
+  // in the logs exactly like one that was never wired up — and this is the
+  // process the settings page's promise depends on.
+  console.log(`[account.teardown] sweeping every ${TICK_MS / 60_000} min, carrying out requests older than ${DELETION_GRACE_DAYS} days`);
   void tick();
   return stopAccountDeletionSweeper;
 }
