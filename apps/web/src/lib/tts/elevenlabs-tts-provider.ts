@@ -1,3 +1,4 @@
+import { alignmentToTiming, type AudioTiming } from "../audiobook/timing";
 import type { TtsProvider, TtsSynthesisOptions, TtsSynthesisResult } from "./tts-provider";
 
 const DEFAULT_MODEL_ID = "eleven_multilingual_v2";
@@ -46,12 +47,13 @@ export class ElevenLabsTtsProvider implements TtsProvider {
     const timer = setTimeout(() => controller.abort(), options.timeoutMs);
 
     try {
-      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`, {
+      const suffix = options.withTimestamps ? `/with-timestamps?output_format=${encodeURIComponent(outputFormat)}` : "";
+      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}${suffix}`, {
         method: "POST",
         headers: {
           "xi-api-key": apiKey,
           "Content-Type": "application/json",
-          Accept: format === "mp3" ? "audio/mpeg" : "audio/wav",
+          Accept: options.withTimestamps ? "application/json" : format === "mp3" ? "audio/mpeg" : "audio/wav",
         },
         body: JSON.stringify({
           text,
@@ -66,14 +68,26 @@ export class ElevenLabsTtsProvider implements TtsProvider {
         throw new Error(`ElevenLabs TTS API error ${res.status}: ${errBody.slice(0, 300)}`);
       }
 
-      const arrayBuffer = await res.arrayBuffer();
+      let timing: AudioTiming | null = null;
+      let arrayBuffer: ArrayBuffer | Buffer;
+      if (options.withTimestamps) {
+        const data = await res.json() as { audio_base64?: unknown; alignment?: unknown };
+        if (typeof data.audio_base64 !== "string" || !data.audio_base64) {
+          throw new Error("ElevenLabs TTS returned no audio_base64");
+        }
+        arrayBuffer = Buffer.from(data.audio_base64, "base64");
+        timing = alignmentToTiming(text, data.alignment);
+      } else {
+        arrayBuffer = await res.arrayBuffer();
+      }
       if (arrayBuffer.byteLength === 0) {
         throw new Error("ElevenLabs TTS returned empty audio response");
       }
 
       return {
-        wav: Buffer.from(arrayBuffer),
+        wav: Buffer.isBuffer(arrayBuffer) ? arrayBuffer : Buffer.from(arrayBuffer),
         sampleRate: 0,
+        timing,
         format,
         bitrateKbps,
         metadata: {

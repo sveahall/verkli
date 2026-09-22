@@ -1,3 +1,5 @@
+import AudioTextSync from "./AudioTextSync";
+import { getChapterText } from "@/lib/audiobook/chapter-text";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -487,6 +489,10 @@ export default async function ReaderReadPage({
         currentChapter={chapterIndex + 1}
         userId={user?.id ?? null}
       />
+      <AudioTextSync key={chapter.id} textOffset={Math.max(0,
+        getChapterText(typeof rawChapterContent === "string" ? rawChapterContent : JSON.stringify(rawChapterContent)).length -
+        getChapterText(typeof chapterContent === "string" ? chapterContent : JSON.stringify(chapterContent)).length
+      )}>
       <ReadingView
         backHref={`/reader/books/${book.id}`}
         backLabel="Back to book"
@@ -549,6 +555,7 @@ export default async function ReaderReadPage({
         footerNavigation={footerNavigation}
         commentsSection={commentsSection}
       />
+      </AudioTextSync>
     </>
   );
 }

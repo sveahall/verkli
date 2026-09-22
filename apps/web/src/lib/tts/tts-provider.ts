@@ -1,3 +1,5 @@
+import type { AudioTiming } from "../audiobook/timing";
+
 /**
  * TTS Provider Interface — ElevenLabs is the sole TTS backend.
  *
@@ -7,6 +9,7 @@
 export type TtsSynthesisResult = {
   /** Raw audio buffer */
   wav: Buffer;
+  timing?: AudioTiming | null;
   /** Sample rate in Hz (0 if unknown) */
   sampleRate: number;
   /** Encoded audio format */
@@ -19,6 +22,7 @@ export type TtsSynthesisResult = {
 
 export type TtsSynthesisOptions = {
   language: string;
+  withTimestamps?: boolean;
   voiceId: string;
   /** Provider-specific model identifier */
   modelId: string;

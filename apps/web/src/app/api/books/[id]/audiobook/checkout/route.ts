@@ -1,3 +1,4 @@
+import { audioLanguageUnavailableReason, AUDIOBOOK_LANGUAGE_UNAVAILABLE } from "@/lib/audiobook/language-capabilities";
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author"
@@ -76,6 +77,12 @@ export async function POST(
     return apiError(E_INVALID_REQUEST_BODY, 400, {
       detail: "language is required",
     })
+  }
+
+  const languageUnavailable = audioLanguageUnavailableReason(language)
+  if (languageUnavailable) {
+    console.warn("[audiobook checkout] language unavailable", { bookId, language })
+    return apiError(AUDIOBOOK_LANGUAGE_UNAVAILABLE, 422, { detail: languageUnavailable })
   }
 
   // Verify the book belongs to this user

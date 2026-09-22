@@ -1,11 +1,12 @@
 "use client";
 
+import { audioLanguageUnavailableReason } from "@/lib/audiobook/language-capabilities";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowRight, Check, Globe2, Headphones, Loader2 } from "lucide-react";
 import { countWordsInContent } from "@/lib/tiptap-content";
 import styles from "./AudiobookPanel.module.css";
-import { getLanguageLabel, normalizeLanguage } from "@/lib/languages";
+import { getLanguageLabel } from "@/lib/languages";
 import {
   getAudiobookStatusLabel,
 } from "../BookEditorView.helpers";
@@ -112,7 +113,8 @@ export default function AudiobookPanel({
   latestAudiobookManifestUrl,
 }: AudiobookPanelProps) {
   const languageCode = activeVersion?.language_code ?? activeLanguage;
-  const language = getLanguageLabel(normalizeLanguage(languageCode));
+  const language = getLanguageLabel(languageCode.trim().toLowerCase());
+  const languageUnavailable = audioLanguageUnavailableReason(languageCode);
   const scope = billingIsProActive ? audiobookScope : "book";
   const includedChapters = scope === "book" ? chapters : chapters.filter((chapter) => audiobookRequestedChapterIds.includes(chapter.id));
   const words = scope === "book" ? totalBookWordCount : includedChapters.reduce((sum, chapter) => sum + countWordsInContent(chapter.content), 0);
@@ -123,7 +125,7 @@ export default function AudiobookPanel({
   const error = audiobookStatusUi === "failed" ? effectiveAudiobookError ?? "Could not create audiobook. Try again." : audiobookError;
   const hasManuscript = chapters.length > 0 && totalBookWordCount > 0;
   const showManifest = shouldShowGeneratedAudiobookPlayer && !fallbackGeneratedAudiobookUrl && Boolean(latestAudiobookManifestUrl);
-  const cannotGenerate = isAudiobookActive || !audiobookFeatureEnabled || billingLoading || !hasManuscript || (billingIsProActive && scope !== "book" && audiobookRequestedChapterIds.length === 0);
+  const cannotGenerate = Boolean(languageUnavailable) || isAudiobookActive || !audiobookFeatureEnabled || billingLoading || !hasManuscript || (billingIsProActive && scope !== "book" && audiobookRequestedChapterIds.length === 0);
 
   return (
     <div className={styles.workspace}>
@@ -131,6 +133,8 @@ export default function AudiobookPanel({
         <div><h2>Audiobook</h2><p>A new way to hear your story. Listen, create, then review.</p></div>
         <span className={styles.edition}><Globe2 size={15} aria-hidden />{language} edition</span>
       </header>
+
+      {languageUnavailable && <p role="status" className={styles.hint}>{languageUnavailable}</p>}
 
       {showManifest ? (
         <section className={styles.completedAudio} aria-label="Generated audiobook">
@@ -144,7 +148,7 @@ export default function AudiobookPanel({
           bookId={bookId}
           versionId={activeVersion?.id}
           onRefreshAudioUrl={refreshAudioUrl}
-          previewEnabled={audiobookFeatureEnabled}
+          previewEnabled={audiobookFeatureEnabled && !languageUnavailable}
         />
       )}
 
@@ -219,7 +223,7 @@ export default function AudiobookPanel({
 
           <button type="button" onClick={() => void handleGenerateAudiobook()} disabled={cannotGenerate} className={styles.generate}>
             {isAudiobookActive ? <Loader2 size={17} className={styles.spin} aria-hidden /> : <Headphones size={17} aria-hidden />}
-            {!audiobookFeatureEnabled ? "Generation unavailable" : billingLoading ? "Checking subscription…" : isAudiobookActive ? "Generation in progress" : billingIsProActive ? "Generate audiobook" : "Continue to payment"}
+            {languageUnavailable ? "Audio unavailable for this language" : !audiobookFeatureEnabled ? "Generation unavailable" : billingLoading ? "Checking subscription…" : isAudiobookActive ? "Generation in progress" : billingIsProActive ? "Generate audiobook" : "Continue to payment"}
           </button>
           {isAudiobookActive && <div className={styles.jobControls}>
             <button type="button" onClick={() => void handleAudiobookControl("pause")} disabled={!canPauseAudiobook}>{audiobookControlPending === "pause" ? "Pausing…" : "Pause"}</button>
@@ -229,7 +233,7 @@ export default function AudiobookPanel({
           <p className={styles.hint}>{!audiobookFeatureEnabled ? "Audiobook generation is temporarily disabled." : "Creating audio does not publish your book. Listen and review before publishing."}</p>
         </aside>
       </div>
-      <AudiobookCheckoutModal open={audiobookCheckoutModalOpen} onClose={() => setAudiobookCheckoutModalOpen(false)} audiobookError={audiobookError} audiobookCheckoutLoading={audiobookCheckoutLoading} onCheckout={() => void handleAudiobookCheckout()} />
+      <AudiobookCheckoutModal open={audiobookCheckoutModalOpen && !languageUnavailable} onClose={() => setAudiobookCheckoutModalOpen(false)} audiobookError={audiobookError} audiobookCheckoutLoading={audiobookCheckoutLoading} onCheckout={() => void handleAudiobookCheckout()} />
     </div>
   );
 }

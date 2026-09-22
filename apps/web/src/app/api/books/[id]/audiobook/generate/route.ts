@@ -1,3 +1,4 @@
+import { audioLanguageUnavailableReason, AUDIOBOOK_LANGUAGE_UNAVAILABLE } from "@/lib/audiobook/language-capabilities";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -223,6 +224,31 @@ export async function POST(
       : null;
 
   const supabase = await createClient();
+  // Fetch book with versions
+  const { data: book, error: bookFetchError } = await supabase
+    .from("books")
+    .select("id, author_id, language, original_language")
+    .eq("id", bookId)
+    .maybeSingle();
+
+  if (bookFetchError) {
+    console.error("[audiobook generate] book fetch failed:", bookFetchError.message);
+    return apiError(E_DATABASE_ERROR, 500);
+  }
+  if (!book || book.author_id !== user.id) {
+    return apiError(E_BOOK_NOT_FOUND, 404);
+  }
+
+  // Resolve book_version_id
+  const targetLanguage = langParam ?? book.original_language ?? book.language ?? "sv";
+
+  // Resolve the actual edition before Stripe redemption, including omitted lang.
+  const languageUnavailable = audioLanguageUnavailableReason(targetLanguage);
+  if (languageUnavailable) {
+    console.warn("[audiobook generate] language unavailable", { bookId, language: targetLanguage });
+    return apiError(AUDIOBOOK_LANGUAGE_UNAVAILABLE, 422, { detail: languageUnavailable });
+  }
+
   const admin = createAdminClient();
 
   let paidViaStripe = false;
@@ -282,24 +308,6 @@ export async function POST(
     }
     return response;
   };
-
-  // Fetch book with versions
-  const { data: book, error: bookFetchError } = await supabase
-    .from("books")
-    .select("id, author_id, language, original_language")
-    .eq("id", bookId)
-    .maybeSingle();
-
-  if (bookFetchError) {
-    console.error("[audiobook generate] book fetch failed:", bookFetchError.message);
-    return await failAfterPaidClaim(apiError(E_DATABASE_ERROR, 500));
-  }
-  if (!book || book.author_id !== user.id) {
-    return await failAfterPaidClaim(apiError(E_BOOK_NOT_FOUND, 404));
-  }
-
-  // Resolve book_version_id
-  const targetLanguage = langParam ?? book.original_language ?? book.language ?? "sv";
 
   const { data: version, error: versionError } = await supabase
     .from("book_versions")

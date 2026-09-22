@@ -98,6 +98,14 @@ describe("POST audiobook pronunciation preview", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it.each(["nl", "pl"])("refuses text-only %s previews before provider use", async (language) => {
+    editionDatabase({ language });
+    const res = await post({ versionId });
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe("AUDIOBOOK_LANGUAGE_UNAVAILABLE");
+    expect(mocks.synthesize).not.toHaveBeenCalled();
+  });
+
   it("previews the selected older English edition instead of the newest Swedish edition", async () => {
     editionDatabase();
     const res = await post({ versionId });

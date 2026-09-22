@@ -24,6 +24,15 @@ const props: React.ComponentProps<typeof AudiobookPanel> = {
 };
 
 describe("Audiobook edition navigation", () => {
+  it.each(["nl", "pl"])("shows text-only %s without payment or preview actions", (language) => {
+    const html = renderToStaticMarkup(<AudiobookPanel {...props} activeVersion={{ ...props.activeVersion!, language_code: language }} billingIsProActive={false} audiobookCheckoutModalOpen />);
+    expect(html).toContain("Text only:");
+    expect(html).toContain("Audio unavailable for this language");
+    expect(html).not.toContain("Continue to payment");
+    expect(html).not.toContain("English edition");
+    expect(previewPlayer).toHaveBeenLastCalledWith(expect.objectContaining({ previewEnabled: false }), undefined);
+  });
+
   it("passes the selected edition into the voice preview request", () => {
     renderToStaticMarkup(<AudiobookPanel {...props} />);
     expect(previewPlayer).toHaveBeenLastCalledWith(expect.objectContaining({ bookId: "book", versionId: "swedish" }), undefined);
