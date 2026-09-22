@@ -29,9 +29,13 @@ vi.mock("@/lib/flags", () => ({
   isTranslationsEnabled: mocks.isTranslationsEnabled,
 }));
 
-vi.mock("@/lib/languages", () => ({
-  isSupportedLanguage: (...args: unknown[]) => mocks.isSupportedLanguage(...args),
-}));
+vi.mock("@/lib/languages", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/languages")>();
+  return {
+    ...actual,
+    isSupportedLanguage: (...args: unknown[]) => mocks.isSupportedLanguage(...args),
+  };
+});
 
 vi.mock("@/lib/translation-pairs", () => ({
   isTranslationPairSupported: (...args: unknown[]) => mocks.isTranslationPairSupported(...args),

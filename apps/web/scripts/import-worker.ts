@@ -22,7 +22,7 @@ import {
 import { plainTextToTiptapDoc } from "../src/lib/tiptap-content";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { enqueueTranslationJob } from "../src/lib/translation-queue";
-import { detectLanguageFromText } from "../src/lib/language-detect";
+import { detectLanguageFromParts } from "../src/lib/language-detect";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
@@ -315,8 +315,7 @@ export async function processJob(payload: ProcessJobPayload) {
     await updateImport({ status: "extracting", progress: 55 });
 
     const warnings: string[] = [];
-    const sampleText = normalizedChapters.find((ch) => ch.sourceText?.trim())?.sourceText ?? "";
-    const detectedLanguage = detectLanguageFromText(sampleText);
+    const detectedLanguage = detectLanguageFromParts(normalizedChapters.map((chapter) => chapter.sourceText));
     const normalizedDetected = normalizeLanguageOrNull(detectedLanguage);
     if (!normalizedDetected) {
       warnings.push("language_detection_fallback");

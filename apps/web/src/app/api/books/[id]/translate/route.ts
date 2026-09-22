@@ -225,6 +225,10 @@ export async function POST(
     body?.sourceVersionId != null && String(body.sourceVersionId).trim() !== ""
       ? String(body.sourceVersionId).trim()
       : null
+  const requestedSourceLanguage =
+    body?.sourceLanguage != null && String(body.sourceLanguage).trim() !== ""
+      ? String(body.sourceLanguage).trim()
+      : null
 
   if (requestedLanguages.length === 0) {
     return apiError(E_INVALID_REQUEST_BODY, 400, {
@@ -354,6 +358,7 @@ export async function POST(
     bookId,
     book,
     requestedSourceVersionId: bodySourceVersionId,
+    requestedSourceLanguage,
   })
 
   if (!sourceContext.sourceVersionId) {
