@@ -92,6 +92,68 @@ function inlineNodesToText(nodes: TiptapInlineNode[]): string {
     .trim();
 }
 
+/**
+ * Which `src` values are allowed to become an image node.
+ *
+ * Chapter HTML comes from an uploaded manuscript, so `src` is attacker
+ * controlled under the threat model in tests/security/hostile-epub.test.ts.
+ * Exactly two shapes can be safe:
+ *
+ *   http(s)://…      a real remote image
+ *   data:image/…     what mammoth hands back for pictures embedded in a .docx
+ *
+ * `data:image/svg+xml` is deliberately absent. An SVG is a document, not a
+ * bitmap: it can carry <script> and event handlers that run when a browser
+ * loads it as a top-level document. Everything else is dropped too — relative
+ * paths (unresolvable once the epub zip is gone), `javascript:`,
+ * `data:text/html`, `vbscript:`, and protocol-relative `//host`.
+ */
+const SAFE_IMAGE_DATA_URI = /^data:image\/(?:png|jpeg|jpg|gif|webp|avif);base64,[A-Za-z0-9+/=]+$/;
+
+function safeImageSrc(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  // Browsers ignore whitespace and control characters when resolving a URL,
+  // so "java\tscript:alert(1)" is live markup that a naive prefix check
+  // misses. Strip them before deciding anything.
+  const cleaned = raw.replace(/[\u0000- \u007f]/g, "");
+  if (!cleaned) return null;
+  if (SAFE_IMAGE_DATA_URI.test(cleaned)) return cleaned;
+  if (/^https?:\/\/[^/]/i.test(cleaned)) return cleaned;
+  return null;
+}
+
+function imageBlock(el: CheerioElement): TiptapBlockNode | null {
+  const src = safeImageSrc(el.attribs?.src);
+  if (!src) return null;
+  const alt = el.attribs?.alt?.replace(/\s+/g, " ").trim();
+  const title = el.attribs?.title?.replace(/\s+/g, " ").trim();
+  return { type: "image", attrs: { src, alt: alt || null, title: title || null } };
+}
+
+/**
+ * Pull images out of a block we otherwise convert inline-only.
+ *
+ * mammoth wraps every picture in its own <p>. Without this the <img> is
+ * dropped by convertInlineChildren (an <img> has no children to walk) and
+ * then the now-empty paragraph is dropped as well — which is exactly how
+ * docx imports silently lost every illustration.
+ */
+function collectDescendantImages(el: CheerioElement): TiptapBlockNode[] {
+  const out: TiptapBlockNode[] = [];
+  const queue = [...(el.children ?? [])];
+  while (queue.length > 0) {
+    const child = queue.shift();
+    if (!child) continue;
+    if (child.name?.toLowerCase() === "img") {
+      const block = imageBlock(child);
+      if (block) out.push(block);
+      continue;
+    }
+    if (child.children?.length) queue.unshift(...child.children);
+  }
+  return out;
+}
+
 function convertBlockElement(el: CheerioElement): TiptapBlockNode[] {
   const tag = el.name?.toLowerCase();
   const blocks: TiptapBlockNode[] = [];
@@ -113,11 +175,20 @@ function convertBlockElement(el: CheerioElement): TiptapBlockNode[] {
     return blocks;
   }
 
+  if (tag === "img") {
+    const block = imageBlock(el);
+    if (block) blocks.push(block);
+    return blocks;
+  }
+
   if (tag === "p" || tag === "div") {
     const content = convertInlineChildren(el);
     if (inlineNodesToText(content)) {
       blocks.push({ type: "paragraph", content });
     }
+    // A caption and its picture both survive: the text becomes the paragraph
+    // above, the picture becomes its own block after it.
+    blocks.push(...collectDescendantImages(el));
     return blocks;
   }
 
@@ -198,8 +269,14 @@ function convertChildBlockElements(parent: CheerioElement): TiptapBlockNode[] {
 
 /**
  * Convert HTML string to TipTap JSON document.
- * Preserves: paragraphs, headings (h1-h3), bold, italic, lists, blockquotes.
+ * Preserves: paragraphs, headings (h1-h3), bold, italic, lists, blockquotes,
+ * and images whose src passes safeImageSrc.
  * Use this instead of plainTextToTiptapDoc when the source has HTML structure.
+ *
+ * Image srcs come out exactly as the source wrote them, `data:` URIs included.
+ * Callers that persist the result must run it through
+ * uploadImportedChapterImages() first — a `data:` URI left in chapter.content
+ * inlines the whole picture into the column on every save and read.
  */
 export function htmlToTiptapDoc(html: string): TiptapDocument {
   const $ = cheerio.load(html);
