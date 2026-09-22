@@ -1,13 +1,8 @@
 "use client";
 
-import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
-import TextAlign from "@tiptap/extension-text-align";
-import { TextStyle } from "@tiptap/extension-text-style";
-import { FontFamily } from "@tiptap/extension-font-family";
-import Highlight from "@tiptap/extension-highlight";
 import CharacterCount from "@tiptap/extension-character-count";
-import StarterKit from "@tiptap/starter-kit";
+import { chapterSchemaExtensions } from "@/lib/tiptap-schema";
 import {
   EditorContent,
   EditorContext,
@@ -139,18 +134,10 @@ export default function TiptapEditor({
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-      }),
-      Image.configure({ inline: false, allowBase64: true }),
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
-      TextStyle,
-      FontFamily,
-      // Underline comes from StarterKit (v3) — registering the standalone
-      // @tiptap/extension-underline too triggered a "Duplicate extension
-      // names found: ['underline']" warning. The toolbar's toggleUnderline()
-      // command is provided by StarterKit's bundled underline.
-      Highlight.configure({ multicolor: true }),
+      // The document half of this list lives in lib/tiptap-schema so the server
+      // can build the same schema; Placeholder and CharacterCount are UI-only
+      // and stay here.
+      ...chapterSchemaExtensions(),
       CharacterCount,
       Placeholder.configure({ placeholder }),
     ],

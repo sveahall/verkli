@@ -9,6 +9,11 @@ import { describe, expect, it } from "vitest";
  */
 const GATED_ROUTES = [
   "books/[id]/ai/chat",
+  "books/[id]/agent/run",
+  // Apply spends nothing on a model, but it is the moment AI-authored changes
+  // reach the manuscript. A switch that still lets a pending plan land is not
+  // an off switch.
+  "books/[id]/agent/apply",
   "books/[id]/editorial/review",
   "books/[id]/audiobook/preview",
   "books/[id]/audiobook/generate",
