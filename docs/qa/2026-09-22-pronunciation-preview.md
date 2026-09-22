@@ -36,3 +36,7 @@ The UI adapter is reusable but this editor intentionally labels every save as de
 Evidence belongs in `/Users/admin/Documents/Verkli/Fardigstallande-2026-09-22/ljud/`: pronunciation targeted logs, `pronunciation-ui/result.json` and screenshots. These prove only local synthetic behavior. Full lint/types/build and production integration are not certified by targeted checks. The original timing package's fullgate remains separate.
 
 Targeted verification:53/53 tests across5 files and9 browser checks passed. The final targeted ESLint run completed with exit0 and no warnings. Fullgate is not run for this follow-up package.
+
+## Conflict recovery correction
+
+A failed “Load latest” now retains both the draft and a load-failure lock. Editing, add/remove and save remain disabled; Retry loading rules remains available even when an older snapshot exists. Only a successful, validated current-scope read releases the lock and replaces the draft. Conflict is not cleared when a read merely starts. `scripts/qa-pronunciation-load-recovery.mjs` reproduces the original enabled-input failure and verifies repeated failure, successful retry and a delayed recovery read across author/edition change. No service/store/schema behavior changes in this correction.
