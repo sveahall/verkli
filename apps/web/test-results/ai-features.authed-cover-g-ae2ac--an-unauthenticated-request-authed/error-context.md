@@ -1,0 +1,94 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e5]:
+    - complementary [ref=e6]:
+      - link "Verkli" [ref=e8] [cursor=pointer]:
+        - /url: /author/home
+        - img "Verkli" [ref=e9]
+      - navigation [ref=e10]:
+        - link "Home" [ref=e12] [cursor=pointer]:
+          - /url: /author/home
+          - img [ref=e13]
+          - generic [ref=e16]: Home
+        - generic [ref=e17]:
+          - link "Library" [ref=e18] [cursor=pointer]:
+            - /url: /author/library
+            - img [ref=e19]
+            - generic [ref=e21]: Library
+          - generic [ref=e22]:
+            - generic "E2E fixture — automated test book" [ref=e23]:
+              - generic [ref=e24]: E2E fixture — automated test book
+            - generic [ref=e25]:
+              - link "Write" [ref=e27] [cursor=pointer]:
+                - /url: /author/books/f96f79ba-2b95-4fd0-985f-b38547ec0e43
+                - img [ref=e28]
+                - generic [ref=e30]: Write
+              - link "AI Assistant" [ref=e32] [cursor=pointer]:
+                - /url: /author/books/f96f79ba-2b95-4fd0-985f-b38547ec0e43?panel=ai
+                - img [ref=e33]
+                - generic [ref=e36]: AI Assistant
+              - link "Cover" [ref=e38] [cursor=pointer]:
+                - /url: /author/books/f96f79ba-2b95-4fd0-985f-b38547ec0e43?panel=cover
+                - img [ref=e39]
+                - generic [ref=e43]: Cover
+              - link "Audio" [ref=e45] [cursor=pointer]:
+                - /url: /author/books/f96f79ba-2b95-4fd0-985f-b38547ec0e43?panel=audiobook
+                - img [ref=e46]
+                - generic [ref=e48]: Audio
+              - link "Translate" [ref=e50] [cursor=pointer]:
+                - /url: /author/books/f96f79ba-2b95-4fd0-985f-b38547ec0e43?panel=translate
+                - img [ref=e51]
+                - generic [ref=e55]: Translate
+              - link "Pricing" [ref=e57] [cursor=pointer]:
+                - /url: /author/books/f96f79ba-2b95-4fd0-985f-b38547ec0e43?panel=pricing
+                - img [ref=e58]
+                - generic [ref=e61]: Pricing
+              - link "Publish" [ref=e63] [cursor=pointer]:
+                - /url: /author/books/f96f79ba-2b95-4fd0-985f-b38547ec0e43?panel=publish
+                - img [ref=e64]
+                - generic [ref=e67]: Publish
+              - link "Review" [ref=e69] [cursor=pointer]:
+                - /url: /author/books/f96f79ba-2b95-4fd0-985f-b38547ec0e43?panel=review
+                - img [ref=e70]
+                - generic [ref=e73]: Review
+        - link "Marketing" [ref=e75] [cursor=pointer]:
+          - /url: /author/audience?bookId=f96f79ba-2b95-4fd0-985f-b38547ec0e43
+          - img [ref=e76]
+          - generic [ref=e80]: Marketing
+        - link "Analytics" [ref=e82] [cursor=pointer]:
+          - /url: /author/analytics?bookId=f96f79ba-2b95-4fd0-985f-b38547ec0e43
+          - img [ref=e83]
+          - generic [ref=e85]: Analytics
+      - generic [ref=e87]:
+        - link "Profile" [ref=e88] [cursor=pointer]:
+          - /url: /author/profile
+          - img [ref=e89]
+          - generic [ref=e93]: Profile
+        - link "Settings" [ref=e94] [cursor=pointer]:
+          - /url: /author/settings
+          - img [ref=e95]
+          - generic [ref=e98]: Settings
+        - button "Open reader app" [ref=e99]:
+          - img [ref=e100]
+          - generic [ref=e105]: Open reader app
+    - main [ref=e106]:
+      - main [ref=e107]:
+        - generic [ref=e110]:
+          - heading "Books" [level=1] [ref=e111]
+          - paragraph [ref=e112]: Manage drafts, translations, and publishing in one place.
+  - button [ref=e144]:
+    - img [ref=e146]
+  - generic [ref=e149]:
+    - paragraph [ref=e150]:
+      - text: We use essential cookies to run the platform and optional analytics cookies to improve it.
+      - link "Privacy Policy" [ref=e151] [cursor=pointer]:
+        - /url: /privacy
+    - generic [ref=e152]:
+      - button "Accept all" [ref=e153]
+      - button "Essential only" [ref=e154]
+  - alert [ref=e155]
+```
