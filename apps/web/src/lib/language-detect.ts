@@ -14,6 +14,9 @@ const COMMON_WORDS: Record<SupportedLanguage, string[]> = {
   nl: ["het", "een", "van", "niet", "zijn", "voor", "ook", "naar", "werd", "deze"],
   pl: ["się", "nie", "że", "jest", "czy", "jego", "tylko", "przez", "był", "ale"],
   ru: ["и", "в", "не", "на", "что", "он", "как", "это", "она", "по", "но"],
+  // New text editions use their explicit language metadata; no new heuristic claim.
+  nl: [],
+  pl: [],
   zh: [],
   ja: [],
   ko: [],

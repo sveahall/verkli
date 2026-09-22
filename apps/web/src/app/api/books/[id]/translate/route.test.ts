@@ -156,6 +156,16 @@ describe("POST /api/books/[id]/translate", () => {
     expect(mocks.upsertBookTranslationState).not.toHaveBeenCalled()
   })
 
+  it.each(["nl", "pl"])("queues documented %s text translation using the selected source edition", async (language) => {
+    mocks.enqueueTranslationJob.mockResolvedValueOnce(`job-${language}`)
+    const res = await POST(new Request("http://localhost/api/books/book-1/translate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetLanguage: language, sourceVersionId: "ver-source" }),
+    }), { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) })
+    expect(res.status).toBe(200)
+    expect(mocks.enqueueTranslationJob).toHaveBeenCalledWith(expect.objectContaining({ targetLanguage: language, sourceVersionId: "ver-source", sourceLanguage: "sv" }))
+  })
+
   it("keeps legacy single-language response shape", async () => {
     mocks.enqueueTranslationJob.mockResolvedValueOnce("job-1")
 
