@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
+  extractFromHtml,
   extractFromTxt,
   runExtract,
   repairImportedChapterTitles,
@@ -173,6 +174,110 @@ Det här är första kapitlet.
 
     const result = await extractFromTxt(buffer);
     expect(result.title).toBe("Inget kan stoppa");
+  });
+
+  it("splits a heading-less manuscript into chapters instead of one giant chapter", async () => {
+    // Manuscripts styled with bold/manual formatting instead of Word Heading
+    // styles come out of mammoth as a flat run of <p> with no <h1>-<h3> at all.
+    const ordinals = ["ett", "två", "tre", "fyra"];
+    const body = ordinals
+      .map(
+        (ordinal) =>
+          `<p>Kapitel ${ordinal}</p><p>${"Det här är brödtext i kapitlet. ".repeat(40)}</p>`
+      )
+      .join("");
+    const buffer = Buffer.from(
+      `<html><body><p>Inget kan stoppa</p>${body}</body></html>`,
+      "utf8"
+    );
+
+    const result = await extractFromHtml(buffer);
+
+    expect(result.chapters.length).toBeGreaterThan(1);
+    expect(result.chapters.map((chapter) => chapter.title)).toEqual(
+      expect.arrayContaining(ordinals.map((ordinal) => `Kapitel ${ordinal}`))
+    );
+  });
+
+  it("keeps rich formatting when splitting a heading-less manuscript", async () => {
+    const buffer = Buffer.from(
+      `<html><body><p>Kapitel ett</p><p>Han sa <strong>aldrig</strong> ett ord.</p>` +
+        `<p>Kapitel två</p><p>Sedan gick <em>allt</em> fel.</p></body></html>`,
+      "utf8"
+    );
+
+    const result = await extractFromHtml(buffer);
+
+    expect(result.chapters).toHaveLength(2);
+    // Block-level detection exists so the rich path stays in play; a plain-text
+    // fallback would have dropped every mark.
+    expect(result.chapters.every((chapter) => chapter.tiptapContent)).toBe(true);
+    expect(JSON.stringify(result.chapters[0].tiptapContent)).toContain("bold");
+    expect(JSON.stringify(result.chapters[1].tiptapContent)).toContain("italic");
+  });
+
+  it("opens a chapter on a heading that has body text run into it", async () => {
+    const buffer = Buffer.from(
+      `<html><body><p>Kapitel ett</p><p>Slutet på första kapitlet.</p>` +
+        `<p>Kapitel två</p><p>Slutet på andra kapitlet.</p>` +
+        `<p>Kapitel tre</p><p>Slutet på tredje kapitlet.</p>` +
+        `<p>Kapitel fyragjorde för andra elever. Eftersom ingen sa att ”så kan det vara”, gav</p>` +
+        `<p>han upp till slut.</p></body></html>`,
+      "utf8"
+    );
+
+    const result = await extractFromHtml(buffer);
+
+    expect(result.chapters.map((chapter) => chapter.title)).toEqual([
+      "Kapitel ett",
+      "Kapitel två",
+      "Kapitel tre",
+      "Kapitel fyra",
+    ]);
+    // The damaged heading carries real prose, so the block has to stay.
+    expect(result.chapters[3].sourceText).toContain("gjorde för andra elever");
+  });
+
+  it("opens a chapter on a bare heading whose ordinal slipped into the next block", async () => {
+    const buffer = Buffer.from(
+      `<html><body><p>Kapitel ett</p><p>Första kapitlet.</p>` +
+        `<p>Kapitel två</p><p>Andra kapitlet.</p>` +
+        `<p>Kapitel tre</p><p>Tredje kapitlet.</p>` +
+        `<p>Kapitel</p><p>fyra</p><p>Fjärde kapitlet.</p></body></html>`,
+      "utf8"
+    );
+
+    const result = await extractFromHtml(buffer);
+
+    expect(result.chapters).toHaveLength(4);
+    expect(result.chapters[3].sourceText).toContain("Fjärde kapitlet.");
+  });
+
+  it("does not break a chapter on prose that merely starts with a chapter word", async () => {
+    // Only one intact heading, so heading repair stays off and the prose
+    // paragraph below is read as prose, not as a chapter opening.
+    const buffer = Buffer.from(
+      `<html><body><p>Kapitel ett</p>` +
+        `<p>Kapitel tre var det svåraste jag skrivit. Jag satt i månader med det.</p>` +
+        `<p>Sedan blev det ändå bra.</p></body></html>`,
+      "utf8"
+    );
+
+    const result = await extractFromHtml(buffer);
+
+    expect(result.chapters).toHaveLength(1);
+    expect(result.chapters[0].sourceText).toContain("det svåraste jag skrivit");
+  });
+
+  it("keeps a long single-chapter document as one chapter", async () => {
+    const buffer = Buffer.from(
+      `<html><body><h1>En novell</h1><p>${"Det här är en lång novell. ".repeat(1200)}</p></body></html>`,
+      "utf8"
+    );
+
+    const result = await extractFromHtml(buffer);
+
+    expect(result.chapters).toHaveLength(1);
   });
 
   describe("runExtract drops a title-only front matter chapter", () => {
