@@ -717,12 +717,6 @@
       "source": "refs/tags/v0.1.0-platform"
     },
     {
-      "ref": "refs/heads/codex/backup-20260922/stash/00",
-      "sha": "343cba1b31ebc49ff0b00aefc4760492acb892d4",
-      "kind": "stash",
-      "source": "stash@{0}"
-    },
-    {
       "ref": "refs/heads/codex/backup-20260922/stash/01",
       "sha": "c256ebb2314033e7cdf9d702eb56b06a370bc30c",
       "kind": "stash",
@@ -895,14 +889,44 @@
       "sha": "11916439937c71754e89f90dd23b823f3fc8b969",
       "kind": "sanitized-stash",
       "source": "stash@{10}"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/plan/inferred-author-memory",
+      "sha": "e42568c456a251cb44fcc9cdcd5c163197cf6744",
+      "kind": "original-ref",
+      "source": "refs/heads/plan/inferred-author-memory"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/large-model",
+      "sha": "49fc620c2a062369ad2d3184fe9b9fa0078f402f",
+      "kind": "lfs-asset",
+      "source": "apps/web/models/en_sv/model.bin"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/stash/00-portable",
+      "sha": "3845457f8ce4b4cb7b13aac559fefc1d62279403",
+      "kind": "portable-stash",
+      "source": "stash@{0}"
     }
   ],
   "exceptions": [
     {
       "original": "stash@{10}",
       "backup": "codex/backup-20260922/stash/10-sanitized",
-      "reason": "Potential credentials in environment templates and example admin headers were removed. Unmodified original is preserved in a restricted local Git bundle."
+      "reason": "Potential credentials removed from env templates and admin-header examples; original kept in restricted local Git bundle."
+    },
+    {
+      "original": "stash@{0}",
+      "backup": "codex/backup-20260922/stash/00-portable",
+      "reason": "Oversized model moved to large-model backup branch using Git LFS; all other stash contents preserved.",
+      "model": {
+        "oid": "35d03a3f8c6f3f09717ccc17b6e500d526f878f3",
+        "size": 296560133,
+        "path": "apps/web/models/en_sv/model.bin",
+        "sha256": "c6a52edd56c7724f0e2aca83f5eeb1a65d5eeb21c19623e3c7a273cf6686e4aa",
+        "assetRef": "refs/heads/codex/backup-20260922/large-model"
+      }
     }
   ],
-  "scope": "Tracked files, non-ignored untracked files, local branch/tag tips, detached worktree heads, all 13 stash entries. Git-ignored files (including env files, dependencies and build caches) are not included."
+  "scope": "Tracked files, non-ignored untracked files, local branch/tag tips, detached worktree heads, all 13 stash entries. Ignored files such as env files, dependencies and build caches excluded."
 }

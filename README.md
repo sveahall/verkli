@@ -1,20 +1,26 @@
 # Verkli safety backup — 22 September 2026
 
-This is a backup, not a release. Original branches, worktrees, staging and stash entries were not changed.
+Safety snapshots only, not a release. Original worktrees, branch tips, staging and stash entries were left unchanged.
 
 - 67 registered worktrees inventoried; five had uncommitted files.
-- Working-tree and staged-index states have separate snapshot commits.
-- Every local branch/tag tip and detached worktree head is referenced below.
-- All 13 stash entries are backed up. Stash 10 is sanitized; its unmodified original stays in the restricted local Git bundle.
-- Git-ignored files such as local environment files, dependencies and build caches are excluded.
-- Snapshot filenames and commit hashes are listed in `manifest.json`.
+- Separate working-file and staged-index snapshots preserve intermediate states.
+- All local branch/tag tips and detached worktree heads are referenced in `manifest.json`.
+- All 13 stash entries are covered. Stash 10 has potential credentials removed. Stash 00 has its 283 MB model stored separately through Git LFS.
+- Original unmodified stash data and all Git history also exist in a verified restricted local bundle.
+- Ignored files such as local env files, dependencies and build caches are excluded.
+
+## Main working-copy backup
+
+[Open root snapshot](https://github.com/sveahall/verkli/tree/codex/backup-20260922/worktree/00-working)
 
 ## Restore without overwriting ongoing work
 
-1. Find the desired backup ref in `manifest.json`.
-2. Fetch it: `git fetch origin refs/heads/codex/backup-20260922/worktree/00-working`.
-3. Open it separately: `git worktree add --detach ../verkli-recovered FETCH_HEAD`.
+1. Choose a backup ref from `manifest.json`.
+2. Fetch, for example: `git fetch origin refs/heads/codex/backup-20260922/worktree/00-working`.
+3. Open separately: `git worktree add --detach ../verkli-recovered FETCH_HEAD`.
 
-For stash restoration, fetch its backup ref, then use `git stash apply FETCH_HEAD` in a clean disposable checkout. Do not apply over ongoing changes. The separate index snapshots preserve staged versions independently.
+To recover a stash, fetch its backup ref and use `git stash apply FETCH_HEAD` in a clean disposable checkout. Stash 00 uses `stash/00-portable`; stash 10 uses `stash/10-sanitized`.
 
-No application tests or production deployment were performed for this archival operation. Remote commit equality and local snapshot integrity are verified separately.
+For the model removed from stash 00: fetch `refs/heads/codex/backup-20260922/large-model` and check out in a separate worktree with Git LFS installed. Run `git lfs pull` there. Its `model.bin` is the exact original file for `apps/web/models/en_sv/model.bin`; size and SHA-256 are in the model branch README and manifest.
+
+No application tests or deployment were performed for this backup operation. Verification covers snapshot integrity, secret scanning and remote commit equality, not production readiness.
