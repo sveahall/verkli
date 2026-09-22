@@ -20,20 +20,37 @@ export async function scoreSimilarBooks(
   genreIds: string[],
   limit: number
 ): Promise<ScoredBook[]> {
-  // 1. Fetch published candidates (exclude the current book)
-  let candidateQuery = supabase
-    .from("books")
-    .select("id, title, cover_image, author_id, language")
-    .eq("status", "PUBLISHED");
-
-  if (bookId) candidateQuery = candidateQuery.neq("id", bookId);
-  const { data: candidates, error: candidatesError } = await candidateQuery.limit(200);
-  if (candidatesError) {
-    console.error("[recommendations] candidate lookup failed", candidatesError.message);
-    throw new Error("Could not load recommendation candidates.");
+  // Filter for actual content signals before applying a bounded candidate window.
+  // An arbitrary first 200 catalog rows can contain no matches at all.
+  if (!authorId && genreIds.length === 0) return [];
+  const candidateQuery = (byGenre: boolean) => {
+    let query = supabase
+      .from("books")
+      .select(byGenre
+        ? "id, title, cover_image, author_id, language, book_genres!inner(genre_id)"
+        : "id, title, cover_image, author_id, language")
+      .eq("status", "PUBLISHED");
+    if (bookId) query = query.neq("id", bookId);
+    return query.order("published_at", { ascending: false, nullsFirst: false })
+      .order("id", { ascending: true });
+  };
+  const results = await Promise.all([
+    ...(genreIds.length > 0
+      ? [candidateQuery(true).in("book_genres.genre_id", genreIds).limit(200)] : []),
+    ...(authorId ? [candidateQuery(false).eq("author_id", authorId).limit(200)] : []),
+  ]);
+  const candidatesById = new Map<string, {
+    id: string; title: string; cover_image: string | null; author_id: string; language: string | null;
+  }>();
+  for (const { data, error } of results) {
+    if (error) {
+      console.error("[recommendations] candidate lookup failed", error.message);
+      throw new Error("Could not load recommendation candidates.");
+    }
+    for (const book of data ?? []) candidatesById.set(book.id, book);
   }
-
-  if (!candidates?.length) return [];
+  const candidates = [...candidatesById.values()];
+  if (!candidates.length) return [];
 
   // 2. Fetch genres for candidates
   const candidateIds = candidates.map((b) => b.id);
@@ -90,6 +107,6 @@ export async function scoreSimilarBooks(
     }
   }
 
-  scored.sort((a, b) => b.score - a.score);
+  scored.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
   return scored.slice(0, limit);
 }
