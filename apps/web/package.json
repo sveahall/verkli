@@ -44,7 +44,8 @@
     "compare:critic": "NODE_OPTIONS=--conditions=react-server tsx scripts/compare-critic.ts",
     "usage:sync-jobs": "tsx scripts/usage-sync-jobs.ts",
     "usage:storage": "tsx scripts/usage-storage-snapshot.ts",
-    "usage:rollup": "tsx scripts/usage-rollup.ts"
+    "usage:rollup": "tsx scripts/usage-rollup.ts",
+    "check:ai-providers": "tsx scripts/check-ai-providers.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
