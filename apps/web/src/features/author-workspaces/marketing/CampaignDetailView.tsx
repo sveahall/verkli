@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CampaignResultsSummary } from "@/components/marketing/CampaignResultsSummary";
 import { getPostDelivery, isPostDeliveryLocked } from "@/lib/marketing/post-delivery-state";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -317,7 +318,7 @@ export default function CampaignDetailView({
                 </p>
               </div>
               <div className="flex items-center gap-2 text-[13px] text-muted-foreground dark:text-muted-foreground">
-                <span>{counts.posted}/{counts.total} posted</span>
+                <span>{counts.posted}/{counts.total} marked as shared</span>
               </div>
               <Button
                 variant="ghost"
@@ -350,6 +351,8 @@ export default function CampaignDetailView({
               </p>
             ) : null}
           </section>
+
+          <CampaignResultsSummary posts={posts} />
 
           {/* Filters */}
           {posts.length > 0 ? (
