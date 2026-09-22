@@ -24,12 +24,13 @@ export async function scoreSimilarBooks(
   // An arbitrary first 200 catalog rows can contain no matches at all.
   if (!authorId && genreIds.length === 0) return [];
   const candidateQuery = (byGenre: boolean) => {
-    let query = supabase
-      .from("books")
-      .select(byGenre
-        ? "id, title, cover_image, author_id, language, book_genres!inner(genre_id)"
-        : "id, title, cover_image, author_id, language")
-      .eq("status", "PUBLISHED");
+    let query = byGenre
+      ? supabase.from("books")
+        .select("id, title, cover_image, author_id, language, book_genres!inner(genre_id)")
+        .eq("status", "PUBLISHED")
+      : supabase.from("books")
+        .select("id, title, cover_image, author_id, language")
+        .eq("status", "PUBLISHED");
     if (bookId) query = query.neq("id", bookId);
     return query.order("published_at", { ascending: false, nullsFirst: false })
       .order("id", { ascending: true });
