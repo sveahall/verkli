@@ -8,7 +8,7 @@ import { getAgent } from "@/features/ai-team/agents";
 import { agentConversations, conversationTool } from "@/features/ai-team/agent-conversations";
 import { buildConversationHistory } from "@/features/ai-team/actions/conversation-history";
 import AgentProposalCard, { type ProposalState } from "@/features/ai-team/actions/AgentProposalCard";
-import AgentPlanCard, { type PlanState, type PlanStats } from "@/features/ai-team/actions/AgentPlanCard";
+import AgentPlanCard, { type PlanOutcome, type PlanState, type PlanStats } from "@/features/ai-team/actions/AgentPlanCard";
 import type { Plan } from "@/lib/ai/agent-runtime/plan";
 import type { ExecuteAgentAction, ProposalContext } from "@/features/ai-team/actions/editor-action";
 import { agentReplySchema, type AgentAction } from "@/lib/ai/agent-actions";
@@ -44,6 +44,26 @@ const contextSchema = z.object({ chapterId: z.string().nullable(), chapterText: 
  */
 const AGENTIC_TOOLS = new Set(["edit", "cover"]);
 type PlanEntry = { planId: string; plan: Plan; stats: PlanStats; state: PlanState };
+function storedApplyResult(json: unknown): { outcomes: PlanOutcome[]; changed: number } | null {
+  if (!json || typeof json !== "object" || !("outcomes" in json) || !Array.isArray(json.outcomes)) return null;
+  const outcomes: PlanOutcome[] = [];
+  for (const row of json.outcomes) {
+    if (!row || typeof row !== "object") return null;
+    const item = row as { stepId?: unknown; status?: unknown; detail?: unknown; changed?: unknown };
+    if (typeof item.stepId !== "string" || typeof item.status !== "string" || typeof item.detail !== "string") return null;
+    outcomes.push({
+      stepId: item.stepId,
+      status: item.status,
+      detail: item.detail,
+      ...(typeof item.changed === "number" ? { changed: item.changed } : {}),
+    });
+  }
+  const changed = "changed" in json && typeof json.changed === "number"
+    ? json.changed
+    : outcomes.reduce((total, outcome) => total + (outcome.changed ?? 0), 0);
+  return { outcomes, changed };
+}
+
 const ACTION_PROMPTS: Partial<Record<InlineAiAction, string>> = {
   rewrite: "Suggest a rewrite of this passage. Keep the meaning and my voice.",
   pacing: "Suggest a precise edit to improve the pacing of this passage.",
@@ -68,6 +88,9 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
   const [plans, setPlans] = useState<Record<string, PlanEntry>>({});
   const busyActions = useRef(new Set<string>());
   const inFlight = useRef(new Map<string, AbortController>());
+  // React state lags a click. This set is the lock that stops a second Run
+  // from posting the same plan while the first request is still writing it.
+  const settledPlans = useRef(new Set<string>());
   const audioUrls = useRef(new Set<string>());
   const transcriptRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -214,20 +237,45 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
     } finally { clearTimeout(deadline); inFlight.current.delete(requestKey); busyActions.current.delete(id); }
   };
   const applyPlan = async (key: string, selection: { stepIds: string[]; matchIds: string[] }) => {
-    const entry = plans[key];
-    if (!entry || entry.state.pending || entry.state.outcomes) return;
-    setPlans((previous) => ({ ...previous, [key]: { ...entry, state: { pending: true } } }));
-    const controller = new AbortController();
     const requestKey = `plan:${key}`;
+    if (inFlight.current.has(requestKey)) return;
+    const entry = plans[key];
+    if (!entry || entry.state.pending || entry.state.outcomes || entry.state.alreadyApplied || settledPlans.current.has(entry.planId)) return;
+    const controller = new AbortController();
     inFlight.current.set(requestKey, controller);
+    setPlans((previous) => {
+      const current = previous[key];
+      if (!current) return previous;
+      return { ...previous, [key]: { ...current, state: { pending: true } } };
+    });
     // Longer than a chat turn: this writes every approved chapter before it answers.
     const deadline = setTimeout(() => controller.abort(), 120_000);
+    const showApplied = (state: PlanState, refresh: boolean) => {
+      settledPlans.current.add(entry.planId);
+      if (!mounted.current) return;
+      setPlans((previous) => {
+        const current = previous[key];
+        if (!current || current.state.outcomes) return previous;
+        return { ...previous, [key]: { ...current, state } };
+      });
+      if (refresh) onBookChanged?.();
+    };
     try {
       const response = await fetch(`/api/books/${bookId}/agent/apply`, {
         method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
         body: JSON.stringify({ planId: entry.planId, ...selection }),
       });
       const json = await response.json().catch(() => null);
+      // 409 is the claim lock: the manuscript was already written. Showing it as
+      // a failure puts the Run button back on top of a book that did change.
+      if (response.status === 409) {
+        const stored = storedApplyResult(json);
+        showApplied(
+          stored ? { outcomes: stored.outcomes, changed: stored.changed } : { alreadyApplied: true },
+          !stored || stored.changed > 0,
+        );
+        return;
+      }
       if (!response.ok) {
         throw new Error(typeof json?.message === "string" ? json.message
           : response.status === 429 ? "You’ve reached this minute’s limit. Wait a moment, then press Run again."
@@ -235,12 +283,35 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
           : "Your book was not changed. Ask for a fresh plan and try again.");
       }
       if (!mounted.current) return;
-      setPlans((previous) => ({ ...previous, [key]: { ...entry, state: { outcomes: json?.outcomes ?? [], changed: json?.changed ?? 0 } } }));
-      if (json?.changed) onBookChanged?.();
+      // A cover-image step comes back deferred on purpose: generation has its own
+      // route with a budget ceiling, and the server will not open a second spend
+      // path to it. Running it here, through the panel that owns that route, is
+      // what keeps the author's single approval meaning what it says — otherwise
+      // they approve a plan and are then told to go and do part of it by hand.
+      const outcomes: PlanOutcome[] = await Promise.all(((json?.outcomes ?? []) as PlanOutcome[]).map(async (outcome) => {
+        if (outcome.status !== "deferred") return outcome;
+        const step = entry.plan.steps.find((candidate) => candidate.id === outcome.stepId);
+        if (step?.tool !== "generate_cover_image") return outcome;
+        if (!onExecuteAction) return { ...outcome, detail: "Open this book in the author workspace to generate cover options." };
+        try {
+          const generated = await onExecuteAction(
+            { kind: "cover_brief", prompt: step.prompt, style: step.style, reason: step.reason },
+            { chapterId: null, chapterText: null },
+          );
+          return { ...outcome, status: "applied", detail: generated.message };
+        } catch (error) {
+          return { ...outcome, status: "failed", detail: error instanceof Error ? error.message : "Cover options could not be generated." };
+        }
+      }));
+      showApplied({ outcomes, changed: json?.changed ?? 0 }, Boolean(json?.changed));
     } catch (error) {
-      if (mounted.current) setPlans((previous) => ({ ...previous, [key]: { ...entry, state: {
-        error: error instanceof Error && error.name !== "AbortError" ? error.message : "This took too long. Reload the chapter to see whether any of it was applied.",
-      } } }));
+      if (mounted.current) setPlans((previous) => {
+        const current = previous[key];
+        if (!current || current.state.outcomes || current.state.alreadyApplied) return previous;
+        return { ...previous, [key]: { ...current, state: {
+          error: error instanceof Error && error.name !== "AbortError" ? error.message : "This took too long. Reload the chapter to see whether any of it was applied.",
+        } } };
+      });
     } finally { clearTimeout(deadline); inFlight.current.delete(requestKey); }
   };
   const submit = () => {

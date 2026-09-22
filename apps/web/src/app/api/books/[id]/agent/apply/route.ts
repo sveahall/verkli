@@ -29,6 +29,23 @@ const bodySchema = z.object({
 
 const applyLimiter = createPerUserRateLimiter({ name: "books-agent-apply", maxPerMinute: 12 });
 
+const storedOutcomeSchema = z.array(z.object({
+  stepId: z.string().min(1).max(16),
+  status: z.enum(["applied", "skipped", "deferred", "failed"]),
+  detail: z.string().max(2000),
+  changed: z.number().int().nonnegative().optional(),
+}).passthrough()).max(64);
+
+/** A repeat apply should show the write that already happened, when we still have it. */
+function alreadyAppliedBody(outcome: unknown) {
+  const parsed = storedOutcomeSchema.safeParse(outcome);
+  if (!parsed.success) {
+    return { error: E_GENERIC_ERROR, message: "This plan has already been applied." };
+  }
+  const changed = parsed.data.reduce((total, item) => total + (item.changed ?? 0), 0);
+  return { error: E_GENERIC_ERROR, message: "This plan has already been applied.", changed, outcomes: parsed.data };
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!isAiChatEnabled()) return apiError(E_FORBIDDEN, 403);
 
@@ -54,7 +71,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const admin = createAdminClient();
   const { data: row, error: loadError } = await admin
     .from("agent_plans")
-    .select("id, owner_id, book_id, version_id, steps, applied_at, expires_at")
+    .select("id, owner_id, book_id, version_id, steps, applied_at, expires_at, outcome")
     .eq("id", body.data.planId)
     .maybeSingle();
 
@@ -66,7 +83,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // to learn that someone else's plan exists.
   if (!row || row.owner_id !== user.id || row.book_id !== parsedParams.data.id) return apiError(E_FORBIDDEN, 404);
   if (row.applied_at) {
-    return NextResponse.json({ error: E_GENERIC_ERROR, message: "This plan has already been applied." }, { status: 409 });
+    return NextResponse.json(alreadyAppliedBody(row.outcome), { status: 409 });
   }
   if (new Date(row.expires_at).getTime() <= Date.now()) {
     return NextResponse.json({

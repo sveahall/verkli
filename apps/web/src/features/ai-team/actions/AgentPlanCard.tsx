@@ -6,7 +6,14 @@ import type { Plan, PlanStep, PlannedMatch, summarisePlan } from "@/lib/ai/agent
 import styles from "../AgentConversation.module.css";
 
 export type PlanOutcome = { stepId: string; status: string; detail: string; changed?: number };
-export type PlanState = { pending?: boolean; outcomes?: PlanOutcome[]; changed?: number; error?: string };
+export type PlanState = {
+  pending?: boolean;
+  outcomes?: PlanOutcome[];
+  changed?: number;
+  error?: string;
+  /** The server already wrote this plan. Run must not be offered again. */
+  alreadyApplied?: boolean;
+};
 export type PlanStats = ReturnType<typeof summarisePlan>;
 
 const COVER_FIELD_LABELS: Record<string, string> = {
@@ -166,6 +173,15 @@ export default function AgentPlanCard({ plan, stats, state, onApply, onDismiss }
             {outcome.status === "applied" && <Check size={15} aria-hidden />}{outcome.detail}
           </p>
         ))}
+        <p className={styles.footnote}>Open the chapter to read the result. Undo works there as usual.</p>
+      </section>
+    );
+  }
+
+  if (state?.alreadyApplied) {
+    return (
+      <section className={styles.proposal} aria-label="What was changed">
+        <h4>This plan was already applied</h4>
         <p className={styles.footnote}>Open the chapter to read the result. Undo works there as usual.</p>
       </section>
     );
