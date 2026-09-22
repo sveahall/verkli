@@ -297,6 +297,40 @@ Det här är första kapitlet.
 
     const extractTxt = (body: string) => extractFile(body, ".txt");
 
+    // A publisher's title page is too long for dropTitleOnlyFrontMatter to
+    // remove, so it survives as chapter 1. Before, it reached the author
+    // labelled "Untitled", which reads like the import failed.
+    it("names a surviving title page instead of leaving it Untitled", async () => {
+      const colophon =
+        "Ekerlids Förlag, Gamla Brogatan 26, 113 90 Stockholm. " +
+        "Tredje tryckning. © Författaren och Ekerlids Förlag. " +
+        "Omslag: Thomas Jansson. Omslagsbild: Simon Cederquist. " +
+        "Grafisk form: Anna Linden. Tryckt hos Fälth & Hässler, oktober 1999. ISBN 91-88595-19-6.";
+      expect(colophon.length).toBeGreaterThan(200);
+
+      const result = await extractFile(
+        `<html><body><p>Inget kan stoppa</p><p>${colophon}</p>` +
+          `<p>Kapitel ett</p><p>Första kapitlet.</p>` +
+          `<p>Kapitel två</p><p>Andra kapitlet.</p></body></html>`,
+        ".html"
+      );
+
+      expect(result.chapters[0].title).toBe("Titelsida");
+      expect(result.chapters[0].sourceText).toContain("ISBN 91-88595-19-6");
+    });
+
+    it("leaves a leading block alone when it does not open with the book title", async () => {
+      const result = await extractFile(
+        `<html><body><p>Det här är en riktig inledning som inte är en titelsida alls. ` +
+          `Den handlar om hur boken kom till och är skriven av författaren själv. ` +
+          `Den är lång nog att överleva, och den öppnar inte med bokens titel.</p>` +
+          `<p>Kapitel ett</p><p>Första kapitlet.</p></body></html>`,
+        ".html"
+      );
+
+      expect(result.chapters[0].title).not.toBe("Titelsida");
+    });
+
     // The shape a real .txt import produced on 2026-09-02: the title line became
     // both the book title and a chapter whose entire body was that same line, so
     // the author's first chapter was a page containing only the title and the

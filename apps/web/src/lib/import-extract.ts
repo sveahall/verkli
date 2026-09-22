@@ -1432,25 +1432,56 @@ function dropTitleOnlyFrontMatter(book: ExtractedBook): ExtractedBook {
 }
 
 /** Run extraction. filePath must be a local path (worker downloads from Supabase to temp first if needed). */
+/**
+ * A leading block with no heading of its own comes back titled "Untitled",
+ * which reads to an author like the import broke. When it opens with the book's
+ * own title it is the publisher's title page, so name it that.
+ *
+ * Renames only. dropTitleOnlyFrontMatter above owns the decision to REMOVE one,
+ * and deliberately will not touch a page past TITLE_PAGE_MAX_CHARS — a long
+ * front page is credits plus something else, and that something else is the
+ * author's. "Titelsida" is not added to SYNTHESIZED_FRONT_MATTER_TITLES for the
+ * same reason: naming a page must not make it eligible for deletion.
+ */
+function nameUntitledTitlePage(book: ExtractedBook): ExtractedBook {
+  const [first, ...rest] = book.chapters;
+  if (!first || rest.length === 0) return book;
+  if (first.title.trim().toLowerCase() !== "untitled") return book;
+
+  const normalize = (value: string) =>
+    stripDecorativeChars(value).replace(/\s+/g, " ").trim().toLowerCase();
+
+  const title = normalize(book.title);
+  if (!title) return book;
+
+  const firstLine = first.sourceText
+    .split(/\n+/)
+    .map((line) => stripDecorativeChars(line).trim())
+    .find(Boolean);
+  if (!firstLine || normalize(firstLine) !== title) return book;
+
+  return { ...book, chapters: [{ ...first, title: "Titelsida" }, ...rest] };
+}
+
 export async function runExtract(filePath: string): Promise<ExtractedBook> {
   const ext = path.extname(filePath).toLowerCase();
 
   if (ext === ".epub") {
-    return dropTitleOnlyFrontMatter(await extractFromEpub(filePath));
+    return nameUntitledTitlePage(dropTitleOnlyFrontMatter(await extractFromEpub(filePath)));
   }
 
   const buffer = await fs.readFile(filePath);
   if (ext === ".docx") {
-    return dropTitleOnlyFrontMatter(await extractFromDocx(buffer));
+    return nameUntitledTitlePage(dropTitleOnlyFrontMatter(await extractFromDocx(buffer)));
   }
   if (ext === ".html" || ext === ".htm") {
-    return dropTitleOnlyFrontMatter(await extractFromHtml(buffer));
+    return nameUntitledTitlePage(dropTitleOnlyFrontMatter(await extractFromHtml(buffer)));
   }
   if (ext === ".txt") {
-    return dropTitleOnlyFrontMatter(await extractFromTxt(buffer));
+    return nameUntitledTitlePage(dropTitleOnlyFrontMatter(await extractFromTxt(buffer)));
   }
   if (ext === ".pdf") {
-    return dropTitleOnlyFrontMatter(await extractFromPdf(buffer));
+    return nameUntitledTitlePage(dropTitleOnlyFrontMatter(await extractFromPdf(buffer)));
   }
 
   throw new Error(`Unsupported format: ${ext}`);
