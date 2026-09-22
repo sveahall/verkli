@@ -14,6 +14,7 @@ import { recordUsage } from "./meter";
 import { jobToUsage } from "./job-usage";
 import { rollupRows, type RollupInput } from "./rollup";
 import { BUCKET_OWNER_KIND, summarizeFiles, type StoredFile } from "./storage-usage";
+import { findCostAlerts, DEFAULT_COST_LIMITS, type CostAlert, type DailySpend } from "./alerts";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -217,4 +218,37 @@ export async function rollupUsage(
   if (pruneError) throw new Error(`prune failed: ${pruneError.message}`);
 
   return { events: all.length, dailyRows: rolled.length, pruned: count ?? 0 };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Cost alerts
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Looks for a user or a day that cost more than the ceiling.
+ *
+ * Reads `usage_daily`, so it runs after the rollup. Detection only: nothing
+ * here throttles or blocks. The point is that somebody finds out the morning
+ * after, instead of whenever they next happen to open the dashboard.
+ */
+export async function checkCostAlerts(
+  limits = DEFAULT_COST_LIMITS,
+  lookbackDays = 2
+): Promise<CostAlert[]> {
+  const admin = createAdminClient();
+  const since = new Date(Date.now() - lookbackDays * 86_400_000).toISOString().slice(0, 10);
+
+  const { data, error } = await admin
+    .from("usage_daily")
+    .select("user_id, day, cost_usd_sum")
+    .gte("day", since);
+  if (error) throw new Error(`usage_daily read failed: ${error.message}`);
+
+  const rows: DailySpend[] = (data ?? []).map((row) => ({
+    userId: row.user_id,
+    day: row.day,
+    costUsd: Number(row.cost_usd_sum) || 0,
+  }));
+
+  return findCostAlerts(rows, limits);
 }

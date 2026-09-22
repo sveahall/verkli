@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { rollupUsage, snapshotStorage, syncJobUsage } from "./tasks";
+import { checkCostAlerts, rollupUsage, snapshotStorage, syncJobUsage } from "./tasks";
+import { describeAlert, type CostAlert } from "./alerts";
 
 /** UTC hour the nightly maintenance runs. 03:00 is the quietest window. */
 const RUN_HOUR_UTC = 3;
@@ -44,7 +45,10 @@ async function lastRun(): Promise<Date | null> {
   return new Date(data.occurred_at);
 }
 
-async function runOnce(): Promise<void> {
+/** Where alerts go. The worker passes one that reports to Sentry. */
+export type AlertReporter = (alert: CostAlert) => void;
+
+async function runOnce(report: AlertReporter): Promise<void> {
   const jobs = await syncJobUsage();
   console.info(`[usage:nightly] jobs: ${jobs.written} recorded, ${jobs.skipped} skipped`);
 
@@ -58,6 +62,14 @@ async function runOnce(): Promise<void> {
   console.info(
     `[usage:nightly] rollup: ${rolled.events} events -> ${rolled.dailyRows} daily rows, ${rolled.pruned} pruned`
   );
+
+  // After the rollup, because it reads what the rollup just wrote.
+  const alerts = await checkCostAlerts();
+  for (const alert of alerts) {
+    console.error(`[usage:alert] ${describeAlert(alert)}`);
+    report(alert);
+  }
+  if (alerts.length === 0) console.info("[usage:nightly] no cost alerts");
 }
 
 /**
@@ -73,7 +85,7 @@ async function runOnce(): Promise<void> {
  * Never throws and never rejects. Metering failing must not take the workers
  * down with it.
  */
-export function startUsageScheduler(): void {
+export function startUsageScheduler(report: AlertReporter = () => {}): void {
   let running = false;
 
   const tick = async () => {
@@ -82,7 +94,7 @@ export function startUsageScheduler(): void {
     try {
       if (shouldRunNow(await lastRun(), new Date())) {
         console.info("[usage:nightly] starting");
-        await runOnce();
+        await runOnce(report);
         console.info("[usage:nightly] done");
       }
     } catch (err) {

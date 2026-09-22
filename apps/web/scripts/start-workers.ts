@@ -15,9 +15,12 @@
  */
 
 import "./load-dotenv";
+import "./sentry-worker-init";
 import { validateWorkerEnv } from "./worker-env";
 import { setWorkersStartedAt } from "../src/lib/health/worker-heartbeat";
+import { Sentry } from "./sentry-worker-init";
 import { startUsageScheduler } from "../src/lib/usage/scheduler";
+import { describeAlert } from "../src/lib/usage/alerts";
 
 validateWorkerEnv();
 
@@ -84,5 +87,9 @@ Promise.all(
   // Nightly usage maintenance runs in-process rather than as a platform cron,
   // so it needs no scheduler configured anywhere to work — it ships with this
   // deploy. Started last: it must never delay or fail worker startup.
-  startUsageScheduler();
+  startUsageScheduler((alert) => {
+    // A cost anomaly is not an exception, so it goes in as a warning message —
+    // captureException would bury it under a synthetic stack trace.
+    Sentry.captureMessage(`[usage] ${describeAlert(alert)}`, "warning");
+  });
 });
