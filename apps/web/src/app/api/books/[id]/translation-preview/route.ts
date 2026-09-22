@@ -88,13 +88,23 @@ export async function GET(
     return apiError(E_FORBIDDEN, 403)
   }
 
-  const sourceContext = await resolveTranslationSourceContext({
-    supabase,
-    bookId,
-    book,
-    requestedSourceVersionId: requestUrl.searchParams.get("sourceVersionId"),
-    requestedSourceLanguage,
-  })
+  let sourceContext: Awaited<ReturnType<typeof resolveTranslationSourceContext>>
+  try {
+    sourceContext = await resolveTranslationSourceContext({
+      supabase,
+      bookId,
+      book,
+      requestedSourceVersionId: requestUrl.searchParams.get("sourceVersionId"),
+      requestedSourceLanguage,
+    })
+  } catch (error) {
+    console.error("[book translation preview] source text lookup failed", {
+      bookId,
+      userId: user.id,
+      message: error instanceof Error ? error.message : String(error),
+    })
+    return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
+  }
 
   if (!sourceContext.sourceVersionId) {
     return apiError(E_NO_SOURCE_VERSION, 400)
