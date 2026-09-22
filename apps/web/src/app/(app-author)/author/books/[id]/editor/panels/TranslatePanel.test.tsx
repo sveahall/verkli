@@ -13,6 +13,12 @@ const props: React.ComponentProps<typeof TranslatePanel> = {
 const paneProps = { targetLanguage: "sv" as const, originalPreview: "The book opening.", translationPreview: "", loadingPreview: false, previewUnavailable: false, previewError: null, onRetry: vi.fn() };
 
 describe("translation workspace", () => {
+  it("offers saved comparison without an automatic paid preview", () => {
+    const html = renderToStaticMarkup(<TranslatePanel {...props} />);
+    expect(html).toContain("Open saved translation");
+    expect(html).toContain("Generate opening preview");
+    expect(html).toContain("No new translation or charge");
+  });
   it("keeps full book, chapter and batch actions distinct", () => {
     const html = renderToStaticMarkup(<TranslatePanel {...props} />);
     expect(html).toContain('aria-label="Translation scope"');
@@ -36,11 +42,16 @@ describe("translation workspace", () => {
     const html = renderToStaticMarkup(<TranslateMoreLanguagesCard sourceLanguage="en" selectedLanguages={new Set(["sv"])} onToggleLanguage={() => {}} />);
     expect(html).toMatch(/aria-label="Translate to Swedish" checked=""/);
     expect(html).not.toMatch(/disabled="" aria-label="Translate to Swedish"/);
+    // The source is the only entry that cannot be a target, and it says so in
+    // its own words. Every other listed language pairs with English, so nothing
+    // here is "Not available" — that used to appear only because the picker
+    // appended no/da/fi a second time as raw codes with no provider behind them.
     expect(html).toMatch(/aria-label="Translate to Danish"/);
     expect(html).toMatch(/aria-label="Translate to Polish"/);
     expect(html).toContain("Original language");
     expect(html).not.toContain("Not available");
   });
+
   it("shows retry for a failed preview while preserving the original", () => {
     const html = renderToStaticMarkup(<TranslatePreviewPanes {...paneProps} previewError="Couldn’t connect." />);
     expect(html).toContain("The book opening.");

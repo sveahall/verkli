@@ -113,3 +113,29 @@ describe("post review revision", () => {
   });
 
 });
+
+describe("journal fixture presentation", () => {
+  it("preserves the default manual production actions and legacy billing copy", () => {
+    props.onDelivery = vi.fn();
+    const tree = render();
+    expect(button(tree, "Mark as posted")).toBeDefined();
+    expect(button(tree, "Skip this one")).toBeDefined();
+    expect(find(tree, node => typeof node.props.children === "string" && node.props.children.includes("API simulation requires Pro access"))).toBeDefined();
+  });
+  it("uses explicit fixture copy and removes manual terminal actions", () => {
+    props = { ...props, onDelivery: vi.fn(), allowManualSharing: false, deliveryDescription: "Local server test only." };
+    const tree = render();
+    expect(button(tree, "Local server test only.")).toBeDefined();
+    expect(button(tree, "Mark as posted")).toBeUndefined();
+    expect(button(tree, "Skip this one")).toBeUndefined();
+    expect(find(tree, node => typeof node.props.children === "string" && node.props.children.includes("Pro access"))).toBeUndefined();
+  });
+  it("locks a terminal journal receipt without changing legacy simulation behavior", () => {
+    props = { ...props, onDelivery: vi.fn(), deliveryReadOnly: true, post: { ...post, metadata: { delivery: { state: "simulated", simulated: true } } } };
+    expect(field(render(), "post-caption").props.disabled).toBe(true);
+    expect(button(render(), "Schedule local simulation")).toBeUndefined();
+    props.deliveryReadOnly = false;
+    expect(field(render(), "post-caption").props.disabled).toBe(false);
+    expect(button(render(), "Schedule local simulation")).toBeDefined();
+  });
+});

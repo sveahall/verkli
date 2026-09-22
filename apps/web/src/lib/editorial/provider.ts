@@ -3,7 +3,8 @@ import type { MeterContext } from "@/lib/usage/types";
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { editorialReportSchema, type EditorialReport, type ReviewMode } from "./review-schema";
-import { adjudicateEditorialReport } from "./adjudicate";
+import { adjudicateEditorialReport, estimateEditorialCriticUnits, type EditorialCriticReceipt } from "./adjudicate";
+import { isOpenAiConfigured } from "@/lib/ai/providers/openai";
 import { isAiCriticEnabled } from "@/lib/flags";
 
 // Constrain the wire format as well as validating content locally. A prose-only
@@ -64,10 +65,11 @@ function buildRequest(input: EditorialInput): Anthropic.MessageCreateParamsNonSt
  * schema and escaping, 4096 framing units, plus the entire output/thinking cap.
  * No chars/4 assumption and no automatic refund after provider work starts. */
 export function estimateEditorialUnits(input: EditorialInput): number {
-  return Buffer.byteLength(JSON.stringify(buildRequest(input)), "utf8") + 4096 + MAX_OUTPUT_TOKENS;
+  return Buffer.byteLength(JSON.stringify(buildRequest(input)), "utf8") + 4096 + MAX_OUTPUT_TOKENS
+    + (isAiCriticEnabled() && isOpenAiConfigured() ? estimateEditorialCriticUnits(input.text) : 0);
 }
 
-export async function generateEditorialReview(input: EditorialInput, onUsage?: (usage: EditorialUsage) => Promise<void>): Promise<EditorialReport> {
+export async function generateEditorialReview(input: EditorialInput, onUsage?: (usage: EditorialUsage) => Promise<void>, onCriticReceipt?: (receipt: EditorialCriticReceipt) => Promise<void>): Promise<EditorialReport> {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
   if (!key) throw new Error("Editorial AI is not configured. Please contact support.");
   const client = new Anthropic({ apiKey: key, timeout: 45000, maxRetries: 0 });
@@ -109,7 +111,10 @@ export async function generateEditorialReview(input: EditorialInput, onUsage?: (
   // Clear before adjudicating: analysis mode discards corrections anyway, and
   // paying a second model to judge items nobody will see is pure waste.
   if (input.mode === "analysis") report.corrections = [];
-  if (!isAiCriticEnabled()) return report;
-  const adjudicated = await adjudicateEditorialReport({ report, text: input.text, meter: input.meter });
+  if (!isAiCriticEnabled()) {
+    await onCriticReceipt?.({ status: "skipped", usage: null });
+    return report;
+  }
+  const adjudicated = await adjudicateEditorialReport({ report, text: input.text, meter: input.meter, onReceipt: onCriticReceipt });
   return adjudicated.report;
 }

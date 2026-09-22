@@ -41,6 +41,21 @@ describe("callOpenAi", () => {
 
   const body = () => JSON.parse(fetchMock.mock.calls[0][1].body as string);
 
+  it("records billed tokens before rejecting an incomplete reply", async () => {
+    const onUsage = vi.fn();
+    fetchMock.mockResolvedValue(ok({ status: "incomplete", model: "actual-model", id: "resp-test",
+      usage: { input_tokens: 23, output_tokens: 17, input_tokens_details: { cached_tokens: 5 }, output_tokens_details: { reasoning_tokens: 9 } } }));
+    await expect(callOpenAi({ system: "s", user: "u", maxTokens: 100, onUsage })).rejects.toThrow("incomplete");
+    expect(onUsage).toHaveBeenCalledWith({ model: "actual-model", responseId: "resp-test", inputTokens: 23, outputTokens: 17, cachedInputTokens: 5, reasoningTokens: 9 });
+  });
+
+  it.each([undefined, { input_tokens: -1, output_tokens: 2 }, { input_tokens: 1.5, output_tokens: 2 }])("rejects missing or invalid usage when a receipt is required", async (usage) => {
+    fetchMock.mockResolvedValue(ok({ ...messagePayload("hello"), model: "actual-model", usage }));
+    const onUsage = vi.fn();
+    await expect(callOpenAi({ system: "s", user: "u", maxTokens: 100, onUsage })).rejects.toThrow("usage");
+    expect(onUsage).not.toHaveBeenCalled();
+  });
+
   it("posts the Responses shape, not the chat-completions shape", async () => {
     fetchMock.mockResolvedValue(ok(messagePayload("hello")));
     expect(await callOpenAi({ system: "be terse", user: "hi", maxTokens: 100 })).toBe("hello");

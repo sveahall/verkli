@@ -1,7 +1,7 @@
 import type { MeterContext } from "@/lib/usage/types";
 import "server-only";
 import { z } from "zod";
-import { callOpenAi, isOpenAiConfigured } from "@/lib/ai/providers/openai";
+import { callOpenAi, isOpenAiConfigured, estimateOpenAiUnits, type OpenAiUsage } from "@/lib/ai/providers/openai";
 import type { EditorialReport } from "./review-schema";
 
 /**
@@ -119,6 +119,30 @@ const SYSTEM = [
   "Reply with one verdict object per supplied item, addressing every index exactly once.",
 ].join(" ");
 
+export type EditorialCriticReceipt = {
+  status: "skipped" | "started" | "received" | "unknown";
+  usage: OpenAiUsage | null;
+};
+
+// Bound the unknown first-model report on the actual escaped wire, rather than
+// assuming characters/token. Oversize reports retain the first review unchanged.
+const MAX_REPORT_WIRE_BYTES = 32768;
+function criticRequest(text: string, report: Pick<EditorialReport, "findings" | "corrections">) {
+  return {
+    system: SYSTEM,
+    user: JSON.stringify({ text,
+      findings: report.findings.map((finding, index) => ({ index, ...finding })),
+      corrections: report.corrections.map((correction, index) => ({ index, ...correction })),
+    }),
+    maxTokens: 4000,
+    timeoutMs: 45_000,
+    schema: { name: "editorial_adjudication", schema: wireSchema as unknown as Record<string, unknown> },
+  };
+}
+export function estimateEditorialCriticUnits(text: string): number {
+  return estimateOpenAiUnits(criticRequest(text, { findings: [], corrections: [] })) + MAX_REPORT_WIRE_BYTES;
+}
+
 /**
  * Returns the report unchanged whenever the critic cannot run. The critic is an
  * enhancement to review quality; its absence or failure must never cost the
@@ -129,36 +153,35 @@ export async function adjudicateEditorialReport(input: {
   text: string;
   /** When present, the critic's token spend is billed to this user. */
   meter?: MeterContext;
+  onReceipt?: (receipt: EditorialCriticReceipt) => Promise<void>;
 }): Promise<{
   report: EditorialReport;
   stats: AdjudicationStats;
   decisions: AdjudicationDecision[];
 }> {
   const { report, text } = input;
-  if (!isOpenAiConfigured()) return { report, stats: NO_OP, decisions: [] };
-  if (report.findings.length === 0 && report.corrections.length === 0) {
+  const request = criticRequest(text, report);
+  if (!isOpenAiConfigured() || (report.findings.length === 0 && report.corrections.length === 0)
+    || estimateOpenAiUnits(request) > estimateEditorialCriticUnits(text)) {
+    await input.onReceipt?.({ status: "skipped", usage: null });
     return { report, stats: NO_OP, decisions: [] };
   }
 
+  let usage: OpenAiUsage | null = null;
+  // Storage failures must not be mistaken for an optional critic failure.
+  await input.onReceipt?.({ status: "started", usage: null });
   let verdicts: z.infer<typeof verdictsSchema>;
   try {
-    const raw = await callOpenAi({
-      system: SYSTEM,
-      user: JSON.stringify({
-        text,
-        findings: report.findings.map((finding, index) => ({ index, ...finding })),
-        corrections: report.corrections.map((correction, index) => ({ index, ...correction })),
-      }),
-      maxTokens: 4000,
-      timeoutMs: 45_000,
-      schema: { name: "editorial_adjudication", schema: wireSchema as unknown as Record<string, unknown> },
-      meter: input.meter,
-    });
+    // Both hang off the same call. `onUsage` is the receipt the budget ledger
+    // needs and may throw; `meter` is the cost record and may not.
+    const raw = await callOpenAi({ ...request, meter: input.meter, onUsage: (value) => { usage = value; } });
     verdicts = verdictsSchema.parse(JSON.parse(raw));
   } catch {
     // Never log manuscript content, provider responses, or credentials.
     console.warn("[editorial adjudicate] critic pass unavailable, returning unadjudicated report");
     return { report, stats: NO_OP, decisions: [] };
+  } finally {
+    await input.onReceipt?.({ status: usage ? "received" : "unknown", usage });
   }
 
   const decisions: AdjudicationDecision[] = [];

@@ -522,8 +522,14 @@ export function PostDrawer({
   onReload,
   onGenerateTrailer,
   onDelivery,
+  deliveryDescription,
+  deliveryReadOnly = false,
+  allowManualSharing = true,
 }: {
   post: Post;
+  deliveryDescription?: string;
+  deliveryReadOnly?: boolean;
+  allowManualSharing?: boolean;
   onClose: () => void;
   onUpdate: (id: string, body: Record<string, unknown>) => Promise<Partial<Post> & { updatedAt: string }>;
   onReload: (id: string) => Promise<Post>;
@@ -554,7 +560,7 @@ export function PostDrawer({
     return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
   });
   const delivery = getPostDelivery(post.metadata);
-  const deliveryLocked = isPostDeliveryLocked(post.metadata);
+  const deliveryLocked = deliveryReadOnly || isPostDeliveryLocked(post.metadata);
   const sendDelivery = async (action: "schedule" | "cancel" | "retry" | "recover") => {
     if (!onDelivery || busy) return;
     setBusy(true); setActionError(null);
@@ -763,10 +769,10 @@ export function PostDrawer({
           {onDelivery && post.channel === "x" && post.contentType === "text" ? (
             <section className="space-y-3 rounded-2xl border border-border p-4" aria-label="Local publishing simulation">
               <p className="text-eyebrow">Local publishing simulation</p>
-              <p className="text-sm text-muted-foreground">Development test only. API simulation requires Pro access. No external post is sent and no connected account is used. Live scheduling requires a protected delivery ledger; share approved copy manually.</p>
+              <p className="text-sm text-muted-foreground">{deliveryDescription ?? "Development test only. API simulation requires Pro access. No external post is sent and no connected account is used. Live scheduling requires a protected delivery ledger; share approved copy manually."}</p>
               {delivery ? <p role="status" className="text-sm">Delivery: {delivery.state === "simulated" ? "Simulated — no external post was sent" : delivery.state}</p> : null}
               {delivery?.error ? <p role="alert" className="text-sm text-red-700">{delivery.error}</p> : null}
-              {delivery?.state === "processing" ? <p className="text-sm text-muted-foreground">Local simulation is in progress. If its final save was interrupted, complete this same simulation below. This does not send an external post.</p> : null}
+              {delivery?.state === "processing" ? <p className="text-sm text-muted-foreground">{delivery.simulated && !delivery.dispatched ? "Local simulation is in progress. If its final save was interrupted, complete this same simulation below. This does not send an external post." : "A delivery receipt is pending. Automatic retry is blocked until the transport result has been verified."}</p> : null}
               {delivery?.state === "processing" && delivery.simulated && !delivery.dispatched ? <Button size="sm" onClick={() => sendDelivery("recover")} disabled={busy}>Complete interrupted simulation</Button> : null}
               {post.postedUrl ? <a className="text-sm underline" href={post.postedUrl} target="_blank" rel="noopener noreferrer">View published post</a> : null}
               {!deliveryLocked && post.status !== "posted" ? <>
@@ -783,7 +789,8 @@ export function PostDrawer({
 
           {/* Quick actions */}
           <section className="rounded-2xl bg-black/[0.03] p-4 dark:bg-card">
-            <p className="text-eyebrow">Post this</p>
+            <p className="text-eyebrow">{allowManualSharing ? "Post this" : "Review and approve"}</p>
+            {allowManualSharing ? <>
             <p className="mt-2 text-[13px] text-muted-foreground dark:text-muted-foreground">
               Copy everything, open {post.channel}, paste, hit publish.
             </p>
@@ -813,6 +820,7 @@ export function PostDrawer({
                 </a>
               ) : null}
             </div>
+            </> : null}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {post.status !== "posted" && (post.status !== "ready" || hasUnsavedEdits) ? (
                 <Button size="sm" onClick={() => update({ caption, hashtags, status: "ready" })}
@@ -820,7 +828,7 @@ export function PostDrawer({
                   Approve final copy
                 </Button>
               ) : null}
-              {post.status === "posted" ? (
+              {allowManualSharing && (post.status === "posted" ? (
                 <p className="text-[13px] text-emerald-700 dark:text-emerald-400">
                   Marked as posted{post.postedAt ? ` ${formatDay(post.postedAt)}` : ""}.
                 </p>
@@ -834,8 +842,8 @@ export function PostDrawer({
                 >
                   Mark as posted
                 </Button>
-              )}
-              {post.status !== "skipped" && post.status !== "posted" ? (
+              ))}
+              {allowManualSharing && post.status !== "skipped" && post.status !== "posted" ? (
                 <Button
                   size="sm"
                   variant="ghost"

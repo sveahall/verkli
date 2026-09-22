@@ -11,6 +11,7 @@ import {
 /* ── mocks ─────────────────────────────────────────────────── */
 
 const mockGetUser = vi.fn();
+const downloadTiming = vi.fn();
 const { createClient, createAdminClient, canUserReadBook, requireAdminRole, logAnalyticsEvent, getAudiobookStorageBucket } =
   vi.hoisted(() => ({
     createClient: vi.fn(),
@@ -75,6 +76,7 @@ function adminWith(tables: Record<string, ChainableQuery>, storage?: { signedUrl
     );
   const storageFrom = vi.fn().mockReturnValue({
     createSignedUrl,
+    download: downloadTiming,
   });
   return {
     from: vi.fn((table: string) => tables[table] ?? fakeQuery(null)),
@@ -113,6 +115,7 @@ const savedEnv = { ...process.env };
 describe("GET /api/books/[id]/audiobook/play", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    downloadTiming.mockResolvedValue({ data: null, error: { message: "not found" } });
     process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
     process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED = "true";
@@ -123,6 +126,30 @@ describe("GET /api/books/[id]/audiobook/play", () => {
     requireAdminRole.mockResolvedValue({ ok: false });
     logAnalyticsEvent.mockResolvedValue(undefined);
     getAudiobookStorageBucket.mockReturnValue("audiobooks");
+  });
+
+  it("returns private timing only when it matches the authorized audio and current chapter text", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: AUTHOR_ID } } });
+    const timing = { sourceText: "Hej", words: [{ word: "Hej", start: 0, end: 1, startOffset: 0, endOffset: 3 }] };
+    const sidecar = { version: 1, chapterId: CHAPTER_ID, bookVersionId: "bv-1", audioPath: cache.audio_path, timing };
+    downloadTiming.mockResolvedValue({ data: new Blob([JSON.stringify(sidecar)]), error: null });
+    createAdminClient.mockReturnValue(adminWith({ chapters: fakeQuery({ ...chapter, content: "Hej" }), books: fakeQuery(draftBook), chapter_audio_cache: fakeQuery(cache) }));
+    const { GET } = await import("./route");
+    const response = await GET(makeRequest(), params());
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect((await response.json()).timing).toEqual(timing);
+    expect(downloadTiming).toHaveBeenCalledWith(`${cache.audio_path}.timing.json`);
+    downloadTiming.mockResolvedValue({ data: new Blob([JSON.stringify({ ...sidecar, bookVersionId: "other" })]), error: null });
+    expect((await (await GET(makeRequest(), params())).json()).timing).toBeNull();
+  });
+
+  it("does not download private timing for a denied reader", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: READER_ID } } });
+    canUserReadBook.mockResolvedValue(false);
+    createAdminClient.mockReturnValue(adminWith({ chapters: fakeQuery(chapter), books: fakeQuery(publishedBook), chapter_audio_cache: fakeQuery(cache) }));
+    const { GET } = await import("./route");
+    expect((await GET(makeRequest(), params())).status).toBe(403);
+    expect(downloadTiming).not.toHaveBeenCalled();
   });
 
   afterEach(() => {
@@ -418,11 +445,12 @@ describe("GET /api/books/[id]/audiobook/play", () => {
 
     expect(res.status).toBe(200);
     expect((await res.json()).audioUrl).toBe("https://signed");
-    // Twice, on purpose: once to sign the URL, once for the egress meter to
-    // read the object's size. Audio is the heaviest thing served here, and the
-    // bytes leave via a 302 straight from storage where nothing can count them,
-    // so one metadata call is what buys a per-user figure at all.
-    expect(admin.storage.from).toHaveBeenCalledTimes(2);
+    // Three times, all deliberate: sign the URL, read the timing sidecar, and
+    // read the object size for the egress meter. Audio is the heaviest thing
+    // served here and the bytes leave via a 302 straight from storage, where
+    // nothing can count them — one metadata call is what buys a per-user
+    // figure at all.
+    expect(admin.storage.from).toHaveBeenCalledTimes(3);
     expect(admin.storage.from).toHaveBeenCalledWith("private-audiobooks");
     expect(admin.__createSignedUrl).toHaveBeenCalledExactlyOnceWith(audioPath, 900);
   });

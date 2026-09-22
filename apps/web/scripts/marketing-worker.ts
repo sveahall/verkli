@@ -22,6 +22,7 @@ import {
   validateJobCost,
 } from "../src/lib/workers/budget";
 import { expandSchedule } from "../src/lib/marketing/expand-schedule";
+import { createMarketingWork } from "../src/lib/marketing/model-work";
 import { generateLaunchCopy } from "../src/lib/marketing/launch-copy-provider";
 import { createHash } from "node:crypto";
 import type {
@@ -48,8 +49,11 @@ type CampaignPlan = {
   weekly_schedule: Record<string, string[]>;
 };
 
+type ModelCheckpoint = (scope: string | null) => Promise<void>;
+
 async function processCampaignPlanJob(
   payload: MarketingJobData,
+  checkpoint: ModelCheckpoint,
   workerJobId?: string
 ): Promise<void> {
   if (!payload.campaignPlanId) {
@@ -195,9 +199,13 @@ async function processCampaignPlanJob(
           previousBodies: previousBodies.slice(-4),
         },
       };
-      let copy = await generateLaunchCopy(copyInput);
+      // Persist the unresolved scope before any model work. A stalled/retried job
+      // must stop here for reconciliation rather than reset its in-memory cap.
+      await checkpoint(key);
+      const work = createMarketingWork(payload.authorId);
+      let copy = await generateLaunchCopy(copyInput, work);
       const repeated = () => previousBodies.some((body) => normalizeCopy(body) === normalizeCopy(copy.body));
-      if (repeated()) copy = await generateLaunchCopy(copyInput);
+      if (repeated()) copy = await generateLaunchCopy(copyInput, work);
       if (repeated()) throw new Error("AI returned repeated campaign copy. Retry generation to create a distinct draft.");
 
       // A deterministic ID protects against an uncertain insert result on retry.
@@ -225,6 +233,7 @@ async function processCampaignPlanJob(
       };
       const { error: insertErr } = await supabase.from("marketing_posts").upsert(row, { onConflict: "id", ignoreDuplicates: true });
       if (insertErr) throw new Error(`Could not save campaign draft: ${insertErr.message}`);
+      await checkpoint(null);
       saved.push(row);
       completed.add(key);
       generated++;
@@ -274,7 +283,7 @@ function assertWorkerEnv(): void {
   }
 }
 
-async function processJob(payload: MarketingJobData, workerJobId?: string) {
+async function processJob(payload: MarketingJobData, checkpoint: ModelCheckpoint, workerJobId?: string) {
   const { bookId, authorId, channels, language } = payload;
   const supabase = createAdminClient();
 
@@ -352,6 +361,7 @@ async function processJob(payload: MarketingJobData, workerJobId?: string) {
       continue;
     }
 
+    await checkpoint(JSON.stringify([bookId, language, channel]));
     const copy = await generateLaunchCopy({
       authorId,
       title: book.title, description: book.description, language, channel,
@@ -381,6 +391,7 @@ async function processJob(payload: MarketingJobData, workerJobId?: string) {
       throw new Error(`Failed to upsert campaign for channel ${channel}: ${upsertError.message}`);
     }
 
+    await checkpoint(null);
     console.log("[marketing worker] campaign upserted — channel:", channel);
     generated++;
   }
@@ -420,10 +431,33 @@ function main() {
       const workerJobId = job.id != null ? String(job.id) : undefined;
       const data = job.data as MarketingJobData;
 
-      if (data.campaignPlanId) {
-        await processCampaignPlanJob(data, workerJobId);
-      } else {
-        await processJob(data, workerJobId);
+      if (data.modelWorkPending) {
+        const message = "Unresolved marketing model work. Review saved drafts and usage before requesting a new generation.";
+        console.error("[marketing worker] automatic model replay blocked", { jobId: workerJobId });
+        if (data.campaignPlanId) await markPlanFailed(createAdminClient(), data.campaignPlanId, message);
+        throw new UnrecoverableError(message);
+      }
+      const checkpoint: ModelCheckpoint = async scope => {
+        // Set the local fence first; even an uncertain Redis write is terminal.
+        if (scope !== null) data.modelWorkPending = scope;
+        try {
+          await job.updateData({ ...data, modelWorkPending: scope });
+          data.modelWorkPending = scope;
+        } catch {
+          throw new UnrecoverableError("Marketing model checkpoint could not be saved. Automatic generation stopped.");
+        }
+      };
+      try {
+        if (data.campaignPlanId) {
+          await processCampaignPlanJob(data, checkpoint, workerJobId);
+        } else {
+          await processJob(data, checkpoint, workerJobId);
+        }
+      } catch (error) {
+        // Budget/usage failures, unknown results and uncertain draft writes cannot
+        // restart paid work with a fresh cap on BullMQ's next attempt.
+        if (data.modelWorkPending) throw new UnrecoverableError(error instanceof Error ? error.message : "Marketing model work stopped");
+        throw error;
       }
     },
     {
