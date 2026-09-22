@@ -39,6 +39,8 @@ export const planStepSchema = z.discriminatedUnion("tool", [
   z.object({
     id: z.string(), tool: z.literal("replace_in_book"), reason: z.string(),
     replacement: z.string(), matches: z.array(plannedMatchSchema).min(1),
+    /** The search this was built from hit its cap, so the book holds more. */
+    searchTruncated: z.boolean().optional(),
   }),
   z.object({
     id: z.string(), tool: z.literal("rewrite_passage"), reason: z.string(),
@@ -158,7 +160,10 @@ export class PlanBuilder {
       throw new PlanRejection(`A single plan may change at most ${MAX_REPLACEMENTS_PER_RUN} passages. Narrow the search.`);
     }
 
-    this.steps.push({ id, tool: "replace_in_book", reason: input.reason, replacement: input.replacement, matches });
+    this.steps.push({
+      id, tool: "replace_in_book", reason: input.reason, replacement: input.replacement, matches,
+      ...(this.registry.truncated ? { searchTruncated: true } : {}),
+    });
     return JSON.stringify({
       recorded: true,
       stepId: id,
@@ -197,6 +202,7 @@ export function summarisePlan(plan: Plan): {
   steps: number;
   replacements: number;
   optional: number;
+  truncated: boolean;
   chapters: { chapterId: string; chapterTitle: string; count: number }[];
 } {
   const chapters = new Map<string, { chapterId: string; chapterTitle: string; count: number }>();
@@ -222,5 +228,11 @@ export function summarisePlan(plan: Plan): {
     }
   }
 
-  return { steps: plan.steps.length, replacements, optional, chapters: [...chapters.values()] };
+  return {
+    steps: plan.steps.length,
+    replacements,
+    optional,
+    truncated: plan.steps.some((step) => step.tool === "replace_in_book" && step.searchTruncated === true),
+    chapters: [...chapters.values()],
+  };
 }

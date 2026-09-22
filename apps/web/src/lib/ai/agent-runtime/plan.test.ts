@@ -160,10 +160,29 @@ describe("PlanBuilder", () => {
       steps: 2,
       replacements: 2,
       optional: 1,
+      truncated: false,
       chapters: [
         { chapterId: CHAPTER_ONE, chapterTitle: "Hamnen", count: 2 },
         { chapterId: CHAPTER_TWO, chapterTitle: "Färjan", count: 1 },
       ],
     });
+  });
+});
+
+describe("a truncated search", () => {
+  it("marks the step so the plan can say the book holds more", () => {
+    const target = book();
+    const registry = new MatchRegistry();
+    search(target, registry, "johan");
+    // What searchBook sets when it hits MAX_MATCHES_PER_SEARCH.
+    registry.truncated = true;
+    const builder = new PlanBuilder(target, registry);
+    builder.record("replace_in_book", { matchIds: ["m1"], replacement: "Jonas", reason: "Rename." });
+
+    const plan = builder.build();
+    const [step] = plan.steps;
+    if (step.tool !== "replace_in_book") throw new Error("expected a replacement step");
+    expect(step.searchTruncated).toBe(true);
+    expect(summarisePlan(plan).truncated).toBe(true);
   });
 });
