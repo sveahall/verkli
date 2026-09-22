@@ -1,0 +1,22 @@
+{
+  "id": "session-1779713867712",
+  "startedAt": "2026-05-25T12:57:47.712Z",
+  "cwd": "/Users/admin/verkli-web",
+  "context": {
+    "lastMatchedPatterns": [
+      "mem-project_architecture----",
+      "mem-MEMORY-memory-index",
+      "mem-project_foodsmart_branding-key-ux-pattern--colored-hero-c"
+    ]
+  },
+  "metrics": {
+    "edits": 16,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "updatedAt": "2026-06-05T06:24:48.629Z",
+  "restoredAt": "2026-06-05T06:23:23.222Z",
+  "endedAt": "2026-06-08T17:02:28.750Z",
+  "duration": 1224281039
+}

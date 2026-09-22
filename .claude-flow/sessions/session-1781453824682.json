@@ -1,0 +1,22 @@
+{
+  "id": "session-1781453824682",
+  "startedAt": "2026-06-14T16:17:04.682Z",
+  "cwd": "/Users/admin/verkli-web",
+  "context": {
+    "lastMatchedPatterns": [
+      "mem-MEMORY-known-state--mar-2026-",
+      "mem-feedback_e2e_testing-known-api-behaviors-in-e2e-tes",
+      "mem-MEMORY-architecture"
+    ]
+  },
+  "metrics": {
+    "edits": 25,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "updatedAt": "2026-06-22T19:28:58.647Z",
+  "restoredAt": "2026-06-22T14:26:30.652Z",
+  "endedAt": "2026-06-23T01:18:47.548Z",
+  "duration": 723702870
+}

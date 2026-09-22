@@ -1,0 +1,23 @@
+{
+  "id": "session-1779202981104",
+  "startedAt": "2026-05-19T15:03:01.104Z",
+  "cwd": "/Users/admin/verkli-web",
+  "context": {
+    "lastMatchedPatterns": [
+      "mem-MEMORY-project-memories",
+      "mem-MEMORY-architecture",
+      "mem-MEMORY-architecture",
+      "mem-MEMORY-database",
+      "mem-MEMORY-design-system"
+    ]
+  },
+  "metrics": {
+    "edits": 60,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "updatedAt": "2026-05-19T15:37:05.462Z",
+  "endedAt": "2026-05-24T15:03:29.483Z",
+  "duration": 432028394
+}

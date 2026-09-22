@@ -1,0 +1,692 @@
+[
+  {
+    "id": "mem-MEMORY-memory-index",
+    "key": "memory-index",
+    "content": "- [FoodSmart Branding](project_foodsmart_branding.md) — Brand identity, color palette, fonts for the Swedish food waste app",
+    "summary": "Memory Index",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017254
+  },
+  {
+    "id": "mem-project_foodsmart_branding----",
+    "key": "-",
+    "content": "name: FoodSmart Brand Identity\ndescription: Color palette, typography, and design direction for the FoodSmart React Native app (food-app repo)\ntype: project\n---",
+    "summary": "---",
+    "namespace": "project_foodsmart_branding",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin/memory/project_foodsmart_branding.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017256
+  },
+  {
+    "id": "mem-project_foodsmart_branding-foodsmart-brand-identity",
+    "key": "foodsmart-brand-identity",
+    "content": "**Aesthetic**: \"Clean Digital Health\" — inspired by modern health/wellness apps (soft teal fills, bold heavy sans, light clinical backgrounds).",
+    "summary": "FoodSmart Brand Identity",
+    "namespace": "project_foodsmart_branding",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin/memory/project_foodsmart_branding.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017256
+  },
+  {
+    "id": "mem-project_foodsmart_branding-color-palette--utils-theme-ts-",
+    "key": "color-palette-utils-theme-ts-",
+    "content": "- **Primary**: `#2E6B65` (deep sage-teal — for buttons, tab active, primary actions)\n- **Accent / Hero card fill**: `#5BAAA4` (soft sage teal — fills hero cards with white text on top)\n- **Background**: `#EEF1F4` (very light blue-gray — clean, clinical)\n- **Success**: `#3DAA6B` (medium green)\n- **Danger**: `#E05252` (warm red)\n- **Orange/Warning**: `#F59332` (warm amber — for urgency states)",
+    "summary": "Color Palette (utils/theme.ts)",
+    "namespace": "project_foodsmart_branding",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin/memory/project_foodsmart_branding.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017256
+  },
+  {
+    "id": "mem-project_foodsmart_branding-typography---nunito-sans-only-",
+    "key": "typography-nunito-sans-only-no-serif-",
+    "content": "- All fonts are Nunito Sans, heavy weights for headings:\n  - `fonts.displayMedium` → `NunitoSans_800ExtraBold` (big headings)\n  - `fonts.bodyBold` → `NunitoSans_700Bold`\n  - `fonts.bodySemibold` / `fonts.bodyMedium` → `NunitoSans_600SemiBold`\n  - `fonts.bodyRegular` → `NunitoSans_400Regular`\n  - `fonts.bodyLight` → `NunitoSans_300Light`\n- Only `@expo-google-fonts/nunito-sans` is loaded (Lora removed)",
+    "summary": "Typography — Nunito Sans ONLY (no serif)",
+    "namespace": "project_foodsmart_branding",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin/memory/project_foodsmart_branding.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017256
+  },
+  {
+    "id": "mem-project_foodsmart_branding-critical-bug-fixed",
+    "key": "critical-bug-fixed",
+    "content": "- Previously `orange`, `orangeSoft`, `warning` etc. were ALL blue (#2563EB) — completely wrong\n- Fixed to proper warm amber colors throughout\n- `expiryColor()` in dates.ts updated to match: red → amber → green",
+    "summary": "Critical Bug Fixed",
+    "namespace": "project_foodsmart_branding",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin/memory/project_foodsmart_branding.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017256
+  },
+  {
+    "id": "mem-project_foodsmart_branding-app-overview",
+    "key": "app-overview",
+    "content": "- Swedish food waste reduction app (\"minska matsvinn\")\n- Expo 54 / React Native / Expo Router / Supabase backend\n- 4 tabs: Hem, Förråd, Recept, Profil\n- AI (Claude API) generates recipes from expiring ingredients",
+    "summary": "App Overview",
+    "namespace": "project_foodsmart_branding",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin/memory/project_foodsmart_branding.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017256
+  },
+  {
+    "id": "mem-project_foodsmart_branding-key-ux-pattern--colored-hero-c",
+    "key": "key-ux-pattern-colored-hero-cards",
+    "content": "Home screen hero card uses `colors.accent` (#5BAAA4 teal) as BACKGROUND fill color with white text — inspired by reference designs. Danger state flips to `colors.danger` red fill. This is the signature visual of the app.\n\n**Why:** User explicitly wants clean, modern, clinical health-app aesthetic (like Hims app, hair analysis app reference). Not warm/earthy. Teal card fills, bold heavy sans, light clean backgrounds.\n**How to apply:** Hero/feature cards get colored (teal/red) fill backgrounds. Al",
+    "summary": "Key UX Pattern: Colored Hero Cards",
+    "namespace": "project_foodsmart_branding",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin/memory/project_foodsmart_branding.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017256
+  },
+  {
+    "id": "mem-MEMORY-memory-index",
+    "key": "memory-index",
+    "content": "- [project_architecture.md](project_architecture.md) — Multi-tenant SaaS platform architecture, tech stack, and key design decisions",
+    "summary": "Memory Index",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-kommun-saas-platform/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017259
+  },
+  {
+    "id": "mem-project_architecture----",
+    "key": "-",
+    "content": "name: kommun-saas-architecture\ndescription: Multi-tenant SaaS platform architecture for Swedish municipalities - monorepo with API, platform packages, and two statistics apps\ntype: project\n---\n\nMulti-tenant SaaS platform for Swedish municipalities built as npm workspace monorepo.\n\n**Why:** Enable 200+ municipalities to share a single deployment with strict data isolation.\n\n**How to apply:**\n- API runs on port 4000, apps on 5173/5174\n- Auth uses @kommun/auth platform package (JWT + HttpOnly cooki",
+    "summary": "---",
+    "namespace": "project_architecture",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-kommun-saas-platform/memory/project_architecture.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017260
+  },
+  {
+    "id": "mem-MEMORY-project-overview",
+    "key": "project-overview",
+    "content": "- **Type**: React Native / Expo app (SDK 54) for stable/horse management\n- **Platforms**: iOS, Android, Web (responsive with desktop layout)\n- **Backend**: Supabase (auth, DB, storage)\n- **Language**: Swedish UI, TypeScript",
+    "summary": "Project Overview",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-stableFlow2-0/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017260
+  },
+  {
+    "id": "mem-MEMORY-architecture",
+    "key": "architecture",
+    "content": "- `app/` — Expo Router (file-based routing)\n  - `(auth)/` — Login, signup, password reset\n  - `(onboarding)/` — Wizard for new stables (layout, farm, stables, resources, horses, members)\n  - `(tabs)/` — Main app (index/overview, calendar, feed, messages, profile)\n  - `chat/[id].tsx`, `admin/`, `members/`, `paddocks/`, `settings/`, `stables/`, `search/`\n- `context/` — AuthContext, AppDataContext (massive ~2500 line reducer+provider), OnboardingContext\n- `components/` — Primitives, Post, StableSwi",
+    "summary": "Architecture",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-stableFlow2-0/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017260
+  },
+  {
+    "id": "mem-MEMORY-key-conventions",
+    "key": "key-conventions",
+    "content": "- Desktop breakpoint: 1024px — use `useIsDesktopWeb()` hook (not inline checks)\n- Auth breakpoint was 960, corrected to 1024 for consistency\n- theme.ts has its own palette, also `systemPalette` in design/system.ts\n- Two design token systems coexist: `components/theme.ts` and `design/tokens.ts` + `design/system.ts`",
+    "summary": "Key Conventions",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-stableFlow2-0/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017260
+  },
+  {
+    "id": "mem-MEMORY-known-state--mar-2026-",
+    "key": "known-state-mar-2026-",
+    "content": "- Onboarding flow: complete end-to-end (farm → stables → arena → horses → members → calendar pass)\n- Messages quick filter: functional (all/group/private)\n- Chat attachments: \"+\" button shows \"coming soon\" toast\n- Dead code removed: `referenceDay`, `isoDay0-2`, `todayWeekday` in AppDataContext\n- `toISODate` duplicated in AppDataContext and lib/schedule.ts (not fixed due to circular dep risk)\n- All inline desktop checks (`width >= 1024`) replaced with `useIsDesktopWeb()` across all screens\n- Debu",
+    "summary": "Known State (Mar 2026)",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-stableFlow2-0/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017260
+  },
+  {
+    "id": "mem-feedback_design_style----",
+    "key": "-",
+    "content": "name: Design style preference\ndescription: User wants Apple-esque clean minimal design - no decorative borders, dashed lines, colored accents. Simple and clean.\ntype: feedback\n---\n\nKeep UI simple, clean, Apple-esque. No decorative/ornamental styling like dashed borders, colored left borders on cards, excessive border treatments. The user described overly-designed UI as \"plåttrigt och B\" (tacky/ugly).\n\n**Why:** User has strong aesthetic preference for minimalism. Decorative elements like border-d",
+    "summary": "---",
+    "namespace": "feedback_design_style",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-statistikappen-vallentuna-oppenvard-vuxen/memory/feedback_design_style.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017261
+  },
+  {
+    "id": "mem-MEMORY-lint-build-gotchas",
+    "key": "lint-build-gotchas",
+    "content": "- React compiler strict: No `any`, no refs during render, no setState in effects\n- Fix for setState-in-effect: Use lazy state initializers, `useSyncExternalStore`, or eslint-disable\n- Fix for impure render: Use `useId()` instead of `Math.random()`\n- Component naming: Default export functions MUST be PascalCase for hooks rules\n- Supabase `Json` columns: cast with proper interfaces, not `any`\n- Build command: `npm run build`, lint: `npm run lint` (0 errors required)",
+    "summary": "Lint/Build Gotchas",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017261
+  },
+  {
+    "id": "mem-MEMORY-database",
+    "key": "database",
+    "content": "- `ai_jobs` has NO FK to books — `bookId` is stored in `input` JSONB column\n- `chapter_audio_cache` has no FK to books (linked via chapter_id)\n- Most book-related tables use ON DELETE CASCADE from books: chapters, book_versions, audiobook_assets, marketing_campaigns, translations\n- `book_imports.book_id` uses ON DELETE SET NULL (leaves orphans)\n- Admin client: `createAdminClient()` from `@/lib/supabase/admin` (service role, bypasses RLS)",
+    "summary": "Database",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017261
+  },
+  {
+    "id": "mem-MEMORY-architecture",
+    "key": "architecture",
+    "content": "- Next.js 16 App Router, Supabase (no Prisma), BullMQ jobs, Tailwind\n- Auth: `requireAuthorRoleForApi()` from `@/lib/auth/require-author`\n- Admin auth: `checkAdmin()` from `@/lib/admin-auth` (timing-safe comparison, rate-limited)\n- Feature flags: `@/lib/flags` (audiobook, translations, marketing, discovery)\n- English-first policy for reader/public pages (enforced by `check:english-default` CI). Swedish only in author dashboard.",
+    "summary": "Architecture",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017261
+  },
+  {
+    "id": "mem-MEMORY-qa-gate",
+    "key": "qa-gate",
+    "content": "- `npm run qa:beta` — 7 stages: env → tests → lint → english-default → no-placeholders → dead-code → build\n- All stages must pass before beta release",
+    "summary": "QA Gate",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017261
+  },
+  {
+    "id": "mem-MEMORY-project-memories",
+    "key": "project-memories",
+    "content": "- [Book editor UX redesign vision](project_book_editor_redesign.md) — Replace flat sidebar with setup wizard → book dashboard\n- [Cloud Management infra plan](project_infra_cloud_plan.md) — Backend team's plan: Keycloak, Gitea, Elasticsearch, Grafana, GPU layer, orchestration (2026-03-30)\n- [AI Assistant idea](project_ai_assistant_idea.md) — Nice-to-have chatbot for authors, post-MVP\n- [Book Trailer Feature](project_book_trailer_feature.md) — AI video trailers: author generates from cover+genre, ",
+    "summary": "Project Memories",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017261
+  },
+  {
+    "id": "mem-MEMORY-design-system",
+    "key": "design-system",
+    "content": "- [Strict Design System Rules](feedback_design_system_strict.md) — MUST follow for all UI work. No freestyle design, no new colors, no custom shadows/spacing.\n- [Design Quality Bar](feedback_design_quality_bar.md) — User expects Dribbble-level polish. Emil Kowalski principles, stagger animations, premium easing.\n- [Author Dashboard UX Cleanup Patterns](feedback_ux_cleanup_patterns.md) — What was removed, heading styles, save button position, breadcrumb pattern, sidebar label.\n- [Locale System Ru",
+    "summary": "Design System",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017261
+  },
+  {
+    "id": "mem-MEMORY-e2e---testing",
+    "key": "e2e-testing",
+    "content": "- [E2E Testing Setup](feedback_e2e_testing.md) — Playwright on localhost:3000, health endpoint behavior, donation mock mode gotcha.",
+    "summary": "E2E / Testing",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017261
+  },
+  {
+    "id": "mem-MEMORY-book-delete-cleanup-order",
+    "key": "book-delete-cleanup-order",
+    "content": "When deleting a book, clean up BEFORE the cascade delete:\n1. chapter_audio_cache (via chapter IDs)\n2. ai_jobs (filter by input->bookId)\n3. book_imports (explicit delete)\n4. books row (cascades the rest)",
+    "summary": "Book Delete Cleanup Order",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017261
+  },
+  {
+    "id": "mem-MEMORY-performance-patterns",
+    "key": "performance-patterns",
+    "content": "- Discover page: batch author profiles with `.in(\"user_id\", authorIds)` — never query per-book\n- Avatar resolution: reuse existing supabase client + `AVATARS_BUCKET_PUBLIC` (default true, synchronous getPublicUrl)\n- [Library chapter count pattern](project_library_chapter_count.md) — batch `.in()` query + map, never N+1",
+    "summary": "Performance Patterns",
+    "namespace": "core",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/MEMORY.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017261
+  },
+  {
+    "id": "mem-feedback_design_quality_bar----",
+    "key": "-",
+    "content": "name: Design Quality Bar - Dribbble Level\ndescription: User expects Dribbble-level visual quality for reader UI, not functional-but-flat. Study reference designs before implementing.\ntype: feedback\n---\n\nUser is frustrated when UI output looks \"functional but flat\" compared to professional Dribbble designs they reference. They expect premium streaming/content-platform quality.\n\n**Why:** User explicitly said \"du är inte ens nära i design jämfört med alla jag skickar\" (you're not even close to the ",
+    "summary": "---",
+    "namespace": "feedback_design_quality_bar",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_design_quality_bar.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017262
+  },
+  {
+    "id": "mem-feedback_design_system_strict----",
+    "key": "-",
+    "content": "name: Strict Design System Rules\ndescription: User-defined design system that MUST be followed for all Verkli UI work. No freestyle design allowed.\ntype: feedback\n---\n\nNever \"design freely\" — always follow the strict Verkli design system.\n\n**Why:** User explicitly mandated this after I introduced custom hex colors, random spacing, custom shadows, and gradient blobs that made the app look inconsistent and broken. The goal is a cohesive, premium product — not random components.\n\n**How to apply:** ",
+    "summary": "---",
+    "namespace": "feedback_design_system_strict",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_design_system_strict.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017263
+  },
+  {
+    "id": "mem-feedback_design_system_strict-color---only-these--nothing-el",
+    "key": "color-only-these-nothing-else",
+    "content": "- Purple: #907AFF\n- Background: #F8F9FB\n- Surface: #FFFFFF\n- Border: rgba(0,0,0,0.06)\n- Text primary: #0F172A\n- Text secondary: #64748B\n- States: green-500, amber-500, red-500",
+    "summary": "COLOR — Only these, nothing else",
+    "namespace": "feedback_design_system_strict",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_design_system_strict.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017263
+  },
+  {
+    "id": "mem-feedback_design_system_strict-typography---strict-scale-only",
+    "key": "typography-strict-scale-only",
+    "content": "- Heading XL: text-3xl font-semibold\n- Heading L: text-2xl font-semibold\n- Heading M: text-xl font-semibold\n- Body: text-sm\n- Meta: text-xs\n- NO custom px like text-[13px]",
+    "summary": "TYPOGRAPHY — Strict scale only",
+    "namespace": "feedback_design_system_strict",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_design_system_strict.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017263
+  },
+  {
+    "id": "mem-feedback_design_system_strict-spacing---only-these-values",
+    "key": "spacing-only-these-values",
+    "content": "- Gaps: gap-2, gap-4, gap-6, gap-8\n- Padding: p-4 (small), p-6 (standard), p-8 (large)\n- No random spacing",
+    "summary": "SPACING — Only these values",
+    "namespace": "feedback_design_system_strict",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_design_system_strict.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017263
+  },
+  {
+    "id": "mem-feedback_design_system_strict-radius---only-two",
+    "key": "radius-only-two",
+    "content": "- rounded-xl (default)\n- rounded-2xl (large containers)",
+    "summary": "RADIUS — Only two",
+    "namespace": "feedback_design_system_strict",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_design_system_strict.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017263
+  },
+  {
+    "id": "mem-feedback_design_system_strict-shadows---only-two",
+    "key": "shadows-only-two",
+    "content": "- Card: shadow-sm\n- Elevated: shadow-md",
+    "summary": "SHADOWS — Only two",
+    "namespace": "feedback_design_system_strict",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_design_system_strict.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017263
+  },
+  {
+    "id": "mem-feedback_design_system_strict-cards---clean",
+    "key": "cards-clean",
+    "content": "- White bg, subtle border, NO gradients",
+    "summary": "CARDS — Clean",
+    "namespace": "feedback_design_system_strict",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_design_system_strict.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017263
+  },
+  {
+    "id": "mem-feedback_design_system_strict-buttons",
+    "key": "buttons",
+    "content": "- Primary: solid purple\n- Secondary: outline\n- Ghost: text only",
+    "summary": "BUTTONS",
+    "namespace": "feedback_design_system_strict",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_design_system_strict.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017263
+  },
+  {
+    "id": "mem-feedback_design_system_strict-layout",
+    "key": "layout",
+    "content": "- Header (title + primary action) → Content sections → Clear grouping\n- max-w-5xl or max-w-6xl",
+    "summary": "LAYOUT",
+    "namespace": "feedback_design_system_strict",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_design_system_strict.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017263
+  },
+  {
+    "id": "mem-feedback_design_system_strict-forbidden",
+    "key": "forbidden",
+    "content": "- No new colors\n- No random spacing\n- No inline styles\n- No custom shadows (like shadow-[0_4px_24px_...])\n- No gradient backgrounds on cards\n- No mixing visual styles",
+    "summary": "FORBIDDEN",
+    "namespace": "feedback_design_system_strict",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_design_system_strict.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017263
+  },
+  {
+    "id": "mem-feedback_e2e_testing----",
+    "key": "-",
+    "content": "name: E2E Testing Setup and Patterns\ndescription: Playwright config, health endpoint behavior, donation mock mode — how e2e tests are structured and what to watch for\ntype: feedback\n---\n\nPlaywright config is at `apps/web/playwright.config.ts`.\n\n**baseURL**: `http://localhost:3000` (dev server). Uses `reuseExistingServer: true` so tests run against the already-running dev server.\n\n**Why:** Previously pointed at port 3100 with `npm run start` (production build). Changed to localhost:3000 so tests ",
+    "summary": "---",
+    "namespace": "feedback_e2e_testing",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_e2e_testing.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017263
+  },
+  {
+    "id": "mem-feedback_e2e_testing-known-api-behaviors-in-e2e-tes",
+    "key": "known-api-behaviors-in-e2e-tests",
+    "content": "### Health endpoint `/api/health`\n- Unauthenticated: returns `{ ok: true, timestamp, version }` — no `app`/`db`/`redis` fields\n- Admin-authenticated: returns full `{ app: bool, db: bool, redis: bool, startedAt, timestamp, version }`\n\n**Why:** Health data is intentionally gated behind admin auth to avoid exposing infrastructure status publicly.\n\n### Donation checkout `/api/donations/checkout`\n- With `DONATION_CHECKOUT_MOCK_MODE=true` env: returns 200 mock URL without auth\n- Without mock mode (rea",
+    "summary": "Known API behaviors in e2e tests",
+    "namespace": "feedback_e2e_testing",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_e2e_testing.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017263
+  },
+  {
+    "id": "mem-feedback_editor_ux----",
+    "key": "-",
+    "content": "name: Book editor UX feedback\ndescription: User rejected first wizard/dashboard implementation - transitions between views were jarring and navigation was broken\ntype: feedback\n---\n\nFirst implementation of wizard + dashboard in the book editor was rejected (UX rated 1/10).\n\n**Why:** The three views (wizard, dashboard, editor) were completely separate with no shared layout or natural navigation. Clicking a dashboard card dumped you into the full 4500-line editor with only a tiny \"← Dashboard\" tex",
+    "summary": "---",
+    "namespace": "feedback_editor_ux",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_editor_ux.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017263
+  },
+  {
+    "id": "mem-feedback_locale_system----",
+    "key": "-",
+    "content": "name: Author Locale System Rules\ndescription: How author-locale.tsx works and what keys exist — avoid adding dead keys\ntype: feedback\n---\n\nFile: `src/lib/author-locale.tsx`",
+    "summary": "---",
+    "namespace": "feedback_locale_system",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_locale_system.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017267
+  },
+  {
+    "id": "mem-feedback_locale_system-active-locale-keys--as-of-2026",
+    "key": "active-locale-keys-as-of-2026-04-07-",
+    "content": "```\nlibrary.title\nlibrary.subtitle\nlibrary.emptyTitle\nlibrary.emptyBody\nproduction.emptyTitle\nproduction.emptyBody\nproduction.createBook\nproduction.sectionTitle\nproduction.sectionBody\n```",
+    "summary": "Active locale keys (as of 2026-04-07)",
+    "namespace": "feedback_locale_system",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_locale_system.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017267
+  },
+  {
+    "id": "mem-feedback_locale_system-rules",
+    "key": "rules",
+    "content": "- Only add a key if it's actually used in JSX via `t(\"key\")`. Twice during cleanup, dead keys (`library.createBook`, `library.newBook`) accumulated — they were removed.\n- \"New book\" strings in LibraryWorkspace are hardcoded (not locale keys) because the button label never needs translation in the author dashboard (English-first policy for author UI is inconsistent, but this is the current state).\n- The hook `useAuthorLocale()` detects browser locale and falls back to EN. Swedish authors get Swed",
+    "summary": "Rules",
+    "namespace": "feedback_locale_system",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_locale_system.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017267
+  },
+  {
+    "id": "mem-feedback_ux_cleanup_patterns----",
+    "key": "-",
+    "content": "name: Author Dashboard UX Cleanup Patterns\ndescription: Established patterns from two QA passes — what was removed, what replaced it, and why\ntype: feedback\n---",
+    "summary": "---",
+    "namespace": "feedback_ux_cleanup_patterns",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_ux_cleanup_patterns.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017267
+  },
+  {
+    "id": "mem-feedback_ux_cleanup_patterns-what-was-removed--never-put-ba",
+    "key": "what-was-removed-never-put-back-",
+    "content": "- **Growth percentages on StatsCards** — removed because no time-series data exists. Don't add fake \"↑12%\" badges.\n- **DashboardFilter component** — removed because it was decorative (no backend filtering). Don't add filter UI without backend support.\n- **\"sv-SE\" hardcoded locale** — replaced with `toLocaleDateString(undefined, {...})` everywhere. Always use `undefined` as locale to respect system locale.\n- **Multiple CreateBookDialog instances** — LibraryWorkspace previously had 3 separate dial",
+    "summary": "What was removed (never put back)",
+    "namespace": "feedback_ux_cleanup_patterns",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_ux_cleanup_patterns.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017267
+  },
+  {
+    "id": "mem-feedback_ux_cleanup_patterns-established-heading-style",
+    "key": "established-heading-style",
+    "content": "Two heading styles in use — use the right one:\n- **Dashboard/workspace page title**: `text-[17px] font-medium uppercase tracking-[0.14em] text-[#8B92A5]` (faint, muted — Dashboard page only)\n- **Named workspace page title**: `text-[22px] font-semibold tracking-tight text-slate-900 dark:text-white` (bold, prominent — Library, Profile, Production)\n\n**Why:** The user called out Profile using the old faint style as a bug during QA pass 2.",
+    "summary": "Established heading style",
+    "namespace": "feedback_ux_cleanup_patterns",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_ux_cleanup_patterns.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017267
+  },
+  {
+    "id": "mem-feedback_ux_cleanup_patterns-save-button-position",
+    "key": "save-button-position",
+    "content": "Save buttons go at the BOTTOM of forms, not the top. The profile page had it at top — moved to bottom.\n\n**Why:** Standard form UX. User sees what they're saving before the submit action.",
+    "summary": "Save button position",
+    "namespace": "feedback_ux_cleanup_patterns",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_ux_cleanup_patterns.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017267
+  },
+  {
+    "id": "mem-feedback_ux_cleanup_patterns-navigation-breadcrumb-pattern",
+    "key": "navigation-breadcrumb-pattern",
+    "content": "Editor pages show breadcrumb `Library / Book Title` instead of a flat title. Both clickable. \"View as reader ↗\" appears in headerRight for published books (opens `/reader/books/${bookId}` in new tab).",
+    "summary": "Navigation breadcrumb pattern",
+    "namespace": "feedback_ux_cleanup_patterns",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_ux_cleanup_patterns.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017267
+  },
+  {
+    "id": "mem-feedback_ux_cleanup_patterns-sidebar-switch-button",
+    "key": "sidebar-switch-button",
+    "content": "\"Switch to reader\" renamed to \"Open reader app\" — it's not switching modes, it's opening a different app experience.",
+    "summary": "Sidebar switch button",
+    "namespace": "feedback_ux_cleanup_patterns",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/feedback_ux_cleanup_patterns.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017267
+  },
+  {
+    "id": "mem-project_ai_assistant_idea----",
+    "key": "-",
+    "content": "name: AI Assistant Feature Idea\ndescription: Nice-to-have idea for an in-platform AI chatbot that helps authors with their books\ntype: project\n---\n\nUser wants to explore adding an AI assistant/chatbot to Verkli that helps authors.\n\n**Why:** User was curious about prompt optimization and this emerged as a potential use case. Not MVP-critical.\n\n**How to apply:** Park this for post-MVP. The autoresearch tooling in `scripts/autoresearch/` (with NVIDIA NIM + Gemma 2 27B) can be used to optimize the a",
+    "summary": "---",
+    "namespace": "project_ai_assistant_idea",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/project_ai_assistant_idea.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017268
+  },
+  {
+    "id": "mem-project_book_editor_redesign----",
+    "key": "-",
+    "content": "name: Book editor UX redesign vision\ndescription: User wants to replace the flat sidebar toolbox with a two-phase flow - setup wizard then book dashboard\ntype: project\n---\n\nThe current book editor has a flat sidebar (Edit, Polish, Cover, Translate, Audiobook, Print, Pricing, Publish, Market, Statistics). User wants to redesign into two distinct modes:\n\n**Phase 1 — Setup wizard (onboarding flow):**\n- Linear step-by-step: Edit → Cover → Translate (choose languages or skip) → Audiobook (enable or s",
+    "summary": "---",
+    "namespace": "project_book_editor_redesign",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/project_book_editor_redesign.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017268
+  },
+  {
+    "id": "mem-project_book_trailer_feature----",
+    "key": "-",
+    "content": "name: Book Trailer Feature\ndescription: AI-generated video trailers for books — author generates from cover+genre, reader sees on book detail page\ntype: project\n---\n\nBook trailer feature implemented 2026-04-02. Authors can generate cinematic AI video trailers for their books.\n\n**How it works:**\n- Author picks genre + tone in MarketPanel → POST `/api/books/[id]/trailer/build`\n- Higgsfield image-to-video generates 3x5s scene clips from book cover\n- FFmpeg stitches scenes → uploads to `marketing-me",
+    "summary": "---",
+    "namespace": "project_book_trailer_feature",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/project_book_trailer_feature.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017268
+  },
+  {
+    "id": "mem-project_infra_cloud_plan----",
+    "key": "-",
+    "content": "name: Cloud Management Infrastructure Plan\ndescription: Backend team's plan for reusable cloud management system — Keycloak, Gitea, Elasticsearch, Grafana, GPU layer, orchestration, load balancing. Shared 2026-03-30.\ntype: project\n---\n\nBackend team (shared 2026-03-30) plans a reusable Cloud Management system that can deploy Verkli to any datacenter or bare-metal on-premises.\n\n**Why:** Make the platform portable, cost-efficient, and scalable beyond Supabase-hosted setup.\n\n**Key components planned",
+    "summary": "---",
+    "namespace": "project_infra_cloud_plan",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/project_infra_cloud_plan.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017268
+  },
+  {
+    "id": "mem-project_library_chapter_count----",
+    "key": "-",
+    "content": "name: Library page chapter count query pattern\ndescription: How chapter counts are fetched for the Library grid — batch query pattern to avoid N+1\ntype: project\n---\n\nChapter counts are fetched in `src/app/(app-author)/author/library/page.tsx` using a batch `.in()` query:\n\n```typescript\nconst { data: chapterRows } = bookIds.length > 0\n  ? await supabase.from(\"chapters\").select(\"book_id\").in(\"book_id\", bookIds)\n  : { data: [] };\n\nconst chapterCountMap: Record<string, number> = {};\nfor (const ch of",
+    "summary": "---",
+    "namespace": "project_library_chapter_count",
+    "type": "semantic",
+    "metadata": {
+      "sourceFile": "/Users/admin/.claude/projects/-Users-admin-verkli-web/memory/project_library_chapter_count.md",
+      "bootstrapped": true
+    },
+    "createdAt": 1777493017269
+  },
+  {
+    "id": "insight-1777713213280-39db",
+    "key": "frequent-edit-unknown",
+    "content": "File unknown was edited 36 times this session — likely a hot path worth monitoring.",
+    "summary": "Frequently edited: unknown (36x)",
+    "namespace": "insights",
+    "type": "procedural",
+    "metadata": {
+      "sourceFile": "unknown",
+      "editCount": 36,
+      "autoGenerated": true
+    },
+    "createdAt": 1777713213280
+  }
+]

@@ -1,0 +1,20 @@
+{
+  "id": "session-1777493017230",
+  "startedAt": "2026-04-29T20:03:37.230Z",
+  "cwd": "/Users/admin/verkli-web",
+  "context": {
+    "lastMatchedPatterns": [
+      "mem-MEMORY-performance-patterns"
+    ]
+  },
+  "metrics": {
+    "edits": 42,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "updatedAt": "2026-05-02T09:08:46.806Z",
+  "restoredAt": "2026-05-01T18:51:35.379Z",
+  "endedAt": "2026-05-02T09:13:33.302Z",
+  "duration": 220196080
+}

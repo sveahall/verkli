@@ -1,0 +1,629 @@
+{
+  "version": 1,
+  "updatedAt": 1782217322848,
+  "nodeCount": 51,
+  "nodes": {
+    "mem-MEMORY-memory-index": {
+      "id": "mem-MEMORY-memory-index",
+      "category": "core",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017259
+    },
+    "mem-project_foodsmart_branding----": {
+      "id": "mem-project_foodsmart_branding----",
+      "category": "project_foodsmart_branding",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017256
+    },
+    "mem-project_foodsmart_branding-foodsmart-brand-identity": {
+      "id": "mem-project_foodsmart_branding-foodsmart-brand-identity",
+      "category": "project_foodsmart_branding",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017256
+    },
+    "mem-project_foodsmart_branding-color-palette--utils-theme-ts-": {
+      "id": "mem-project_foodsmart_branding-color-palette--utils-theme-ts-",
+      "category": "project_foodsmart_branding",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017256
+    },
+    "mem-project_foodsmart_branding-typography---nunito-sans-only-": {
+      "id": "mem-project_foodsmart_branding-typography---nunito-sans-only-",
+      "category": "project_foodsmart_branding",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017256
+    },
+    "mem-project_foodsmart_branding-critical-bug-fixed": {
+      "id": "mem-project_foodsmart_branding-critical-bug-fixed",
+      "category": "project_foodsmart_branding",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017256
+    },
+    "mem-project_foodsmart_branding-app-overview": {
+      "id": "mem-project_foodsmart_branding-app-overview",
+      "category": "project_foodsmart_branding",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017256
+    },
+    "mem-project_foodsmart_branding-key-ux-pattern--colored-hero-c": {
+      "id": "mem-project_foodsmart_branding-key-ux-pattern--colored-hero-c",
+      "category": "project_foodsmart_branding",
+      "confidence": 1,
+      "accessCount": 17,
+      "createdAt": 1777493017256
+    },
+    "mem-project_architecture----": {
+      "id": "mem-project_architecture----",
+      "category": "project_architecture",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017260
+    },
+    "mem-MEMORY-project-overview": {
+      "id": "mem-MEMORY-project-overview",
+      "category": "core",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017260
+    },
+    "mem-MEMORY-architecture": {
+      "id": "mem-MEMORY-architecture",
+      "category": "core",
+      "confidence": 0.9200000000000004,
+      "accessCount": 10,
+      "createdAt": 1777493017261
+    },
+    "mem-MEMORY-key-conventions": {
+      "id": "mem-MEMORY-key-conventions",
+      "category": "core",
+      "confidence": 0.6800000000000002,
+      "accessCount": 4,
+      "createdAt": 1777493017260
+    },
+    "mem-MEMORY-known-state--mar-2026-": {
+      "id": "mem-MEMORY-known-state--mar-2026-",
+      "category": "core",
+      "confidence": 0.7100000000000002,
+      "accessCount": 5,
+      "createdAt": 1777493017260
+    },
+    "mem-feedback_design_style----": {
+      "id": "mem-feedback_design_style----",
+      "category": "feedback_design_style",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017261
+    },
+    "mem-MEMORY-lint-build-gotchas": {
+      "id": "mem-MEMORY-lint-build-gotchas",
+      "category": "core",
+      "confidence": 0.6300000000000001,
+      "accessCount": 3,
+      "createdAt": 1777493017261
+    },
+    "mem-MEMORY-database": {
+      "id": "mem-MEMORY-database",
+      "category": "core",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017261
+    },
+    "mem-MEMORY-qa-gate": {
+      "id": "mem-MEMORY-qa-gate",
+      "category": "core",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017261
+    },
+    "mem-MEMORY-project-memories": {
+      "id": "mem-MEMORY-project-memories",
+      "category": "core",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017261
+    },
+    "mem-MEMORY-design-system": {
+      "id": "mem-MEMORY-design-system",
+      "category": "core",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017261
+    },
+    "mem-MEMORY-e2e---testing": {
+      "id": "mem-MEMORY-e2e---testing",
+      "category": "core",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017261
+    },
+    "mem-MEMORY-book-delete-cleanup-order": {
+      "id": "mem-MEMORY-book-delete-cleanup-order",
+      "category": "core",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017261
+    },
+    "mem-MEMORY-performance-patterns": {
+      "id": "mem-MEMORY-performance-patterns",
+      "category": "core",
+      "confidence": 0.5800000000000001,
+      "accessCount": 2,
+      "createdAt": 1777493017261
+    },
+    "mem-feedback_design_quality_bar----": {
+      "id": "mem-feedback_design_quality_bar----",
+      "category": "feedback_design_quality_bar",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017262
+    },
+    "mem-feedback_design_system_strict----": {
+      "id": "mem-feedback_design_system_strict----",
+      "category": "feedback_design_system_strict",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017263
+    },
+    "mem-feedback_design_system_strict-color---only-these--nothing-el": {
+      "id": "mem-feedback_design_system_strict-color---only-these--nothing-el",
+      "category": "feedback_design_system_strict",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017263
+    },
+    "mem-feedback_design_system_strict-typography---strict-scale-only": {
+      "id": "mem-feedback_design_system_strict-typography---strict-scale-only",
+      "category": "feedback_design_system_strict",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017263
+    },
+    "mem-feedback_design_system_strict-spacing---only-these-values": {
+      "id": "mem-feedback_design_system_strict-spacing---only-these-values",
+      "category": "feedback_design_system_strict",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017263
+    },
+    "mem-feedback_design_system_strict-radius---only-two": {
+      "id": "mem-feedback_design_system_strict-radius---only-two",
+      "category": "feedback_design_system_strict",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017263
+    },
+    "mem-feedback_design_system_strict-shadows---only-two": {
+      "id": "mem-feedback_design_system_strict-shadows---only-two",
+      "category": "feedback_design_system_strict",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017263
+    },
+    "mem-feedback_design_system_strict-cards---clean": {
+      "id": "mem-feedback_design_system_strict-cards---clean",
+      "category": "feedback_design_system_strict",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017263
+    },
+    "mem-feedback_design_system_strict-buttons": {
+      "id": "mem-feedback_design_system_strict-buttons",
+      "category": "feedback_design_system_strict",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017263
+    },
+    "mem-feedback_design_system_strict-layout": {
+      "id": "mem-feedback_design_system_strict-layout",
+      "category": "feedback_design_system_strict",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017263
+    },
+    "mem-feedback_design_system_strict-forbidden": {
+      "id": "mem-feedback_design_system_strict-forbidden",
+      "category": "feedback_design_system_strict",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017263
+    },
+    "mem-feedback_e2e_testing----": {
+      "id": "mem-feedback_e2e_testing----",
+      "category": "feedback_e2e_testing",
+      "confidence": 0.6800000000000002,
+      "accessCount": 4,
+      "createdAt": 1777493017263
+    },
+    "mem-feedback_e2e_testing-known-api-behaviors-in-e2e-tes": {
+      "id": "mem-feedback_e2e_testing-known-api-behaviors-in-e2e-tes",
+      "category": "feedback_e2e_testing",
+      "confidence": 0.5800000000000001,
+      "accessCount": 2,
+      "createdAt": 1777493017263
+    },
+    "mem-feedback_editor_ux----": {
+      "id": "mem-feedback_editor_ux----",
+      "category": "feedback_editor_ux",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017263
+    },
+    "mem-feedback_locale_system----": {
+      "id": "mem-feedback_locale_system----",
+      "category": "feedback_locale_system",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017267
+    },
+    "mem-feedback_locale_system-active-locale-keys--as-of-2026": {
+      "id": "mem-feedback_locale_system-active-locale-keys--as-of-2026",
+      "category": "feedback_locale_system",
+      "confidence": 0.6800000000000002,
+      "accessCount": 4,
+      "createdAt": 1777493017267
+    },
+    "mem-feedback_locale_system-rules": {
+      "id": "mem-feedback_locale_system-rules",
+      "category": "feedback_locale_system",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017267
+    },
+    "mem-feedback_ux_cleanup_patterns----": {
+      "id": "mem-feedback_ux_cleanup_patterns----",
+      "category": "feedback_ux_cleanup_patterns",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017267
+    },
+    "mem-feedback_ux_cleanup_patterns-what-was-removed--never-put-ba": {
+      "id": "mem-feedback_ux_cleanup_patterns-what-was-removed--never-put-ba",
+      "category": "feedback_ux_cleanup_patterns",
+      "confidence": 0.6300000000000001,
+      "accessCount": 3,
+      "createdAt": 1777493017267
+    },
+    "mem-feedback_ux_cleanup_patterns-established-heading-style": {
+      "id": "mem-feedback_ux_cleanup_patterns-established-heading-style",
+      "category": "feedback_ux_cleanup_patterns",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017267
+    },
+    "mem-feedback_ux_cleanup_patterns-save-button-position": {
+      "id": "mem-feedback_ux_cleanup_patterns-save-button-position",
+      "category": "feedback_ux_cleanup_patterns",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017267
+    },
+    "mem-feedback_ux_cleanup_patterns-navigation-breadcrumb-pattern": {
+      "id": "mem-feedback_ux_cleanup_patterns-navigation-breadcrumb-pattern",
+      "category": "feedback_ux_cleanup_patterns",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017267
+    },
+    "mem-feedback_ux_cleanup_patterns-sidebar-switch-button": {
+      "id": "mem-feedback_ux_cleanup_patterns-sidebar-switch-button",
+      "category": "feedback_ux_cleanup_patterns",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017267
+    },
+    "mem-project_ai_assistant_idea----": {
+      "id": "mem-project_ai_assistant_idea----",
+      "category": "project_ai_assistant_idea",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017268
+    },
+    "mem-project_book_editor_redesign----": {
+      "id": "mem-project_book_editor_redesign----",
+      "category": "project_book_editor_redesign",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017268
+    },
+    "mem-project_book_trailer_feature----": {
+      "id": "mem-project_book_trailer_feature----",
+      "category": "project_book_trailer_feature",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017268
+    },
+    "mem-project_infra_cloud_plan----": {
+      "id": "mem-project_infra_cloud_plan----",
+      "category": "project_infra_cloud_plan",
+      "confidence": 0.6800000000000002,
+      "accessCount": 4,
+      "createdAt": 1777493017268
+    },
+    "mem-project_library_chapter_count----": {
+      "id": "mem-project_library_chapter_count----",
+      "category": "project_library_chapter_count",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777493017269
+    },
+    "insight-1777713213280-39db": {
+      "id": "insight-1777713213280-39db",
+      "category": "insights",
+      "confidence": 0.5,
+      "accessCount": 0,
+      "createdAt": 1777713213280
+    }
+  },
+  "edges": [
+    {
+      "sourceId": "mem-project_foodsmart_branding----",
+      "targetId": "mem-project_foodsmart_branding-foodsmart-brand-identity",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-project_foodsmart_branding-foodsmart-brand-identity",
+      "targetId": "mem-project_foodsmart_branding-color-palette--utils-theme-ts-",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-project_foodsmart_branding-color-palette--utils-theme-ts-",
+      "targetId": "mem-project_foodsmart_branding-typography---nunito-sans-only-",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-project_foodsmart_branding-typography---nunito-sans-only-",
+      "targetId": "mem-project_foodsmart_branding-critical-bug-fixed",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-project_foodsmart_branding-critical-bug-fixed",
+      "targetId": "mem-project_foodsmart_branding-app-overview",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-project_foodsmart_branding-app-overview",
+      "targetId": "mem-project_foodsmart_branding-key-ux-pattern--colored-hero-c",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-MEMORY-project-overview",
+      "targetId": "mem-MEMORY-architecture",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-MEMORY-architecture",
+      "targetId": "mem-MEMORY-key-conventions",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-MEMORY-key-conventions",
+      "targetId": "mem-MEMORY-known-state--mar-2026-",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-MEMORY-lint-build-gotchas",
+      "targetId": "mem-MEMORY-database",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-MEMORY-database",
+      "targetId": "mem-MEMORY-architecture",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-MEMORY-architecture",
+      "targetId": "mem-MEMORY-qa-gate",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-MEMORY-qa-gate",
+      "targetId": "mem-MEMORY-project-memories",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-MEMORY-project-memories",
+      "targetId": "mem-MEMORY-design-system",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-MEMORY-design-system",
+      "targetId": "mem-MEMORY-e2e---testing",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-MEMORY-e2e---testing",
+      "targetId": "mem-MEMORY-book-delete-cleanup-order",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-MEMORY-book-delete-cleanup-order",
+      "targetId": "mem-MEMORY-performance-patterns",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_design_system_strict----",
+      "targetId": "mem-feedback_design_system_strict-color---only-these--nothing-el",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_design_system_strict-color---only-these--nothing-el",
+      "targetId": "mem-feedback_design_system_strict-typography---strict-scale-only",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_design_system_strict-typography---strict-scale-only",
+      "targetId": "mem-feedback_design_system_strict-spacing---only-these-values",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_design_system_strict-spacing---only-these-values",
+      "targetId": "mem-feedback_design_system_strict-radius---only-two",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_design_system_strict-radius---only-two",
+      "targetId": "mem-feedback_design_system_strict-shadows---only-two",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_design_system_strict-shadows---only-two",
+      "targetId": "mem-feedback_design_system_strict-cards---clean",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_design_system_strict-cards---clean",
+      "targetId": "mem-feedback_design_system_strict-buttons",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_design_system_strict-buttons",
+      "targetId": "mem-feedback_design_system_strict-layout",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_design_system_strict-layout",
+      "targetId": "mem-feedback_design_system_strict-forbidden",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_e2e_testing----",
+      "targetId": "mem-feedback_e2e_testing-known-api-behaviors-in-e2e-tes",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_locale_system----",
+      "targetId": "mem-feedback_locale_system-active-locale-keys--as-of-2026",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_locale_system-active-locale-keys--as-of-2026",
+      "targetId": "mem-feedback_locale_system-rules",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_ux_cleanup_patterns----",
+      "targetId": "mem-feedback_ux_cleanup_patterns-what-was-removed--never-put-ba",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_ux_cleanup_patterns-what-was-removed--never-put-ba",
+      "targetId": "mem-feedback_ux_cleanup_patterns-established-heading-style",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_ux_cleanup_patterns-established-heading-style",
+      "targetId": "mem-feedback_ux_cleanup_patterns-save-button-position",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_ux_cleanup_patterns-save-button-position",
+      "targetId": "mem-feedback_ux_cleanup_patterns-navigation-breadcrumb-pattern",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-feedback_ux_cleanup_patterns-navigation-breadcrumb-pattern",
+      "targetId": "mem-feedback_ux_cleanup_patterns-sidebar-switch-button",
+      "type": "temporal",
+      "weight": 0.5
+    },
+    {
+      "sourceId": "mem-project_foodsmart_branding-foodsmart-brand-identity",
+      "targetId": "mem-project_foodsmart_branding-key-ux-pattern--colored-hero-c",
+      "type": "similar",
+      "weight": 0.3136094674556213
+    }
+  ],
+  "pageRanks": {
+    "mem-MEMORY-memory-index": 0.007920025760568,
+    "mem-project_foodsmart_branding----": 0.007920025760568,
+    "mem-project_foodsmart_branding-foodsmart-brand-identity": 0.014652047429126184,
+    "mem-project_foodsmart_branding-color-palette--utils-theme-ts-": 0.014147143984057241,
+    "mem-project_foodsmart_branding-typography---nunito-sans-only-": 0.01994509143288305,
+    "mem-project_foodsmart_branding-critical-bug-fixed": 0.024873340003290258,
+    "mem-project_foodsmart_branding-app-overview": 0.029062348323607563,
+    "mem-project_foodsmart_branding-key-ux-pattern--colored-hero-c": 0.03885013967899012,
+    "mem-project_architecture----": 0.007920025760568,
+    "mem-MEMORY-project-overview": 0.007920025760568,
+    "mem-MEMORY-architecture": 0.02710628387610467,
+    "mem-MEMORY-key-conventions": 0.019440187987814106,
+    "mem-MEMORY-known-state--mar-2026-": 0.024444169228626824,
+    "mem-feedback_design_style----": 0.007920025760568,
+    "mem-MEMORY-lint-build-gotchas": 0.007920025760568,
+    "mem-MEMORY-database": 0.014652047429126184,
+    "mem-MEMORY-qa-gate": 0.019440187987814106,
+    "mem-MEMORY-project-memories": 0.024444169228626824,
+    "mem-MEMORY-design-system": 0.02869755289025791,
+    "mem-MEMORY-e2e---testing": 0.03231295198007441,
+    "mem-MEMORY-book-delete-cleanup-order": 0.035386071838913,
+    "mem-MEMORY-performance-patterns": 0.037998220190768164,
+    "mem-feedback_design_quality_bar----": 0.007920025760568,
+    "mem-feedback_design_system_strict----": 0.007920025760568,
+    "mem-feedback_design_system_strict-color---only-these--nothing-el": 0.014652047429126184,
+    "mem-feedback_design_system_strict-typography---strict-scale-only": 0.020374262207546484,
+    "mem-feedback_design_system_strict-spacing---only-these-values": 0.025238135436639914,
+    "mem-feedback_design_system_strict-radius---only-two": 0.029372417799034035,
+    "mem-feedback_design_system_strict-shadows---only-two": 0.03288656121057521,
+    "mem-feedback_design_system_strict-cards---clean": 0.03587362511196772,
+    "mem-feedback_design_system_strict-buttons": 0.038412661977399454,
+    "mem-feedback_design_system_strict-layout": 0.04057084230552936,
+    "mem-feedback_design_system_strict-forbidden": 0.0424052481931564,
+    "mem-feedback_e2e_testing----": 0.007920025760568,
+    "mem-feedback_e2e_testing-known-api-behaviors-in-e2e-tes": 0.014652047429126184,
+    "mem-feedback_editor_ux----": 0.007920025760568,
+    "mem-feedback_locale_system----": 0.007920025760568,
+    "mem-feedback_locale_system-active-locale-keys--as-of-2026": 0.014652047429126184,
+    "mem-feedback_locale_system-rules": 0.020374262207546484,
+    "mem-feedback_ux_cleanup_patterns----": 0.007920025760568,
+    "mem-feedback_ux_cleanup_patterns-what-was-removed--never-put-ba": 0.014652047429126184,
+    "mem-feedback_ux_cleanup_patterns-established-heading-style": 0.020374262207546484,
+    "mem-feedback_ux_cleanup_patterns-save-button-position": 0.025238135436639914,
+    "mem-feedback_ux_cleanup_patterns-navigation-breadcrumb-pattern": 0.029372417799034035,
+    "mem-feedback_ux_cleanup_patterns-sidebar-switch-button": 0.03288656121057521,
+    "mem-project_ai_assistant_idea----": 0.007920025760568,
+    "mem-project_book_editor_redesign----": 0.007920025760568,
+    "mem-project_book_trailer_feature----": 0.007920025760568,
+    "mem-project_infra_cloud_plan----": 0.007920025760568,
+    "mem-project_library_chapter_count----": 0.007920025760568,
+    "insight-1777713213280-39db": 0.007920025760568
+  }
+}
