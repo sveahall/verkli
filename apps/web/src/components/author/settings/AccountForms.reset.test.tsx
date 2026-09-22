@@ -22,6 +22,7 @@ vi.mock("@/lib/supabase/storage", () => ({ uploadAvatar: vi.fn(), uploadProfileC
 
 import ProfilePage from "../profile/ProfilePage";
 import SettingsPage from "./SettingsPage";
+import { DEFAULT_AI_SETTINGS } from "@/features/ai-team/settings/contracts";
 
 type Element = React.ReactElement<{ children?: React.ReactNode; onChange?: unknown; onReset?: (event: { preventDefault: () => void }) => void; onSubmit?: (event: { preventDefault: () => void; currentTarget: unknown }) => void }>;
 function findControlledForm(node: React.ReactNode): Element | undefined {
@@ -34,7 +35,7 @@ function findControlledForm(node: React.ReactNode): Element | undefined {
 describe("account action forms", () => {
   it.each([
     { label: "profile", page: <ProfilePage user={{ id: "sample" }} profile={{ displayName: "Sample Author", bio: "", isPublic: false, websiteUrl: "", socialLinks: { twitter: "", instagram: "sample", tiktok: "" } }} /> },
-    { label: "settings", page: <SettingsPage user={{ email: "sample@example.test" }} profile={{ preferences: { default_language: "en", default_visibility: "private" } }} /> },
+    { label: "settings", page: <SettingsPage user={{ email: "sample@example.test" }} profile={{ preferences: { default_language: "en", default_visibility: "private" } }} aiSettings={DEFAULT_AI_SETTINGS} /> },
   ])("prevents the native post-action reset from overwriting $label controlled values", ({ page }) => {
     renderToStaticMarkup(page);
     const form = findControlledForm(harness.main as React.ReactNode);

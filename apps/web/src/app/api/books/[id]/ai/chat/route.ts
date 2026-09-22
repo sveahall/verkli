@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { conversationInputSchema, type Memory } from "@/features/ai-team/memory/contracts";
 import { completeTurn, getPreferences, loadHistory, memoryErrorResponse, requireEditionScope, reserveTurn, type Reservation } from "@/features/ai-team/memory/server";
+import { aiSettingsErrorResponse, requireAiEnabled } from "@/features/ai-team/settings/server";
+import { buildAuthorProfile, buildPersonalityLines } from "@/features/ai-team/settings/prompt";
+import type { AiSettings } from "@/features/ai-team/settings/contracts";
 import { z } from "zod";
 import { getLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
@@ -116,6 +119,13 @@ export async function POST(
     return apiError(E_FORBIDDEN, 403);
   }
 
+  // The account's master AI switch. Placed before the conversation reservation
+  // and before any provider call: an author who turned AI off must not have a
+  // stale tab, a retried request or a direct POST produce a reply.
+  let aiSettings: AiSettings;
+  try { aiSettings = await requireAiEnabled(supabase, user.id); }
+  catch (error) { return aiSettingsErrorResponse(error); }
+
   if (conversation) {
     try { await requireEditionScope(supabase, bookId, conversation.editionId ?? null); }
     catch (error) { return memoryErrorResponse(error); }
@@ -222,6 +232,8 @@ export async function POST(
         tool,
         history: savedHistory,
         preferences,
+        personality: buildPersonalityLines(aiSettings),
+        authorProfile: buildAuthorProfile(aiSettings),
         marketingEnabled: actionContext.marketingEnabled,
         audiobookEnabled: actionContext.audiobookEnabled,
         translationsEnabled: actionContext.translationsEnabled,

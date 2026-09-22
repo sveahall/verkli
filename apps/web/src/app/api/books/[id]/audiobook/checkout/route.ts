@@ -27,6 +27,7 @@ import {
 import { sumChapterTextLength } from "@/lib/audiobook/chapter-text"
 import { JobCostExceededError, validateJobCost } from "@/lib/workers/budget"
 import { getRemainingCredits } from "@/lib/tts/elevenlabs-quota"
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard"
 
 const checkoutLimiter = createPerUserRateLimiter({ name: "books-audiobook-checkout", maxPerMinute: 5 })
 
@@ -46,6 +47,12 @@ export async function POST(
 
   const { user, response } = await requireAuthorRoleForApi()
   if (response) return response
+
+  // Checkout, not just generation. An account with AI off cannot run
+  // `audiobook/generate`, so taking payment here would charge for narration
+  // that is then refused.
+  const aiOff = await aiDisabledResponse(user.id)
+  if (aiOff) return aiOff
 
   const rl = await checkoutLimiter.check(user.id)
   if (!rl.allowed) {

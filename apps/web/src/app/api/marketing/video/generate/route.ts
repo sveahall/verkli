@@ -19,6 +19,7 @@ import {
   E_TEXT_TO_VIDEO_FAILED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
@@ -51,6 +52,11 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
 export async function POST(request: Request) {
   const gate = await requireAuthorAndMarketingEnabled();
   if (gate.response) return gate.response;
+
+  // Account master AI switch. Server-side, so turning AI off is a real
+  // setting and not just a hidden button.
+  const aiOff = await aiDisabledResponse(gate.user.id);
+  if (aiOff) return aiOff;
 
   const rl = await videoLimiter.check(gate.user.id);
   if (!rl.allowed) {

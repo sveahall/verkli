@@ -36,6 +36,7 @@ import {
   isValidUuid,
 } from "@/lib/api-errors"
 import { createPerUserRateLimiter } from "@/lib/rate-limit"
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 const translateLimiter = createPerUserRateLimiter({ name: "books-translate", maxPerMinute: 5 })
 
@@ -242,6 +243,14 @@ export async function POST(
 
   const { user, response } = await requireAuthorRoleForApi()
   if (response) return response
+
+  // Account master AI switch. Server-side, so turning AI off is a real
+
+  // setting and not just a hidden button.
+
+  const aiOff = await aiDisabledResponse(user.id);
+
+  if (aiOff) return aiOff;
 
   const rl = await translateLimiter.check(user.id)
   if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds })
