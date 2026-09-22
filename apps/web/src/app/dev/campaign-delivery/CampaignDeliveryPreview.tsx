@@ -1,74 +1,73 @@
 "use client";
 
-import { useState, type ComponentProps } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PostDrawer } from "@/features/author-workspaces/marketing/CampaignDetailView";
-import { getPostDelivery, type PostDelivery } from "@/lib/marketing/post-delivery-state";
+import { DeliveryHistory } from "@/components/marketing/DeliveryHistory";
 import { Button } from "@/components/ui/button";
+import type { LocalDeliveryView } from "@/lib/marketing/local-delivery-types";
 
-type Post = ComponentProps<typeof PostDrawer>["post"];
-const initial: Post = {
-  id: "11111111-1111-4111-8111-111111111111", scheduledFor: "2026-09-17T15:00:00Z", channel: "x", language: "en",
-  contentType: "text", status: "draft", headline: null, caption: "A story worth staying up for.", hashtags: "#NewBook",
-  cta: null, shareUrl: null, mediaAssetId: null, mediaAssetUrl: null, assetError: null,
-  postedAt: null, postedUrl: null, mode: "organic", updatedAt: "2026-09-17T14:00:00Z", metadata: {},
-};
-
-/** UI fixture only: callbacks below are in-memory and never call an API or queue. */
+/** Same journal state machine as the protected adapter; only local test transport is wired. */
 export default function CampaignDeliveryPreview() {
-  const [post, setPost] = useState(initial);
+  const [view, setView] = useState<LocalDeliveryView | null>(null);
   const [open, setOpen] = useState(false);
-  const [failQueue, setFailQueue] = useState(false);
-  const [failReceipt, setFailReceipt] = useState(false);
-  const [runs, setRuns] = useState(0);
-  const commit = (patch: Partial<Post>) => {
-    const next = { ...post, ...patch, updatedAt: new Date().toISOString() };
-    setPost(next); return next;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState("success");
+  const request = useCallback(async (body?: Record<string, unknown>) => {
+    const response = await fetch("/api/dev/campaign-delivery", body ? {
+      method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(body),
+    } : { cache: "no-store", credentials: "same-origin" });
+    const data = await response.json() as LocalDeliveryView & { detail?: string };
+    if (!response.ok) throw new Error(data.detail ?? "Could not load delivery history. Try again.");
+    setError(null); setView(data); return data;
+  }, []);
+  useEffect(() => { let mounted = true; request().catch(reason => { if (mounted) setError(reason.message); }); return () => { mounted = false; }; }, [request]);
+  const run = async (body?: Record<string, unknown>) => {
+    if (busy) return;
+    setBusy(true); setError(null);
+    try { await request(body); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "Could not update delivery."); }
+    finally { setBusy(false); }
   };
-  const writeDelivery = (delivery: PostDelivery) => commit({ metadata: { delivery } });
-  const consume = () => {
-    const current = getPostDelivery(post.metadata);
-    if (!current || !["scheduled", "processing"].includes(current.state)) return;
-    if (failReceipt) {
-      writeDelivery({ ...current, state: "processing" });
-      return;
-    }
-    writeDelivery({ ...current, state: "simulated" });
-    setRuns(value => value + 1);
-  };
+  const current = view?.deliveries.at(-1);
   return <main className="mx-auto max-w-3xl space-y-5 p-6">
-    <h1 className="text-2xl font-semibold">Campaign delivery · local UI fixture</h1>
-    <p>This page uses the real review drawer with in-memory callbacks. It sends no requests, social posts or emails. The API/queue/consumer chain is covered separately by the local flow tests.</p>
-    <p>1. Open the post, approve it and schedule a simulation. 2. Close the drawer. 3. Consume the queued simulation and reopen to inspect the result.</p>
-    <label className="flex items-center gap-2"><input type="checkbox" checked={failQueue} onChange={event => setFailQueue(event.target.checked)} />Simulate queue failure</label>
-    <label className="flex items-center gap-2"><input type="checkbox" checked={failReceipt} onChange={event => setFailReceipt(event.target.checked)} />Simulate final receipt failure</label>
+    <header className="space-y-2">
+      <p className="text-eyebrow">Local development · test transport</p>
+      <h1 className="text-2xl font-semibold">Campaign delivery</h1>
+      <p className="text-sm text-muted-foreground">Approve → schedule → inspect the receipt. This fixture sends no social posts, emails or paid requests. Its server-owned history survives reloads and local server restarts.</p>
+      <p className="text-sm text-muted-foreground">Live scheduling remains unavailable until the protected database schema and transport are approved. This local journal is not a production database.</p>
+    </header>
+    {error ? <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
     <div className="flex flex-wrap gap-3">
-      <Button onClick={() => setOpen(true)}>Review local post</Button>
-      <Button variant="ghost" onClick={consume}>Consume queued simulation</Button>
-      <Button variant="ghost" onClick={() => { setPost({ ...initial, updatedAt: new Date().toISOString() }); setRuns(0); }}>Reset fixture</Button>
+      <Button onClick={() => setOpen(true)} disabled={!view || busy}>Review local post</Button>
+      <Button variant="ghost" onClick={() => run()} isLoading={busy}>Reload saved history</Button>
+      <Button variant="ghost" onClick={() => run({ action: "new", expectedUpdatedAt: view?.post.updatedAt })} disabled={!view || busy || !!current && ["scheduled", "processing", "uncertain", "failed"].includes(current.state)}>New test post</Button>
     </div>
-    <p role="status">Post: {post.status} · Delivery: {getPostDelivery(post.metadata)?.state ?? "not scheduled"} · Simulated outcomes: {runs} · External posts: 0</p>
-    {open ? <PostDrawer post={post} onClose={() => setOpen(false)} onReload={async () => post} onGenerateTrailer={async () => {}}
+    {!view && !error ? <p role="status">Loading saved delivery history…</p> : null}
+    {view ? <>
+      <section className="space-y-3 rounded-2xl border border-border bg-card p-5" aria-label="Test transport controls">
+        <h2 className="text-lg font-medium">Run the local transport</h2>
+        <p className="text-sm text-muted-foreground">Only due deliveries are processed. A future schedule stays queued until its selected time. This button is a local worker probe.</p>
+        <label htmlFor="transport-outcome" className="block text-sm">Test outcome</label>
+        <select id="transport-outcome" value={outcome} onChange={event => setOutcome(event.target.value)} className="w-full rounded-lg border border-border bg-background p-2 text-sm">
+          <option value="success">Successful simulation</option><option value="failure">Confirmed failure before sending</option><option value="uncertain">Unknown transport result</option>
+        </select>
+        <Button variant="ghost" onClick={() => run({ action: "consume", outcome })} disabled={busy || current?.state !== "scheduled"}>Process due simulation</Button>
+        <p role="status" className="text-sm">Post: {view.post.status} · Delivery: {current?.state ?? "not scheduled"} · External posts: 0</p>
+      </section>
+      <DeliveryHistory deliveries={view.deliveries} />
+      <section className="rounded-2xl border border-border bg-card p-5" aria-label="Campaign results">
+        <h2 className="text-lg font-medium">Campaign results</h2>
+        <p className="mt-2 text-sm text-muted-foreground">Reach, clicks and purchases: unknown. No measurement source is connected to this fixture. Simulated deliveries are not campaign results.</p>
+      </section>
+    </> : null}
+    {open && view ? <PostDrawer key={view.post.id} post={view.post} allowManualSharing={false} deliveryReadOnly={!!current && ["failed", "simulated"].includes(current.state)}
+      deliveryDescription="Local server journal and test transport only. No subscription, connected account or external delivery is used. Approved copy and receipts are stored by the local server." onClose={() => setOpen(false)}
+      onReload={async () => (await request()).post} onGenerateTrailer={async () => {}}
       onUpdate={async (_id, body) => {
-        if (body.expectedUpdatedAt !== post.updatedAt) throw new Error("The fixture post changed. Reload it.");
-        const edited = body.caption !== undefined && body.caption !== post.caption || body.hashtags !== undefined && body.hashtags !== post.hashtags;
-        return commit({ caption: (body.caption ?? post.caption) as string, hashtags: (body.hashtags ?? post.hashtags) as string, status: body.status as string ?? (edited ? "draft" : post.status), metadata: edited ? {} : post.metadata });
-      }}
-      onDelivery={async (_id, body) => {
-        const previous = getPostDelivery(post.metadata);
-        if (body.action === "recover" && previous?.state === "processing") {
-          if (failReceipt) throw new Error("Simulated final save failure. Turn off that fixture control and try again.");
-          setRuns(value => value + 1);
-          return writeDelivery({ ...previous, state: "simulated" });
-        }
-        if (body.action === "cancel" && previous) return writeDelivery({ ...previous, state: "cancelled" });
-        const delivery: PostDelivery = body.action === "retry" && previous ? { ...previous, state: "scheduled", error: undefined } : {
-          jobId: "local-ui-fixture", state: "scheduled", approvedRevision: post.updatedAt, text: [post.caption, post.hashtags].join("\n\n"), scheduledFor: String(body.scheduledFor), simulated: true,
-        };
-        if (failQueue) {
-          writeDelivery({ ...delivery, state: "failed", error: "Simulated queue failure. Close this drawer, turn off the failure control, reopen and retry." });
-          throw new Error("Simulated queue failure. The approved copy is retained.");
-        }
-        return writeDelivery(delivery);
-      }} /> : null}
+        if (body.status && body.status !== "ready") throw new Error("This fixture records delivery receipts. Manual posted/skip actions are unavailable.");
+        const saved = await request({ action: body.status === "ready" ? "approve" : "edit", expectedUpdatedAt: body.expectedUpdatedAt, caption: body.caption ?? view.post.caption, hashtags: body.hashtags ?? view.post.hashtags });
+        return saved.post;
+      }} onDelivery={async (_id, body) => (await request(body)).post} /> : null}
   </main>;
 }
