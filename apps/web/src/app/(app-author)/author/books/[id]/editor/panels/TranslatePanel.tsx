@@ -365,7 +365,7 @@ export default function TranslatePanel({
     } finally {
       setTranslating(false);
     }
-  }, [bookId, sourceVersionId, targetLanguage, translating, billingLoading, isProLocked, translateScope, selectedChapterId, reportMessage, request, trackJob]);
+  }, [bookId, sourceLanguage, sourceVersionId, targetLanguage, translating, billingLoading, isProLocked, translateScope, selectedChapterId, reportMessage, request, trackJob]);
 
   const handleProSubscribe = useCallback(() => {
     setCheckoutModalOpen(false);
