@@ -1,0 +1,908 @@
+{
+  "createdAt": "2026-09-22T08:41:26.274671+00:00",
+  "purpose": "Safety backup only; not reviewed or approved for production.",
+  "refs": [
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/backend/ai-jobs-standardization",
+      "sha": "605e88c6f5e2adcc9d806e1fa180b546d8ac168c",
+      "kind": "original-ref",
+      "source": "refs/heads/backend/ai-jobs-standardization"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/chore/dependency-security",
+      "sha": "e8ce5e36bf1e21493d686f9dac3a013fe4cb3e6a",
+      "kind": "original-ref",
+      "source": "refs/heads/chore/dependency-security"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/account-request-integrity-20260916",
+      "sha": "16fe19345d32344016e0d1e14966c45005d33e9a",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/account-request-integrity-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/agent-proposal-recovery-20260915",
+      "sha": "650d6f246ea935858b197114b4145f1e1b42daef",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/agent-proposal-recovery-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/agent-reply-language-20260915",
+      "sha": "283baf8fb216ba8ddd5c29030dd14f479f4a6ca5",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/agent-reply-language-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/ai-agent-actions-20260915",
+      "sha": "d546ff25f6e7f8c44acca6993f534d982ca6c696",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/ai-agent-actions-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/ai-memory-20260921",
+      "sha": "3f9bde54e07f5a0f7eaf08d2334e2ba7bbf624db",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/ai-memory-20260921"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/ai-team-avatars-20260915",
+      "sha": "495f95c322bca6fc5036f82de837809f8a01cd50",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/ai-team-avatars-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/ai02-atomic-worker-20260917",
+      "sha": "c1d177970dc99a962aa022fc7fb508e5b8499f75",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/ai02-atomic-worker-20260917"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/ai02-integration-20260918",
+      "sha": "e9c4afaf326ad21a9723f86d2f2c0d458370e0c9",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/ai02-integration-20260918"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/analysis-campaign-integration-20260917",
+      "sha": "12391d123ab9050e1138373dc7f7e8770057c564",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/analysis-campaign-integration-20260917"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/audio-selected-edition-20260918",
+      "sha": "c1a929cdf727ab96e6d557ef8d7033a1dd803636",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/audio-selected-edition-20260918"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/audiobook-ui-redesign-20260916",
+      "sha": "eeea8d064ecf2c435b030106852209e5455cf8ca",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/audiobook-ui-redesign-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/author-editor-brand-polish-20260915",
+      "sha": "0229f2b7d2a2bb1d3aa56ecad4834ab21d170b78",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/author-editor-brand-polish-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/author-landing-20260906",
+      "sha": "d33980162b80e4f98b6575f66509c69e77581f39",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/author-landing-20260906"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/author-library-brand-polish-20260915",
+      "sha": "63ad5decf4edca23c479fffafbfe9ec9717dd7aa",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/author-library-brand-polish-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/author-library-mockup-20260915",
+      "sha": "ada82e9c4f5ec329a3f56d01bbc7f9497ea40980",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/author-library-mockup-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/beta-candidate-20260915",
+      "sha": "b259dc5fe34f3883da4217e0f2982cfa3b6afb03",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/beta-candidate-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/beta-mail-onboarding-20260919",
+      "sha": "ca4d4fd8dc83db54476154078edff4ed3f9245b9",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/beta-mail-onboarding-20260919"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/beta-pro-access-20260918",
+      "sha": "d82716a393ad8b67d973f0ac3ff22d48ce3ab106",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/beta-pro-access-20260918"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/beta-readiness-20260918",
+      "sha": "40291ecb24443a291bf4ee17e6cf655f8f979b46",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/beta-readiness-20260918"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/billing-recovery-ownership-20260921",
+      "sha": "2b897f6bdf576a173d148765fb93fee546373e04",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/billing-recovery-ownership-20260921"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/book-completion-20260916",
+      "sha": "e590a2b79f9146f2800d533a1751801fae839223",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/book-completion-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/book-production-20260915",
+      "sha": "f79162113b06ea4234bfe877b02747a6e3b2e8b1",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/book-production-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/book-production-sharp-runtime-20260916",
+      "sha": "36c26fb488d24a83ff034aca235d3128878f48a8",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/book-production-sharp-runtime-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/book-workflow-20260914",
+      "sha": "26d02239cf57cac050ada410e197692878145270",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/book-workflow-20260914"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/brand-logo-refresh-20260915",
+      "sha": "a35b5767ef17d604a73b49d1453d716c95b55df8",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/brand-logo-refresh-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/campaign-flow-20260917",
+      "sha": "c7e27fcd286dc9243f1f64019387930c013bfdf5",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/campaign-flow-20260917"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/checklist-book-tools-20260916",
+      "sha": "aa7d1221066fe70b11f69c2ad890b99c5a5a86a7",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/checklist-book-tools-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/checklist-integration-20260916",
+      "sha": "e542f6458b994fe8a42cb3d47b74a1d6722c8908",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/checklist-integration-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/command-palette-keyboard-20260920",
+      "sha": "cf651f1b02591fc2c432766dda48c6bf5327b008",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/command-palette-keyboard-20260920"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/completion-integration-20260917",
+      "sha": "c51cafd4b143f4a42016a9571d846e751d07fc78",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/completion-integration-20260917"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/editorial-extraction-20260915",
+      "sha": "c7cc926f3d1c2dea0588f1a903765ebb90fea0d0",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/editorial-extraction-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/extra-beta-qa-20260920",
+      "sha": "95f4104688b67416f5948e39d43cbf1f76d75cfe",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/extra-beta-qa-20260920"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/f1-author-details-20260914",
+      "sha": "3372782c2da4516ca80f40de7e6caeb60fddaf91",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/f1-author-details-20260914"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/fix-logo-server-package-20260915",
+      "sha": "d4488b58a78bea8638f1288f7b63dc6f1537837f",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/fix-logo-server-package-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/landing-mockup-20260908",
+      "sha": "8625d2aaea36c4b841b30bdc8c96f1023f972701",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/landing-mockup-20260908"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/launch-before-final-platform-sync-20260907",
+      "sha": "eee77c352c46867af56247fe766054a619f68daa",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/launch-before-final-platform-sync-20260907"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/launch-before-integration-20260906",
+      "sha": "16b54037714445a817de1e9ec89c42bd5752a7cb",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/launch-before-integration-20260906"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/launch-before-platform-sync-20260907",
+      "sha": "f3331541936552bcfa994a637ce71b7f94879330",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/launch-before-platform-sync-20260907"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/launch-command-20260914",
+      "sha": "9745975a7f804c48f36bab35a7965d5d8c25b5b8",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/launch-command-20260914"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/launch-fixes-extraction-20260915",
+      "sha": "266667235e57b9913eca616cc4424be7cd5ad36d",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/launch-fixes-extraction-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/launch-qa-20260910",
+      "sha": "9ffaf66bf59c24d544c1625df4b93e37b57a4591",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/launch-qa-20260910"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/live-feedback-20260915",
+      "sha": "d19c65ec5fab51f4ed2d3fb67cf4869e85b80b73",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/live-feedback-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/logo-scale-balance-20260916",
+      "sha": "fe4cefcd8f8b809fed730e521e4600bf73c6d063",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/logo-scale-balance-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/logo-vector-refresh-20260916",
+      "sha": "f2b6ee8626cd61b4884f56438ba8453b7d6619d7",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/logo-vector-refresh-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/mvp-notifications-backend",
+      "sha": "063443c0275ec6630759c3211e8f9dcda719cba1",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/mvp-notifications-backend"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/mvp-notifications-backend-src",
+      "sha": "dcb064a45d0d6601045b8c78b4d179030e4e2b99",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/mvp-notifications-backend-src"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/platform-remediation-20260905",
+      "sha": "684dbc023e2feb5db77594b7ed87cd49d243cdf3",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/platform-remediation-20260905"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/rate-limit-extraction-20260915",
+      "sha": "778c5f93f3bc0b41c13be2e2d8e02e86004b2339",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/rate-limit-extraction-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/reader-journey-20260917",
+      "sha": "770f3713cf101035543492c037e82417a7355afd",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/reader-journey-20260917"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/readers-campaigns-20260916",
+      "sha": "5e5ae4b2019f739d0bd69773767120cb22ebbc6a",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/readers-campaigns-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/release-integration-20260914",
+      "sha": "e9544c19bbd23601070aa9bbbb67ce12b5169bd6",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/release-integration-20260914"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/revenue-integrity-20260916",
+      "sha": "af26f4ca6a74edfe9ca8ca7362b998972d57d009",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/revenue-integrity-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/s1-database-hardening-20260915",
+      "sha": "bee4a27bf6554f14c423831bb5d4c956cb8ddb8d",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/s1-database-hardening-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/s1-release-gates-20260914",
+      "sha": "f9e53d8c3db4bfd15927f435c58fe618893ceb4f",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/s1-release-gates-20260914"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/s1-storage-signing-20260915",
+      "sha": "717a98eaedebddb6d70037263a339aab168d50a5",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/s1-storage-signing-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/storage-followup-20260915",
+      "sha": "428a3a8e0bfeead953da23545d98f54841a28c54",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/storage-followup-20260915"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/studio-analytics-gate-20260916",
+      "sha": "5a004c193144154fbfa1885ab7c2ffd448bd0cbe",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/studio-analytics-gate-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/studio-experience-20260916",
+      "sha": "f0da8c50603c51bea89bc6a302071a519dc6d528",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/studio-experience-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/support-queue-20260916",
+      "sha": "14375b155329dec6f64e984924ca2e2df6b89aee",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/support-queue-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/test-reader-book-entitlements",
+      "sha": "eedd04d674b3811f7f9b4d9ac5c0074331885e03",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/test-reader-book-entitlements"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/translation-preview-current-manuscript-20260920",
+      "sha": "4707fe183dcc4c7650ffeae86a818fb56415d16d",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/translation-preview-current-manuscript-20260920"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/translation-preview-provider-20260916",
+      "sha": "a6ba4c1f9c14f33b114d6218e1422429785905e7",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/translation-preview-provider-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/translation-quality-20260914",
+      "sha": "74aa9075b8a59550be78173ee827b637d8a8896f",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/translation-quality-20260914"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/translation-segment-contract-20260919",
+      "sha": "6cc51ebb17995415f3b1837f7689b2e30a5af1b8",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/translation-segment-contract-20260919"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/translation-segment-contract-integration-20260918",
+      "sha": "c76d521583a5ed87f1dc327c6ee527cbd22753bb",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/translation-segment-contract-integration-20260918"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/translation-studio-20260916",
+      "sha": "dfbe1023be9fad74a04959cd2356c33dfe58ca0b",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/translation-studio-20260916"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/ui-details-20260910",
+      "sha": "a200f25bffcf2dbb4a98e81a63ed0f66d9d3ea94",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/ui-details-20260910"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/ui-review-fixes-20260905",
+      "sha": "59cba08746d3abbb2523891c2e0362f738230b3a",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/ui-review-fixes-20260905"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/unified-brand-20260910",
+      "sha": "4e7d019e4cc6a3b4c5335d99f5c3da1d3fd81110",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/unified-brand-20260910"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/upload-book-20260917",
+      "sha": "be35a938449a4ec6b49155b4b914beefe1881588",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/upload-book-20260917"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/waitlist-20260908",
+      "sha": "9cdc59bdb2a4b016a78d2c6b7106ec4e89bf91d1",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/waitlist-20260908"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/waitlist-experience-20260910",
+      "sha": "ebf0c7dc8a588ee9505bd42fd3b3bbbf00455fd0",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/waitlist-experience-20260910"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/whole-book-analysis-20260917",
+      "sha": "77463ca4bd6b1df483595976cd8d9e6218686f69",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/whole-book-analysis-20260917"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/codex/worker-runtime-20260914",
+      "sha": "1293e7201c779bb4cf0421705ac8f2206a5b2d5c",
+      "kind": "original-ref",
+      "source": "refs/heads/codex/worker-runtime-20260914"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/cursor/development-environment-setup-df5d",
+      "sha": "449385aacca017dfd21f89719966383e88fcbdd9",
+      "kind": "original-ref",
+      "source": "refs/heads/cursor/development-environment-setup-df5d"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/design/author-black-buttons-restore",
+      "sha": "2ebef8d05b1a37d9af1ce09440df5a44e61d7a9d",
+      "kind": "original-ref",
+      "source": "refs/heads/design/author-black-buttons-restore"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/feat/beta-apply",
+      "sha": "414de4cba76b782027f7d4a93eab2446e21daaf5",
+      "kind": "original-ref",
+      "source": "refs/heads/feat/beta-apply"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/feat/clubs-polls-newsletters",
+      "sha": "f2220c471ad2df8642a4b2d72e043ab8b29a3e42",
+      "kind": "original-ref",
+      "source": "refs/heads/feat/clubs-polls-newsletters"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/feat/reco-translation-ux",
+      "sha": "bba82da59da748eaa9c38f51f92f77576b237b1e",
+      "kind": "original-ref",
+      "source": "refs/heads/feat/reco-translation-ux"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/fix/ai-dock-scroll-20260921",
+      "sha": "93c2b214cab015ad0e85aa5bf36babe964ebb4fa",
+      "kind": "original-ref",
+      "source": "refs/heads/fix/ai-dock-scroll-20260921"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/fix/dialog-scroll-lock",
+      "sha": "410a322d100ea01cc069194b815481d8db0f7840",
+      "kind": "original-ref",
+      "source": "refs/heads/fix/dialog-scroll-lock"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/fix/payments-prod",
+      "sha": "788aa1260f20e4f22f4dd9f2b75b7fb794e52ff1",
+      "kind": "original-ref",
+      "source": "refs/heads/fix/payments-prod"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/fix/workspace-header-top-space",
+      "sha": "ef22bff68c0f7918f7c84992fd976d4d51459a5c",
+      "kind": "original-ref",
+      "source": "refs/heads/fix/workspace-header-top-space"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/integration/wave1",
+      "sha": "4a86cc8ade861d52f8593136b8a6ab2b3351310a",
+      "kind": "original-ref",
+      "source": "refs/heads/integration/wave1"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/main",
+      "sha": "c06f650b51eb28998636149fdb978ce5b4d25190",
+      "kind": "original-ref",
+      "source": "refs/heads/main"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/mvp-wip-2026-03-18",
+      "sha": "2ebef8d05b1a37d9af1ce09440df5a44e61d7a9d",
+      "kind": "original-ref",
+      "source": "refs/heads/mvp-wip-2026-03-18"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/platform",
+      "sha": "154a3531a1f0977c001f4868c5f4497e40dbb147",
+      "kind": "original-ref",
+      "source": "refs/heads/platform"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/security/ai-spend-limits",
+      "sha": "b77d120b370c45ebb3038e15eb61f209ba1b7740",
+      "kind": "original-ref",
+      "source": "refs/heads/security/ai-spend-limits"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/security/confirmed-email-stripe-key",
+      "sha": "5e2ee3978ddb140b53bc185590ee0e9d7448e1cf",
+      "kind": "original-ref",
+      "source": "refs/heads/security/confirmed-email-stripe-key"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/security/next-avif-rce-20260921",
+      "sha": "4074553da075fd5e18a3d2151fb9bf99d8d26e28",
+      "kind": "original-ref",
+      "source": "refs/heads/security/next-avif-rce-20260921"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/security/server-owned-pricing",
+      "sha": "86f454281c0809f47c16bd9ec148adec96c37867",
+      "kind": "original-ref",
+      "source": "refs/heads/security/server-owned-pricing"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/security/ssrf-normalized-url",
+      "sha": "73e9fa65323273107cf083a5462906078e75bc6f",
+      "kind": "original-ref",
+      "source": "refs/heads/security/ssrf-normalized-url"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/worktree-agent-a2b9f16417870a774",
+      "sha": "414de4cba76b782027f7d4a93eab2446e21daaf5",
+      "kind": "original-ref",
+      "source": "refs/heads/worktree-agent-a2b9f16417870a774"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/worktree-agent-a380127c23c363f5e",
+      "sha": "414de4cba76b782027f7d4a93eab2446e21daaf5",
+      "kind": "original-ref",
+      "source": "refs/heads/worktree-agent-a380127c23c363f5e"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/worktree-agent-a5d0d8a3d9e0f28b8",
+      "sha": "414de4cba76b782027f7d4a93eab2446e21daaf5",
+      "kind": "original-ref",
+      "source": "refs/heads/worktree-agent-a5d0d8a3d9e0f28b8"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/worktree-agent-a6e04310612786b7f",
+      "sha": "414de4cba76b782027f7d4a93eab2446e21daaf5",
+      "kind": "original-ref",
+      "source": "refs/heads/worktree-agent-a6e04310612786b7f"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/01-buyer-proof",
+      "sha": "ca97253154879884e7c1503e3233a0be82b8910d",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/01-buyer-proof"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/01-stripe-version-pin",
+      "sha": "8117b247b4ba7be675afd135c2425c63cec187e4",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/01-stripe-version-pin"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/02-audiobook-integrity",
+      "sha": "9be66310f2de3f8967f3837e820f69d30adef2df",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/02-audiobook-integrity"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/03-listen-analytics",
+      "sha": "409b87f0c630b4e839431c01be617676e7443399",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/03-listen-analytics"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/04-support-path",
+      "sha": "d423ff16078d2d5dd7d951f813211a2733d6deb5",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/04-support-path"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/05-launch-config",
+      "sha": "5af325c8a31bfd6dc68547d62fdb5afaf0adc3a1",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/05-launch-config"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/14-pricing-voice",
+      "sha": "7a052aece747ca27fca9a79c8f156324022be949",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/14-pricing-voice"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/15-author-stats",
+      "sha": "0026ba7233c9f65de2be5e705a636420cd20fc7b",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/15-author-stats"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/15-stats-truth",
+      "sha": "aad3378d82dc94240fb739508a9b97512bf78352",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/15-stats-truth"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/16-autosave-integrity",
+      "sha": "0c66592fe315495ad763b36baf6b67fc82e62d44",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/16-autosave-integrity"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/17-order-path-unlock",
+      "sha": "ee65d2ae597ca99f9078cbb62766ece1abf60ce3",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/17-order-path-unlock"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/20-mobile-touch-targets",
+      "sha": "14207a8264b8c2e46837e08a0ad30003074c6314",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/20-mobile-touch-targets"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/21-book-discoverability",
+      "sha": "f68d3323c2f9be33f43bb360f14936a69083fc01",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/21-book-discoverability"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/22-rights-attestation",
+      "sha": "d30cedf01e000a6880b86442e2cb713ac31492f8",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/22-rights-attestation"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/23-admin-ops",
+      "sha": "03d9001a5569185b58f0d36444f40d6c256f0ba2",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/23-admin-ops"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/24-schema-conformance",
+      "sha": "ba0d47aabe59a87cbc800b154e09100ecc700509",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/24-schema-conformance"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/branch/wp/25-access-silent-denial",
+      "sha": "18ce06a8680e5a7bcc92e434c2bf986d808bebcc",
+      "kind": "original-ref",
+      "source": "refs/heads/wp/25-access-silent-denial"
+    },
+    {
+      "ref": "refs/tags/codex/backup-20260922/tag/backup/main-before-branch-cleanup-20260303",
+      "sha": "c06f650b51eb28998636149fdb978ce5b4d25190",
+      "kind": "original-ref",
+      "source": "refs/tags/backup/main-before-branch-cleanup-20260303"
+    },
+    {
+      "ref": "refs/tags/codex/backup-20260922/tag/backup/mvp-before-branch-cleanup-20260303",
+      "sha": "54b32c2c298fda1cb622d49755d8da5eb5ef6b7c",
+      "kind": "original-ref",
+      "source": "refs/tags/backup/mvp-before-branch-cleanup-20260303"
+    },
+    {
+      "ref": "refs/tags/codex/backup-20260922/tag/pre-rebase-backup-20260921",
+      "sha": "9ffaf66bf59c24d544c1625df4b93e37b57a4591",
+      "kind": "original-ref",
+      "source": "refs/tags/pre-rebase-backup-20260921"
+    },
+    {
+      "ref": "refs/tags/codex/backup-20260922/tag/v0.1.0-platform",
+      "sha": "5b36c192265752b776c51c6d075f0ef37a8f0f7d",
+      "kind": "original-ref",
+      "source": "refs/tags/v0.1.0-platform"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/stash/00",
+      "sha": "343cba1b31ebc49ff0b00aefc4760492acb892d4",
+      "kind": "stash",
+      "source": "stash@{0}"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/stash/01",
+      "sha": "c256ebb2314033e7cdf9d702eb56b06a370bc30c",
+      "kind": "stash",
+      "source": "stash@{1}"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/stash/02",
+      "sha": "4ac221ba0542a0e5319e34915e46fa7117098edc",
+      "kind": "stash",
+      "source": "stash@{2}"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/stash/03",
+      "sha": "69b2786c31960cf186428f36a5b9b8f222576cee",
+      "kind": "stash",
+      "source": "stash@{3}"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/stash/04",
+      "sha": "9860e707dc0f42e165e6a0dba7d86f1655375069",
+      "kind": "stash",
+      "source": "stash@{4}"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/stash/05",
+      "sha": "4f71ed86a2423e967016a19b1b87d18380409fe6",
+      "kind": "stash",
+      "source": "stash@{5}"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/stash/06",
+      "sha": "f394a9c9fd6f26874155e1e6a8e8233ecde2902e",
+      "kind": "stash",
+      "source": "stash@{6}"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/stash/07",
+      "sha": "d3f5215a30a0437995885b9a61a725626c7f5c17",
+      "kind": "stash",
+      "source": "stash@{7}"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/stash/08",
+      "sha": "1efba2ed5c740b7b62beaaa9476dc64282493a0a",
+      "kind": "stash",
+      "source": "stash@{8}"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/stash/09",
+      "sha": "443b3762c30d6bec2c68f4a7d9f91e661ce7e2af",
+      "kind": "stash",
+      "source": "stash@{9}"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/stash/11",
+      "sha": "69ff66d972b26de93b5c807ab3225fedfb683bf1",
+      "kind": "stash",
+      "source": "stash@{11}"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/stash/12",
+      "sha": "9d12f86a69c678c831198758fb432474e0fd9a50",
+      "kind": "stash",
+      "source": "stash@{12}"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/worktree/00-index",
+      "sha": "0d2c81c3a563b7a499ef0299e79e84ac453333c0",
+      "kind": "index",
+      "source": "verkli-web"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/worktree/00-working",
+      "sha": "d8106a5399cdf8492588e546051e75e6f802969a",
+      "kind": "working",
+      "source": "verkli-web"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/detached/01",
+      "sha": "fc1bdb5da1ad1ffc871320cfca6c795583938d86",
+      "kind": "detached",
+      "source": "before-1e83d605"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/detached/04",
+      "sha": "c06f650b51eb28998636149fdb978ce5b4d25190",
+      "kind": "detached",
+      "source": "verkli-web"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/detached/05",
+      "sha": "c06f650b51eb28998636149fdb978ce5b4d25190",
+      "kind": "detached",
+      "source": "verkli-web"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/worktree/06-index",
+      "sha": "6ff1d647b9f7ea52c1dbbc597224d8a02b1a4b2f",
+      "kind": "index",
+      "source": "verkli-web"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/worktree/06-working",
+      "sha": "5bb872d94fbc70ce2b273512b219d950e42f5241",
+      "kind": "working",
+      "source": "verkli-web"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/detached/10",
+      "sha": "c06f650b51eb28998636149fdb978ce5b4d25190",
+      "kind": "detached",
+      "source": "verkli-web"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/detached/11",
+      "sha": "c06f650b51eb28998636149fdb978ce5b4d25190",
+      "kind": "detached",
+      "source": "verkli-web"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/worktree/13-index",
+      "sha": "acffb64e76658e219949b4f7fa63de59dafb46f1",
+      "kind": "index",
+      "source": "verkli-apply"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/worktree/13-working",
+      "sha": "619acaa2496b69b73803cf176766a593310b1051",
+      "kind": "working",
+      "source": "verkli-apply"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/detached/26",
+      "sha": "f6eb9028834f650a2c9087464d1185ce3ecf64bb",
+      "kind": "detached",
+      "source": "audit-20260905"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/worktree/26-index",
+      "sha": "29342bab75e909438ddf46686572ad00e350f380",
+      "kind": "index",
+      "source": "audit-20260905"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/worktree/26-working",
+      "sha": "d9d86b138cbafaee05f82ad7ff03ef989c686030",
+      "kind": "working",
+      "source": "audit-20260905"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/detached/27",
+      "sha": "691d2cfd0acea6602e2940483557ab89916859ac",
+      "kind": "detached",
+      "source": "audit-current-20260905"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/worktree/42-index",
+      "sha": "b5bb3d77283b8b95b7efd3665097cecf86a21b4a",
+      "kind": "index",
+      "source": "f1-author-details-20260914"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/worktree/42-working",
+      "sha": "7f8daef77bcb133bee3cc03c8364bd8846b94563",
+      "kind": "working",
+      "source": "f1-author-details-20260914"
+    },
+    {
+      "ref": "refs/heads/codex/backup-20260922/stash/10-sanitized",
+      "sha": "11916439937c71754e89f90dd23b823f3fc8b969",
+      "kind": "sanitized-stash",
+      "source": "stash@{10}"
+    }
+  ],
+  "exceptions": [
+    {
+      "original": "stash@{10}",
+      "backup": "codex/backup-20260922/stash/10-sanitized",
+      "reason": "Potential credentials in environment templates and example admin headers were removed. Unmodified original is preserved in a restricted local Git bundle."
+    }
+  ],
+  "scope": "Tracked files, non-ignored untracked files, local branch/tag tips, detached worktree heads, all 13 stash entries. Git-ignored files (including env files, dependencies and build caches) are not included."
+}
