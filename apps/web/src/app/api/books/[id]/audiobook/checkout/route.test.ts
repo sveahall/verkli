@@ -163,6 +163,15 @@ describe("POST /api/books/[id]/audiobook/checkout", () => {
     else process.env.TTS_VOICE_ID = ORIGINAL_TTS_VOICE_ID;
   });
 
+  it.each(["nl", "pl", "NL-nl"])("refuses text-only %s before Stripe checkout", async (language) => {
+    mockAuthedUser(); mockBookLookup({ found: true });
+    const res = await POST(makeRequest({ language }), { params: Promise.resolve({ id: VALID_UUID }) });
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({ error: "AUDIOBOOK_LANGUAGE_UNAVAILABLE" });
+    expect(mocks.createAudiobookCheckoutSession).not.toHaveBeenCalled();
+    expect(mocks.getRemainingCredits).not.toHaveBeenCalled();
+  });
+
   it("returns 401 when not authenticated", async () => {
     mockUnauthed();
 
