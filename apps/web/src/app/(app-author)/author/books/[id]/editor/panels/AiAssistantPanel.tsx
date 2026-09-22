@@ -64,9 +64,18 @@ function storedApplyResult(json: unknown): { outcomes: PlanOutcome[]; changed: n
   return { outcomes, changed };
 }
 
+/** The apply body is parsed as `unknown` on purpose, so every read is narrowed. */
+function applyMessage(json: unknown): string | null {
+  return json && typeof json === "object" && "message" in json && typeof json.message === "string" ? json.message : null;
+}
+
 function wroteSomething(outcomes: { status: string }[] | null | undefined, changed: number): boolean {
   return changed > 0 || Boolean(outcomes?.some((outcome) => outcome.status === "applied"));
 }
+
+/** A 409 can win the claim race before the writer has stored its outcome. */
+export const APPLIED_PLAN_RETRIES = 4;
+export const APPLIED_PLAN_RETRY_MS = 700;
 
 const ACTION_PROMPTS: Partial<Record<InlineAiAction, string>> = {
   rewrite: "Suggest a rewrite of this passage. Keep the meaning and my voice.",
@@ -265,13 +274,24 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
       if (refresh) onBookChanged?.();
     };
     try {
-      const response = await fetch(`/api/books/${bookId}/agent/apply`, {
+      const applyUrl = `/api/books/${bookId}/agent/apply`;
+      const applyInit = {
         method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
         body: JSON.stringify({ planId: entry.planId, ...selection }),
-      });
-      const json = await response.json().catch(() => null);
-      // 409 is the claim lock: the manuscript was already written. Showing it as
-      // a failure puts the Run button back on top of a book that did change.
+      };
+      let response = await fetch(applyUrl, applyInit);
+      let json: unknown = await response.json().catch(() => null);
+      // 409 is the claim lock. The winner may still be writing, and refreshing
+      // now would paint the chapter from before that write.
+      if (response.status === 409 && !storedApplyResult(json)) {
+        for (let attempt = 0; attempt < APPLIED_PLAN_RETRIES; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, APPLIED_PLAN_RETRY_MS));
+          if (controller.signal.aborted || !mounted.current) return;
+          response = await fetch(applyUrl, applyInit);
+          json = await response.json().catch(() => null);
+          if (response.status !== 409 || storedApplyResult(json)) break;
+        }
+      }
       if (response.status === 409) {
         const stored = storedApplyResult(json);
         showApplied(
@@ -289,16 +309,16 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
           if (!current || current.state.outcomes || current.state.alreadyApplied) return previous;
           return { ...previous, [key]: { ...current, state: {
             expired: true,
-            error: typeof json?.message === "string" ? json.message : "This plan is too old to apply safely. Ask for a fresh one.",
+            error: applyMessage(json) ?? "This plan is too old to apply safely. Ask for a fresh one.",
           } } };
         });
         return;
       }
       if (!response.ok) {
-        throw new Error(typeof json?.message === "string" ? json.message
-          : response.status === 429 ? "You’ve reached this minute’s limit. Wait a moment, then press Run again."
+        throw new Error(applyMessage(json)
+          ?? (response.status === 429 ? "You’ve reached this minute’s limit. Wait a moment, then press Run again."
           : response.status === 401 ? "Your session has ended. Sign in again, then ask for a fresh plan."
-          : "Your book was not changed. Ask for a fresh plan and try again.");
+          : "Your book was not changed. Ask for a fresh plan and try again."));
       }
       if (!mounted.current) return;
       // A cover-image step comes back deferred on purpose: generation has its own
@@ -306,7 +326,9 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
       // path to it. Running it here, through the panel that owns that route, is
       // what keeps the author's single approval meaning what it says — otherwise
       // they approve a plan and are then told to go and do part of it by hand.
-      const outcomes: PlanOutcome[] = await Promise.all(((json?.outcomes ?? []) as PlanOutcome[]).map(async (outcome) => {
+      // Same validator the 409 replay path uses, rather than trusting the shape.
+      const applied = storedApplyResult(json);
+      const outcomes: PlanOutcome[] = await Promise.all((applied?.outcomes ?? []).map(async (outcome) => {
         if (outcome.status !== "deferred") return outcome;
         const step = entry.plan.steps.find((candidate) => candidate.id === outcome.stepId);
         if (step?.tool !== "generate_cover_image") return outcome;
@@ -321,7 +343,7 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
           return { ...outcome, status: "failed", detail: error instanceof Error ? error.message : "Cover options could not be generated." };
         }
       }));
-      showApplied({ outcomes, changed: json?.changed ?? 0 }, wroteSomething(outcomes, json?.changed ?? 0));
+      showApplied({ outcomes, changed: applied?.changed ?? 0 }, wroteSomething(outcomes, applied?.changed ?? 0));
     } catch (error) {
       if (mounted.current) setPlans((previous) => {
         const current = previous[key];

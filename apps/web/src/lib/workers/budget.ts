@@ -16,7 +16,7 @@
 import Redis from "ioredis";
 import { getRedisClientOptions } from "@/lib/env";
 
-export type BudgetPipeline = "tts" | "translation" | "video" | "editorial" | "marketing";
+export type BudgetPipeline = "tts" | "translation" | "video" | "editorial" | "marketing" | "agent";
 
 export interface BudgetCheckInput {
   userId: string;
@@ -58,6 +58,10 @@ const DEFAULT_DAILY_BUDGETS: Record<BudgetPipeline, number> = {
   video: 100,
   marketing: 0, // No implicit spending allowance.
   editorial: 0, // No implicit spending allowance; configuration is required.
+  // The agent ships with a working ceiling rather than requiring configuration,
+  // like tts/translation/video and unlike editorial/marketing. A feature whose
+  // only guard is an unset variable is not guarded — it is off.
+  agent: 400_000,
 };
 
 const DEFAULT_JOB_COST_CAPS: Record<BudgetPipeline, number> = {
@@ -66,6 +70,9 @@ const DEFAULT_JOB_COST_CAPS: Record<BudgetPipeline, number> = {
   video: 5,
   editorial: 80_000,
   marketing: 0,
+  // One run cannot spend more than the loop's own ceiling, so the per-job cap
+  // matches it rather than inventing a second, looser number.
+  agent: 182_000,
 };
 
 const PIPELINE_JOB_COST_UNITS: Record<BudgetPipeline, JobCostUnit> = {
@@ -74,6 +81,7 @@ const PIPELINE_JOB_COST_UNITS: Record<BudgetPipeline, JobCostUnit> = {
   video: "units",
   editorial: "chars",
   marketing: "units",
+  agent: "units",
 };
 
 const REDIS_RESERVE_SCRIPT = `
@@ -182,6 +190,8 @@ function requirePositiveIntEnv(key: string): number {
 
 function getPipelineLimit(pipeline: BudgetPipeline): number {
   switch (pipeline) {
+    case "agent":
+      return readPositiveIntEnv("AGENT_DAILY_BUDGET", DEFAULT_DAILY_BUDGETS.agent);
     case "editorial":
       return requirePositiveIntEnv("EDITORIAL_DAILY_BUDGET");
     case "marketing":
