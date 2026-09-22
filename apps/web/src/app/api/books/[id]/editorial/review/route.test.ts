@@ -37,7 +37,7 @@ describe("editorial review API", () => {
     expect(await response.json()).toMatchObject({ originalContent: chapter.content, partCount: 1, reviewedText: "She walk home." });
     expect(filters[1]).toContainEqual(["book_id", bookId]);
     expect(filters[1]).toContainEqual(["id", chapterId]);
-    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ text: "She walk home." }), expect.any(Function));
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ text: "She walk home." }), expect.any(Function), expect.any(Function));
   });
   it("never starts a provider when the AI switch is off", async () => {
     mocks.enabled.mockReturnValue(false);
@@ -55,6 +55,20 @@ describe("editorial review API", () => {
     expect(mocks.budget).toHaveBeenCalledWith(expect.objectContaining({ pipeline: "editorial", userId: "author", units: 20000 }));
     expect(mocks.receipt).toHaveBeenCalledWith(expect.objectContaining({ output: expect.objectContaining({ usage: expect.objectContaining({ inputTokens: 15, outputTokens: 20 }) }) }));
   });
+  it.each(["unknown", "received"])("keeps both receipts and the entire reservation for critic status %s", async (status) => {
+    const critic = { status, usage: status === "received" ? { model: "actual-openai", inputTokens: 30, outputTokens: 40 } : null };
+    mocks.generate.mockImplementationOnce(async (_input, onUsage, onCriticReceipt) => {
+      await onUsage({ model: "claude-sonnet-5", inputTokens: 15, outputTokens: 20 });
+      await onCriticReceipt({ status: "started", usage: null });
+      await onCriticReceipt(critic);
+      return report;
+    });
+    expect((await run()).status).toBe(200);
+    expect(mocks.receipt).toHaveBeenLastCalledWith(expect.objectContaining({ status: "completed",
+      output: expect.objectContaining({ usage: expect.objectContaining({ inputTokens: 15 }), critic, reservedUnits: 20000 }) }));
+    expect(mocks.release).not.toHaveBeenCalled();
+  });
+
   it("fails closed on budget storage failure", async () => {
     mocks.budget.mockRejectedValue(new Error("Redis unavailable"));
     expect((await run()).status).toBe(503);
@@ -90,7 +104,7 @@ describe("editorial review API", () => {
     const filters = setup([{ id: bookId, author_id: "author" }, chapter, { content: doc("Hon går hem.") }]);
     expect((await run({ mode: "translation", sourceVersionId })).status).toBe(200);
     expect(filters[2]).toEqual([["book_id", bookId], ["book_version_id", sourceVersionId], ["order", 2]]);
-    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ sourceText: "Hon går hem.", text: "She walk home." }), expect.any(Function));
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ sourceText: "Hon går hem.", text: "She walk home." }), expect.any(Function), expect.any(Function));
   });
   it("refuses source=target and missing source versions", async () => {
     expect((await run({ mode: "translation", sourceVersionId: versionId })).status).toBe(400);
