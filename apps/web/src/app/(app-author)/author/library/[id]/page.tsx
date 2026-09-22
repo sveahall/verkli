@@ -402,7 +402,10 @@ export default function ShelfDetailPage() {
                     <BookCard
                       book={shelfBook.book}
                       size="sm"
-                      onClick={() => router.push(`/author/books/${shelfBook.book.id}`)}
+                      onClick={() => {
+                        const groupId = (shelfBook.book as { original_book_id?: string | null }).original_book_id ?? shelfBook.book.id;
+                        router.push(`/author/books/${groupId}`);
+                      }}
                       onAction={(action) => {
                         if (action === "delete") {
                           handleDeleteBook(shelfBook.id);

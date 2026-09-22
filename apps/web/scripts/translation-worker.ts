@@ -8,7 +8,7 @@ import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
 assertServerEnv();
 
-import { Worker } from "bullmq";
+import { Worker, Queue } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import type { TranslationJobData } from "../src/lib/translation-queue";
 import { translateText, sanitizeOpusOutput } from "../src/lib/opus";
@@ -182,19 +182,32 @@ function main() {
 
   console.log("[translation worker] worker started — queue:", QUEUE_NAME, "redis:", connection.host + ":" + connection.port);
 
+  const conn = { host: connection.host, port: connection.port, password: connection.password };
+  const queue = new Queue(QUEUE_NAME, { connection: conn });
+
+  setInterval(async () => {
+    try {
+      const counts = await queue.getJobCounts("waiting", "active", "completed", "failed");
+      if (counts.waiting > 0 || counts.active > 0) {
+        console.log("[translation worker] queue counts:", counts);
+      }
+    } catch (e) {
+      console.error("[translation worker] getJobCounts error:", (e as Error).message);
+    }
+  }, 5000);
+
   const worker = new Worker(
     QUEUE_NAME,
     async (job) => {
+      console.log("[translation worker] job received:", job.id, "name:", job.name);
       if (job.name === "translate" && job.data) {
         await processJob(job.data as TranslationJobData);
+      } else {
+        console.warn("[translation worker] skipping job (name or data missing):", job.name, !!job.data);
       }
     },
     {
-      connection: {
-        host: connection.host,
-        port: connection.port,
-        password: connection.password,
-      },
+      connection: conn,
       concurrency: 2,
     }
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { uploadBookCover } from "@/lib/supabase/storage";
@@ -9,7 +9,7 @@ import TiptapEditor from "@/components/editor/TiptapEditor";
 import AuthorStatsBar from "@/components/editor/AuthorStatsBar";
 import CommandPalette from "@/components/editor/CommandPalette";
 import { getAudiobookEnabled, getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
-import { getLanguageLabel, LANGUAGE_OPTIONS, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
+import { getLanguageLabel, LANGUAGE_OPTIONS, SUPPORTED_LANGUAGE_CODES, normalizeLanguage, type SupportedLanguage } from "@/lib/languages";
 
 const ACCEPTED_COVER_TYPES = "image/*";
 
@@ -66,17 +66,51 @@ type LatestAudiobookAsset = {
 } | null;
 
 type Props = {
+  groupId: string;
+  groupBooks: Book[];
+  defaultBookId: string;
   book: Book;
   chapters: Chapter[];
+  chaptersByBookId: Record<string, { id: string; title: string; content: string | null; order: number }[]>;
   latestAudiobookAsset?: LatestAudiobookAsset;
   marketingCampaigns?: MarketingCampaignRow[];
 };
 
-export default function BookEditor({ book, chapters: initialChapters, latestAudiobookAsset = null, marketingCampaigns = [] }: Props) {
+const ORIGINAL_LANG = "original";
+
+function buildLanguageTabs(groupId: string, groupBooks: Book[]): { langKey: string; label: string; book: Book }[] {
+  const original = groupBooks.find((b) => b.id === groupId) ?? groupBooks[0];
+  const tabs: { langKey: string; label: string; book: Book }[] = [{ langKey: ORIGINAL_LANG, label: "Original", book: original }];
+  groupBooks
+    .filter((b) => b.is_translation && b.language)
+    .forEach((b) => {
+      const code = String(b.language).toLowerCase();
+      if (!tabs.some((t) => t.langKey === code)) {
+        tabs.push({ langKey: code, label: getLanguageLabel(code), book: b });
+      }
+    });
+  return tabs;
+}
+
+export default function BookEditor({
+  groupId,
+  groupBooks,
+  defaultBookId,
+  book: initialBook,
+  chapters: initialChapters,
+  chaptersByBookId,
+  latestAudiobookAsset = null,
+  marketingCampaigns = [],
+}: Props) {
   const router = useRouter();
-  const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
+  const [activeBookId, setActiveBookId] = useState(defaultBookId);
+  const activeBook = groupBooks.find((b) => b.id === activeBookId) ?? initialBook;
+  const book = activeBook;
+
+  const chaptersForActive = chaptersByBookId[activeBookId] ?? [];
+  const [chapters, setChapters] = useState<Chapter[]>(chaptersForActive.length > 0 ? chaptersForActive : initialChapters);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
-    initialChapters[0]?.id ?? null
+    chapters[0]?.id ?? null
   );
   const [isSaving, setIsSaving] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -100,11 +134,43 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
   const [translationStatus, setTranslationStatus] = useState<string>(book.translation_status ?? "draft");
   const [isGeneratingAudiobook, setIsGeneratingAudiobook] = useState(false);
   const [audiobookError, setAudiobookError] = useState<string | null>(null);
+  const [editingBookTitle, setEditingBookTitle] = useState(false);
+  const [bookTitleValue, setBookTitleValue] = useState("");
+  const [translateTargetLanguage, setTranslateTargetLanguage] = useState<SupportedLanguage>("en");
+  const [isStartingTranslation, setIsStartingTranslation] = useState(false);
+  const [translateMessage, setTranslateMessage] = useState<string | null>(null);
+  type TranslationUiStatus = "idle" | "translating" | "done" | "error";
+  const [translationUiStatus, setTranslationUiStatus] = useState<TranslationUiStatus>("idle");
+  const [lastRequestedTargetLanguage, setLastRequestedTargetLanguage] = useState<SupportedLanguage | null>(null);
+  const translationPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const translationDoneTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const savingRef = useRef(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
+  const originalBook = groupBooks.find((b) => b.id === groupId) ?? groupBooks[0];
+  const groupTitle = originalBook.title || "Untitled";
+  const languageTabs = buildLanguageTabs(groupId, groupBooks);
+
+  useEffect(() => {
+    const nextChapters = chaptersByBookId[activeBookId] ?? [];
+    setChapters(nextChapters.length > 0 ? nextChapters : []);
+    setSelectedChapterId((prev) => {
+      const stillExists = nextChapters.some((c) => c.id === prev);
+      return stillExists ? prev : nextChapters[0]?.id ?? null;
+    });
+  }, [activeBookId, chaptersByBookId]);
+
+  useEffect(() => {
+    setOriginalUrl(book.original_url ?? "");
+    setTranslationStatus(book.translation_status ?? "draft");
+  }, [book.id, book.original_url, book.translation_status]);
+
   const selectedChapter = chapters.find((ch) => ch.id === selectedChapterId);
   const displayCoverUrl = coverPreviewUrl ?? book.cover_image;
+  const displayTitle = editingBookTitle ? bookTitleValue : groupTitle;
+  const isOriginal = book.id === groupId;
 
   const handlePublish = async () => {
     if (isPublishing) return;
@@ -384,6 +450,176 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
     setTempTitle("");
   };
 
+  const handleSwitchLanguage = useCallback(
+    (bookId: string, langKey: string) => {
+      setActiveBookId(bookId);
+      const params = new URLSearchParams(window.location.search);
+      if (langKey === ORIGINAL_LANG) {
+        params.delete("lang");
+      } else {
+        params.set("lang", langKey);
+      }
+      const query = params.toString();
+      const url = `/author/books/${groupId}${query ? `?${query}` : ""}`;
+      router.replace(url, { scroll: false });
+    },
+    [groupId, router]
+  );
+
+  const handleStartEditBookTitle = () => {
+    setBookTitleValue(groupTitle);
+    setEditingBookTitle(true);
+  };
+
+  const handleSaveBookTitle = useCallback(async () => {
+    const val = bookTitleValue.trim();
+    if (!val) {
+      setEditingBookTitle(false);
+      return;
+    }
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("books")
+      .update({ title: val })
+      .eq("id", groupId);
+    if (error) {
+      if (process.env.NODE_ENV === "development") console.error("[updateBookTitle failed]", error);
+      setEditingBookTitle(false);
+      return;
+    }
+    setEditingBookTitle(false);
+    router.refresh();
+  }, [bookTitleValue, groupId, router]);
+
+  const handleCancelEditBookTitle = () => {
+    setEditingBookTitle(false);
+    setBookTitleValue("");
+  };
+
+  const existingTranslationLanguages = useMemo(() => {
+    return new Set(
+      groupBooks
+        .filter((b) => b.is_translation && b.language)
+        .map((b) => String(b.language).toLowerCase())
+    );
+  }, [groupBooks]);
+
+  const availableTranslateLanguages = useMemo(
+    () => SUPPORTED_LANGUAGE_CODES.filter((code) => !existingTranslationLanguages.has(code)),
+    [existingTranslationLanguages]
+  );
+
+  useEffect(() => {
+    if (availableTranslateLanguages.length > 0 && !availableTranslateLanguages.includes(translateTargetLanguage)) {
+      setTranslateTargetLanguage(availableTranslateLanguages[0]);
+    }
+  }, [availableTranslateLanguages, translateTargetLanguage]);
+
+  // När groupBooks uppdateras (t.ex. efter polling) och vi väntar på en översättning, kolla om den dykt upp
+  useEffect(() => {
+    if (translationUiStatus !== "translating" || !lastRequestedTargetLanguage) return;
+    const hasNewTranslation = groupBooks.some(
+      (b) => Boolean(b.is_translation && b.language && String(b.language).toLowerCase() === lastRequestedTargetLanguage)
+    );
+    if (hasNewTranslation) {
+      if (translationPollRef.current) {
+        clearInterval(translationPollRef.current);
+        translationPollRef.current = null;
+      }
+      const addedLang = lastRequestedTargetLanguage;
+      setTranslationUiStatus("done");
+      setTranslateMessage(`Översättning tillagd (${getLanguageLabel(addedLang)}).`);
+      setLastRequestedTargetLanguage(null);
+      const remaining = availableTranslateLanguages.filter((l) => l !== addedLang);
+      if (remaining[0]) setTranslateTargetLanguage(remaining[0]);
+      if (translationDoneTimeoutRef.current) clearTimeout(translationDoneTimeoutRef.current);
+      translationDoneTimeoutRef.current = setTimeout(() => {
+        setTranslationUiStatus("idle");
+        setTranslateMessage(null);
+        translationDoneTimeoutRef.current = null;
+      }, 5000);
+    }
+  }, [groupBooks, translationUiStatus, lastRequestedTargetLanguage, availableTranslateLanguages]);
+
+  // Städa poll och timeout vid unmount
+  useEffect(() => {
+    return () => {
+      if (translationPollRef.current) {
+        clearInterval(translationPollRef.current);
+        translationPollRef.current = null;
+      }
+      if (translationDoneTimeoutRef.current) {
+        clearTimeout(translationDoneTimeoutRef.current);
+        translationDoneTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleStartTranslation = useCallback(async () => {
+    if (isStartingTranslation || !availableTranslateLanguages.includes(translateTargetLanguage)) return;
+    setIsStartingTranslation(true);
+    setTranslateMessage(null);
+    setTranslationUiStatus("idle");
+    try {
+      const url = `/api/books/${groupId}/translate`;
+      if (process.env.NODE_ENV === "development") {
+        console.log("[translate] POST", url, { targetLanguage: translateTargetLanguage });
+      }
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetLanguage: translateTargetLanguage }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (process.env.NODE_ENV === "development") {
+        console.log("[translate] response", res.status, data);
+      }
+      if (!res.ok) {
+        const errMsg = data.error ?? "Failed to start translation";
+        setTranslateMessage(errMsg);
+        setTranslationUiStatus("error");
+        return;
+      }
+      setLastRequestedTargetLanguage(translateTargetLanguage);
+      setTranslationUiStatus("translating");
+      setTranslateMessage("Översättning startad. Väntar på att den blir klar…");
+      if (translationPollRef.current) {
+        clearInterval(translationPollRef.current);
+      }
+      translationPollRef.current = setInterval(() => {
+        router.refresh();
+      }, 3000);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "Failed to start translation";
+      setTranslateMessage(errMsg);
+      setTranslationUiStatus("error");
+      if (process.env.NODE_ENV === "development") {
+        console.error("[translate] error", err);
+      }
+    } finally {
+      setIsStartingTranslation(false);
+    }
+  }, [groupId, translateTargetLanguage, availableTranslateLanguages, isStartingTranslation, router]);
+
+  const handleDeleteBook = useCallback(async () => {
+    if (isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/books/${book.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error ?? "Failed to delete book");
+        return;
+      }
+      router.push("/author/books");
+    } catch {
+      alert("Failed to delete book");
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  }, [book.id, isDeleting, router]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape" && focusMode) {
@@ -463,14 +699,75 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
   return (
     <>
       <section className="mx-auto max-w-[1400px] px-6 py-12">
+        {languageTabs.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-1 border-b border-slate-200 dark:border-white/10 pb-2">
+            {languageTabs.map((tab) => (
+              <button
+                key={tab.langKey}
+                type="button"
+                onClick={() => handleSwitchLanguage(tab.book.id, tab.langKey)}
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  activeBookId === tab.book.id
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+                    : "text-slate-600 hover:bg-slate-100 dark:text-white/60 dark:hover:bg-white/10"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-white">
-              {book.title}
-            </h1>
-            <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
-              {book.status === "DRAFT" ? "Draft" : "Published"} • {chapters.length} chapter{chapters.length !== 1 ? "s" : ""}
-            </p>
+            {editingBookTitle ? (
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  value={bookTitleValue}
+                  onChange={(e) => setBookTitleValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveBookTitle();
+                    if (e.key === "Escape") handleCancelEditBookTitle();
+                  }}
+                  className="max-w-md rounded-lg border border-slate-300 bg-white px-3 py-2 text-xl font-semibold text-slate-900 focus:border-slate-500 focus:outline-none dark:border-white/20 dark:bg-white/10 dark:text-white"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveBookTitle}
+                    className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelEditBookTitle}
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 dark:border-white/20 dark:text-white/70 dark:hover:bg-white/10"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <h1 className="text-4xl font-semibold tracking-tight text-slate-900 dark:text-white">
+                  {displayTitle}
+                </h1>
+                <div className="mt-2 flex items-center gap-2">
+                  <p className="text-sm text-slate-600 dark:text-white/60">
+                    {book.status === "DRAFT" ? "Draft" : "Published"} • {chapters.length} chapter{chapters.length !== 1 ? "s" : ""}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleStartEditBookTitle}
+                    className="text-sm text-slate-500 hover:text-slate-900 dark:text-white/50 dark:hover:text-white"
+                  >
+                    Rename
+                  </button>
+                </div>
+              </>
+            )}
           </div>
           {book.status === "DRAFT" && (
             <button
@@ -478,7 +775,11 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
               disabled={isPublishing || chapters.length === 0}
               className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
             >
-              {isPublishing ? "Publishing..." : "Publish your translation"}
+              {isPublishing
+                ? "Publishing..."
+                : book.is_translation
+                  ? "Publish your translation"
+                  : "Publish"}
             </button>
           )}
         </div>
@@ -556,13 +857,81 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
                 </select>
                 {book.original_book_id && (
                   <p className="text-xs text-slate-500 dark:text-white/50">
-                    <Link
-                      href={`/author/books/${book.original_book_id}`}
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchLanguage(groupId, ORIGINAL_LANG)}
                       className="text-emerald-600 underline dark:text-emerald-400"
                     >
-                      Open original on Verkli →
-                    </Link>
+                      Switch to original →
+                    </button>
                   </p>
+                )}
+              </div>
+            )}
+
+            {getTranslationsEnabled() && isOriginal && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5 dark:border-white/10 dark:bg-white/5">
+                <h2 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Add translation</h2>
+                <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
+                  Create a new language version of this book. The translation will appear as a tab when ready.
+                </p>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-xs font-medium text-slate-500 dark:text-white/50">Status:</span>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      translationUiStatus === "translating"
+                        ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200"
+                        : translationUiStatus === "done"
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200"
+                          : translationUiStatus === "error"
+                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200"
+                            : "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                    }`}
+                    role="status"
+                  >
+                    {translationUiStatus === "idle" && "Idle"}
+                    {translationUiStatus === "translating" && "Translating…"}
+                    {translationUiStatus === "done" && "Done"}
+                    {translationUiStatus === "error" && "Error"}
+                  </span>
+                </div>
+                <label htmlFor="translate-language" className="mb-1 block text-xs text-slate-500 dark:text-white/50">Language</label>
+                <select
+                  id="translate-language"
+                  value={availableTranslateLanguages.length > 0 ? translateTargetLanguage : ""}
+                  onChange={(e) => setTranslateTargetLanguage(e.target.value as SupportedLanguage)}
+                  disabled={availableTranslateLanguages.length === 0 || translationUiStatus === "translating"}
+                  className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none disabled:opacity-60 dark:border-white/20 dark:bg-white/10 dark:text-white"
+                >
+                  {availableTranslateLanguages.length === 0 ? (
+                    <option value="">All languages added</option>
+                  ) : (
+                    availableTranslateLanguages.map((code) => (
+                      <option key={code} value={code}>{getLanguageLabel(code)}</option>
+                    ))
+                  )}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleStartTranslation}
+                  disabled={translationUiStatus === "translating" || availableTranslateLanguages.length === 0}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                >
+                  {translationUiStatus === "translating" || isStartingTranslation ? "Startar…" : "Start translation"}
+                </button>
+                {translateMessage && (
+                  <div
+                    className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
+                      translationUiStatus === "done" || translateMessage.includes("tillagd") || translateMessage.includes("startad")
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200"
+                        : translationUiStatus === "error"
+                          ? "border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200"
+                          : "border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200"
+                    }`}
+                    role="status"
+                  >
+                    {translateMessage}
+                  </div>
                 )}
               </div>
             )}
@@ -796,6 +1165,21 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
               <p className="mt-4 text-xs text-slate-400 dark:text-white/40">Double-click to rename</p>
             )}
             </div>
+
+            <div className="rounded-xl border border-red-200 bg-red-50/50 p-5 dark:border-red-900/30 dark:bg-red-950/20">
+              <h2 className="mb-2 text-base font-semibold text-slate-900 dark:text-white">Delete book</h2>
+              <p className="mb-3 text-xs text-slate-500 dark:text-white/50">
+                Permanently remove this {book.is_translation ? "translation" : "book"} and its chapters. This cannot be undone.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={isDeleting}
+                className="w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
+              >
+                Delete book
+              </button>
+            </div>
           </div>
 
           <div>
@@ -861,6 +1245,43 @@ export default function BookEditor({ book, chapters: initialChapters, latestAudi
           </div>
         </div>
       </section>
+
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-[10002] flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-dialog-title"
+        >
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-white/10 dark:bg-slate-900">
+            <h2 id="delete-dialog-title" className="text-lg font-semibold text-slate-900 dark:text-white">
+              Vill du verkligen radera denna bok?
+            </h2>
+            <p className="mt-2 text-sm text-slate-600 dark:text-white/60">
+              Boken och alla kapitel tas bort permanent. Detta kan inte ångras.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+              >
+                Avbryt
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteBook}
+                disabled={isDeleting}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeleting ? "Raderar…" : "Radera"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} commands={commands} />
     </>
   );

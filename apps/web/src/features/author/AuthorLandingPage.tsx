@@ -17,6 +17,7 @@ import type { Book } from "@/lib/supabase/types";
 import type { User } from "@supabase/supabase-js";
 import { getTranslationsEnabled } from "@/lib/flags";
 import { ImportBookModal } from "@/components/import";
+import { buildBookGroups, getLanguageChipLabels } from "@/lib/book-groups";
 
 const gridImages = [
   "https://images.unsplash.com/photo-1723403804231-f4e9b515fe9d?q=80&w=3870&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
@@ -70,6 +71,7 @@ type BookCardData = {
   currentChapter?: number;
   currentPage?: number;
   totalPages?: number;
+  languages?: string[];
 };
 
 type BookCardSize = "sm" | "md" | "lg";
@@ -122,9 +124,10 @@ function BookCoverCard({
   const pagesLeft = getPagesLeft(book);
   const percentLeft = typeof book.progress === "number" ? Math.max(100 - book.progress, 0) : undefined;
 
+  const href = `/author/books/${book.id}`;
   return (
     <Link
-      href={`/author/books/${book.id}`}
+      href={href}
       className="group relative flex-shrink-0 transition-transform duration-300 hover:-translate-y-1.5"
     >
       <div
@@ -140,13 +143,25 @@ function BookCoverCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/20" />
         <div className="absolute inset-0 bg-gradient-to-br from-[#907AFF]/0 via-[#907AFF]/0 to-[#907AFF]/0 transition-all duration-500 group-hover:from-[#907AFF]/10 group-hover:via-[#E29ED5]/5 group-hover:to-transparent" />
 
-        {showTag && book.tag && (
-          <div className="absolute left-3 top-3">
-            <span className="rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/90 backdrop-blur-sm">
-              {book.tag}
-            </span>
+        {(showTag && book.tag) || (book.languages && book.languages.length > 0) ? (
+          <div className="absolute left-3 top-3 flex flex-wrap gap-1">
+            {showTag && book.tag && (
+              <span className="rounded-full bg-black/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/90 backdrop-blur-sm">
+                {book.tag}
+              </span>
+            )}
+            {book.languages && book.languages.slice(0, 3).map((code) => (
+              <span key={code} className="rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-medium text-white/90 backdrop-blur-sm">
+                {code}
+              </span>
+            ))}
+            {book.languages && book.languages.length > 3 && (
+              <span className="rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white/70">
+                +{book.languages.length - 3}
+              </span>
+            )}
           </div>
-        )}
+        ) : null}
 
         <div className="absolute right-3 top-3 opacity-0 transition-all duration-300 group-hover:opacity-100">
           <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-black/[0.02] text-white/80 backdrop-blur-sm">
@@ -617,15 +632,24 @@ function Dashboard({ user }: { user: User }) {
     return Array.from(unique.values());
   }, [shelves, standaloneBooks]);
 
+  const libraryGroups = useMemo(() => {
+    return buildBookGroups(libraryBooks as Parameters<typeof buildBookGroups>[0]);
+  }, [libraryBooks]);
+
   const libraryCards = useMemo<BookCardData[]>(() => {
-    return libraryBooks.map((book) => ({
-      id: book.id,
-      title: book.title,
+    return libraryGroups.map((group) => ({
+      id: group.groupId,
+      title: group.title,
       author: displayName,
-      cover: book.cover_image,
-      tag: book.status || undefined,
+      cover: group.cover,
+      tag: group.defaultBook.status || undefined,
+      languages: getLanguageChipLabels(group),
     }));
-  }, [libraryBooks, displayName]);
+  }, [libraryGroups, displayName]);
+
+  const standaloneGroups = useMemo(() => {
+    return buildBookGroups(standaloneBooks as Parameters<typeof buildBookGroups>[0]);
+  }, [standaloneBooks]);
 
   const continueReadingCards = libraryCards.slice(0, 6);
   const trendingCards = libraryCards.slice(0, 8);
@@ -957,17 +981,23 @@ function Dashboard({ user }: { user: User }) {
               )}
               
               {/* Standalone books section */}
-              {(standaloneBooks.length > 0 || !loadingShelves) && (
+              {(standaloneGroups.length > 0 || !loadingShelves) && (
                 <div className="mt-8 border-t border-black/10 dark:border-white/[0.06] pt-8">
                   <h3 className="mb-6 text-[20px] font-semibold text-slate-900 dark:text-white">Standalone books</h3>
                   <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                    {standaloneBooks.map((book) => (
+                    {standaloneGroups.map((group) => (
                       <BookCard
-                        key={book.id}
-                        book={book}
+                        key={group.groupId}
+                        book={{
+                          ...group.defaultBook,
+                          id: group.groupId,
+                          title: group.title,
+                          cover_image: group.cover,
+                        } as Book}
                         size="sm"
-                        onClick={() => router.push(`/author/books/${book.id}`)}
+                        onClick={() => router.push(`/author/books/${group.groupId}`)}
                         showStats={false}
+                        languages={getLanguageChipLabels(group)}
                       />
                     ))}
                     <button

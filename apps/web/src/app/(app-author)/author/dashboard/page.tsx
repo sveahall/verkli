@@ -22,7 +22,7 @@ export default async function authorDashboardPage() {
 
   const { data: books } = await supabase
     .from("books")
-    .select("id, title, status, language, cover_image, is_translation, translation_status, audiobook_status, updated_at")
+    .select("id, title, status, language, cover_image, is_translation, original_book_id, translation_status, audiobook_status, updated_at")
     .eq("author_id", user.id)
     .order("updated_at", { ascending: false });
 
@@ -87,8 +87,10 @@ export default async function authorDashboardPage() {
     const has_audiobook_asset = audiobookExistsByBook.has(book.id);
     const langLabel = getLanguageLabel(normalizeLanguage(book.language));
 
+    const groupId = (book as { original_book_id?: string | null }).original_book_id ?? book.id;
     return {
       id: book.id,
+      groupId,
       title: book.title || "Untitled",
       status: book.status,
       language: langLabel,
@@ -190,7 +192,7 @@ export default async function authorDashboardPage() {
 
               <div className="flex flex-wrap gap-2">
                 <Link
-                  href={`/author/books/${row.id}`}
+                  href={`/author/books/${row.groupId}`}
                   className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
                 >
                   Edit
@@ -207,7 +209,7 @@ export default async function authorDashboardPage() {
                 )}
                 {getMarketingEnabled() && (
                   <Link
-                    href={`/author/books/${row.id}#marketing`}
+                    href={`/author/books/${row.groupId}#marketing`}
                     className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
                   >
                     Generate marketing
@@ -215,7 +217,7 @@ export default async function authorDashboardPage() {
                 )}
                 {getAudiobookEnabled() && (
                   <Link
-                    href={`/author/books/${row.id}#audiobook`}
+                    href={`/author/books/${row.groupId}#audiobook`}
                     className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-white/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
                   >
                     Generate audiobook

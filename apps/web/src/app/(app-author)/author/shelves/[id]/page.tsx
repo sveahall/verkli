@@ -112,7 +112,7 @@ export default async function PublicShelfPage({ params }: { params: Promise<{ id
               {books.map((book) => (
                 <Link
                   key={book.id}
-                  href={`/author/books/${book.id}`}
+                  href={`/author/books/${(book as { original_book_id?: string | null }).original_book_id ?? book.id}`}
                   className="card-base-subtle group overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,42,0.1)] dark:hover:shadow-[0_12px_28px_rgba(0,0,0,0.35)]"
                 >
                   <div

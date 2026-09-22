@@ -47,7 +47,7 @@ ON CONFLICT (user_id) DO UPDATE SET beta_enabled = true;
 - **Tabell**: `public.feedback` (id, user_id nullable, type bug|idea|other, message max 2000, url, request_id, status new|triaged|done, created_at). RLS: användare INSERT (eget user_id eller null); SELECT egna rader; admin via service role.
 - **POST /api/feedback**: Auth valfritt. Body: `{ "type": "bug"|"idea"|"other", "message": "…", "url": "…?", "request_id": "…?" }`. Returnerar `{ id, created_at }`. 400 vid ogiltig body.
 - **GET /api/feedback**: Kräver auth. Returnerar `{ feedback: [...] }` med användarens egna rader.
-- **GET /api/admin/feedback**: Kräver header `x-admin-key: <ADMIN_API_KEY>`. Returnerar `{ feedback: [...] }` med alla rader.
+- **GET /api/admin/feedback**: Kräver header `x-admin-key: <admin-key>
 
 ### Testa med curl
 
@@ -69,7 +69,7 @@ curl -s http://localhost:3000/api/feedback -H "Cookie: <session>"
 # Förväntat: 200, { "feedback": [...] }
 
 # Admin lista (kräver x-admin-key)
-curl -s -H "x-admin-key: YOUR_ADMIN_API_KEY" http://localhost:3000/api/admin/feedback
+curl -s -H "x-admin-key: <admin-key>" http://localhost:3000/api/admin/feedback
 # Förväntat: 200, { "feedback": [...] }
 ```
 
@@ -82,7 +82,7 @@ curl -s -H "x-admin-key: YOUR_ADMIN_API_KEY" http://localhost:3000/api/admin/fee
 ### Testa med curl
 
 ```bash
-curl -s -H "x-admin-key: YOUR_ADMIN_API_KEY" http://localhost:3000/api/admin/metrics/funnel
+curl -s -H "x-admin-key: <admin-key>" http://localhost:3000/api/admin/metrics/funnel
 # Förväntat: 200, { "since": "...", "author": [...], "reader": [...] }
 ```
 

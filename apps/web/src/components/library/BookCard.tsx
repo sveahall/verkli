@@ -15,6 +15,8 @@ interface BookCardProps {
     rating?: number;
     bookmarks?: number;
   };
+  /** Language chips for group view (e.g. "original", "sv", "en") */
+  languages?: string[];
 }
 
 export default function BookCard({ 
@@ -25,7 +27,8 @@ export default function BookCard({
   onClick,
   onAction,
   showStats = false,
-  stats
+  stats,
+  languages,
 }: BookCardProps) {
   if (!book) return null;
   
@@ -107,6 +110,23 @@ export default function BookCard({
 
         {/* Book Info (bottom) */}
         <div className="absolute bottom-0 left-0 right-0 p-4">
+          {languages && languages.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1">
+              {languages.slice(0, 4).map((code) => (
+                <span
+                  key={code}
+                  className="rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-medium text-white/90 backdrop-blur-sm"
+                >
+                  {code}
+                </span>
+              ))}
+              {languages.length > 4 && (
+                <span className="rounded-full bg-black/40 px-2 py-0.5 text-[10px] text-white/70">
+                  +{languages.length - 4}
+                </span>
+              )}
+            </div>
+          )}
           <h3 className="mb-1 line-clamp-2 text-[16px] font-semibold leading-tight text-white drop-shadow-lg">
             {book.title}
           </h3>

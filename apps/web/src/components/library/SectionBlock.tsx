@@ -110,8 +110,8 @@ export default function SectionBlock({
                 book={shelfBook.book}
                 size="sm"
                 onClick={() => {
-                  // Navigate to book detail
-                  window.location.href = `/author/books/${shelfBook.book.id}`;
+                  const groupId = (shelfBook.book as { original_book_id?: string | null }).original_book_id ?? shelfBook.book.id;
+                  window.location.href = `/author/books/${groupId}`;
                 }}
                 onAction={(action) => {
                   if (action === "delete" && onDeleteBook) {

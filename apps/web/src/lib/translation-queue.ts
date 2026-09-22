@@ -54,7 +54,17 @@ export async function enqueueTranslationJob(data: TranslationJobData): Promise<s
   const job = await q.add("translate", data, { jobId });
   const id = job.id ?? null;
   if (id) {
-    console.log("[translation queue] Job enqueued:", id, "originalBookId:", data.originalBookId, "targetLanguage:", data.targetLanguage);
+    const conn = getRedisConnectionOptions();
+    console.log(
+      "[translation queue] Job enqueued:",
+      id,
+      "originalBookId:",
+      data.originalBookId,
+      "targetLanguage:",
+      data.targetLanguage,
+      "redis:",
+      conn ? `${conn.host}:${conn.port}` : "?"
+    );
   }
   return id;
 }
