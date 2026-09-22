@@ -125,6 +125,167 @@ export type Database = {
           },
         ]
       }
+      ai_memories: {
+        Row: {
+          book_id: string | null
+          content: string
+          created_at: string
+          edition_id: string | null
+          id: string
+          owner_id: string
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          book_id?: string | null
+          content: string
+          created_at?: string
+          edition_id?: string | null
+          id?: string
+          owner_id: string
+          scope: string
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string | null
+          content?: string
+          created_at?: string
+          edition_id?: string | null
+          id?: string
+          owner_id?: string
+          scope?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_memories_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_memories_edition_id_fkey"
+            columns: ["edition_id"]
+            isOneToOne: false
+            referencedRelation: "book_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_memory_settings: {
+        Row: {
+          enabled: boolean
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          owner_id: string
+          reply_id: string
+          request_id: string
+          role: string
+          state: string
+          thread_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          owner_id: string
+          reply_id?: string
+          request_id: string
+          role: string
+          state?: string
+          thread_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          reply_id?: string
+          request_id?: string
+          role?: string
+          state?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "ai_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_threads: {
+        Row: {
+          book_id: string
+          created_at: string
+          deleted_at: string | null
+          edition_id: string | null
+          id: string
+          owner_id: string
+          title: string
+          tool: string
+          updated_at: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          deleted_at?: string | null
+          edition_id?: string | null
+          id?: string
+          owner_id: string
+          title?: string
+          tool: string
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          edition_id?: string | null
+          id?: string
+          owner_id?: string
+          title?: string
+          tool?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_threads_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_threads_edition_id_fkey"
+            columns: ["edition_id"]
+            isOneToOne: false
+            referencedRelation: "book_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analytics_events: {
         Row: {
           anon_id: string | null
@@ -894,6 +1055,51 @@ export type Database = {
             foreignKeyName: "book_imports_book_version_id_fkey"
             columns: ["book_version_id"]
             isOneToOne: false
+            referencedRelation: "book_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      book_production_drafts: {
+        Row: {
+          book_id: string
+          created_at: string
+          owner_id: string
+          revision: number
+          settings: Json
+          updated_at: string
+          version_id: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          owner_id: string
+          revision?: number
+          settings: Json
+          updated_at?: string
+          version_id: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          owner_id?: string
+          revision?: number
+          settings?: Json
+          updated_at?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_production_drafts_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "book_production_drafts_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: true
             referencedRelation: "book_versions"
             referencedColumns: ["id"]
           },
@@ -3606,6 +3812,138 @@ export type Database = {
         }
         Relationships: []
       }
+      usage_daily: {
+        Row: {
+          cost_usd_sum: number
+          day: string
+          event_count: number
+          pipeline: string
+          provider: string
+          quantity_sum: number
+          unit: string
+          user_id: string
+        }
+        Insert: {
+          cost_usd_sum?: number
+          day: string
+          event_count?: number
+          pipeline?: string
+          provider?: string
+          quantity_sum?: number
+          unit: string
+          user_id: string
+        }
+        Update: {
+          cost_usd_sum?: number
+          day?: string
+          event_count?: number
+          pipeline?: string
+          provider?: string
+          quantity_sum?: number
+          unit?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usage_events: {
+        Row: {
+          book_id: string | null
+          cost_usd: number | null
+          id: string
+          job_id: string | null
+          kind: string
+          meta: Json
+          model: string | null
+          occurred_at: string
+          pipeline: string | null
+          price_version: string | null
+          provider: string | null
+          quantity: number
+          request_id: string | null
+          unit: string
+          user_id: string
+        }
+        Insert: {
+          book_id?: string | null
+          cost_usd?: number | null
+          id?: string
+          job_id?: string | null
+          kind: string
+          meta?: Json
+          model?: string | null
+          occurred_at?: string
+          pipeline?: string | null
+          price_version?: string | null
+          provider?: string | null
+          quantity?: number
+          request_id?: string | null
+          unit: string
+          user_id: string
+        }
+        Update: {
+          book_id?: string | null
+          cost_usd?: number | null
+          id?: string
+          job_id?: string | null
+          kind?: string
+          meta?: Json
+          model?: string | null
+          occurred_at?: string
+          pipeline?: string | null
+          price_version?: string | null
+          provider?: string | null
+          quantity?: number
+          request_id?: string | null
+          unit?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_events_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "ai_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usage_price_book: {
+        Row: {
+          effective_from: string
+          effective_to: string | null
+          model: string
+          provider: string
+          unit: string
+          usd_per_unit: number
+          version: string
+        }
+        Insert: {
+          effective_from?: string
+          effective_to?: string | null
+          model: string
+          provider: string
+          unit: string
+          usd_per_unit: number
+          version: string
+        }
+        Update: {
+          effective_from?: string
+          effective_to?: string | null
+          model?: string
+          provider?: string
+          unit?: string
+          usd_per_unit?: number
+          version?: string
+        }
+        Relationships: []
+      }
       user_activity: {
         Row: {
           active_days_30: number
@@ -3852,9 +4190,52 @@ export type Database = {
       }
     }
     Functions: {
+      ai_complete_request: {
+        Args: { p_content: string; p_request_id: string; p_thread_id: string }
+        Returns: Json
+      }
+      ai_delete_thread: {
+        Args: { p_book_id: string; p_thread_id: string }
+        Returns: boolean
+      }
+      ai_owns_scope: {
+        Args: { p_book_id: string; p_edition_id: string; p_owner_id: string }
+        Returns: boolean
+      }
+      ai_reserve_request: {
+        Args: {
+          p_book_id: string
+          p_content: string
+          p_edition_id?: string
+          p_request_id: string
+          p_thread_id?: string
+          p_tool: string
+        }
+        Returns: Json
+      }
       can_view_book: {
         Args: { book_id: string; viewer_id: string }
         Returns: boolean
+      }
+      commit_reviewed_translation: {
+        Args: {
+          p_author_id: string
+          p_book_id: string
+          p_chapters: Json
+          p_claim_marker: string
+          p_claim_revision: string
+          p_expected_source: Json
+          p_expected_target: Json
+          p_final_report: Json
+          p_job_id: string
+          p_job_revision: string
+          p_overwrite: boolean
+          p_scope: string
+          p_source_revision: string
+          p_source_version_id: string
+          p_target_version_id: string
+        }
+        Returns: Json
       }
       dm_consume_rate_limit: {
         Args: { p_max?: number; p_sender_id: string; p_window_seconds?: number }
@@ -3880,6 +4261,32 @@ export type Database = {
           p_user_id: string
         }
         Returns: boolean
+      }
+      has_book_entitlement: {
+        Args: { p_book_id: string; p_chapter_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      is_book_club_member: {
+        Args: { p_club_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      owns_book_production_artwork: {
+        Args: { object_name: string }
+        Returns: boolean
+      }
+      owns_book_production_edition: {
+        Args: { p_book_id: string; p_version_id: string }
+        Returns: boolean
+      }
+      policy_inventory: {
+        Args: { p_table: string }
+        Returns: {
+          cmd: string
+          permissive: string
+          policyname: string
+          qual: string
+          roles: string[]
+        }[]
       }
       refresh_book_audiobook_status: {
         Args: { p_book_id: string }

@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ElevenLabsTtsProvider } from "./elevenlabs-tts-provider";
 
+const recordUsageMock = vi.fn();
+vi.mock("@/lib/usage/meter", () => ({
+  recordUsage: (...args: unknown[]) => recordUsageMock(...args),
+}));
+
 const originalFetch = globalThis.fetch;
 const ORIGINAL_ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ORIGINAL_ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID;
@@ -86,5 +91,76 @@ describe("ElevenLabsTtsProvider", () => {
       expect(message).toContain("ElevenLabs TTS API error 401");
       expect(message).not.toContain("super-secret-key");
     }
+  });
+});
+
+describe("ElevenLabsTtsProvider metering", () => {
+  const savedFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.ELEVENLABS_API_KEY = "super-secret-key";
+    process.env.ELEVENLABS_VOICE_ID = "voice-env";
+    process.env.ELEVENLABS_MODEL_ID = "eleven_multilingual_v2";
+    process.env.ELEVENLABS_OUTPUT_FORMAT = "mp3_44100_128";
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      arrayBuffer: async () => new ArrayBuffer(128),
+    })) as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = savedFetch;
+  });
+
+  it("records characters sent, which is the unit ElevenLabs bills", async () => {
+    const text = "a".repeat(8_120);
+    await new ElevenLabsTtsProvider().synthesize(text, {
+      language: "sv",
+      voiceId: "voice-1",
+      modelId: "eleven_multilingual_v2",
+      timeoutMs: 1_000,
+      meter: { userId: "user-1", pipeline: "tts", bookId: "book-1" },
+    });
+    const [ctx, events] = recordUsageMock.mock.calls[0];
+    expect(ctx).toMatchObject({ userId: "user-1", pipeline: "tts", bookId: "book-1" });
+    expect(events).toEqual([
+      {
+        kind: "ai_call",
+        provider: "elevenlabs",
+        model: "eleven_multilingual_v2",
+        quantity: 8_120,
+        unit: "chars",
+      },
+    ]);
+  });
+
+  it("records nothing when no meter context is supplied", async () => {
+    await new ElevenLabsTtsProvider().synthesize("hej", {
+      language: "sv",
+      voiceId: "voice-1",
+      modelId: "eleven_multilingual_v2",
+      timeoutMs: 1_000,
+    });
+    expect(recordUsageMock).not.toHaveBeenCalled();
+  });
+
+  it("does not record anything when the request fails, since nothing was billed", async () => {
+    globalThis.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 429,
+      text: async () => "rate limited",
+    })) as unknown as typeof fetch;
+    await expect(
+      new ElevenLabsTtsProvider().synthesize("hej", {
+        language: "sv",
+        voiceId: "voice-1",
+        modelId: "eleven_multilingual_v2",
+        timeoutMs: 1_000,
+        meter: { userId: "user-1", pipeline: "tts" },
+      })
+    ).rejects.toThrow();
+    expect(recordUsageMock).not.toHaveBeenCalled();
   });
 });

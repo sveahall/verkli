@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OpenAiError, callOpenAi, isOpenAiConfigured } from "./openai";
 
+const recordUsageMock = vi.fn();
+vi.mock("@/lib/usage/meter", () => ({
+  recordUsage: (...args: unknown[]) => recordUsageMock(...args),
+}));
+
 const ok = (payload: unknown) => ({ ok: true, status: 200, json: async () => payload });
 const messagePayload = (text: string) => ({
   status: "completed",
@@ -128,5 +133,73 @@ describe("callOpenAi", () => {
     await expect(callOpenAi({ system: "s", user: "u", maxTokens: 10 })).rejects.toThrow(
       /OPENAI_API_KEY/
     );
+  });
+});
+
+describe("callOpenAi metering", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubEnv("OPENAI_API_KEY", "sk-test");
+    vi.stubEnv("OPENAI_MODEL", "");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("records input and output tokens as two separate events", async () => {
+    fetchMock.mockResolvedValue(
+      ok({ ...messagePayload("hi"), usage: { input_tokens: 1200, output_tokens: 340 } })
+    );
+    await callOpenAi({
+      system: "s",
+      user: "u",
+      maxTokens: 100,
+      meter: { userId: "user-1", pipeline: "editorial" },
+    });
+    const [ctx, events] = recordUsageMock.mock.calls[0];
+    expect(ctx).toMatchObject({ userId: "user-1", pipeline: "editorial" });
+    expect(events).toEqual([
+      { kind: "ai_call", provider: "openai", model: "gpt-6-astra", quantity: 1200, unit: "input_tokens" },
+      { kind: "ai_call", provider: "openai", model: "gpt-6-astra", quantity: 340, unit: "output_tokens" },
+    ]);
+  });
+
+  it("records nothing when no meter context is supplied", async () => {
+    fetchMock.mockResolvedValue(
+      ok({ ...messagePayload("hi"), usage: { input_tokens: 5, output_tokens: 5 } })
+    );
+    await callOpenAi({ system: "s", user: "u", maxTokens: 100 });
+    expect(recordUsageMock).not.toHaveBeenCalled();
+  });
+
+  it("flags a reply carrying no usage block instead of recording silent zeros", async () => {
+    fetchMock.mockResolvedValue(ok(messagePayload("hi")));
+    await callOpenAi({
+      system: "s",
+      user: "u",
+      maxTokens: 100,
+      meter: { userId: "user-1", pipeline: "editorial" },
+    });
+    const [, events] = recordUsageMock.mock.calls[0];
+    expect(events[0].meta).toMatchObject({ usage_missing: true });
+  });
+
+  it("bills the configured model, not the default, when one is set", async () => {
+    vi.stubEnv("OPENAI_MODEL", "gpt-6-astra-mini");
+    fetchMock.mockResolvedValue(
+      ok({ ...messagePayload("hi"), usage: { input_tokens: 10, output_tokens: 2 } })
+    );
+    await callOpenAi({
+      system: "s",
+      user: "u",
+      maxTokens: 100,
+      meter: { userId: "user-1", pipeline: "assistant" },
+    });
+    const [, events] = recordUsageMock.mock.calls[0];
+    expect(events[0].model).toBe("gpt-6-astra-mini");
   });
 });

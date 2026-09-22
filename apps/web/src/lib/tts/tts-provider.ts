@@ -4,6 +4,8 @@
  * The audiobook worker calls `synthesize()` on the provider.
  */
 
+import type { MeterContext } from "@/lib/usage/types";
+
 export type TtsSynthesisResult = {
   /** Raw audio buffer */
   wav: Buffer;
@@ -24,6 +26,8 @@ export type TtsSynthesisOptions = {
   modelId: string;
   /** Timeout in ms for this synthesis call */
   timeoutMs: number;
+  /** When present, character spend is billed to this user. Absent = not measured. */
+  meter?: MeterContext;
 };
 
 export interface TtsProvider {
