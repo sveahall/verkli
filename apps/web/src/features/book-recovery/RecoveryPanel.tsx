@@ -1,18 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RotateCcw, Trash2 } from "lucide-react";
 import type { RecoveryAdapter, RecoveryItem } from "./contracts";
 
 export default function RecoveryPanel({ adapter }: { adapter: RecoveryAdapter }) {
+  const context = useMemo(() => ({ adapter }), [adapter]);
   const [items, setItems] = useState<RecoveryItem[]>([]);
   const [selected, setSelected] = useState<RecoveryItem | null>(null);
   const [loading, setLoading] = useState(true);
-  const [restoring, setRestoring] = useState(false);
+  const [restoringContext, setRestoringContext] = useState<typeof context | null>(null);
+  const restoring = restoringContext === context;
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState<{ context: typeof context; text: string } | null>(null);
   const generation = useRef(0);
-  const inFlight = useRef(false);
+  const inFlight = useRef<{ context: typeof context } | null>(null);
   const load = useCallback(async () => {
     const request = ++generation.current;
     setLoading(true); setError(""); setSelected(null); setItems([]);
@@ -28,21 +30,26 @@ export default function RecoveryPanel({ adapter }: { adapter: RecoveryAdapter })
   useEffect(() => { void load(); return () => { generation.current += 1; }; }, [load]);
 
   async function restore() {
-    if (!selected || inFlight.current) return;
+    if (!selected || inFlight.current?.context === context) return;
     const expected = selected;
     const request = generation.current;
-    inFlight.current = true; setRestoring(true); setError(""); setNotice("");
+    const operation = { context };
+    inFlight.current = operation; setRestoringContext(context); setError(""); setNotice(null);
     try {
       await adapter.restore(expected);
       if (request !== generation.current) return;
-      setNotice(`“${expected.title}” restored as a private draft. Existing content was kept.`);
+      setNotice({ context, text: `“${expected.title}” restored as a private draft. Existing content was kept.` });
       await load();
     } catch (cause) {
       if (request === generation.current) {
         setError(cause instanceof Error ? cause.message : "Could not restore this item. Reload the trash and try again.");
         setSelected(null);
       }
-    } finally { inFlight.current = false; setRestoring(false); }
+    } finally {
+      if (inFlight.current === operation) {
+        inFlight.current = null; setRestoringContext(null);
+      }
+    }
   }
 
   return (
@@ -55,11 +62,11 @@ export default function RecoveryPanel({ adapter }: { adapter: RecoveryAdapter })
         <button type="button" onClick={() => void load()} disabled={loading || restoring} className="rounded-xl border border-border px-4 py-3 text-sm disabled:opacity-50">Reload trash</button>
       </header>
       {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">{error}</p>}
-      {notice && <p role="status" className="rounded-xl bg-primary/10 p-4 text-sm">{notice}</p>}
+      {notice?.context === context && <p role="status" className="rounded-xl bg-primary/10 p-4 text-sm">{notice.text}</p>}
       {loading ? <p role="status">Loading removed manuscripts…</p> : items.length === 0 && !error ? <div className="rounded-2xl bg-muted/40 p-8"><h2 className="font-semibold">Your trash is empty</h2><p className="mt-2 text-sm text-muted-foreground">There are no recoverable books or chapters in this account. Permanently deleted items cannot be recovered here.</p></div> : (
         <div className="grid gap-5 md:grid-cols-2">
           <ul className="space-y-3" aria-label="Removed manuscripts">{items.map((item) => (
-            <li key={item.id}><button type="button" disabled={restoring} onClick={() => { setSelected(item); setError(""); setNotice(""); }} aria-pressed={selected?.id === item.id} className={`w-full rounded-2xl border p-4 text-left disabled:opacity-50 ${selected?.id === item.id ? "border-primary bg-primary/5" : "border-border"}`}>
+            <li key={item.id}><button type="button" disabled={restoring} onClick={() => { setSelected(item); setError(""); setNotice(null); }} aria-pressed={selected?.id === item.id} className={`w-full rounded-2xl border p-4 text-left disabled:opacity-50 ${selected?.id === item.id ? "border-primary bg-primary/5" : "border-border"}`}>
               <span className="text-xs uppercase tracking-wide text-muted-foreground">{item.kind} · {item.edition}</span>
               <span className="mt-1 block font-semibold">{item.title}</span>
               {item.kind === "chapter" && <span className="block text-sm text-muted-foreground">{item.bookTitle}</span>}
