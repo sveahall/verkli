@@ -9,6 +9,9 @@ const COMMON_WORDS: Record<SupportedLanguage, string[]> = {
   pt: ["o", "a", "os", "as", "e", "de", "que", "não", "para", "uma", "com"],
   sv: ["och", "det", "att", "som", "inte", "är", "en", "ett", "på", "med", "för", "har"],
   ru: ["и", "в", "не", "на", "что", "он", "как", "это", "она", "по", "но"],
+  // New text editions use their explicit language metadata; no new heuristic claim.
+  nl: [],
+  pl: [],
   zh: [],
   ja: [],
   ko: [],

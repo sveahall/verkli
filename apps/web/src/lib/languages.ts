@@ -1,9 +1,10 @@
 /**
- * Central language config – single source of truth for supported languages.
+ * Central language config – single source of truth for supported text languages.
+ * Text availability is not an audio capability or human quality approval.
  * Used for UI labels, SEO text, and normalizing book.language.
  */
 
-export const SUPPORTED_LANGUAGE_CODES = ["en", "es", "fr", "de", "it", "pt", "sv", "ru", "zh", "ja", "ko", "ar"] as const;
+export const SUPPORTED_LANGUAGE_CODES = ["en", "es", "fr", "de", "it", "pt", "sv", "ru", "zh", "ja", "ko", "ar", "nl", "pl"] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGE_CODES)[number];
 
 const DISPLAY_NAMES: Record<SupportedLanguage, string> = {
@@ -19,6 +20,8 @@ const DISPLAY_NAMES: Record<SupportedLanguage, string> = {
   ja: "Japanese",
   ko: "Korean",
   ar: "Arabic",
+  nl: "Dutch",
+  pl: "Polish",
 };
 
 const SEO_LABELS: Record<SupportedLanguage, string> = {
@@ -34,6 +37,8 @@ const SEO_LABELS: Record<SupportedLanguage, string> = {
   ja: "in Japanese",
   ko: "in Korean",
   ar: "in Arabic",
+  nl: "in Dutch",
+  pl: "in Polish",
 };
 
 export function isSupportedLanguage(code: string): code is SupportedLanguage {
