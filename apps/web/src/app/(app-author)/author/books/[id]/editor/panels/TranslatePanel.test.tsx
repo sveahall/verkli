@@ -13,6 +13,12 @@ const props: React.ComponentProps<typeof TranslatePanel> = {
 const paneProps = { targetLanguage: "sv" as const, originalPreview: "The book opening.", translationPreview: "", loadingPreview: false, previewUnavailable: false, previewError: null, onRetry: vi.fn() };
 
 describe("translation workspace", () => {
+  it("offers saved comparison without an automatic paid preview", () => {
+    const html = renderToStaticMarkup(<TranslatePanel {...props} />);
+    expect(html).toContain("Open saved translation");
+    expect(html).toContain("Generate opening preview");
+    expect(html).toContain("No new translation or charge");
+  });
   it("keeps full book, chapter and batch actions distinct", () => {
     const html = renderToStaticMarkup(<TranslatePanel {...props} />);
     expect(html).toContain('aria-label="Translation scope"');
