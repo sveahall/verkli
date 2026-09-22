@@ -1,6 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
+
+// The sweeper runs one pass on start; stub the queue read so the test does
+// not need a database to assert that it announced itself.
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({ from: () => ({ select: () => ({ not: () => ({ lt: () => ({ is: () => ({ limit: async () => ({ data: [], error: null }) }) }) }) }) }) }),
+}));
 
 /**
  * `start-workers.ts` is not what production runs. Railway boots one service per
@@ -44,5 +50,28 @@ describe("account deletion sweeper wiring", () => {
         `Booted scripts: ${booted.join(", ")}. Account deletion requests would be ` +
         `accepted by the API and never carried out.`
     ).not.toHaveLength(0);
+  });
+});
+
+describe("account deletion sweeper visibility", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  /**
+   * The usage scheduler logs "scheduled for 3:00 UTC" on start. This one did
+   * not, which made a running sweeper and a sweeper nobody wired up look
+   * identical in production logs — for the one process the settings page's
+   * promise depends on.
+   */
+  it("says on start that it is running, and with what grace window", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const { startAccountDeletionSweeper, stopAccountDeletionSweeper } = await import("./sweeper");
+    const { DELETION_GRACE_DAYS } = await import("./teardown");
+    try {
+      startAccountDeletionSweeper();
+      expect(log).toHaveBeenCalledWith(expect.stringContaining("[account.teardown]"));
+      expect(log).toHaveBeenCalledWith(expect.stringContaining(String(DELETION_GRACE_DAYS)));
+    } finally {
+      stopAccountDeletionSweeper();
+    }
   });
 });
