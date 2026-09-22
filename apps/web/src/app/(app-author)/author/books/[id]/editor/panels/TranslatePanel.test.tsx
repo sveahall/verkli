@@ -37,7 +37,12 @@ describe("translation workspace", () => {
     expect(html).toMatch(/aria-label="Translate to Swedish" checked=""/);
     expect(html).not.toMatch(/disabled="" aria-label="Translate to Swedish"/);
     expect(html).toContain("Original language");
-    expect(html).toContain("Not available");
+    // The card's other unavailable label, "Not available", is unreachable since
+    // d4ddc985 broadened the pair matrix: all 272 source/target combinations of
+    // the 17 supported languages now resolve to a provider, so the only
+    // unavailable language a card can render is the source itself. The branch is
+    // kept in the component as a guard for a provider being removed; asserting
+    // on it here only pinned the test to a matrix that has changed.
   });
   it("shows retry for a failed preview while preserving the original", () => {
     const html = renderToStaticMarkup(<TranslatePreviewPanes {...paneProps} previewError="Couldn’t connect." />);
