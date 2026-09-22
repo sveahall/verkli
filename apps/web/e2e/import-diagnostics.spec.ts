@@ -11,11 +11,11 @@ test("uses the author's exact reference for every admin status snapshot", async 
   await page.keyboard.press("Escape");
   await page.getByLabel("Import reference", { exact: true }).fill(id);
   const panel = page.getByRole("region", { name: "Import diagnostics" });
-  for (const state of ["queued", "running", "completed", "failed"]) {
+  for (const state of ["queued", "extracting", "running", "completed", "failed"]) {
     await page.getByLabel("Fixture state").selectOption(state);
     await page.getByRole("button", { name: "Find import", exact: true }).click();
     await expect(panel.getByText(`Support reference: ${id}`)).toBeVisible();
-    await expect(panel.locator("dd").first()).toContainText(({ queued: "Queued", running: "Processing", completed: "Completed", failed: "Failed" })[state]!);
+    await expect(panel.locator("dd").first()).toContainText(({ queued: "Queued", extracting: "Extracting", running: "Processing", completed: "Completed", failed: "Failed" })[state]!);
   }
 });
 test("distinguishes absent queue, unavailable queue, conflict and lookup error", async ({ page }) => {

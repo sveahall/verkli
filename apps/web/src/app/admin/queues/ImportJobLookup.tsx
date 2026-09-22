@@ -11,7 +11,7 @@ const lookupImport: ImportLookup = async (id) => {
   return body;
 };
 const labels: Record<string, string> = {
-  pending: "Queued", queued: "Queued", processing: "Processing", running: "Processing", active: "Processing",
+  pending: "Queued", queued: "Queued", extracting: "Extracting", processing: "Processing", running: "Processing", active: "Processing",
   waiting: "Waiting", delayed: "Waiting to retry", completed: "Completed", failed: "Failed", paused: "Paused",
   prioritized: "Waiting", "waiting-children": "Waiting for child jobs", unknown: "Unknown",
 };

@@ -30,7 +30,7 @@ export default function ImportDiagnosticsPreview() {
     <h1 className="text-2xl font-semibold">Import diagnostics · local fixture</h1>
     <p className="my-3 text-sm text-muted-foreground">Synthetic status only. No file import, database, Redis or provider calls. Reference: <code>{id}</code></p>
     <div className="flex flex-wrap items-center gap-3">
-      <label>Fixture state <select className="min-h-11 rounded-lg border border-border bg-background px-3" value={scenario} onChange={(event) => { currentScenario.current = event.target.value; setScenario(event.target.value); }}>{["queued", "running", "completed", "failed", "missing", "unavailable", "mismatch", "reverse-mismatch", "error"].map((value) => <option key={value}>{value}</option>)}</select></label>
+      <label>Fixture state <select className="min-h-11 rounded-lg border border-border bg-background px-3" value={scenario} onChange={(event) => { currentScenario.current = event.target.value; setScenario(event.target.value); }}>{["queued", "extracting", "running", "completed", "failed", "missing", "unavailable", "mismatch", "reverse-mismatch", "error"].map((value) => <option key={value}>{value}</option>)}</select></label>
       <button className="btn-secondary min-h-11" onClick={() => { slow.current = true; }}>Delay next lookup</button>
       <button className="btn-secondary min-h-11" disabled={!ready} onClick={() => setOpen(true)}>Author import status</button>
     </div>
@@ -44,8 +44,8 @@ export default function ImportDiagnosticsPreview() {
       if (state === "reverse-mismatch") return { ...base, status: "completed", progress: 100, queue: { availability: "available", state: "active", attemptsMade: 1 } };
       if (state === "mismatch") return { ...base, queue: { availability: "available", state: "completed", attemptsMade: 2 } };
       const status = state === "queued" ? "pending" : state === "running" ? "processing" : state;
-      return { ...base, status, progress: state === "completed" ? 100 : state === "running" ? 50 : 0,
-        queue: { availability: "available", state: state === "queued" ? "waiting" : state === "running" ? "active" : state, attemptsMade: ["completed", "failed"].includes(state) ? 2 : 0 } };
+      return { ...base, status, progress: state === "completed" ? 100 : ["extracting", "running"].includes(state) ? 50 : 0,
+        queue: { availability: "available", state: state === "queued" ? "waiting" : ["extracting", "running"].includes(state) ? "active" : state, attemptsMade: ["completed", "failed"].includes(state) ? 2 : 0 } };
     }} />
     {ready && <ImportBookModal open={open} onClose={() => setOpen(false)} />}
   </main>;

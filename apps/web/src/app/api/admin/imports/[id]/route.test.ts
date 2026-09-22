@@ -48,6 +48,16 @@ describe("admin import diagnostics", () => {
     mocks.queue.mockResolvedValue({ availability: "missing", state: null, attemptsMade: null });
     expect((await run()).status).toBe(200);
   });
+  it("preserves the worker's extracting status", async () => {
+    query.maybeSingle.mockResolvedValue({ data: { ...row, status: "extracting", progress: 30 }, error: null });
+    expect(await (await run()).json()).toMatchObject({ status: "extracting", progress: 30 });
+  });
+  it.each(["abcdefab-cdef-4abc-8def-abcdefabcdef", "ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF"])("uses the canonical database ID for queue lookup with %s", async (reference) => {
+    const canonicalId = reference.toLowerCase();
+    query.maybeSingle.mockResolvedValue({ data: { ...row, id: canonicalId }, error: null });
+    expect(await (await run(reference)).json()).toMatchObject({ id: canonicalId });
+    expect(mocks.queue).toHaveBeenCalledWith(canonicalId);
+  });
   it("does not expose unexpected status values or database error contents", async () => {
     query.maybeSingle.mockResolvedValue({ data: { ...row, status: "private text", progress: Infinity }, error: null });
     expect(await (await run()).json()).toMatchObject({ status: "unknown", progress: null });

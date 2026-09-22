@@ -7,7 +7,7 @@ import { loadImportQueueDiagnostic } from "@/lib/queues/import-diagnostics";
 
 const limiter = createPerUserRateLimiter({ name: "admin-import-diagnostics", maxPerMinute: 30 });
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
-const statuses = new Set(["pending", "queued", "processing", "running", "completed", "failed"]);
+const statuses = new Set(["pending", "queued", "extracting", "processing", "running", "completed", "failed"]);
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdminRoleForApi();
@@ -22,7 +22,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!row) return json({ error: "No import found for this reference." }, 404);
     return json({ id: row.id, status: statuses.has(row.status) ? row.status : "unknown",
       progress: Number.isFinite(row.progress) ? Math.max(0, Math.min(100, row.progress)) : null,
-      createdAt: row.created_at, updatedAt: row.updated_at, queue: await loadImportQueueDiagnostic(id) });
+      createdAt: row.created_at, updatedAt: row.updated_at, queue: await loadImportQueueDiagnostic(row.id) });
   } catch {
     console.error("[admin import diagnostics] lookup unavailable", { importId: id });
     return json({ error: "Import diagnostics are unavailable. Try again." }, 503);
