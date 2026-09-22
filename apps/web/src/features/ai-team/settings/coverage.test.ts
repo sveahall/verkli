@@ -12,6 +12,8 @@ const GATED_ROUTES = [
   "books/[id]/editorial/review",
   "books/[id]/audiobook/preview",
   "books/[id]/audiobook/generate",
+  // Checkout takes payment for narration that `generate` would then refuse.
+  "books/[id]/audiobook/checkout",
   "books/[id]/translate",
   "books/[id]/translation-preview",
   "books/[id]/translation-quality",
