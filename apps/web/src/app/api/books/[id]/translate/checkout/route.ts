@@ -110,9 +110,6 @@ export async function POST(
       requestedSourceVersionId: sourceVersionId,
       requestedSourceLanguage: typeof body.sourceLanguage === "string" ? body.sourceLanguage : null,
     })
-    // Through the same normaliser as the other two sources. This one comes
-    // straight from the database, so "SV" or "sv_SE" would otherwise reach
-    // isTranslationPairSupported unrecognised and be refused as unsupported.
     sourceLanguage = normalizeLanguageOrNull(sourceContext.sourceLanguage)
   }
 
