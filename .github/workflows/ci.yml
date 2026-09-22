@@ -57,6 +57,8 @@ jobs:
 
       - run: npm ci
 
+      - run: npm run check:no-prisma
+
       - run: npm run lint
 
       # -p is required: the meaningful tsconfig is apps/web's, and the root one
