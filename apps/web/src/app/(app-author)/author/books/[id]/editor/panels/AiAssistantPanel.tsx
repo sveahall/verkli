@@ -43,7 +43,7 @@ const contextSchema = z.object({ chapterId: z.string().nullable(), chapterText: 
  * tool only becomes agentic once it has tools worth having.
  */
 const AGENTIC_TOOLS = new Set(["edit", "cover"]);
-type PlanEntry = { planId: string; plan: Plan; stats: PlanStats; state: PlanState };
+type PlanEntry = { planId: string; plan: Plan; stats: PlanStats; stoppedBecause?: string; state: PlanState };
 function storedApplyResult(json: unknown): { outcomes: PlanOutcome[]; changed: number } | null {
   if (!json || typeof json !== "object" || !("outcomes" in json) || !Array.isArray(json.outcomes)) return null;
   const outcomes: PlanOutcome[] = [];
@@ -62,6 +62,10 @@ function storedApplyResult(json: unknown): { outcomes: PlanOutcome[]; changed: n
     ? json.changed
     : outcomes.reduce((total, outcome) => total + (outcome.changed ?? 0), 0);
   return { outcomes, changed };
+}
+
+function wroteSomething(outcomes: { status: string }[] | null | undefined, changed: number): boolean {
+  return changed > 0 || Boolean(outcomes?.some((outcome) => outcome.status === "applied"));
 }
 
 const ACTION_PROMPTS: Partial<Record<InlineAiAction, string>> = {
@@ -152,7 +156,7 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
         const messageId = typeof json.id === "string" ? json.id : crypto.randomUUID();
         if (typeof json.threadId === "string") memory.rememberReply(json.threadId, value);
         if (typeof json.planId === "string" && json.plan) {
-          setPlans((previous) => ({ ...previous, [`${threadKey}:${messageId}`]: { planId: json.planId, plan: json.plan, stats: json.stats, state: {} } }));
+          setPlans((previous) => ({ ...previous, [`${threadKey}:${messageId}`]: { planId: json.planId, plan: json.plan, stats: json.stats, stoppedBecause: typeof json.stoppedBecause === "string" ? json.stoppedBecause : undefined, state: {} } }));
         }
         updateThread(threadKey, (previous) => ({ ...previous, lastMessageChange: performance.now(), messages: [...previous.messages, {
           id: messageId, role: "assistant",
@@ -240,7 +244,7 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
     const requestKey = `plan:${key}`;
     if (inFlight.current.has(requestKey)) return;
     const entry = plans[key];
-    if (!entry || entry.state.pending || entry.state.outcomes || entry.state.alreadyApplied || settledPlans.current.has(entry.planId)) return;
+    if (!entry || entry.state.pending || entry.state.outcomes || entry.state.alreadyApplied || entry.state.expired || settledPlans.current.has(entry.planId)) return;
     const controller = new AbortController();
     inFlight.current.set(requestKey, controller);
     setPlans((previous) => {
@@ -272,8 +276,22 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
         const stored = storedApplyResult(json);
         showApplied(
           stored ? { outcomes: stored.outcomes, changed: stored.changed } : { alreadyApplied: true },
-          !stored || stored.changed > 0,
+          !stored || wroteSomething(stored.outcomes, stored.changed),
         );
+        return;
+      }
+      // 410 will never succeed on a retry: the positions were measured against
+      // older chapter text. Leave the card without a Run button.
+      if (response.status === 410) {
+        settledPlans.current.add(entry.planId);
+        if (mounted.current) setPlans((previous) => {
+          const current = previous[key];
+          if (!current || current.state.outcomes || current.state.alreadyApplied) return previous;
+          return { ...previous, [key]: { ...current, state: {
+            expired: true,
+            error: typeof json?.message === "string" ? json.message : "This plan is too old to apply safely. Ask for a fresh one.",
+          } } };
+        });
         return;
       }
       if (!response.ok) {
@@ -303,11 +321,11 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
           return { ...outcome, status: "failed", detail: error instanceof Error ? error.message : "Cover options could not be generated." };
         }
       }));
-      showApplied({ outcomes, changed: json?.changed ?? 0 }, Boolean(json?.changed));
+      showApplied({ outcomes, changed: json?.changed ?? 0 }, wroteSomething(outcomes, json?.changed ?? 0));
     } catch (error) {
       if (mounted.current) setPlans((previous) => {
         const current = previous[key];
-        if (!current || current.state.outcomes || current.state.alreadyApplied) return previous;
+        if (!current || current.state.outcomes || current.state.alreadyApplied || current.state.expired) return previous;
         return { ...previous, [key]: { ...current, state: {
           error: error instanceof Error && error.name !== "AbortError" ? error.message : "This took too long. Reload the chapter to see whether any of it was applied.",
         } } };
@@ -351,7 +369,7 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
           const id = `${threadKey}:${message.id}:${index}`;
           return <AgentProposalCard key={id} action={action} state={results[id]} onExecute={() => { void execute(id, action, message.context!); }} />;
         })}
-        {planned && <AgentPlanCard plan={planned.plan} stats={planned.stats} state={planned.state}
+        {planned && <AgentPlanCard plan={planned.plan} stats={planned.stats} stoppedBecause={planned.stoppedBecause} state={planned.state}
           onApply={(selection) => { void applyPlan(planKey, selection); }}
           onDismiss={() => setPlans((previous) => { const next = { ...previous }; delete next[planKey]; return next; })} />}
       </div>;

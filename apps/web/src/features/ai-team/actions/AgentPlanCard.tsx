@@ -147,9 +147,11 @@ export function planSelection(plan: Plan, ticked: Set<string>, dropped: Set<stri
   return { stepIds: steps.map((step) => step.id), matchIds: [...ticked] };
 }
 
-export default function AgentPlanCard({ plan, stats, state, onApply, onDismiss }: {
+export default function AgentPlanCard({ plan, stats, stoppedBecause, state, onApply, onDismiss }: {
   plan: Plan;
   stats: PlanStats;
+  /** Anything but "finished" means the agent stopped early, so the plan is partial. */
+  stoppedBecause?: string;
   state?: PlanState;
   onApply: (selection: { stepIds: string[]; matchIds: string[] }) => void;
   onDismiss: () => void;
@@ -211,6 +213,14 @@ export default function AgentPlanCard({ plan, stats, state, onApply, onDismiss }
   return (
     <section className={styles.proposal} aria-label="Plan awaiting your approval">
       <h4>{heading}</h4>
+      {stoppedBecause && stoppedBecause !== "finished" && (
+        // The agent ran out of room rather than out of work. Said here and not
+        // left to the summary, for the same reason as the search cap: the
+        // author cannot otherwise tell a finished plan from an interrupted one.
+        <p className={styles.meta} role="status">
+          I stopped before I had finished looking, so there may be more. Run this, then ask me to continue.
+        </p>
+      )}
       {stats.truncated && (
         // The search stopped at its cap, so this plan covers part of the book.
         // Saying so here rather than hoping the agent mentioned it: an author
