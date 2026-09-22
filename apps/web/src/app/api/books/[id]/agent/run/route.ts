@@ -87,6 +87,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const result = await runAgent({ book, message: body.data.message, tool: body.data.tool });
+
+    // The one place a run's real cost is visible. A book-wide search re-sends
+    // the conversation every turn, so input tokens compound in a way a single
+    // chat reply never does, and until the per-user usage ledger on
+    // feat/usage-metering lands and this call can take a `meter` context, a log
+    // line is the only thing standing between that and an invisible bill.
+    console.info("[agent.run] finished", {
+      bookId: book.bookId,
+      tool: body.data.tool,
+      chapters: book.chapters.length,
+      turns: result.turns,
+      steps: result.plan.steps.length,
+      stoppedBecause: result.stoppedBecause,
+      inputTokens: result.usage.inputTokens,
+      outputTokens: result.usage.outputTokens,
+    });
     if (threadId && conversation) await completeTurn(supabase, threadId, conversation.requestId, result.summary);
 
     if (!result.plan.steps.length) {
