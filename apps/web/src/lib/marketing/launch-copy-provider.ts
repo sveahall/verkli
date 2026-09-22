@@ -1,5 +1,8 @@
+import { checkBudget, validateJobCost, BudgetExceededError, JobCostExceededError } from "@/lib/workers/budget";
 import { createMarketingWork, estimateMarketingUnits, anthropicMarketingUsage, MarketingWorkError } from "./model-work";
 import type { MarketingWork } from "./model-work";
+import { recordUsage } from "@/lib/usage/meter";
+import type { MeterContext } from "@/lib/usage/types";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { getLanguageLabel } from "@/lib/languages";
@@ -9,6 +12,8 @@ import { canRunLaunchCopyCritic, generateLaunchCopyWithCritic } from "./critique
 
 export type LaunchCopyInput = {
   authorId: string;
+  /** When present, draft and critic token spend are billed to this user. */
+  meter?: MeterContext;
   title: string;
   description: string | null;
   language: string;
@@ -88,7 +93,7 @@ async function generateLaunchCopyUnchecked(input: LaunchCopyInput, work: Marketi
   const criticEnabled = isAiCriticEnabled() && canRunLaunchCopyCritic();
   if (criticEnabled) {
     try {
-      return await generateLaunchCopyWithCritic({ system, content, parse, work });
+      return await generateLaunchCopyWithCritic({ system, content, parse, work, meter: input.meter });
     } catch (error) {
       if (error instanceof MarketingWorkError) throw error;
       console.warn("[marketing generate] critic pass failed, falling back to single model");
@@ -107,6 +112,17 @@ async function generateLaunchCopyUnchecked(input: LaunchCopyInput, work: Marketi
         call: async onUsage => {
           const response = await client.messages.create(request);
           await onUsage(anthropicMarketingUsage(response));
+          // Beside the ledger, not instead of it: `onUsage` decides whether the
+          // budget was honoured and may throw, this records what it cost and
+          // may not.
+          if (input.meter) {
+            await recordUsage(input.meter, [
+              { kind: "ai_call", provider: "anthropic", model: "claude-sonnet-5",
+                quantity: response.usage?.input_tokens ?? 0, unit: "input_tokens" },
+              { kind: "ai_call", provider: "anthropic", model: "claude-sonnet-5",
+                quantity: response.usage?.output_tokens ?? 0, unit: "output_tokens" },
+            ]);
+          }
           return response;
         } });
       return parse(response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n"));
@@ -133,6 +149,16 @@ async function generateLaunchCopyUnchecked(input: LaunchCopyInput, work: Marketi
         const payload = await response.json();
         await onUsage({ provider: "nim", responseId: payload.id ?? null, model: payload.model,
           inputTokens: payload.usage?.prompt_tokens, outputTokens: payload.usage?.completion_tokens });
+        // NIM speaks the OpenAI wire format, so usage arrives as prompt/completion
+        // rather than input/output. Same meaning, different spelling.
+        if (input.meter) {
+          await recordUsage(input.meter, [
+            { kind: "ai_call", provider: "nvidia-nim", model: "meta/llama-3.1-8b-instruct",
+              quantity: payload.usage?.prompt_tokens ?? 0, unit: "input_tokens" },
+            { kind: "ai_call", provider: "nvidia-nim", model: "meta/llama-3.1-8b-instruct",
+              quantity: payload.usage?.completion_tokens ?? 0, unit: "output_tokens" },
+          ]);
+        }
         return parse(payload.choices?.[0]?.message?.content ?? "");
       } });
     } catch (error) {

@@ -22,6 +22,9 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 
+import { recordUsage } from "@/lib/usage/meter";
+import type { MeterContext } from "@/lib/usage/types";
+
 import type { TranslatorProvider, TranslateOptions, TranslateResult } from "./types";
 import { AIProviderError } from "./types";
 import { assertTranslationSegments } from "../translation-quality/pipeline";
@@ -148,7 +151,8 @@ async function translateChunk(
   texts: string[],
   sourceLanguage: string,
   targetLanguage: string,
-  client: Anthropic
+  client: Anthropic,
+  meter?: MeterContext
 ): Promise<string[]> {
   const response = await client.messages.create({
     model: MODEL_ID,
@@ -161,6 +165,19 @@ async function translateChunk(
       },
     ],
   });
+
+  // Metered per chunk rather than per batch: a long chapter is several
+  // requests, and billing only the first would under-count it by however many
+  // chunks followed. Recorded before the stop_reason guard below, because the
+  // tokens were spent whether or not the reply turns out to be usable.
+  if (meter) {
+    await recordUsage(meter, [
+      { kind: "ai_call", provider: "anthropic", model: MODEL_ID,
+        quantity: response.usage?.input_tokens ?? 0, unit: "input_tokens" },
+      { kind: "ai_call", provider: "anthropic", model: MODEL_ID,
+        quantity: response.usage?.output_tokens ?? 0, unit: "output_tokens" },
+    ]);
+  }
 
   if (response.stop_reason !== "end_turn") {
     throw new AIProviderError("Anthropic returned an incomplete translation.", "MODEL_ERROR", "anthropic");
@@ -181,7 +198,8 @@ export class AnthropicTranslator implements TranslatorProvider {
     const [translatedText] = await this.translateBatch(
       [options.text],
       options.sourceLanguage,
-      options.targetLanguage
+      options.targetLanguage,
+      options.meter
     );
     return { translatedText };
   }
@@ -189,7 +207,8 @@ export class AnthropicTranslator implements TranslatorProvider {
   async translateBatch(
     texts: string[],
     sourceLanguage: string,
-    targetLanguage: string
+    targetLanguage: string,
+    meter?: MeterContext
   ): Promise<string[]> {
     if (texts.length === 0) return [];
 
@@ -211,7 +230,8 @@ export class AnthropicTranslator implements TranslatorProvider {
             chunk.texts,
             sourceLanguage,
             targetLanguage,
-            client
+            client,
+            meter
           );
           translated.forEach((value, offset) => {
             out[chunk.index + offset] = value;

@@ -41,7 +41,11 @@
     "db:reset": "supabase db reset",
     "db:diff": "supabase db diff --use-migra",
     "db:push": "supabase db push",
-    "compare:critic": "NODE_OPTIONS=--conditions=react-server tsx scripts/compare-critic.ts"
+    "compare:critic": "NODE_OPTIONS=--conditions=react-server tsx scripts/compare-critic.ts",
+    "usage:sync-jobs": "tsx scripts/usage-sync-jobs.ts",
+    "usage:storage": "tsx scripts/usage-storage-snapshot.ts",
+    "usage:rollup": "tsx scripts/usage-rollup.ts",
+    "check:ai-providers": "tsx scripts/check-ai-providers.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

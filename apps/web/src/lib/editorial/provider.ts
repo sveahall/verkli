@@ -1,3 +1,5 @@
+import { recordUsage } from "@/lib/usage/meter";
+import type { MeterContext } from "@/lib/usage/types";
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { editorialReportSchema, type EditorialReport, type ReviewMode } from "./review-schema";
@@ -26,7 +28,14 @@ const outputSchema = {
   },
 };
 
-export type EditorialInput = { mode: ReviewMode; text: string; chapterTitle: string; sourceText: string | null };
+export type EditorialInput = {
+  mode: ReviewMode;
+  text: string;
+  chapterTitle: string;
+  sourceText: string | null;
+  /** When present, both the review and the critic are billed to this user. */
+  meter?: MeterContext;
+};
 export type EditorialUsage = { model: string; inputTokens: number; outputTokens: number; cacheCreationInputTokens: number; cacheReadInputTokens: number };
 export const EDITORIAL_MODEL = "claude-sonnet-5";
 const MAX_OUTPUT_TOKENS = 6000;
@@ -65,12 +74,31 @@ export async function generateEditorialReview(input: EditorialInput, onUsage?: (
   if (!key) throw new Error("Editorial AI is not configured. Please contact support.");
   const client = new Anthropic({ apiKey: key, timeout: 45000, maxRetries: 0 });
   const result = await client.messages.create(buildRequest(input));
+
+  // Recorded beside the existing `onUsage` receipt rather than replacing it:
+  // that callback is the budget ledger and throws when a receipt is missing,
+  // while this is the cost meter and must never throw. Two readers of the same
+  // numbers, with opposite failure contracts.
+  //
+  // Before the parse guards below, because the tokens were spent whether or not
+  // the reply turns out to be usable — a review that fails validation is exactly
+  // the cost that would otherwise be priced at zero.
+  if (input.meter) {
+    await recordUsage(input.meter, [
+      { kind: "ai_call", provider: "anthropic", model: EDITORIAL_MODEL,
+        quantity: result.usage?.input_tokens ?? 0, unit: "input_tokens" },
+      { kind: "ai_call", provider: "anthropic", model: EDITORIAL_MODEL,
+        quantity: result.usage?.output_tokens ?? 0, unit: "output_tokens" },
+    ]);
+  }
+
   if (onUsage) {
     const usage = result.usage;
     if (!usage || !Number.isFinite(usage.input_tokens) || !Number.isFinite(usage.output_tokens)) throw new Error("Editorial usage receipt is missing.");
     await onUsage({ model: result.model, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens,
       cacheCreationInputTokens: usage.cache_creation_input_tokens ?? 0, cacheReadInputTokens: usage.cache_read_input_tokens ?? 0 });
   }
+
   if (result.stop_reason === "max_tokens" || result.stop_reason === "refusal") {
     throw new Error("The AI review was incomplete. Please try again.");
   }
@@ -87,6 +115,6 @@ export async function generateEditorialReview(input: EditorialInput, onUsage?: (
     await onCriticReceipt?.({ status: "skipped", usage: null });
     return report;
   }
-  const adjudicated = await adjudicateEditorialReport({ report, text: input.text, onReceipt: onCriticReceipt });
+  const adjudicated = await adjudicateEditorialReport({ report, text: input.text, meter: input.meter, onReceipt: onCriticReceipt });
   return adjudicated.report;
 }

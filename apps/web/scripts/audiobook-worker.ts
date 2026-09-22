@@ -564,6 +564,7 @@ async function processJob(payload: AudiobookJobData) {
         voiceId: resolvedVoiceId,
         modelId: resolvedModelId,
         timeoutMs: chapterTimeoutMs,
+        meter: { userId, pipeline: "tts", bookId, jobId },
         withTimestamps: true,
       });
       const audioFormat: AudioFormat = result.format === "mp3" ? "mp3" : "wav";

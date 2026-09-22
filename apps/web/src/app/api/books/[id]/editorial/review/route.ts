@@ -2,14 +2,22 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { requireProBillingForApi } from "@/lib/billing/server";
 import { createClient } from "@/lib/supabase/server";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
+import { isAiCriticEnabled } from "@/lib/flags";
+import {
+  BudgetExceededError,
+  JobCostExceededError,
+  checkBudget,
+  releaseBudget,
+  validateJobCost,
+} from "@/lib/workers/budget";
 import { reviewText, splitReviewText } from "@/lib/editorial/content";
 import { reviewModeSchema } from "@/lib/editorial/review-schema";
 import { generateEditorialReview, estimateEditorialUnits, EDITORIAL_MODEL, type EditorialUsage } from "@/lib/editorial/provider";
 import type { EditorialCriticReceipt } from "@/lib/editorial/adjudicate";
 import { isAiChatEnabled } from "@/lib/flags";
-import { checkBudget, releaseBudget, BudgetExceededError } from "@/lib/workers/budget";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
@@ -67,7 +75,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const parts = mode === "translation" ? [text] : splitReviewText(text);
   if (parts.length > 1001) return fail("This chapter is too long to review. Split it into smaller chapters first.", 422);
   if (part >= parts.length) return fail("This review part no longer exists. Run a new review.", 409);
-  const input = { mode, text: parts[part], sourceText, chapterTitle: chapter.title };
+  const input = { mode, text: parts[part], sourceText, chapterTitle: chapter.title,
+    // The budget ledger below decides whether this may run; the meter records
+    // what it cost. Both read the same usage block, with opposite contracts.
+    meter: { userId: gate.user.id, pipeline: "editorial" as const, bookId: id } };
   const reservedUnits = estimateEditorialUnits(input);
   const jobId = randomUUID();
   let reserved = false;
@@ -118,5 +129,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     console.error("[editorial review] generation failed", { bookId: id, chapterId, mode, jobId, modelStarted, errorType: error instanceof Error ? error.name : "unknown" });
     return fail(modelStarted ? "The AI could not complete a valid review. Your text has not changed. Please try again." : "Review limits or usage storage are temporarily unavailable. No model work was started. Please try again.", modelStarted ? 502 : 503);
+
   }
 }

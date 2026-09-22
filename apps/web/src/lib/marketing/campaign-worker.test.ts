@@ -13,6 +13,11 @@ vi.mock("@/lib/health/worker-heartbeat", () => ({ startHeartbeatInterval: vi.fn(
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: mocks.from }) }));
 vi.mock("@anthropic-ai/sdk", () => ({ default: class { messages = { create: mocks.create }; } }));
 vi.mock("./launch-copy-provider", async original => ({ ...await original<object>(), generateLaunchCopy: mocks.generate }));
+// The usage meter writes to `usage_events` through the same admin client this
+// test mocks, so without stubbing it every metered call lands in the same
+// capture array as the campaign posts and the counts below go wrong. The meter
+// has its own tests; here it is noise.
+vi.mock("@/lib/usage/meter", () => ({ recordUsage: vi.fn() }));
 vi.mock("@/lib/workers/budget", () => ({
   validateJobCost: vi.fn(), checkBudget: vi.fn(), releaseBudget: vi.fn(),
   BudgetExceededError: class extends Error {}, JobCostExceededError: class extends Error {},

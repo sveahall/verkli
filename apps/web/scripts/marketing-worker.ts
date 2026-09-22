@@ -181,6 +181,11 @@ async function processCampaignPlanJob(
         .map((row) => row.caption ?? "").filter(Boolean);
       const copyInput = {
         authorId: payload.authorId,
+        meter: {
+          userId: plan.author_id,
+          pipeline: "marketing" as const,
+          bookId: plan.book_id,
+        },
         title: book.title ?? "Untitled",
         description: book.description,
         language: post.language,
@@ -360,6 +365,7 @@ async function processJob(payload: MarketingJobData, checkpoint: ModelCheckpoint
     const copy = await generateLaunchCopy({
       authorId,
       title: book.title, description: book.description, language, channel,
+      meter: { userId: authorId, pipeline: "marketing", bookId },
     });
 
     const campaign = {

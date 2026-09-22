@@ -1,3 +1,4 @@
+import type { MeterContext } from "@/lib/usage/types";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { anthropicMarketingUsage, estimateMarketingUnits, MarketingWorkError, type MarketingWork } from "./model-work";
@@ -80,6 +81,7 @@ export async function generateLaunchCopyWithCritic<T>(args: {
   system: string;
   content: string;
   parse: (raw: string) => T;
+  meter?: MeterContext;
   work: MarketingWork;
 }): Promise<T> {
   const draftRequest = {
@@ -89,7 +91,7 @@ export async function generateLaunchCopyWithCritic<T>(args: {
     timeoutMs: 20_000,
   };
   const draft = await args.work.run({ stage: "draft", provider: "openai", units: estimateOpenAiUnits(draftRequest),
-    call: onUsage => callOpenAi({ ...draftRequest, onUsage: value => onUsage({ provider: "openai", ...value }) }) });
+    call: onUsage => callOpenAi({ ...draftRequest, meter: args.meter, onUsage: value => onUsage({ provider: "openai", ...value }) }) });
 
   // Parse eagerly: a valid draft is the safety net for a revision that breaks a
   // constraint, and there is no point critiquing something already malformed.
@@ -120,7 +122,7 @@ export async function generateLaunchCopyWithCritic<T>(args: {
     timeoutMs: 20_000,
   };
   const revised = await args.work.run({ stage: "revision", provider: "openai", units: estimateOpenAiUnits(revisionRequest),
-    call: onUsage => callOpenAi({ ...revisionRequest, onUsage: value => onUsage({ provider: "openai", ...value }) }) });
+    call: onUsage => callOpenAi({ ...revisionRequest, meter: args.meter, onUsage: value => onUsage({ provider: "openai", ...value }) }) });
 
   try {
     return args.parse(stripFences(revised));

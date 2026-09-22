@@ -1,3 +1,5 @@
+import { recordUsage } from "@/lib/usage/meter";
+
 import { alignmentToTiming, type AudioTiming } from "../audiobook/timing";
 import type { TtsProvider, TtsSynthesisOptions, TtsSynthesisResult } from "./tts-provider";
 
@@ -82,6 +84,22 @@ export class ElevenLabsTtsProvider implements TtsProvider {
       }
       if (arrayBuffer.byteLength === 0) {
         throw new Error("ElevenLabs TTS returned empty audio response");
+      }
+
+      // Characters sent, not anything read off the response: ElevenLabs bills
+      // on submitted text, so the input is the authoritative quantity and no
+      // guess from the reply is needed. Recorded only after a successful
+      // response, because a rejected request was never billed.
+      if (options.meter) {
+        await recordUsage(options.meter, [
+          {
+            kind: "ai_call",
+            provider: "elevenlabs",
+            model: modelId,
+            quantity: text.length,
+            unit: "chars",
+          },
+        ]);
       }
 
       return {

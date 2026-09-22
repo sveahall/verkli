@@ -110,9 +110,9 @@ describe("POST audiobook pronunciation preview", () => {
     editionDatabase();
     const res = await post({ versionId });
     expect(res.status).toBe(200);
-    expect(mocks.synthesize).toHaveBeenCalledWith(englishText, {
+    expect(mocks.synthesize).toHaveBeenCalledWith(englishText, expect.objectContaining({
       language: "en", voiceId: "narrator-1", modelId: "eleven_multilingual_v2", timeoutMs: 30_000,
-    });
+    }));
   });
 
   it("reads the first nondeleted chapter containing text and keeps the 200-character bound", async () => {
