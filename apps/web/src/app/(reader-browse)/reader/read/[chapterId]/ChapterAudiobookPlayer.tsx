@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { parseAudioTiming, type AudioTiming } from "@/lib/audiobook/timing";
+import { useAudioTextSync } from "./AudioTextSync";
 import { getAudiobookEnabled } from "@/lib/flags";
 import { useListenTracking } from "@/lib/analytics/useListenTracking";
 import NoDownloadAudioPlayer from "@/components/books/NoDownloadAudioPlayer";
@@ -14,6 +16,7 @@ type Props = {
 
 type ChapterPlaybackResponse = {
   audioUrl?: unknown;
+  timing?: unknown;
   /** Saved playback offset for this reader, resolved server-side (WP-03). */
   resumePositionSeconds?: unknown;
 };
@@ -50,7 +53,11 @@ function formatOffset(totalSeconds: number): string {
   return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-export default function ChapterAudiobookPlayer({
+export default function ChapterAudiobookPlayer(props: Props) {
+  return <ChapterAudio key={`${props.bookId}:${props.chapterId}`} {...props} />;
+}
+
+function ChapterAudio({
   bookId,
   chapterId,
   audiobookStatus,
@@ -77,8 +84,14 @@ export default function ChapterAudiobookPlayer({
   const [error, setError] = useState<string | null>(null);
   const [resumePositionSeconds, setResumePositionSeconds] = useState<number | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [timing, setTiming] = useState<AudioTiming | null>(null);
+  const sync = useAudioTextSync();
+  const clearSync = sync.clear;
+  useEffect(() => clearSync, [clearSync]);
 
   useEffect(() => {
+    clearSync();
+    setTiming(null);
     if (!audiobookFeatureEnabled || !shouldAttemptLoad) {
       setAudioUrl(null);
       setLoading(false);
@@ -173,6 +186,7 @@ export default function ChapterAudiobookPlayer({
 
         if (!cancelled) {
           setAudioUrl(nextAudioUrl);
+          setTiming(nextAudioUrl ? parseAudioTiming(payload.timing) : null);
           setResumePositionSeconds(nextResume);
         }
       } catch {
@@ -198,7 +212,7 @@ export default function ChapterAudiobookPlayer({
         clearTimeout(loadingTimer);
       }
     };
-  }, [audiobookFeatureEnabled, bookId, chapterId, resolvedIsAuthorView, shouldAttemptLoad, loadAttempt]);
+  }, [audiobookFeatureEnabled, bookId, chapterId, resolvedIsAuthorView, shouldAttemptLoad, loadAttempt, clearSync]);
 
   // WP-03. Must be called before the early returns below — the audio element is
   // conditionally rendered, hooks are not.
@@ -286,20 +300,41 @@ export default function ChapterAudiobookPlayer({
         src={audioUrl}
         onRetry={() => setLoadAttempt((attempt) => attempt + 1)}
         {...listenTracking}
+        onLoadedMetadata={(event) => {
+          listenTracking.onLoadedMetadata(event);
+          sync.update(event.currentTarget, timing);
+        }}
+        onTimeUpdate={(event) => {
+          listenTracking.onTimeUpdate(event);
+          sync.update(event.currentTarget, timing);
+        }}
+        onSeeked={(event) => {
+          listenTracking.onSeeked(event);
+          sync.update(event.currentTarget, timing);
+        }}
         onPlay={(event) => {
           setIsPlaying(true);
           listenTracking.onPlay(event);
+          sync.update(event.currentTarget, timing);
         }}
         onPause={(event) => {
           setIsPlaying(false);
           listenTracking.onPause(event);
+          sync.update(event.currentTarget, timing);
         }}
         onEnded={(event) => {
           setIsPlaying(false);
           listenTracking.onEnded(event);
+          clearSync();
         }}
-        onEmptied={() => setIsPlaying(false)}
+        onEmptied={() => { setIsPlaying(false); clearSync(); }}
       />
+      <p role="status" className="mt-3 text-xs text-muted-foreground" data-audio-sync-status>
+        {!timing ? "Audio plays without synchronized text." : sync.status === "ready"
+          ? "Text follows the audio." : sync.status === "unavailable"
+            ? "Text highlighting is unavailable for this text or browser. Audio is still available."
+            : "Text highlighting starts with playback."}
+      </p>
     </div>
   );
 }

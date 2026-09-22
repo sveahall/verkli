@@ -36,7 +36,7 @@ const ReaderChapterBody = memo(
           {chapterTitle}
         </h2>
         {chapterContent ? (
-          <TiptapRenderer content={chapterContent} />
+          <div data-audio-sync-text><TiptapRenderer content={chapterContent} /></div>
         ) : (
           <p className="text-[15px] text-slate-600 dark:text-white/60">
             No content yet.

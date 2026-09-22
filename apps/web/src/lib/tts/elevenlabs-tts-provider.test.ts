@@ -63,6 +63,21 @@ describe("ElevenLabsTtsProvider", () => {
     expect(result.wav.length).toBe(4);
   });
 
+  it("obtains audio and original-text timing in one request", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({
+      audio_base64: Buffer.from([1, 2, 3]).toString("base64"),
+      alignment: { characters: ["H", "i"], character_start_times_seconds: [0, 0.2], character_end_times_seconds: [0.2, 0.4] },
+    }) });
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const result = await new ElevenLabsTtsProvider().synthesize("Hi", {
+      language: "en", voiceId: "voice", modelId: "model", timeoutMs: 1000, withTimestamps: true,
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0][0]).toBe("https://api.elevenlabs.io/v1/text-to-speech/voice/with-timestamps?output_format=mp3_44100_128");
+    expect(result.timing?.words).toEqual([{ word: "Hi", start: 0, end: 0.4, startOffset: 0, endOffset: 2 }]);
+    expect(result.wav).toEqual(Buffer.from([1, 2, 3]));
+  });
+
   it("throws concise error without leaking api key", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
