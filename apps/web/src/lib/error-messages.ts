@@ -64,7 +64,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_TARGET_LANGUAGE: "Invalid target language.",
   NO_SOURCE_VERSION: "No source version found.",
   INVALID_SOURCE_VERSION: "Invalid source version.",
-  SOURCE_LANGUAGE_MISSING: "Source language is missing. Please set a language for the version.",
+  SOURCE_LANGUAGE_MISSING: "We couldn’t identify this edition’s language. Check that its saved chapters contain text, then retry. If it still fails, contact support.",
   SAME_SOURCE_TARGET_LANGUAGE: "The target language must differ from the source language.",
   TRANSLATION_PAIR_UNSUPPORTED: "This language pair is not supported by the translation model.",
   VERSION_ALREADY_EXISTS: "A version in that language already exists.",
