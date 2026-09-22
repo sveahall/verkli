@@ -1,7 +1,7 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { editorialReportSchema, type EditorialReport, type ReviewMode } from "./review-schema";
-import { adjudicateEditorialReport, estimateEditorialCriticUnits, type EditorialCriticReceipt } from "./adjudicate";
+import { adjudicateEditorialReport, estimateEditorialCriticUnits, assertEditorialSource, type EditorialCriticReceipt } from "./adjudicate";
 import { isOpenAiConfigured } from "@/lib/ai/providers/openai";
 import { isAiCriticEnabled } from "@/lib/flags";
 
@@ -32,6 +32,7 @@ export const EDITORIAL_MODEL = "claude-sonnet-5";
 const MAX_OUTPUT_TOKENS = 6000;
 
 function buildRequest(input: EditorialInput): Anthropic.MessageCreateParamsNonStreaming {
+  assertEditorialSource(input);
   const purpose = {
     proofread: "Proofread spelling, grammar and punctuation. Preserve the author's language, voice and meaning. Do not rewrite creatively.",
     analysis: "Analyse character motivation, pacing, plot clarity, narrative voice and consistency in the supplied text. Distinguish observed issues from optional ideas. Do not invent events in other chapters. Return no corrections, only findings.",
@@ -57,7 +58,7 @@ function buildRequest(input: EditorialInput): Anthropic.MessageCreateParamsNonSt
  * No chars/4 assumption and no automatic refund after provider work starts. */
 export function estimateEditorialUnits(input: EditorialInput): number {
   return Buffer.byteLength(JSON.stringify(buildRequest(input)), "utf8") + 4096 + MAX_OUTPUT_TOKENS
-    + (isAiCriticEnabled() && isOpenAiConfigured() ? estimateEditorialCriticUnits(input.text) : 0);
+    + (isAiCriticEnabled() && isOpenAiConfigured() ? estimateEditorialCriticUnits(input) : 0);
 }
 
 export async function generateEditorialReview(input: EditorialInput, onUsage?: (usage: EditorialUsage) => Promise<void>, onCriticReceipt?: (receipt: EditorialCriticReceipt) => Promise<void>): Promise<EditorialReport> {
@@ -87,6 +88,6 @@ export async function generateEditorialReview(input: EditorialInput, onUsage?: (
     await onCriticReceipt?.({ status: "skipped", usage: null });
     return report;
   }
-  const adjudicated = await adjudicateEditorialReport({ report, text: input.text, onReceipt: onCriticReceipt });
+  const adjudicated = await adjudicateEditorialReport({ report, mode: input.mode, text: input.text, sourceText: input.sourceText, onReceipt: onCriticReceipt });
   return adjudicated.report;
 }
