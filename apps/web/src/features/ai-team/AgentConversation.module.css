@@ -59,3 +59,5 @@
 @keyframes arrive { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
 @keyframes spin { to { transform:rotate(360deg); } }
 @media(prefers-reduced-motion:reduce) { .turn, .spinner { animation:none; } .transcript { scroll-behavior:auto; } .panel button { transition:none; } }
+
+.transcript[hidden], .composer[hidden] { display:none; }

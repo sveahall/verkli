@@ -69,7 +69,7 @@ function Preview() {
           : body.tool === "audiobook" ? {kind:"pronunciation",word:"Mira",spokenAs:"Mee-rah",sampleText:"Mira heard a sound beside the boat.",reason:"Try this spoken form without changing the written name."}
           : body.tool === "pricing" ? {kind:"pricing_draft",amount:99,currency:"SEK",reason:"Your requested price, ready for review."}
           : text.includes("wierd") ? {kind:"edit_text",original:"Mira heard a wierd sound beside the boat.",replacement:"Mira heard a weird sound beside the boat.",reason:"Correct the spelling while keeping the sentence and its emphasis."} : null;
-        return Response.json({content: body.history?.length ? "We can build on that. Review this next suggestion." : "Here is a precise suggestion for your review.",source:["fallback","invalid"].includes(modeRef.current) ? "template" : "llm",failureReason:modeRef.current === "invalid" ? "invalid_proposal" : "unavailable",actions:proposal && !["fallback","invalid"].includes(modeRef.current) ? [proposal] : [],context:{chapterId:body.chapterId,chapterText:text}});
+        return Response.json({persistence:"temporary",content: body.history?.length ? "We can build on that. Review this next suggestion." : "Here is a precise suggestion for your review.",source:["fallback","invalid"].includes(modeRef.current) ? "template" : "llm",failureReason:modeRef.current === "invalid" ? "invalid_proposal" : "unavailable",actions:proposal && !["fallback","invalid"].includes(modeRef.current) ? [proposal] : [],context:{chapterId:body.chapterId,chapterText:text}});
       }
       if (url.pathname.endsWith("/audiobook/preview")) return new Response(silentWav(),{headers:{"content-type":"audio/wav"}});
       if (url.pathname.endsWith("/cover/generate")) return Response.json({images:["/demo-assets/covers/01.jpg","/demo-assets/covers/02.jpg","/demo-assets/covers/03.jpg","/demo-assets/covers/04.jpg"]});
@@ -93,7 +93,7 @@ function Preview() {
       <label>Response <select aria-label="Response mode" value={mode} onChange={(event) => setMode(event.target.value)}>{["normal","failure","delay","fallback","invalid"].map((value) => <option key={value}>{value}</option>)}</select></label>
     </div>
     <WorkspaceLayout header={<h1 className="font-display text-2xl">The harbour</h1>} asideOpen={open} onAsideClose={() => setOpen(false)} asideLabel="Book specialist"
-      aside={<AiAssistantPanel bookTitle="The harbour" bookId={BOOK_ID} chapterId={chapter.id} chapterTitle={chapter.title} activeTool={assistantTool} variant="dock" onClose={() => setOpen(false)} getDraftText={execution.getDraftText} onExecuteAction={execution.execute} />}
+      aside={<AiAssistantPanel initialTemporary bookTitle="The harbour" bookId={BOOK_ID} chapterId={chapter.id} chapterTitle={chapter.title} activeTool={assistantTool} variant="dock" onClose={() => setOpen(false)} getDraftText={execution.getDraftText} onExecuteAction={execution.execute} />}
       main={<div>
         <AgentCompanion agent={persona.agent} onTalk={() => {setAssistantTool(tool);setOpen(true);}} />
         {tool === "edit" && <TiptapEditor key={chapter.id} content={chapter.content ?? ""} chapterId={chapter.id} bookId={BOOK_ID} onUpdate={update} onDirty={() => setSaved(false)} onEditorReady={onReady} />}

@@ -45,7 +45,7 @@ function Preview() {
         await new Promise((resolve) => setTimeout(resolve, 750));
         return responseMode === "submit-error" ? Response.json({ error: "Translation service is temporarily unavailable. Please try again." }, { status: 503 }) : Response.json({ ok: true });
       }
-      if (url.pathname.endsWith("/ai/chat")) return Response.json({ content: "Tell me the phrase you want to work on. We can compare its meaning and rhythm with your original. This is a simulated conversation for the design preview.", source: "llm", actions: [], context: { chapterId, chapterText: originalText } });
+      if (url.pathname.endsWith("/ai/chat")) return Response.json({ persistence: "temporary", content: "Tell me the phrase you want to work on. We can compare its meaning and rhythm with your original. This is a simulated conversation for the design preview.", source: "llm", actions: [], context: { chapterId, chapterText: originalText } });
       return Response.json({ error: "PREVIEW_ONLY" }, { status: 403 });
     };
     const frame = requestAnimationFrame(() => setReady(true));
@@ -60,7 +60,7 @@ function Preview() {
       </div>
     </div>
     {ready && <WorkspaceLayout header={<h1 className="font-display text-xl">The last ferry</h1>} asideOpen={open} onAsideClose={() => setOpen(false)} asideLabel="Talk to Alma"
-      aside={<AiAssistantPanel bookId={bookId} chapterId={chapterId} chapterTitle="The harbour" activeTool="translate" variant="dock" onClose={() => setOpen(false)} getDraftText={() => originalText} />}
+      aside={<AiAssistantPanel initialTemporary bookId={bookId} chapterId={chapterId} chapterTitle="The harbour" activeTool="translate" variant="dock" onClose={() => setOpen(false)} getDraftText={() => originalText} />}
       main={<div className="@container/book-panel overflow-hidden rounded-3xl border border-border bg-card">
         <BookWorkflowHeader bookId={bookId} activeTool="translate" tools={["edit", "cover", "audiobook", "translate", "pricing", "publish", "review"]} compact bare />
         <div className="p-4 sm:p-7"><AgentCompanion agent="alma" onTalk={() => setOpen(true)} />
