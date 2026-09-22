@@ -30,6 +30,12 @@ type UserRow = {
   username: string | null;
   created_at: string;
   beta_enabled: boolean;
+  /**
+   * Set when the author asked us to close the account. Nothing deletes on a
+   * schedule — the request is a queue for a person, so it has to be visible to
+   * one. Without this the promise the settings page makes is not kept.
+   */
+  deletion_requested_at: string | null;
 };
 
 const PAGE_SIZE = 50;
@@ -243,6 +249,14 @@ export default function AdminUsersPage() {
                               >
                                 {name}
                               </Link>
+                              {u.deletion_requested_at && (
+                                <span
+                                  title={`Deletion requested ${fmtDate(u.deletion_requested_at)}`}
+                                  className="rounded-full border border-amber-300 px-2 py-0.5 text-caption font-medium text-amber-700 dark:border-amber-500/40 dark:text-amber-400"
+                                >
+                                  Deletion requested
+                                </span>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>{u.email ?? "—"}</TableCell>
