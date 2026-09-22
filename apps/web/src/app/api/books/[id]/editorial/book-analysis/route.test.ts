@@ -228,8 +228,19 @@ describe("whole-book analysis API", () => {
     expect(await (await get()).json()).toMatchObject({ available: false, unavailableReason: expect.any(String) });
     expect(mocks.notes).not.toHaveBeenCalled(); expect(mocks.budget).not.toHaveBeenCalled(); expect(tables.ai_jobs).toHaveLength(0);
   });
-  it("rejects cross-origin, invalid IDs, rate limits and single-chapter manuscripts before creating a job", async () => {
-    expect((await post({ action: "start" }, bookId, "https://elsewhere.example")).status).toBe(403);
+  // CSRF is middleware.ts's job, and it compares Origin against
+  // NEXT_PUBLIC_SITE_URL. This route used to repeat the check against
+  // new URL(request.url).origin, which is the origin the *server* saw. Behind
+  // Railway's TLS-terminating proxy that is not what the browser sent, so it
+  // 403'd real authors. The test below passed anyway, because under vitest
+  // request.url and the browser origin are the same string — which is exactly
+  // why the bug reached production. Asserting the opposite now keeps the
+  // broken check from coming back.
+  it("leaves Origin to the middleware and does not reject on it", async () => {
+    expect((await post({ action: "start" }, bookId, "https://www.verkli.com")).status).not.toBe(403);
+  });
+
+  it("rejects invalid IDs, rate limits and single-chapter manuscripts before creating a job", async () => {
     expect((await post({ action: "start" }, "invalid")).status).toBe(400);
     mocks.check.mockResolvedValueOnce({ allowed: false }); expect((await post({ action: "start" })).status).toBe(429);
     tables.chapters = [makeChapter(0, "Only chapter.")]; expect((await post({ action: "start" })).status).toBe(422);

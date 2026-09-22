@@ -103,8 +103,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   let completionAttempted = false;
   let reservationId = "";
   try {
-    const origin = request.headers.get("origin");
-    if (origin && origin !== request.nextUrl.origin) throw new AnalysisError("Request origin is not allowed.", 403);
     const { id } = await params;
     const parsed = bodySchema.safeParse(await request.json().catch(() => null));
     if (!z.string().uuid().safeParse(id).success || !parsed.success) throw new AnalysisError("Choose a valid edition and analysis step.", 400);

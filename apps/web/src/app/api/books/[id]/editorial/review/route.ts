@@ -30,8 +30,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const configuredBudget = Number(process.env.EDITORIAL_DAILY_BUDGET);
   if (!Number.isSafeInteger(configuredBudget) || configuredBudget <= 0) return fail("Editorial review is unavailable until its daily AI allowance is configured. Please contact support.", 503);
   if (!process.env.ANTHROPIC_API_KEY?.trim()) return fail("Editorial AI is not configured. Please contact support.", 503);
-  const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) return fail("Request origin is not allowed.", 403);
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) return fail("Invalid book ID.", 400);
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));

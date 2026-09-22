@@ -49,8 +49,6 @@ export async function POST(request: Request, context: Context) {
   if (auth.response) return auth.response;
   if (!isTranslationsEnabled() || !reviewedTranslationActivationReady()) return failure("Translation is currently turned off. Your manuscript has not changed.", 503);
   const { user, book, bookId, supabase } = auth;
-  const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) return failure("Request origin is not allowed.", 403);
   // Bound the body before JSON parsing; the UI sends only IDs and short guidance.
   const raw = await request.text();
   if (raw.length > 10_000) return failure("Review request is too large.", 400);
