@@ -5,9 +5,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { isAiChatEnabled } from "@/lib/flags";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 import { AgentBookError, loadAgentBook } from "@/lib/ai/agent-runtime/book-context";
 import { planStepSchema, type Plan } from "@/lib/ai/agent-runtime/plan";
-import { applyPlan } from "@/lib/ai/agent-runtime/apply";
+import { applyPlan, type StepOutcome } from "@/lib/ai/agent-runtime/apply";
 import {
   apiError, E_FORBIDDEN, E_GENERIC_ERROR, E_INVALID_JSON,
   E_INVALID_REQUEST_BODY, E_RATE_LIMIT_EXCEEDED, E_VALIDATION_FAILED,
@@ -52,6 +53,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const gate = await requireAuthorRoleForApi();
   if (gate.response) return gate.response;
   const user = gate.user;
+
+  const aiOff = await aiDisabledResponse(user.id);
+  if (aiOff) return aiOff;
 
   const parsedParams = paramsSchema.safeParse(await params);
   if (!parsedParams.success) return apiError(E_VALIDATION_FAILED, 400);
@@ -110,27 +114,39 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: E_GENERIC_ERROR, message: "This plan has already been applied." }, { status: 409 });
   }
 
-  const supabase = await createClient();
+  // Stays null until applyPlan returns. A throw before that is either a load
+  // failure or a chapter write that stopped halfway. A chapter that did land
+  // now has a new hash, so a retry skips it, and cover saves cannot have run
+  // yet — they happen after the chapter loop and catch their own errors.
+  // Holding the claim would turn the retry into a 409 the panel treats as done.
+  let outcomes: StepOutcome[] | null = null;
   try {
+    const supabase = await createClient();
     const book = await loadAgentBook(supabase, parsedParams.data.id, user.id, row.version_id);
     const plan: Plan = { versionId: row.version_id, steps: steps.data };
-    const outcomes = await applyPlan(supabase, book, plan, {
+    outcomes = await applyPlan(supabase, book, plan, {
       stepIds: body.data.stepIds,
       matchIds: body.data.matchIds,
     });
 
     const changed = outcomes.reduce((total, outcome) => total + (outcome.changed ?? 0), 0);
-    await admin.from("agent_plans").update({ outcome: outcomes }).eq("id", row.id);
-    await admin.from("audit_log").insert({
+    const { error: outcomeError } = await admin.from("agent_plans").update({ outcome: outcomes }).eq("id", row.id);
+    if (outcomeError) console.error("[agent.apply] outcome save failed", { code: outcomeError.code });
+    const { error: auditError } = await admin.from("audit_log").insert({
       actor_user_id: user.id,
       action: "agent_plan.applied",
       entity_type: "book",
       entity_id: book.bookId,
       meta: { planId: row.id, versionId: book.versionId, changed, outcomes },
     });
+    if (auditError) console.error("[agent.apply] audit failed", { code: auditError.code });
 
     return NextResponse.json({ planId: row.id, changed, outcomes }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
+    if (!outcomes) {
+      const { error: releaseError } = await admin.from("agent_plans").update({ applied_at: null }).eq("id", row.id);
+      if (releaseError) console.error("[agent.apply] could not release the claim", { code: releaseError.code });
+    }
     if (error instanceof AgentBookError) {
       return NextResponse.json({ error: E_GENERIC_ERROR, message: error.message }, { status: error.status });
     }

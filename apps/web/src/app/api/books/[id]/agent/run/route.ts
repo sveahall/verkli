@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { isAiChatEnabled } from "@/lib/flags";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 import { assistantToolSchema } from "@/lib/ai/agent-actions";
 import { conversationInputSchema } from "@/features/ai-team/memory/contracts";
 import { AiMemoryError, completeTurn, memoryErrorResponse, requireEditionScope, reserveTurn } from "@/features/ai-team/memory/server";
@@ -40,6 +41,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const gate = await requireAuthorRoleForApi();
   if (gate.response) return gate.response;
   const user = gate.user;
+
+  const aiOff = await aiDisabledResponse(user.id);
+  if (aiOff) return aiOff;
 
   const parsedParams = paramsSchema.safeParse(await params);
   if (!parsedParams.success) return apiError(E_VALIDATION_FAILED, 400);
