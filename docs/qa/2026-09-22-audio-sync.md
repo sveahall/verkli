@@ -10,7 +10,7 @@ Timing is a private `<audio_path>.timing.json` sidecar, version 1, carrying chap
 
 The playback route performs the existing book/chapter publication and entitlement checks before accessing the sidecar. It validates exact file, chapter, edition and current narration text; malformed/absent/oversized sidecars become `timing:null`. Successful playback responses are `Cache-Control: private, no-store`. The sidecar path is never accepted from the client. This package does not relax any access check.
 
-The reader applies a CSS Highlight range to existing prose and checks exact DOM text before highlighting. A stripped duplicate chapter title uses an explicit source offset. Missing browser support or mismatched text produces an honest unsynchronized state. The media element's currentTime is the sole clock, including seek, rate change and resume. Chapter/edition changes unmount the old player and clear ranges; cancelled fetch responses cannot restore it. Saved manual highlights and manuscript formatting remain untouched.
+The reader applies a CSS Highlight range to existing prose and checks exact DOM text before highlighting. A stripped duplicate chapter title uses an explicit source offset. If that offset falls inside a timing segment, the whole mapping stays unavailable: the visible part has no independently verified start time. Missing browser support or mismatched text also produces an honest unsynchronized state. The media element's currentTime is the sole clock, including seek, rate change and resume. Chapter/edition changes unmount the old player and clear ranges; cancelled fetch responses cannot restore it. Saved manual highlights and manuscript formatting remain untouched.
 
 ## Local UI QA (6 steps)
 
@@ -18,7 +18,7 @@ The reader applies a CSS Highlight range to existing prose and checks exact DOM 
 2. Seek to 1.5, 4.5 and 7.5 seconds. Verify the first, second and third words. Seek back and into 3 seconds of silence; the highlight must clear in the gap.
 3. Play and change speed to 2×. Switch chapter and edition. The previous word/audio must disappear and the new text must match the new sound position.
 4. Enable Resume at 7.5 seconds. The 30-second fixture must open at that offset after metadata loads. Manually seek to zero; it must stay there.
-5. Select missing timing, changed manuscript, delayed response and load error. Verify honest unsynchronized copy, no highlight on changed text, no late old chapter audio, and an error with Retry audio.
+5. Select missing timing, changed manuscript, delayed response and load error. Verify honest unsynchronized copy, no highlight on changed text, no late old chapter audio, and an error with Retry audio. Select the removed-title cases: a crossing segment must remain unsynchronized while audio plays; a boundary between segments must highlight the first visible word at 4.5 seconds.
 6. Repeat at 390px width. Run `node apps/web/scripts/qa-audio-sync.mjs` against the local server for deterministic browser assertions and screenshots. Optional `PLAYWRIGHT_CHROMIUM_EXECUTABLE` reuses an installed browser; `AUDIO_SYNC_QA_OUTPUT` selects the artifact directory.
 
 ## Evidence and limits

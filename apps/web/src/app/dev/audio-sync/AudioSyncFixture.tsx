@@ -9,9 +9,9 @@ import type { AudioTiming } from "@/lib/audiobook/timing";
 const BOOK = "audio-sync-fixture";
 const TEXTS = { first: "One two three.", second: "Four five six.", swedish: "Ett två tre." };
 type Chapter = keyof typeof TEXTS;
-type Mode = "timed" | "missing" | "mismatch" | "delayed" | "error";
+type Mode = "timed" | "missing" | "mismatch" | "delayed" | "error" | "title-crossing" | "title-boundary";
 
-// Three deterministic tone bursts at [1,2), [4,5), [7,8), with silence between.
+// Deterministic tone bursts at [1,2), [4,5), [7,8), [10,11), with silence between.
 // These timestamps describe this fixture only; they are never provider evidence.
 function fixtureAudio() {
   const rate = 8000;
@@ -22,7 +22,7 @@ function fixtureAudio() {
   text(0, "RIFF"); view.setUint32(4, 36 + samples * 2, true); text(8, "WAVE"); text(12, "fmt "); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); view.setUint32(24, rate, true); view.setUint32(28, rate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true); text(36, "data"); view.setUint32(40, samples * 2, true);
   for (let i = 0; i < samples; i++) {
     const t = i / rate;
-    const burst = [1, 4, 7].some((start) => t >= start && t < start + 1);
+    const burst = [1, 4, 7, 10].some((start) => t >= start && t < start + 1);
     view.setInt16(44 + i * 2, burst ? Math.sin(t * 220 * 2 * Math.PI) * 900 : 0, true);
   }
   return new Blob([bytes], { type: "audio/wav" });
@@ -52,7 +52,8 @@ export default function AudioSyncFixture() {
         if (!sourceText) return Response.json({ error: "FIXTURE_CHAPTER_NOT_FOUND" }, { status: 404 });
         if (captured.mode === "delayed") await new Promise((resolve) => setTimeout(resolve, 1200));
         if (captured.mode === "error") return Response.json({ error: "AUDIO_SIGN_FAILED" }, { status: 503 });
-        return Response.json({ audioUrl, timing: captured.mode === "missing" ? null : fixtureTiming(captured.mode === "mismatch" ? "Old manuscript text." : sourceText), resumePositionSeconds: captured.resume ? 7.5 : null });
+        const narration = captured.mode === "title-crossing" ? `Intro${sourceText}` : captured.mode === "title-boundary" ? `Intro ${sourceText}` : sourceText;
+        return Response.json({ audioUrl, timing: captured.mode === "missing" ? null : fixtureTiming(captured.mode === "mismatch" ? "Old manuscript text." : narration), resumePositionSeconds: captured.resume ? 7.5 : null });
       }
       if (url.pathname === `/api/books/${BOOK}/audiobook/progress`) return Response.json({ ok: true });
       if (url.origin !== location.origin || url.pathname.startsWith("/api/")) return Response.json({ error: "LOCAL_FIXTURE_ONLY" }, { status: 403 });
@@ -64,17 +65,18 @@ export default function AudioSyncFixture() {
   const key = `${chapter}:${mode}:${resume}`;
   return <main className="mx-auto max-w-3xl space-y-6 p-6">
     <h1 className="text-2xl font-semibold">Audio synchronization — local fixture</h1>
-    <p>Synthetic tones, synthetic timing and local responses only. No speech provider, voice recording or real delivery. Bursts: 1–2, 4–5 and 7–8 seconds.</p>
+    <p>Synthetic tones, synthetic timing and local responses only. No speech provider, voice recording or real delivery. Bursts: 1–2, 4–5, 7–8 and 10–11 seconds.</p>
     <div className="flex flex-wrap gap-4">
       <label>Chapter / edition <select aria-label="Chapter / edition" value={chapter} onChange={(e) => setChapter(e.target.value as Chapter)}>
         <option value="first">English chapter 1</option><option value="second">English chapter 2</option><option value="swedish">Swedish edition</option>
       </select></label>
       <label>Timing <select aria-label="Timing" value={mode} onChange={(e) => { const mode = e.target.value as Mode; state.current = { ...state.current, mode }; setMode(mode); }}>
         <option value="timed">Valid timing</option><option value="missing">Missing timing</option><option value="mismatch">Changed manuscript</option><option value="delayed">Delayed response</option><option value="error">Load error</option>
+        <option value="title-crossing">Removed title crosses timing segment</option><option value="title-boundary">Removed title between timing segments</option>
       </select></label>
       <label><input type="checkbox" checked={resume} onChange={(e) => { const resume = e.target.checked; state.current = { ...state.current, resume }; setResume(resume); }} /> Resume at 7.5 seconds</label>
     </div>
-    {ready ? <AudioTextSync key={key}>
+    {ready ? <AudioTextSync key={key} textOffset={mode === "title-crossing" ? 5 : mode === "title-boundary" ? 6 : 0}>
       <ReaderChapterBody chapterTitle="Fixture chapter" chapterContent={JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: TEXTS[chapter] }] }] })} bodyStyle={{}} />
       <ChapterAudiobookPlayer bookId={BOOK} chapterId={chapter} audiobookStatus="ready" />
     </AudioTextSync> : <p role="status">Preparing fixture…</p>}

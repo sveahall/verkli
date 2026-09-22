@@ -1,11 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { alignmentToTiming, activeWordAt, parseAudioTiming } from "./timing";
+import { alignmentToTiming, activeWordAt, parseAudioTiming, canMapAudioTiming } from "./timing";
 
 const text = "Hej, 😀 igen!";
 const chars = Array.from(text);
 const alignment = { characters: chars, character_start_times_seconds: chars.map((_, i) => i * 0.2), character_end_times_seconds: chars.map((_, i) => i * 0.2 + 0.1) };
 
 describe("provider audio timing", () => {
+  it.each([
+    ["IntroOne two.", 5, false],
+    ["Intro One two.", 6, true],
+    ["Intro One two.", 5, true],
+    ["One two.", 0, true],
+  ])("checks the visible text boundary in %s", (sourceText, textOffset, expected) => {
+    const characters = Array.from(sourceText);
+    const timing = alignmentToTiming(sourceText, {
+      characters,
+      character_start_times_seconds: characters.map((_, i) => i),
+      character_end_times_seconds: characters.map((_, i) => i + 0.5),
+    })!;
+    expect(canMapAudioTiming(timing, sourceText.slice(textOffset), textOffset)).toBe(expected);
+    expect(canMapAudioTiming(timing, "Changed text", textOffset)).toBe(false);
+  });
   it("preserves exact UTF-16 text offsets and provider seconds", () => {
     const timing = alignmentToTiming(text, alignment)!;
     expect(timing.words[2]).toEqual({ word: "igen!", start: 7 * 0.2, end: 11 * 0.2 + 0.1, startOffset: 8, endOffset: 13 });

@@ -76,6 +76,24 @@ try {
     await page.locator("audio").waitFor();
     await seek(4.5); await expectWord("five");
   });
+  await record("removed title crossing a segment disables sync while audio plays", async () => {
+    await page.getByRole("checkbox", { name: "Resume at 7.5 seconds" }).uncheck();
+    await page.getByLabel("Chapter / edition").selectOption("first");
+    await page.getByLabel("Timing", { exact: true }).selectOption("title-crossing");
+    await seek(1.5); await expectWord("");
+    await page.getByText("Text highlighting is unavailable for this text or browser. Audio is still available.", { exact: true }).waitFor();
+    await page.locator("audio").evaluate((audio) => audio.play());
+    await page.waitForFunction(() => document.querySelector("audio").currentTime > 1.7);
+    await page.locator("audio").evaluate((audio) => audio.pause());
+    await seek(4.5); await expectWord("");
+    await page.screenshot({ path: path.join(output, "title-crossing.png"), fullPage: true });
+  });
+  await record("removed title between segments preserves the first visible word", async () => {
+    await page.getByLabel("Timing", { exact: true }).selectOption("title-boundary");
+    await seek(1.5); await expectWord("");
+    await seek(4.5); await expectWord("One");
+    await page.getByText("Text follows the audio.", { exact: true }).waitFor();
+  });
   await record("load error displays retry without fabricated audio", async () => {
     await page.getByLabel("Timing", { exact: true }).selectOption("error");
     await page.getByRole("button", { name: "Retry audio", exact: true }).waitFor();
@@ -83,6 +101,7 @@ try {
     await expectWord("");
   });
   await page.getByLabel("Timing", { exact: true }).selectOption("timed");
+  await page.getByLabel("Chapter / edition").selectOption("second");
   await page.setViewportSize({ width: 390, height: 844 });
   await seek(4.5); await expectWord("five");
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));

@@ -11,6 +11,13 @@ const timingSchema = z.object({ sourceText: z.string().min(1).max(2_000_000), wo
 export type AudioTiming = z.infer<typeof timingSchema>;
 export type TimedWord = AudioTiming["words"][number];
 
+/** A removed title must end between segments; a partial word has no verified start time. */
+export function canMapAudioTiming(timing: AudioTiming, visibleText: string, textOffset: number): boolean {
+  return Number.isInteger(textOffset) && textOffset >= 0 &&
+    timing.sourceText.slice(textOffset) === visibleText &&
+    !timing.words.some((word) => word.startOffset < textOffset && word.endOffset > textOffset);
+}
+
 /** Fail closed: the complete narration must match, including punctuation and whitespace. */
 export function parseAudioTiming(value: unknown): AudioTiming | null {
   const parsed = timingSchema.safeParse(value);

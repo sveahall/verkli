@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { activeWordAt, type AudioTiming } from "@/lib/audiobook/timing";
+import { activeWordAt, canMapAudioTiming, type AudioTiming } from "@/lib/audiobook/timing";
 import { collectTextNodeIndex, createRangeFromOffsets, getCssHighlightsMap, getHighlightConstructor } from "./ReaderChapterClient.helpers";
 
 type Sync = { update: (audio: HTMLAudioElement, timing: AudioTiming | null) => void; clear: () => void; status: "waiting" | "ready" | "unavailable" };
@@ -50,7 +50,7 @@ export default function AudioTextSync({ children, textOffset = 0 }: { children: 
         timingRef.current = timing;
         wordRef.current = null;
         registry.delete(BUCKET);
-        if (textOffset < 0 || timing.sourceText.slice(textOffset) !== indexRef.current.map((item) => item.node.textContent).join("")) {
+        if (!canMapAudioTiming(timing, indexRef.current.map((item) => item.node.textContent).join(""), textOffset)) {
           indexRef.current = null;
           setStatus("unavailable");
           return;
