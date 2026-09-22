@@ -14,7 +14,12 @@ export type Pipeline =
   | "editorial"
   | "cover"
   | "assistant"
-  | "import";
+  | "import"
+  // Kept separate from `video` on purpose. The Redis budget bills campaign
+  // drafts to the video pipeline, and its own comment calls that out: a video
+  // unit is calibrated for one render, so sharing a bucket across pipelines
+  // with different per-unit costs makes neither number mean anything.
+  | "marketing";
 
 /**
  * The raw billable unit.

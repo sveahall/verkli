@@ -118,6 +118,8 @@ describe("GET /api/books/[id]/translation-preview", () => {
       text: "Hej varlden",
       sourceLanguage: "sv",
       targetLanguage: "en",
+      // The preview is billed to the author who asked for it.
+      meter: { userId: "author-1", pipeline: "translation", bookId: expect.any(String) },
     })
   })
 

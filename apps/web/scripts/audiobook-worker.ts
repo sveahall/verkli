@@ -560,6 +560,7 @@ async function processJob(payload: AudiobookJobData) {
         voiceId: resolvedVoiceId,
         modelId: resolvedModelId,
         timeoutMs: chapterTimeoutMs,
+        meter: { userId, pipeline: "tts", bookId, jobId },
       });
       const audioFormat: AudioFormat = result.format === "mp3" ? "mp3" : "wav";
       const outputPath = `${outputBasePath}.${audioExtension(audioFormat)}`;

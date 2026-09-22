@@ -1,3 +1,5 @@
+import { recordUsage } from "@/lib/usage/meter";
+import type { MeterContext } from "@/lib/usage/types";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { getLanguageLabel } from "@/lib/languages";
@@ -6,6 +8,8 @@ import { isAiCriticEnabled } from "@/lib/flags";
 import { canRunLaunchCopyCritic, generateLaunchCopyWithCritic } from "./critique";
 
 export type LaunchCopyInput = {
+  /** When present, draft and critic token spend are billed to this user. */
+  meter?: MeterContext;
   title: string;
   description: string | null;
   language: string;
@@ -78,7 +82,7 @@ export async function generateLaunchCopy(input: LaunchCopyInput) {
   // failure here lands on the proven single-model chain below.
   if (isAiCriticEnabled() && canRunLaunchCopyCritic()) {
     try {
-      return await generateLaunchCopyWithCritic({ system, content, parse });
+      return await generateLaunchCopyWithCritic({ system, content, parse, meter: input.meter });
     } catch {
       console.warn("[marketing generate] critic pass failed, falling back to single model");
     }
@@ -95,6 +99,14 @@ export async function generateLaunchCopy(input: LaunchCopyInput) {
         system,
         messages: [{ role: "user", content }],
       });
+      if (input.meter) {
+        await recordUsage(input.meter, [
+          { kind: "ai_call", provider: "anthropic", model: "claude-sonnet-5",
+            quantity: response.usage?.input_tokens ?? 0, unit: "input_tokens" },
+          { kind: "ai_call", provider: "anthropic", model: "claude-sonnet-5",
+            quantity: response.usage?.output_tokens ?? 0, unit: "output_tokens" },
+        ]);
+      }
       return parse(response.content.filter((block) => block.type === "text").map((block) => block.text).join("\n"));
     } catch {
       // Do not log manuscript content, provider responses, or credentials.
@@ -116,6 +128,16 @@ export async function generateLaunchCopy(input: LaunchCopyInput) {
       });
       if (!response.ok) throw new Error("Provider request failed");
       const payload = await response.json();
+      // NIM speaks the OpenAI wire format, so usage arrives as prompt/completion
+      // rather than input/output. Same meaning, different spelling.
+      if (input.meter) {
+        await recordUsage(input.meter, [
+          { kind: "ai_call", provider: "nvidia-nim", model: "meta/llama-3.1-8b-instruct",
+            quantity: payload.usage?.prompt_tokens ?? 0, unit: "input_tokens" },
+          { kind: "ai_call", provider: "nvidia-nim", model: "meta/llama-3.1-8b-instruct",
+            quantity: payload.usage?.completion_tokens ?? 0, unit: "output_tokens" },
+        ]);
+      }
       return parse(payload.choices?.[0]?.message?.content ?? "");
     } catch {
       console.warn("[marketing generate] NIM draft failed");

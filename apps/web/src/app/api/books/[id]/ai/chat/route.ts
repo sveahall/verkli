@@ -1,3 +1,4 @@
+import { recordUsage } from "@/lib/usage/meter";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -33,7 +34,7 @@ const bodySchema = z.object({
   history: z.array(z.unknown()).max(50).optional(),
 });
 
-const chatLimiter = createPerUserRateLimiter({ maxPerMinute: 20 });
+const chatLimiter = createPerUserRateLimiter({ name: "books-ai-chat", maxPerMinute: 20 });
 
 export async function POST(
   request: NextRequest,
@@ -140,6 +141,23 @@ export async function POST(
         chapterTitle,
         chapterText,
       });
+
+      // Metered here rather than inside the provider: the assistant already
+      // returns its own usage block, and both the Anthropic and the NIM paths
+      // fill it in. Recording at the call site therefore covers both providers
+      // without threading a context through either of them.
+      if (llm.usage) {
+        await recordUsage(
+          { userId: user.id, pipeline: "assistant", bookId },
+          [
+            { kind: "ai_call", provider: llm.provider, model: llm.model,
+              quantity: llm.usage.promptTokens ?? 0, unit: "input_tokens" },
+            { kind: "ai_call", provider: llm.provider, model: llm.model,
+              quantity: llm.usage.completionTokens ?? 0, unit: "output_tokens" },
+          ]
+        );
+      }
+
       return NextResponse.json({
         id: crypto.randomUUID(),
         role: "assistant",

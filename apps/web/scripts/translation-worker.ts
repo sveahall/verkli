@@ -3,6 +3,7 @@
  * Run from apps/web: npm run translate-worker (requires REDIS_URL, Supabase env; Python venv and model in apps/web/models/sv_en)
  */
 
+import type { MeterContext } from "../src/lib/usage/types";
 import "./load-dotenv";
 import "./sentry-worker-init";
 import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
@@ -127,6 +128,7 @@ async function translateBatchWithRetry(
   chapterId: string,
   batchIndex: number,
   provider: TranslationProvider,
+  meter?: MeterContext,
 ): Promise<string[]> {
   for (let attempt = 1; attempt <= MAX_CHUNK_RETRY; attempt++) {
     try {
@@ -138,7 +140,7 @@ async function translateBatchWithRetry(
       } else if (provider === "nvidia-riva") {
         results = await nvidiaRivaTranslator.translateBatch(texts, sourceLang, targetLang);
       } else if (provider === "anthropic") {
-        results = await anthropicTranslator.translateBatch(texts, sourceLang, targetLang);
+        results = await anthropicTranslator.translateBatch(texts, sourceLang, targetLang, meter);
       } else {
         // chain: sv → en (Opus) → target (Riva), or source (Riva) → en → sv (Opus)
         const chain = sourceLang === "sv"
@@ -312,6 +314,20 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
     if (payload.authorId && book.author_id !== payload.authorId) {
       throw new UnrecoverableError("Ownership mismatch: authorId does not match book owner");
     }
+
+    // Billed to the verified book owner, never to `payload.authorId`: the check
+    // above only runs when the payload carries one, so `book.author_id` is the
+    // field that is always present and always right.
+    //
+    // No `jobId`: this worker never writes `ai_jobs`, and `workerJobId` is
+    // BullMQ's own counter. Putting it in the meter context would break the FK
+    // to `ai_jobs` on every insert, and because the meter swallows its errors
+    // by design, every translation row would vanish without a sound.
+    const translationMeter: MeterContext = {
+      userId: book.author_id,
+      pipeline: "translation",
+      bookId,
+    };
 
     const { data: sourceVersion, error: sourceVersionError } = await supabase
       .from("book_versions")
@@ -555,7 +571,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
                   const allTranslated: string[] = [];
                   for (let bi = 0; bi < batches.length; bi++) {
                     const result = await translateBatchWithRetry(
-                      batches[bi], sourceLang, normalizedTarget, ch.id, bi, translationProvider,
+                      batches[bi], sourceLang, normalizedTarget, ch.id, bi, translationProvider, translationMeter,
                     );
                     allTranslated.push(...result);
                   }
@@ -574,7 +590,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
                   const allTranslated: string[] = [];
                   for (let bi = 0; bi < batches.length; bi++) {
                     const result = await translateBatchWithRetry(
-                      batches[bi], sourceLang, normalizedTarget, ch.id, bi, translationProvider,
+                      batches[bi], sourceLang, normalizedTarget, ch.id, bi, translationProvider, translationMeter,
                     );
                     allTranslated.push(...result);
                   }

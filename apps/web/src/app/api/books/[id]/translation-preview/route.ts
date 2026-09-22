@@ -133,6 +133,7 @@ export async function GET(
       text: originalText,
       sourceLanguage: sourceContext.sourceLanguage,
       targetLanguage,
+      meter: { userId: user.id, pipeline: "translation", bookId },
     })
 
     return NextResponse.json({

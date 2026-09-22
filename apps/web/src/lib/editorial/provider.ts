@@ -1,3 +1,5 @@
+import { recordUsage } from "@/lib/usage/meter";
+import type { MeterContext } from "@/lib/usage/types";
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { editorialReportSchema, type EditorialReport, type ReviewMode } from "./review-schema";
@@ -30,6 +32,8 @@ export async function generateEditorialReview(input: {
   text: string;
   chapterTitle: string;
   sourceText: string | null;
+  /** When present, both the review and the critic are billed to this user. */
+  meter?: MeterContext;
 }): Promise<EditorialReport> {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
   if (!key) throw new Error("Editorial AI is not configured. Please contact support.");
@@ -52,6 +56,18 @@ export async function generateEditorialReview(input: {
     ].join(" "),
     messages: [{ role: "user", content: JSON.stringify(input) }],
   });
+  // Metered before the parse guards below: the tokens were spent whether or not
+  // the reply turns out to be usable, and a review that fails validation is
+  // exactly the kind of cost that would otherwise be priced at zero.
+  if (input.meter) {
+    await recordUsage(input.meter, [
+      { kind: "ai_call", provider: "anthropic", model: "claude-sonnet-5",
+        quantity: result.usage?.input_tokens ?? 0, unit: "input_tokens" },
+      { kind: "ai_call", provider: "anthropic", model: "claude-sonnet-5",
+        quantity: result.usage?.output_tokens ?? 0, unit: "output_tokens" },
+    ]);
+  }
+
   if (result.stop_reason === "max_tokens" || result.stop_reason === "refusal") {
     throw new Error("The AI review was incomplete. Please try again.");
   }
@@ -65,6 +81,6 @@ export async function generateEditorialReview(input: {
   // paying a second model to judge items nobody will see is pure waste.
   if (input.mode === "analysis") report.corrections = [];
   if (!isAiCriticEnabled()) return report;
-  const adjudicated = await adjudicateEditorialReport({ report, text: input.text });
+  const adjudicated = await adjudicateEditorialReport({ report, text: input.text, meter: input.meter });
   return adjudicated.report;
 }

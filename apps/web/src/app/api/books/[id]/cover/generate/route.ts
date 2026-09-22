@@ -31,7 +31,7 @@ export const runtime = "nodejs";
 // uploads that follow.
 export const maxDuration = 60;
 
-const coverLimiter = createPerUserRateLimiter({ maxPerMinute: 3 });
+const coverLimiter = createPerUserRateLimiter({ name: "books-cover-generate", maxPerMinute: 3 });
 
 const coverGenerateSchema = z.object({
   prompt: z.string().max(2000),
@@ -216,7 +216,10 @@ export async function POST(
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const { requestId, imageUrls } = await generateCoverImages({ prompt: finalPrompt });
+      const { requestId, imageUrls } = await generateCoverImages({
+        prompt: finalPrompt,
+        meter: { userId: user.id, pipeline: "cover", bookId },
+      });
       return NextResponse.json({ requestId, images: imageUrls });
     } catch (error) {
       lastError = error;

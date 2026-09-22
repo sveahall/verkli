@@ -18,7 +18,7 @@ import {
 } from "@/lib/api-errors";
 import { extractTextFromTiptapNode } from "@/lib/tiptap-content";
 
-const previewLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const previewLimiter = createPerUserRateLimiter({ name: "books-audiobook-preview", maxPerMinute: 5 });
 
 /** Max characters for preview to keep ElevenLabs costs tiny */
 const MAX_PREVIEW_CHARS = 200;
@@ -124,6 +124,7 @@ export async function POST(
       voiceId,
       modelId: modelId || "eleven_multilingual_v2",
       timeoutMs: 30_000,
+      meter: { userId: user.id, pipeline: "tts", bookId },
     });
 
     // Return audio directly as a binary response
