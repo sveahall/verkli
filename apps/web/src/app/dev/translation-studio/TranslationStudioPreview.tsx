@@ -21,6 +21,7 @@ export default function TranslationStudioPreview() { return <ToastProvider><Prev
 function Preview() {
   const [ready, setReady] = useState(false);
   const [mode, setMode] = useState("ready");
+  const [edition, setEdition] = useState("preview-edition");
   const [open, setOpen] = useState(false);
   const [requests, setRequests] = useState<Array<{ path: string; body: unknown }>>([]);
   const modeRef = useRef(mode);
@@ -35,6 +36,22 @@ function Preview() {
       // Every API and external request is intercepted: no providers, payments or database writes.
       if (url.origin !== location.origin) return Response.json({ error: "PREVIEW_ONLY" }, { status: 403 });
       const responseMode = modeRef.current;
+      if (url.pathname.endsWith("/saved-translation")) {
+        const language = url.searchParams.get("targetLanguage") ?? "sv";
+        const sourceId = url.searchParams.get("sourceVersionId") ?? "preview-edition";
+        await new Promise((resolve) => setTimeout(resolve, responseMode === "slow" ? 2500 : 200));
+        if (responseMode === "failure") return Response.json({ error: "SIMULATED_FAILURE" }, { status: 503 });
+        if (responseMode === "oversized") return Response.json({ error: "This book is too large for the comparison view. Open its chapters in Write." }, { status: 422 });
+        const source = { id: sourceId, language_code: "en", status: "done", chapters: [{ id: chapterId, title: "The harbour", order: 0, text: sourceId === "other-edition" ? "Another source edition." : originalText }, { id: "chapter-two", title: "The letter", order: 1, text: "The letter was still unopened." }] };
+        return Response.json({ source, target: responseMode === "unavailable" ? null : { id: `saved-${language}`, language_code: language, status: "done", chapters: responseMode === "empty" ? [] : [{ id: "translated-one", title: "Saved opening", order: 0, text: previews[language] ?? `[${language} synthetic saved text]` }, { id: "translated-two", title: "Saved letter", order: 1, text: `[${language} saved chapter two]` }] }, fingerprints: { source: sourceId === "other-edition" ? "different-source" : "source-hash", target: "target-hash", chapters: [] } });
+      }
+      if (url.pathname.endsWith("/translation-quality") && (!init?.method || init.method === "GET")) {
+        if (responseMode === "report-failure") return Response.json({ error: "SIMULATED_REPORT_FAILURE" }, { status: 503 });
+        const language = url.searchParams.get("targetLanguage") ?? "sv";
+        const sourceId = url.searchParams.get("sourceVersionId") ?? "preview-edition";
+        const report = { status: "needs_review", profile: { voice: "Restrained", rhythm: "Short sentences", dialogue: "None", preserve: ["Names"], glossary: [] }, issues: [{ reviewer: "fidelity", severity: "major", segment: 0, sourceQuote: "The letter was still unopened.", targetQuote: "Brevet var öppnat.", explanation: "Synthetic historical finding: the negation was lost.", suggestion: "Keep the letter unopened." }], revisionCount: 1, reviewRounds: 2, model: "synthetic fixture", rubricVersion: "fixture", usage: { inputTokens: 0, outputTokens: 0 } };
+        return Response.json({ jobs: [{ id: "saved-report", status: "completed", createdAt: "2026-09-20T12:00:00Z", trusted: false, stale: responseMode === "edited", output: { formatVersion: 1, scope: "book", sourceVersionId: sourceId, targetVersionId: `saved-${language}`, sourceHash: "source-hash", targetHash: responseMode === "edited" ? "old-target" : "target-hash", status: "needs_review", profile: report.profile, batches: [{ chapterId, chapterTitle: "The letter", batchIndex: 0, sourceHash: "", targetHash: "", segmentOffset: 0, report }], checkedAt: "2026-09-20T12:00:00Z", error: null } }] });
+      }
       if (url.pathname.endsWith("/translation-preview")) {
         await new Promise((resolve) => setTimeout(resolve, responseMode === "slow" ? 2500 : 350));
         if (responseMode === "failure") return Response.json({ error: "SIMULATED_FAILURE" }, { status: 503 });
@@ -55,7 +72,8 @@ function Preview() {
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
       <p>Design preview · synthetic manuscript · no external actions</p>
       <div className="flex flex-wrap items-center gap-3">
-        <label>State <select className="min-h-11 rounded-xl border border-border bg-card px-3 text-base" value={mode} onChange={(event) => setMode(event.target.value)}>{["ready", "slow", "failure", "unavailable", "empty", "submit-error", "paid", "billing", "no-chapter"].map((value) => <option key={value}>{value}</option>)}</select></label>
+        <label>State <select aria-label="State" className="min-h-11 rounded-xl border border-border bg-card px-3 text-base" value={mode} onChange={(event) => setMode(event.target.value)}>{["ready", "slow", "failure", "unavailable", "empty", "submit-error", "paid", "billing", "no-chapter", "report-failure", "edited", "oversized"].map((value) => <option key={value}>{value}</option>)}</select></label>
+        <label>Source edition <select aria-label="Source edition" value={edition} onChange={(event) => setEdition(event.target.value)}><option value="preview-edition">Original edition</option><option value="other-edition">Other edition</option></select></label>
         <button type="button" className="min-h-11 rounded-full border border-border px-4" onClick={() => document.documentElement.classList.toggle("dark")}>Toggle theme</button>
       </div>
     </div>
@@ -64,7 +82,7 @@ function Preview() {
       main={<div className="@container/book-panel overflow-hidden rounded-3xl border border-border bg-card">
         <BookWorkflowHeader bookId={bookId} activeTool="translate" tools={["edit", "cover", "audiobook", "translate", "pricing", "publish", "review"]} compact bare />
         <div className="p-4 sm:p-7"><AgentCompanion agent="alma" onTalk={() => setOpen(true)} />
-          <TranslatePanel key={mode} bookId={bookId} bookTitle="The last ferry" authorDisplayName="Mira Holm" bookLengthLabel="3 chapters" sourceLanguage="en" sourceVersionId="preview-edition" isProLocked={mode === "paid"} billingLoading={mode === "billing"} selectedChapterId={mode === "no-chapter" ? null : chapterId} chapters={[{ id: chapterId, title: "The harbour" }, { id: "chapter-two", title: "The letter" }, { id: "chapter-three", title: "A crossing" }]} hideTitle />
+          <TranslatePanel key={mode} bookId={bookId} bookTitle="The last ferry" authorDisplayName="Mira Holm" bookLengthLabel="3 chapters" sourceLanguage="en" sourceVersionId={edition} isProLocked={mode === "paid"} billingLoading={mode === "billing"} selectedChapterId={mode === "no-chapter" ? null : chapterId} chapters={[{ id: chapterId, title: "The harbour" }, { id: "chapter-two", title: "The letter" }, { id: "chapter-three", title: "A crossing" }]} hideTitle />
         </div>
       </div>} />}
     <details className="mt-6 text-sm"><summary className="min-h-11 cursor-pointer">Fixture request evidence</summary><pre className="overflow-auto" data-testid="requests">{JSON.stringify(requests, null, 2)}</pre></details>
