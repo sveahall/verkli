@@ -22,6 +22,9 @@ vi.mock("@/lib/higgsfield", () => ({
     Promise.resolve({ requestId: "req-1", videoUrl: "https://cdn.example.com/video.mp4" })
   ),
 }));
+// This route now checks the account's master AI switch first. Its own guard
+// test covers the blocked path; here the account simply has AI on.
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 
 const { requireAuthorRoleForApi } = await import(
   "@/lib/auth/require-author"

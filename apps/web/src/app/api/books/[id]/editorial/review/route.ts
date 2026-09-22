@@ -11,6 +11,7 @@ import { isAiChatEnabled } from "@/lib/flags";
 import { checkBudget, releaseBudget, BudgetExceededError } from "@/lib/workers/budget";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -26,6 +27,10 @@ const fail = (error: string, status: number) => NextResponse.json({ error }, { s
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await requireAuthorRoleForApi();
   if (gate.response) return gate.response;
+  // Account master AI switch. Server-side, so turning AI off is a real
+  // setting and not just a hidden button.
+  const aiOff = await aiDisabledResponse(gate.user.id);
+  if (aiOff) return aiOff;
   if (!isAiChatEnabled()) return fail("Editorial AI review is currently turned off. Your manuscript has not changed.", 503);
   const configuredBudget = Number(process.env.EDITORIAL_DAILY_BUDGET);
   if (!Number.isSafeInteger(configuredBudget) || configuredBudget <= 0) return fail("Editorial review is unavailable until its daily AI allowance is configured. Please contact support.", 503);

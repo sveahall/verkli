@@ -26,6 +26,7 @@ import {
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
 import { extractTextFromTiptapNode } from "@/lib/tiptap-content";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 const previewLimiter = createPerUserRateLimiter({ name: "books-audiobook-preview", maxPerMinute: 5 });
 
@@ -47,6 +48,14 @@ export async function POST(
 
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
+
+  // Account master AI switch. Server-side, so turning AI off is a real
+
+  // setting and not just a hidden button.
+
+  const aiOff = await aiDisabledResponse(user.id);
+
+  if (aiOff) return aiOff;
 
   const rl = await previewLimiter.check(user.id);
   if (!rl.allowed) {

@@ -73,4 +73,17 @@ describe("translation manuscript source", () => {
     expect(result.sourceLanguage).toBe("sv");
     expect(result.sourceLanguageOrigin).toBe("heuristic");
   });
+
+  it("reads past a short introduction when the edition language is unknown", async () => {
+    const result = await resolveTranslationSourceContext({
+      supabase: client([
+        { content: document("Introduction"), source_text: "" },
+        { content: document("Det är en bok som jag har på bordet och den är inte färdig än."), source_text: "" },
+      ]),
+      bookId: "book", book: { original_language: "und", language: "und" }, requestedSourceVersionId: "edition",
+    });
+
+    expect(result.sourceLanguage).toBe("sv");
+    expect(result.sourceLanguageOrigin).toBe("heuristic");
+  });
 });

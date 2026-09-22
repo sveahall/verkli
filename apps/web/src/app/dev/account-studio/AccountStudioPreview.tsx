@@ -6,6 +6,7 @@ import SettingsPage from "@/components/author/settings/SettingsPage";
 import SubscriptionPlanSection from "@/components/author/settings/SubscriptionPlanSection";
 import shellStyles from "@/features/author-shell/AuthorAppShell.module.css";
 import type { ActionState } from "@/features/author/settings/actions";
+import { DEFAULT_AI_SETTINGS } from "@/features/ai-team/settings/contracts";
 
 const sampleProfile = {
   displayName: "Alex Lind",
@@ -67,7 +68,7 @@ export default function AccountStudioPreview() {
           },
         }} />
       ) : (
-        <SettingsPage user={{ email: "alex@example.test" }} profile={{ preferences: { default_language: "en", default_visibility: "private", notifications: { email: true } } }} headerActions={null} actions={{
+        <SettingsPage user={{ email: "alex@example.test" }} profile={{ preferences: { default_language: "en", default_visibility: "private", notifications: { email: true } } }} aiSettings={{ ...DEFAULT_AI_SETTINGS, nickname: "Alex", craft: "Historical fiction" }} headerActions={null} actions={{
           saveAuthorSettings: async (_previous, data) => {
             await delay();
             if (fail) return { ok: false, message: "Simulated save failure. Your changes are still here." };

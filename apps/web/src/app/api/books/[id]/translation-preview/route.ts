@@ -27,6 +27,7 @@ import {
   E_TRANSLATION_SERVICE_UNAVAILABLE,
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors"
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 const previewLimiter = createPerUserRateLimiter({ name: "translation-preview", maxPerMinute: 2 })
 
@@ -38,6 +39,14 @@ export async function GET(
 
   const { user, response } = await requireAuthorRoleForApi()
   if (response) return response
+
+  // Account master AI switch. Server-side, so turning AI off is a real
+
+  // setting and not just a hidden button.
+
+  const aiOff = await aiDisabledResponse(user.id);
+
+  if (aiOff) return aiOff;
   if (!isTranslationsEnabled() || !reviewedTranslationActivationReady()) {
     return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
   }
@@ -49,7 +58,9 @@ export async function GET(
   }
 
   const { id: bookId } = await params
-  const targetLanguage = new URL(request.url).searchParams.get("targetLanguage")?.trim().toLowerCase() ?? ""
+  const requestUrl = new URL(request.url)
+  const targetLanguage = requestUrl.searchParams.get("targetLanguage")?.trim().toLowerCase() ?? ""
+  const requestedSourceLanguage = requestUrl.searchParams.get("sourceLanguage")
 
   if (!targetLanguage || !isSupportedLanguage(targetLanguage)) {
     return apiError(E_INVALID_TARGET_LANGUAGE, 400)
@@ -81,7 +92,8 @@ export async function GET(
     supabase,
     bookId,
     book,
-    requestedSourceVersionId: new URL(request.url).searchParams.get("sourceVersionId"),
+    requestedSourceVersionId: requestUrl.searchParams.get("sourceVersionId"),
+    requestedSourceLanguage,
   })
 
   if (!sourceContext.sourceVersionId) {

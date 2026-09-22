@@ -143,6 +143,7 @@ export default function TranslatePanel({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               targetLanguage: lang,
+              sourceLanguage,
               sourceVersionId,
               overwrite: false,
               stripeSessionId,
@@ -176,7 +177,7 @@ export default function TranslatePanel({
     } finally {
       setTranslating(false);
     }
-  }, [bookId, sourceVersionId, reportMessage, request, trackJob]);
+  }, [bookId, sourceLanguage, sourceVersionId, reportMessage, request, trackJob]);
 
   // Handle return from Stripe checkout. Runs once per mount via
   // checkoutHandledRef so re-renders from prop changes can't double-fire.
@@ -215,7 +216,7 @@ export default function TranslatePanel({
     setPreviewError(null);
     try {
       const res = await request(
-        `/api/books/${bookId}/translation-preview?targetLanguage=${encodeURIComponent(targetLanguage)}&sourceVersionId=${encodeURIComponent(sourceVersionId ?? "")}`,
+        `/api/books/${bookId}/translation-preview?targetLanguage=${encodeURIComponent(targetLanguage)}&sourceVersionId=${encodeURIComponent(sourceVersionId ?? "")}&sourceLanguage=${encodeURIComponent(sourceLanguage)}`,
         { signal: controller.signal },
       );
       if (controller.signal.aborted) return;
@@ -244,7 +245,7 @@ export default function TranslatePanel({
         setLoadingPreview(false);
       }
     }
-  }, [bookId, targetLanguage, sourceVersionId, request]);
+  }, [bookId, sourceLanguage, targetLanguage, sourceVersionId, request]);
 
   useEffect(() => {
     void fetchPreview();
@@ -282,6 +283,7 @@ export default function TranslatePanel({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               targetLanguage: lang,
+              sourceLanguage,
               sourceVersionId,
               overwrite: false,
             }),
@@ -336,6 +338,7 @@ export default function TranslatePanel({
     try {
       const body: Record<string, unknown> = {
         targetLanguage,
+        sourceLanguage,
         sourceVersionId,
         overwrite: false,
       };
@@ -469,7 +472,7 @@ export default function TranslatePanel({
         </div>
       </details>
       <TranslationCheckoutModal open={checkoutModalOpen} onClose={() => setCheckoutModalOpen(false)}
-        bookId={bookId} sourceVersionId={sourceVersionId ?? ""} languages={checkoutLanguages} onProSubscribe={handleProSubscribe} />
+        bookId={bookId} sourceVersionId={sourceVersionId ?? ""} sourceLanguage={sourceLanguage} languages={checkoutLanguages} onProSubscribe={handleProSubscribe} />
     </section>
   );
 }

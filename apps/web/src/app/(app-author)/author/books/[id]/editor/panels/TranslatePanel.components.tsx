@@ -54,11 +54,9 @@ interface TranslateMoreLanguagesCardProps {
   onToggleLanguage: (code: string) => void;
 }
 
-// Keep all formerly listed languages visible; use the central config for availability.
-const additionalLanguages = [{ value: "no", label: "Norwegian" }, { value: "da", label: "Danish" }, { value: "fi", label: "Finnish" }];
 export function TranslateMoreLanguagesCard({ sourceLanguage, selectedLanguages, disabled = false, onToggleLanguage }: TranslateMoreLanguagesCardProps) {
   const [query, setQuery] = useState("");
-  const choices = [...LANGUAGE_OPTIONS, ...additionalLanguages].filter((option) => option.label.toLowerCase().includes(query.trim().toLowerCase()));
+  const choices = LANGUAGE_OPTIONS.filter((option) => option.label.toLowerCase().includes(query.trim().toLowerCase()));
   return (
     <fieldset className={styles.languagePicker} disabled={disabled}>
       <legend>Choose languages</legend>

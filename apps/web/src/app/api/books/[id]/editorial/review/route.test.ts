@@ -8,6 +8,9 @@ vi.mock("@/lib/editorial/provider", () => ({ generateEditorialReview: mocks.gene
 vi.mock("@/lib/flags", () => ({ isAiChatEnabled: mocks.enabled }));
 vi.mock("@/lib/workers/budget", () => ({ checkBudget: mocks.budget, releaseBudget: mocks.release, BudgetExceededError: class extends Error {} }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: () => ({ insert: mocks.insert, update: (patch: unknown) => { mocks.receipt(patch); const chain = { eq: () => chain, select: () => chain, maybeSingle: async () => ({ data: { id: "job" }, error: null }) }; return chain; } }) }) }));
+// This route now checks the account's master AI switch first. Its own guard
+// test covers the blocked path; here the account simply has AI on.
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 import { POST } from "./route";
 const bookId = "11111111-1111-4111-8111-111111111111";
 const chapterId = "22222222-2222-4222-8222-222222222222";

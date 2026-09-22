@@ -232,19 +232,52 @@ export type Database = {
       }
       ai_memory_settings: {
         Row: {
+          about: string | null
+          ai_enabled: boolean
+          craft: string | null
+          emoji: string
           enabled: boolean
+          enthusiasm: string
+          instructions: string | null
+          match_writing_voice: boolean
+          nickname: string | null
           owner_id: string
+          reply_style: string
+          structure: string
           updated_at: string
+          warmth: string
         }
         Insert: {
+          about?: string | null
+          ai_enabled?: boolean
+          craft?: string | null
+          emoji?: string
           enabled?: boolean
+          enthusiasm?: string
+          instructions?: string | null
+          match_writing_voice?: boolean
+          nickname?: string | null
           owner_id: string
+          reply_style?: string
+          structure?: string
           updated_at?: string
+          warmth?: string
         }
         Update: {
+          about?: string | null
+          ai_enabled?: boolean
+          craft?: string | null
+          emoji?: string
           enabled?: boolean
+          enthusiasm?: string
+          instructions?: string | null
+          match_writing_voice?: boolean
+          nickname?: string | null
           owner_id?: string
+          reply_style?: string
+          structure?: string
           updated_at?: string
+          warmth?: string
         }
         Relationships: []
       }

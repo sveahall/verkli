@@ -1,10 +1,12 @@
 "use client";
 
 import { startTransition, useActionState, useMemo, useState } from "react";
-import { ArrowUpRight, Bell, BookOpen, CreditCard, LockKeyhole, UserRound } from "lucide-react";
+import { ArrowUpRight, Bell, BookOpen, CreditCard, LockKeyhole, Sparkles, UserRound } from "lucide-react";
 import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 import { saveAuthorSettings, signOutAllSessions, type ActionState } from "@/features/author/settings/actions";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
+import AiSettingsSection from "@/features/ai-team/settings/AiSettingsSection";
+import type { AiSettings } from "@/features/ai-team/settings/contracts";
 
 const initialState: ActionState = { ok: false, message: "" };
 const productionActions = { saveAuthorSettings, signOutAllSessions };
@@ -13,6 +15,7 @@ const sections = [
   { id: "security", label: "Security", icon: LockKeyhole },
   { id: "defaults", label: "Publishing defaults", icon: BookOpen },
   { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "ai", label: "AI", icon: Sparkles },
   { id: "billing", label: "Billing & subscriptions", icon: CreditCard },
 ];
 
@@ -27,12 +30,14 @@ interface ProfilePreferences {
 type SettingsPageProps = {
   user: { email: string };
   profile: { preferences: ProfilePreferences };
+  /** Account AI preferences. Saved by the same form as everything else. */
+  aiSettings: AiSettings;
   subscriptionPlanSection?: React.ReactNode;
   actions?: typeof productionActions;
   headerActions?: React.ReactNode;
 };
 
-export default function SettingsPage({ user, profile, subscriptionPlanSection, actions = productionActions, headerActions }: SettingsPageProps) {
+export default function SettingsPage({ user, profile, aiSettings, subscriptionPlanSection, actions = productionActions, headerActions }: SettingsPageProps) {
   const preferences = useMemo(() => profile.preferences || {}, [profile.preferences]);
   const [emailNotifications, setEmailNotifications] = useState(preferences.notifications?.email ?? true);
   const [language, setLanguage] = useState((typeof preferences.default_language === "string" && preferences.default_language.trim()) || "sv");
@@ -104,6 +109,8 @@ export default function SettingsPage({ user, profile, subscriptionPlanSection, a
                       <input type="hidden" name="email_notifications" value={emailNotifications ? "true" : "false"} />
                     </div>
                   </section>
+
+                  <AiSettingsSection settings={aiSettings} />
                 </fieldset>
                 <div className="sticky bottom-20 z-10 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-surface-sm lg:bottom-4">
                   <p role={state.message && !state.ok && !edited && !pending ? "alert" : "status"} aria-live="polite" className={`min-h-5 text-sm ${!edited && state.message && !pending ? state.ok ? "text-emerald-700 dark:text-emerald-400" : "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>{pending ? "Saving your settings…" : edited ? "Unsaved changes" : state.message || "Save account preferences together."}</p>
