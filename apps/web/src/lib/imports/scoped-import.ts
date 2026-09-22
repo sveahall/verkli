@@ -3,10 +3,10 @@ import { enqueueExtractJob, type ImportMode } from "@/lib/import-queue";
 import type { createClient } from "@/lib/supabase/server";
 import {
   E_BOOK_NOT_FOUND,
+  E_IMPORT_OVERWRITE_UNAVAILABLE,
   E_DATABASE_ERROR,
   E_IMPORT_FILE_STORAGE_FAILED,
   E_IMPORT_RECORD_CREATION_FAILED,
-  E_INVALID_BOOK_VERSION,
 } from "@/lib/api-errors";
 
 export const IMPORT_ALLOWED_EXTENSIONS = [".epub", ".docx", ".html", ".htm", ".txt", ".pdf"] as const;
@@ -88,6 +88,11 @@ export async function startScopedBookImport({
   mode,
   targetVersionId,
 }: StartScopedBookImportArgs): Promise<ScopedImportResult> {
+  if (mode === "overwrite_draft") {
+    console.warn("[book-import] draft replacement blocked", { bookId });
+    return { ok: false, status: 409, errorKey: E_IMPORT_OVERWRITE_UNAVAILABLE };
+  }
+
   const { data: book, error: bookError } = await supabase
     .from("books")
     .select("id, author_id")
@@ -107,39 +112,6 @@ export async function startScopedBookImport({
 
   if (!typedBook || typedBook.author_id !== userId) {
     return { ok: false, status: 404, errorKey: E_BOOK_NOT_FOUND };
-  }
-
-  if (mode === "overwrite_draft" && targetVersionId) {
-    const { data: version, error: versionError } = await supabase
-      .from("book_versions")
-      .select("id, book_id, published_at")
-      .eq("id", targetVersionId)
-      .maybeSingle();
-
-    const typedVersion = version as { id: string; book_id: string; published_at: string | null } | null;
-
-    if (versionError) {
-      console.error("[book-import] version lookup failed", {
-        bookId,
-        userId,
-        targetVersionId,
-        message: versionError.message,
-      });
-      return { ok: false, status: 500, errorKey: E_DATABASE_ERROR };
-    }
-
-    if (!typedVersion || typedVersion.book_id !== bookId) {
-      return { ok: false, status: 400, errorKey: E_INVALID_BOOK_VERSION, detail: "Invalid draft version" };
-    }
-
-    if (typedVersion.published_at) {
-      return {
-        ok: false,
-        status: 400,
-        errorKey: E_INVALID_BOOK_VERSION,
-        detail: "Cannot overwrite a published version",
-      };
-    }
   }
 
   const { data: insertRow, error: insertError } = await supabase

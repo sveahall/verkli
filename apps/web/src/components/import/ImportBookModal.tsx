@@ -7,6 +7,7 @@ import RightsAttestationFields, {
   useRightsAttestation,
   appendAttestation,
 } from "@/components/import/RightsAttestationFields";
+import { IMPORT_OVERWRITE_MESSAGE } from "@/lib/imports/import-safety";
 import { resolveErrorMessage } from "@/lib/error-messages";
 import { isJobActiveStatus, normalizeJobStatus, type JobStatus } from "@/lib/job-status";
 import { useDocumentVisible } from "@/hooks/useDocumentVisible";
@@ -270,6 +271,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
           <p className="mt-1 text-[14px] text-muted-foreground">
             Upload an existing book file to import chapters automatically.
           </p>
+          <p className="mt-2 text-sm text-muted-foreground">{IMPORT_OVERWRITE_MESSAGE}</p>
           <p className="mt-0.5 text-[13px] text-muted-foreground">
             Allowed formats: .epub, .docx, .html, .txt - max 50 MB
           </p>
