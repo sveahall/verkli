@@ -191,6 +191,11 @@ describe("verifyLaunchConfig", () => {
       SUPABASE_SERVICE_ROLE_KEY: "service-key",
       RESEND_API_KEY: "re_test",
       RESEND_FROM_EMAIL: "no-reply@verkli.com",
+      // Read with requirePositiveIntEnv, so absence is a 503 from the route
+      // rather than an unbudgeted run. An environment without them is not a
+      // launch environment.
+      EDITORIAL_DAILY_BUDGET: "200000",
+      MARKETING_DAILY_BUDGET: "50000",
       // Live-mode, because goodEnv() describes an environment that should pass
       // a PRODUCTION check. It held "sk_test_x" while the suite asserted zero
       // errors, which pinned the gate's blind spot open: production could ship
@@ -415,6 +420,19 @@ describe("verifyLaunchConfig", () => {
     );
   });
 
+  it("rejects a daily budget that budget.ts would itself refuse", () => {
+    // requirePositiveIntEnv takes positive whole numbers only, so a present but
+    // unusable value is the same outage as an absent one — and harder to spot.
+    for (const value of ["0", "-1", "12.5", "lots", ""]) {
+      const env = goodEnv();
+      env.EDITORIAL_DAILY_BUDGET = value;
+      expect(errors(env).map((problem) => problem.key)).toContain("EDITORIAL_DAILY_BUDGET");
+    }
+    const ok = goodEnv();
+    ok.EDITORIAL_DAILY_BUDGET = "1";
+    expect(errors(ok)).toEqual([]);
+  });
+
   it("accepts NVIDIA NIM alone as the AI provider", () => {
     const env = goodEnv();
     delete env.ANTHROPIC_API_KEY;
@@ -432,6 +450,8 @@ describe("verifyLaunchConfig", () => {
     "STRIPE_CHECKOUT_CANCEL_URL",
     "REDIS_URL",
     "FAL_KEY",
+    "EDITORIAL_DAILY_BUDGET",
+    "MARKETING_DAILY_BUDGET",
   ]) {
     it(`rejects a launch environment missing ${key}`, () => {
       const env = goodEnv();
