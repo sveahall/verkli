@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
   from: vi.fn(),
   create: vi.fn(),
+  locks: new Map<string, string>(),
+  handlers: new Map<string, (...args: unknown[]) => void>(),
 }));
 vi.mock("../../../scripts/load-dotenv", () => ({}));
 vi.mock("../../../scripts/sentry-worker-init", () => ({ Sentry: { captureException: vi.fn() } }));
@@ -19,8 +21,15 @@ vi.mock("@/lib/workers/budget", () => ({
 }));
 vi.mock("bullmq", () => ({
   Worker: class {
+    client = Promise.resolve({
+      set: async (key: string, owner: string) => { if (mocks.locks.has(key)) return null; mocks.locks.set(key, owner); return "OK"; },
+      eval: async (_script: string, _keys: number, key: string, owner: string) => {
+        if (mocks.locks.get(key) !== owner) return 0;
+        mocks.locks.delete(key); return 1;
+      },
+    });
     constructor(_queue: string, processor: typeof mocks.processor) { mocks.processor = processor; }
-    on() { return this; }
+    on(event: string, handler: (...args: unknown[]) => void) { mocks.handlers.set(event, handler); return this; }
   },
   UnrecoverableError: class extends Error {},
 }));
@@ -32,7 +41,7 @@ const plan = {
   channels: ["instagram"], languages: ["sv"], content_types: ["text"],
 };
 import { UnrecoverableError } from "bullmq";
-import { validateJobCost, JobCostExceededError } from "@/lib/workers/budget";
+import { validateJobCost, JobCostExceededError, releaseBudget } from "@/lib/workers/budget";
 import type { MarketingJobData } from "@/lib/marketing-queue";
 
 type StoredPost = { scheduled_for: string; channel: string; language: string; content_type: string; caption: string; status: string };
@@ -62,6 +71,7 @@ describe("campaign worker", () => {
     vi.clearAllMocks();
     jobData = { bookId: "book", authorId: "author", channels: ["instagram"], language: "sv", campaignPlanId: "plan" };
     receipts = [];
+    mocks.locks.clear();
     persistJob.mockImplementation(async data => { jobData = structuredClone(data); });
     vi.mocked(validateJobCost).mockReturnValue({} as ReturnType<typeof validateJobCost>);
     vi.stubEnv("ANTHROPIC_API_KEY", "test-only");
@@ -244,6 +254,41 @@ describe("campaign worker", () => {
     expect(mocks.create).toHaveBeenCalledOnce();
     rejectCall(new Error("original connection closed"));
     await originalAttempt;
+  });
+
+  it("admits only one concurrent processor even when the loser holds stale job data", async () => {
+    await useRealGeneration(30000);
+    const staleData = structuredClone(jobData);
+    let rejectCall!: (error: Error) => void;
+    let started!: () => void;
+    const callStarted = new Promise<void>(resolve => { started = resolve; });
+    mocks.create.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectCall = reject; started(); }));
+    mocks.create.mockRejectedValue(new Error("unexpected second provider call"));
+    const originalAttempt = expect(processPlan()).rejects.toBeInstanceOf(UnrecoverableError);
+    await callStarted;
+    try {
+      const losingError = await mocks.processor!({ name: "marketing-generate", id: "job", data: staleData, updateData: persistJob }).catch(error => error);
+      expect(losingError).toBeInstanceOf(UnrecoverableError);
+      mocks.handlers.get("failed")!({ id: "job", opts: { attempts: 2 }, attemptsMade: 1 }, losingError);
+      await Promise.resolve();
+      expect(releaseBudget).not.toHaveBeenCalled();
+      expect(mocks.create).toHaveBeenCalledOnce();
+    } finally {
+      rejectCall(new Error("original connection closed"));
+      await originalAttempt;
+    }
+  });
+
+  it("releases only the legacy video reservation on an unrecoverable first attempt", async () => {
+    mocks.handlers.get("failed")!({ id: "job", opts: { attempts: 2 }, attemptsMade: 1 }, new UnrecoverableError("paid usage is unknown"));
+    await vi.waitFor(() => expect(releaseBudget).toHaveBeenCalledWith({ pipeline: "video", jobId: "job" }));
+    expect(releaseBudget).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the video reservation while an ordinary error still has queue attempts", async () => {
+    mocks.handlers.get("failed")!({ id: "job", opts: { attempts: 2 }, attemptsMade: 1 }, new Error("temporary predispatch lookup failure"));
+    await Promise.resolve();
+    expect(releaseBudget).not.toHaveBeenCalled();
   });
 
 });

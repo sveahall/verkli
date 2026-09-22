@@ -22,6 +22,7 @@ import {
   validateJobCost,
 } from "../src/lib/workers/budget";
 import { expandSchedule } from "../src/lib/marketing/expand-schedule";
+import { acquireMarketingModelFence } from "../src/lib/marketing/model-work-fence";
 import { createMarketingWork } from "../src/lib/marketing/model-work";
 import { generateLaunchCopy } from "../src/lib/marketing/launch-copy-provider";
 import { createHash } from "node:crypto";
@@ -35,6 +36,8 @@ import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 import { Sentry } from "./sentry-worker-init";
 
 const QUEUE_NAME = QUEUE_NAMES.MARKETING;
+
+class MarketingModelAdmissionError extends UnrecoverableError {}
 
 type CampaignPlan = {
   id: string;
@@ -425,33 +428,48 @@ function main() {
       const workerJobId = job.id != null ? String(job.id) : undefined;
       const data = job.data as MarketingJobData;
 
-      if (data.modelWorkPending) {
-        const message = "Unresolved marketing model work. Review saved drafts and usage before requesting a new generation.";
-        console.error("[marketing worker] automatic model replay blocked", { jobId: workerJobId });
-        if (data.campaignPlanId) await markPlanFailed(createAdminClient(), data.campaignPlanId, message);
-        throw new UnrecoverableError(message);
-      }
-      const checkpoint: ModelCheckpoint = async scope => {
-        // Set the local fence first; even an uncertain Redis write is terminal.
-        if (scope !== null) data.modelWorkPending = scope;
-        try {
-          await job.updateData({ ...data, modelWorkPending: scope });
-          data.modelWorkPending = scope;
-        } catch {
-          throw new UnrecoverableError("Marketing model checkpoint could not be saved. Automatic generation stopped.");
-        }
-      };
+      let fence: Awaited<ReturnType<typeof acquireMarketingModelFence>>;
       try {
-        if (data.campaignPlanId) {
-          await processCampaignPlanJob(data, checkpoint, workerJobId);
-        } else {
-          await processJob(data, checkpoint, workerJobId);
+        fence = await acquireMarketingModelFence(await worker.client, data.authorId, workerJobId ?? "");
+      } catch {
+        console.error("[marketing worker] exclusive model admission unavailable", { jobId: workerJobId });
+        throw new MarketingModelAdmissionError("Marketing model work is reserved or could not be reserved safely. Review its outcome before retrying.");
+      }
+      try {
+        if (data.modelWorkPending) {
+          const message = "Unresolved marketing model work. Review saved drafts and usage before requesting a new generation.";
+          console.error("[marketing worker] automatic model replay blocked", { jobId: workerJobId });
+          if (data.campaignPlanId) await markPlanFailed(createAdminClient(), data.campaignPlanId, message);
+          throw new UnrecoverableError(message);
         }
-      } catch (error) {
-        // Budget/usage failures, unknown results and uncertain draft writes cannot
-        // restart paid work with a fresh cap on BullMQ's next attempt.
-        if (data.modelWorkPending) throw new UnrecoverableError(error instanceof Error ? error.message : "Marketing model work stopped");
-        throw error;
+        const checkpoint: ModelCheckpoint = async scope => {
+          // Set the local fence first; even an uncertain Redis write is terminal.
+          if (scope !== null) data.modelWorkPending = scope;
+          try {
+            await job.updateData({ ...data, modelWorkPending: scope });
+            data.modelWorkPending = scope;
+          } catch {
+            throw new UnrecoverableError("Marketing model checkpoint could not be saved. Automatic generation stopped.");
+          }
+        };
+        try {
+          if (data.campaignPlanId) {
+            await processCampaignPlanJob(data, checkpoint, workerJobId);
+          } else {
+            await processJob(data, checkpoint, workerJobId);
+          }
+        } catch (error) {
+          // Budget/usage failures, unknown results and uncertain draft writes cannot
+          // restart paid work with a fresh cap on BullMQ's next attempt.
+          if (data.modelWorkPending) throw new UnrecoverableError(error instanceof Error ? error.message : "Marketing model work stopped");
+          throw error;
+        }
+      } finally {
+        // Only this Redis owner may release, and never while paid work is unresolved.
+        if (!data.modelWorkPending) {
+          try { await fence.release(); }
+          catch { throw new UnrecoverableError("Marketing reservation release is uncertain. Review saved drafts before retrying."); }
+        }
       }
     },
     {
@@ -477,7 +495,9 @@ function main() {
       // Match BullMQ's exact stall-out message so an arbitrary error whose
       // text merely contains "stalled" cannot trip the terminal override.
       const stalledOut = /stalled more than allowable limit/i.test(err?.message ?? "");
-      if (made < attempts && !stalledOut) return;
+      // A losing concurrent processor never owns the winning job's video reservation.
+      if (err instanceof MarketingModelAdmissionError) return;
+      if (made < attempts && !stalledOut && !(err instanceof UnrecoverableError)) return;
       await releaseBudget({
         pipeline: "video",
         jobId: job?.id != null ? String(job.id) : null,
