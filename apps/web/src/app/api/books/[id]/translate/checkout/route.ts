@@ -110,7 +110,7 @@ export async function POST(
       requestedSourceVersionId: sourceVersionId,
       requestedSourceLanguage: typeof body.sourceLanguage === "string" ? body.sourceLanguage : null,
     })
-    sourceLanguage = sourceContext.sourceLanguage
+    sourceLanguage = normalizeLanguageOrNull(sourceContext.sourceLanguage)
   }
 
   if (!sourceLanguage) {
