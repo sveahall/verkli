@@ -1,6 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
+import SettingsSectionForm from "@/components/author/settings/SettingsSectionForm";
+import { saveAiPreferences } from "@/features/author/settings/actions";
 import {
   AI_REPLY_STYLES,
   AI_TRAIT_LEVELS,
@@ -53,19 +55,19 @@ function Toggle({ name, checked, onChange, label }: { name: string; checked: boo
 }
 
 /**
- * The AI section of author settings.
+ * The AI settings page.
  *
- * Two rules shape the markup:
- *
- *  1. Turning AI off must not erase what the author configured. The detail
- *    controls stay mounted and keep submitting their values; only their
- *    container is hidden. Unmounting them would post empty fields and quietly
- *    reset tone, profile and instructions on the way out.
- *  2. Everything posts through the page's single existing form, so the sticky
- *    "Save settings" bar keeps meaning what it says. Booleans ride along as
- *    hidden inputs, matching how notifications already work on this page.
+ * Turning AI off must not erase what the author configured, so the detail
+ * controls stay mounted and keep posting their values — only their container is
+ * hidden. Hiding a control does not exclude it from form submission (only
+ * `disabled` does); unmounting them would post blanks and wipe tone, profile and
+ * instructions on the way out.
  */
-export default function AiSettingsSection({ settings }: { settings: AiSettings }) {
+export default function AiSettingsSection({ settings, action = saveAiPreferences }: {
+  settings: AiSettings;
+  /** Overridden by the /dev fixture so a preview save never hits the account. */
+  action?: typeof saveAiPreferences;
+}) {
   const [aiEnabled, setAiEnabled] = useState(settings.aiEnabled);
   const [memoryEnabled, setMemoryEnabled] = useState(settings.memoryEnabled);
   const [matchVoice, setMatchVoice] = useState(settings.matchWritingVoice);
@@ -83,28 +85,21 @@ export default function AiSettingsSection({ settings }: { settings: AiSettings }
   const ids = useId();
 
   return (
-    <section id="settings-ai" aria-labelledby="settings-ai-title" className="scroll-mt-6 border-t border-border p-5 sm:p-7">
-      <div className="flex items-start justify-between gap-5">
-        <div className="min-w-0">
-          <h2 id="settings-ai-title" className="font-display text-xl font-medium">AI</h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Verkli&rsquo;s specialists only ever suggest — you decide what reaches your book. If you would rather write without them, turn AI off completely.
-          </p>
-        </div>
-        <Toggle name="ai_enabled" checked={aiEnabled} onChange={setAiEnabled} label="Use AI in Verkli" />
-      </div>
-
+    <SettingsSectionForm
+      title="AI"
+      description="Verkli’s specialists only ever suggest — you decide what reaches your book. If you would rather write without them, turn AI off completely."
+      titleAside={<Toggle name="ai_enabled" checked={aiEnabled} onChange={setAiEnabled} label="Use AI in Verkli" />}
+      action={action}
+      idleMessage="Applies to every book and every specialist."
+      saveLabel="Save AI settings"
+    >
       {!aiEnabled && (
-        <p className="mt-4 rounded-xl border border-border bg-muted/40 p-4 text-sm leading-relaxed text-muted-foreground">
-          AI is off. The AI team, the writing assistant, AI editorial review, audiobook narration, translation and campaign video are hidden and will not run — including from an old tab. Your saved tone, profile and instructions are kept, so turning AI back on restores them.
+        <p className="rounded-xl border border-border bg-muted/40 p-4 text-sm leading-relaxed text-muted-foreground">
+          AI is off once you save. The AI team, the writing assistant, AI editorial review, audiobook narration, translation and campaign video are hidden and will not run — including from an old tab. Your saved tone, profile and instructions are kept, so turning AI back on restores them.
         </p>
       )}
 
-      {/* Kept mounted, only hidden. Hiding a control does not exclude it from
-          form submission (only `disabled` does), so an author who switches AI
-          off still saves — and gets back — the tone, profile and instructions
-          they configured. Unmounting would post blanks and wipe them. */}
-      <div className={aiEnabled ? "mt-6 space-y-8" : "hidden"}>
+      <div className={aiEnabled ? "space-y-8" : "hidden"}>
         <div className="space-y-2">
           <label htmlFor={`${ids}-style`} className="text-sm font-medium">Style and tone</label>
           <select
@@ -186,7 +181,6 @@ export default function AiSettingsSection({ settings }: { settings: AiSettings }
           <Toggle name="ai_memory_enabled" checked={memoryEnabled} onChange={setMemoryEnabled} label="Use my saved preferences" />
         </div>
       </div>
-
-    </section>
+    </SettingsSectionForm>
   );
 }
