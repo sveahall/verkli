@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import ProfilePage from "@/components/author/profile/ProfilePage";
+import AccountEmailSection from "@/components/author/settings/AccountEmailSection";
 import SecuritySection from "@/components/author/settings/SecuritySection";
 import PublishingDefaultsSection from "@/components/author/settings/PublishingDefaultsSection";
 import NotificationsSection from "@/components/author/settings/NotificationsSection";
@@ -77,6 +78,15 @@ export default function AccountStudioPreview() {
         // takes a local action, so nothing here writes to an account.
         <div className="@container/settings space-y-6">
           <SettingsNav />
+          <AccountEmailSection
+            currentEmail="alex@example.test"
+            action={async (_previous: ActionState, data: FormData) => {
+              await delay();
+              if (fail) return { ok: false, message: "Simulated failure. Your address is unchanged." };
+              setLastAction(`Local email change preview: ${data.get("email")}. No mail was sent.`);
+              return { ok: true, message: "Confirmation emails would be sent in production." };
+            }}
+          />
           <SecuritySection
             action={async (_previous: ActionState, data: FormData) => {
               await delay();
