@@ -33,10 +33,13 @@ export async function recordUsage(
     const now = new Date();
 
     const rows = billable.map((event) => {
-      const price =
-        event.provider && event.model
-          ? priceFor(prices, event.provider, event.model, event.unit, now)
-          : null;
+      // Only a provider-and-model event can meaningfully be priced. A storage
+      // snapshot or a job duration has no vendor rate to look up, so it is
+      // unpriced by nature rather than missing one.
+      const priceable = Boolean(event.provider && event.model);
+      const price = priceable
+        ? priceFor(prices, event.provider as string, event.model as string, event.unit, now)
+        : null;
       const { costUsd, priceVersion } = computeCost(price, event.quantity);
       return {
         user_id: ctx.userId,
@@ -58,7 +61,7 @@ export async function recordUsage(
         // failure that survives all the way into a wrong price.
         meta: {
           ...(event.meta ?? {}),
-          ...(costUsd === null ? { price_missing: true } : {}),
+          ...(priceable && costUsd === null ? { price_missing: true } : {}),
         },
       };
     });

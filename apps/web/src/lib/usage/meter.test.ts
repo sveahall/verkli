@@ -103,4 +103,16 @@ describe("recordUsage", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].unit).toBe("output_tokens");
   });
+
+  it("does not flag an unpriceable event as missing a price", async () => {
+    // A job duration has no vendor rate to look up. Flagging it would fill the
+    // admin view with gaps that can never be filled.
+    await recordUsage(ctx, [
+      { kind: "job", quantity: 150_000, unit: "ms", meta: { job_kind: "audiobook_generation" } },
+    ]);
+    const [rows] = insertMock.mock.calls[0];
+    expect(rows[0].cost_usd).toBeNull();
+    expect(rows[0].meta.price_missing).toBeUndefined();
+    expect(rows[0].meta.job_kind).toBe("audiobook_generation");
+  });
 });

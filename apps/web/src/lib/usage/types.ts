@@ -19,7 +19,11 @@ export type Pipeline =
   // drafts to the video pipeline, and its own comment calls that out: a video
   // unit is calibrated for one render, so sharing a bucket across pipelines
   // with different per-unit costs makes neither number mean anything.
-  | "marketing";
+  | "marketing"
+  // A job kind nobody has mapped yet. Better than dropping the row: a new job
+  // type is exactly when a silent skip would hurt most, because the cost is
+  // real and the absence says nothing.
+  | "other";
 
 /**
  * The raw billable unit.
