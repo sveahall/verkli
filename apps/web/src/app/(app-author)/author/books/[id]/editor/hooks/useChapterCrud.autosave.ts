@@ -169,3 +169,29 @@ export async function drainPendingSaves(
 
   return { saved, transientFailures, missingChapters, conflictedChapters };
 }
+
+/**
+ * Server chapters arriving after an agent write (or any refresh) must not
+ * replace a draft this tab has not saved. Clean chapters take the server text
+ * and become the new baseline. Dirty, queued, in-flight, or conflicted
+ * chapters keep the text in this tab.
+ */
+export function mergeServerChapters<T extends { id: string; content: string | null }>(
+  current: readonly T[],
+  incoming: readonly T[],
+  protectedIds: ReadonlySet<string>,
+): { chapters: T[]; adoptedIds: string[] } {
+  const local = new Map(current.map((chapter) => [chapter.id, chapter]));
+  const incomingIds = new Set(incoming.map((chapter) => chapter.id));
+  const adoptedIds: string[] = [];
+  const chapters = incoming.map((chapter) => {
+    if (!protectedIds.has(chapter.id)) {
+      adoptedIds.push(chapter.id);
+      return chapter;
+    }
+    const existing = local.get(chapter.id);
+    return existing ? { ...chapter, content: existing.content } : chapter;
+  });
+  const retained = current.filter((chapter) => !incomingIds.has(chapter.id) && protectedIds.has(chapter.id));
+  return { chapters: [...chapters, ...retained], adoptedIds };
+}

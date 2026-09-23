@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Plan, PlannedMatch } from "@/lib/ai/agent-runtime/plan";
-import { initialTicked, planSelection } from "./AgentPlanCard";
+import { initialTicked, planSelection, resultHeading } from "./AgentPlanCard";
 
 const match = (matchId: string, preselected: boolean): PlannedMatch => ({
   matchId, chapterId: "c1", chapterTitle: "Hamnen", chapterHash: "h",
@@ -40,5 +40,21 @@ describe("plan approval", () => {
 
   it("carries a match the author opted into", () => {
     expect(planSelection(plan, new Set(["m3"]), new Set(["s2"]))).toEqual({ stepIds: ["s1"], matchIds: ["m3"] });
+  });
+});
+
+describe("result heading", () => {
+  it("counts passages when the write changed them", () => {
+    expect(resultHeading({ changed: 1, outcomes: [{ status: "applied" }] })).toBe("1 passage changed");
+    expect(resultHeading({ changed: 2, outcomes: [{ status: "applied" }] })).toBe("2 passages changed");
+  });
+
+  it("does not call a saved cover nothing", () => {
+    expect(resultHeading({ changed: 0, outcomes: [{ status: "applied" }] })).toBe("1 change saved");
+    expect(resultHeading({ changed: 0, outcomes: [{ status: "applied" }, { status: "applied" }] })).toBe("2 changes saved");
+  });
+
+  it("says nothing only when every step was skipped or failed", () => {
+    expect(resultHeading({ changed: 0, outcomes: [{ status: "skipped" }, { status: "failed" }] })).toBe("Nothing was changed");
   });
 });

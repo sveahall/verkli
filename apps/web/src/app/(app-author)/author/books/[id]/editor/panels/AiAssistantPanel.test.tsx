@@ -41,7 +41,7 @@ vi.mock("react", async (original) => ({
   },
 }));
 
-import AiAssistantPanel, { type AiAssistantPanelProps } from "./AiAssistantPanel";
+import AiAssistantPanel, { APPLIED_PLAN_RETRIES, APPLIED_PLAN_RETRY_MS, type AiAssistantPanelProps } from "./AiAssistantPanel";
 import AgentProposalCard from "@/features/ai-team/actions/AgentProposalCard";
 import AgentPlanCard, { type PlanState } from "@/features/ai-team/actions/AgentPlanCard";
 import MemoryControls from "@/features/ai-team/memory/MemoryControls";
@@ -171,7 +171,8 @@ describe("whole-book plans", () => {
     });
     const fetch = mockApi(async () => Response.json(coverPlan));
     const onExecuteAction = vi.fn(async () => ({ message: "New options are ready in Cover." }));
-    const withExecutor = { onExecuteAction };
+    const onBookChanged = vi.fn();
+    const withExecutor = { onExecuteAction, onBookChanged };
     render(withExecutor);
     await vi.waitFor(() => expect(memory(render(withExecutor)).ready).toBe(true));
     changeDraft("Ge mig ett nytt omslag"); shortcut(render(withExecutor));
@@ -193,6 +194,7 @@ describe("whole-book plans", () => {
       const done = elements(render(withExecutor)).find((element) => element.type === AgentPlanCard)!;
       expect((done.props.state as PlanState).outcomes?.[0]).toMatchObject({ status: "applied", detail: "New options are ready in Cover." });
     });
+    expect(onBookChanged).toHaveBeenCalledOnce();
   });
 
   it("sends one apply when Run is pressed twice before the first request settles", async () => {
@@ -266,10 +268,69 @@ describe("whole-book plans", () => {
       (card.props.onApply as (selection: { stepIds: string[]; matchIds: string[] }) => void)({ stepIds: ["s1"], matchIds: ["m1"] });
     };
     apply();
+    for (let attempt = 0; attempt < APPLIED_PLAN_RETRIES; attempt++) {
+      await vi.advanceTimersByTimeAsync(APPLIED_PLAN_RETRY_MS);
+    }
 
     await vi.waitFor(() => {
       const applied = elements(render()).find((element) => element.type === AgentPlanCard)!;
       expect(applied.props.state).toEqual({ alreadyApplied: true });
+    });
+    expect(fetch.mock.calls.filter(([url]) => String(url).endsWith("/agent/apply"))).toHaveLength(1 + APPLIED_PLAN_RETRIES);
+  });
+
+  it("refreshes only after a claimed plan has stored its result", async () => {
+    const onBookChanged = vi.fn();
+    const view = { onBookChanged };
+    const fetch = mockApi(async () => Response.json(planReply()));
+    render(view);
+    await vi.waitFor(() => expect(memory(render(view)).ready).toBe(true));
+    changeDraft("Byt Johan mot Jonas i hela boken");
+    shortcut(render(view));
+    await vi.waitFor(() => expect(turns(render(view))).toHaveLength(2));
+
+    let applies = 0;
+    fetch.mockImplementation(async (url: string) => {
+      if (!url.endsWith("/agent/apply")) return Response.json({ enabled: true, memories: [] });
+      applies += 1;
+      if (applies === 1) return Response.json({ message: "This plan has already been applied." }, { status: 409 });
+      return Response.json({
+        message: "This plan has already been applied.",
+        changed: 1,
+        outcomes: [{ stepId: "s1", status: "applied", detail: "1 passage changed.", changed: 1 }],
+      }, { status: 409 });
+    });
+    const card = elements(render(view)).find((element) => element.type === AgentPlanCard)!;
+    (card.props.onApply as (selection: { stepIds: string[]; matchIds: string[] }) => void)({ stepIds: ["s1"], matchIds: ["m1"] });
+    await vi.advanceTimersByTimeAsync(APPLIED_PLAN_RETRY_MS);
+
+    await vi.waitFor(() => {
+      const applied = elements(render(view)).find((element) => element.type === AgentPlanCard)!;
+      expect(applied.props.state).toMatchObject({ changed: 1, outcomes: [{ status: "applied" }] });
+    });
+    expect(onBookChanged).toHaveBeenCalledOnce();
+    expect(applies).toBe(2);
+  });
+
+  it("retires a plan the server refuses as too old", async () => {
+    const fetch = mockApi(async () => Response.json(planReply()));
+    await open();
+    changeDraft("Byt Johan mot Jonas i hela boken");
+    shortcut();
+    await vi.waitFor(() => expect(turns(render())).toHaveLength(2));
+
+    fetch.mockImplementation(async (url: string) => url.endsWith("/agent/apply")
+      ? Response.json({ message: "This plan is too old to apply safely — your chapters may have changed since. Ask for a fresh one." }, { status: 410 })
+      : Response.json({ enabled: true, memories: [] }));
+    const apply = () => {
+      const card = elements(render()).find((element) => element.type === AgentPlanCard)!;
+      (card.props.onApply as (selection: { stepIds: string[]; matchIds: string[] }) => void)({ stepIds: ["s1"], matchIds: ["m1"] });
+    };
+    apply();
+
+    await vi.waitFor(() => {
+      const expired = elements(render()).find((element) => element.type === AgentPlanCard)!;
+      expect(expired.props.state).toMatchObject({ expired: true });
     });
     apply();
     expect(fetch.mock.calls.filter(([url]) => String(url).endsWith("/agent/apply"))).toHaveLength(1);

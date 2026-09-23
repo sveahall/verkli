@@ -362,6 +362,21 @@ export function plainTextToTiptapDoc(text: string): TiptapDocument {
   };
 }
 
+/**
+ * Whether an editor should replace its document with a chapter prop.
+ *
+ * The editor is created from `content` once. A later prop — the agent wrote
+ * the chapter, then the workspace refreshed — has to be applied by hand.
+ * Keystrokes still waiting in the autosave debounce are ahead of that prop
+ * and must not be overwritten.
+ */
+export function shouldAdoptEditorContent(current: unknown, incoming: ContentInput, pending: boolean): boolean {
+  if (pending) return false;
+  const next = toTiptapContent(incoming);
+  const nextKey = typeof next === "string" ? next : JSON.stringify(next);
+  return nextKey !== JSON.stringify(current ?? null);
+}
+
 export function toTiptapContent(
   input: ContentInput
 ): string | Record<string, unknown> {
