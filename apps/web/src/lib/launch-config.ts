@@ -334,6 +334,19 @@ export function validateStripeWebhookSecret(
   return null;
 }
 
+/** A daily AI ceiling that lib/workers/budget reads with requirePositiveIntEnv. */
+function validateDailyBudget(value: string): string | null {
+  // isSafeInteger, matching requirePositiveIntEnv exactly. isInteger accepts
+  // 1e16 and 9007199254740993, which the runtime refuses — so an operator
+  // setting "effectively uncapped" passed the gate and got a 503 in production,
+  // which is the one outage this check exists to catch.
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    return "must be a positive whole number of daily units; budget.ts rejects anything else and the route then answers 503.";
+  }
+  return null;
+}
+
 export const LAUNCH_REQUIRED_PRESENT: readonly LaunchRequiredSpec[] = [
   {
     anyOf: ["NEXT_PUBLIC_SITE_URL"],
@@ -347,6 +360,21 @@ export const LAUNCH_REQUIRED_PRESENT: readonly LaunchRequiredSpec[] = [
   {
     anyOf: ["NEXT_PUBLIC_SUPABASE_URL"],
     reason: "Every page and route reads the database through it.",
+  },
+  // Same reasoning, found the hard way: both are read with requirePositiveIntEnv,
+  // so an absent value is not "no budget" but a thrown BudgetConfigurationError
+  // and a 503 from the route. Proven 2026-09-22 by pointing the agent run at the
+  // editorial pipeline and watching it fail. Listing them here turns a launch-day
+  // outage into the config edit this checker exists to catch.
+  {
+    anyOf: ["EDITORIAL_DAILY_BUDGET"],
+    reason: "Editorial review throws without it; the route answers 503 rather than running unbudgeted.",
+    validate: validateDailyBudget,
+  },
+  {
+    anyOf: ["MARKETING_DAILY_BUDGET"],
+    reason: "Marketing AI throws without it, for the same reason.",
+    validate: validateDailyBudget,
   },
   {
     anyOf: ["NEXT_PUBLIC_SUPABASE_ANON_KEY"],

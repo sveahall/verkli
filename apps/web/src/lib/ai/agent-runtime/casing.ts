@@ -35,10 +35,14 @@ export function transferCasing(matched: string, replacement: string): string {
   const titleCase = UPPER.test(first) && rest.every((character) => LOWER.test(character));
   if (!titleCase) return replacement;
 
-  // Capitalise the replacement's first letter wherever it is, so a replacement
-  // that opens with a quotation mark or a digit still gets its letter raised.
-  const index = Array.from(replacement).findIndex((character) => LETTER.test(character));
-  const characters = Array.from(replacement.toLowerCase());
+  // Raise the first letter wherever it is, so a replacement opening with a
+  // quotation mark or a digit still gets its letter raised — and touch nothing
+  // else. Lowercasing the rest first made this destroy every capital past the
+  // first: renaming a character from "Johan" to "Erik Nilsson", an ordinary
+  // request, wrote "Erik nilsson" at every match. The model already wrote the
+  // replacement the way it belongs; only its opening is ours to decide.
+  const characters = Array.from(replacement);
+  const index = characters.findIndex((character) => LETTER.test(character));
   characters[index] = characters[index].toUpperCase();
   return characters.join("");
 }

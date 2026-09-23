@@ -11,12 +11,15 @@
  * turns one decision into forty-seven.
  */
 
+import { recordUsage } from "@/lib/usage/meter";
+import type { MeterContext } from "@/lib/usage/types";
 import Anthropic from "@anthropic-ai/sdk";
 import { assistantToolPersonas, type AssistantTool } from "@/lib/ai/agent-actions";
 import type { AgentBook } from "./book-context";
 import { listChapters, readChapter, searchBook, MatchRegistry } from "./read-tools";
 import { PlanBuilder, PlanRejection, type Plan } from "./plan";
 import { MAX_TOOL_TURNS, TOOL_DEFINITIONS, isWriteTool, toolInputSchemas, type ToolName } from "./tools";
+import { projectNextTurnUnits } from "./budget";
 
 const MODEL_ID = "claude-sonnet-5";
 const MAX_TOKENS_PER_TURN = 4000;
@@ -29,6 +32,21 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const MAX_RUN_INPUT_TOKENS = 150_000;
 
 const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
+
+/**
+ * Matches the CHECK on `agent_plans.summary`.
+ *
+ * The prompt asks for 120 words, which is a request to the model, not a bound
+ * on it — and `max_tokens` is 4000 TOKENS, roughly three times this many
+ * characters. Manuscript text reaches the model verbatim, including text
+ * imported from other files, so a book that asks for a long closing message is
+ * enough to overrun the column. The insert then fails, the whole plan is thrown
+ * away after the model has already been paid for building it, and the turn is
+ * left reserved so the conversation refuses the next message too.
+ *
+ * Bounded here rather than at the insert so every consumer inherits it.
+ */
+const MAX_SUMMARY_CHARS = 4_000;
 
 export class AgentRunError extends Error {
   readonly code: "PROVIDER_UNAVAILABLE" | "PROVIDER_FAILED" | "PROVIDER_TIMEOUT";
@@ -107,6 +125,8 @@ export async function runAgent(input: {
   book: AgentBook;
   message: string;
   tool: AssistantTool;
+  /** When present, every turn's token spend is billed to this user. */
+  meter?: MeterContext;
 }): Promise<AgentRunResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) throw new AgentRunError("ANTHROPIC_API_KEY is not set", "PROVIDER_UNAVAILABLE");
@@ -122,6 +142,8 @@ export async function runAgent(input: {
   let turns = 0;
   let inputTokens = 0;
   let outputTokens = 0;
+  /** Everything the tools have put into the conversation, which is re-sent every turn. */
+  let conversationChars = 0;
   let stoppedBecause: AgentRunResult["stoppedBecause"] = "turn_limit";
 
   try {
@@ -139,6 +161,16 @@ export async function runAgent(input: {
       inputTokens += response.usage.input_tokens;
       outputTokens += response.usage.output_tokens;
 
+      // Per turn, not per run: an agent loop is many billed requests, and a run
+      // that stops on the turn limit has paid for every one of them. Summing
+      // only at the end would lose the cost of a run that throws midway.
+      await recordUsage(input.meter, [
+        { kind: "ai_call", provider: "anthropic", model: MODEL_ID,
+          quantity: response.usage.input_tokens, unit: "input_tokens" },
+        { kind: "ai_call", provider: "anthropic", model: MODEL_ID,
+          quantity: response.usage.output_tokens, unit: "output_tokens" },
+      ]);
+
       const text = response.content
         .filter((block): block is Anthropic.TextBlock => block.type === "text")
         .map((block) => block.text).join("\n").trim();
@@ -155,16 +187,20 @@ export async function runAgent(input: {
       // The assistant turn goes back verbatim, thinking blocks included — the
       // API requires them alongside the tool calls they justify.
       messages.push({ role: "assistant", content: response.content });
-      messages.push({
-        role: "user",
-        content: calls.map((call) => ({
-          type: "tool_result" as const,
-          tool_use_id: call.id,
-          content: callTool(call.name, call.input, { book: input.book, registry, planner }),
-        })),
-      });
+      const results = calls.map((call) => ({
+        type: "tool_result" as const,
+        tool_use_id: call.id,
+        content: callTool(call.name, call.input, { book: input.book, registry, planner }),
+      }));
+      for (const result of results) conversationChars += result.content.length;
+      messages.push({ role: "user", content: results });
 
-      if (inputTokens >= MAX_RUN_INPUT_TOKENS) {
+      // Projected, not observed. Comparing the running total after a turn meant
+      // the turn that crossed the line had already been billed, and nothing
+      // bounded one turn: several search calls cost a few dozen output tokens
+      // and append tens of thousands of units of results in a single step. Here
+      // the next request's size is known and has not been paid for yet.
+      if (inputTokens + projectNextTurnUnits(conversationChars) >= MAX_RUN_INPUT_TOKENS) {
         stoppedBecause = "token_ceiling";
         break;
       }
@@ -181,5 +217,9 @@ export async function runAgent(input: {
       : "I ran out of room before I could work this out. Try asking for one change at a time.";
   }
 
-  return { summary: sanitize(summary), plan: planner.build(), turns, stoppedBecause, usage: { inputTokens, outputTokens } };
+  return {
+    summary: sanitize(summary).slice(0, MAX_SUMMARY_CHARS),
+    plan: planner.build(), turns, stoppedBecause,
+    usage: { inputTokens, outputTokens },
+  };
 }

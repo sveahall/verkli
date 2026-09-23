@@ -144,6 +144,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ planId: row.id, changed, outcomes }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     if (!outcomes) {
+      // agent_plans_immutable allows this only while outcome is still null.
+      // A claim that already recorded a result cannot be opened again.
       const { error: releaseError } = await admin.from("agent_plans").update({ applied_at: null }).eq("id", row.id);
       if (releaseError) console.error("[agent.apply] could not release the claim", { code: releaseError.code });
     }

@@ -10,7 +10,7 @@ import {
   TiptapFloatingMenu as FloatingMenu,
   useEditor,
 } from "@tiptap/react";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   createAutosaveScheduler,
   type EditorSnapshot,
@@ -18,7 +18,8 @@ import {
 import { createPortal } from "react-dom";
 import type { InlineAiAction } from "@/features/book-workspace/types";
 import { uploadChapterMedia } from "@/lib/supabase/storage";
-import { toTiptapContent, countWords } from "@/lib/tiptap-content";
+import { history } from "@tiptap/pm/history";
+import { toTiptapContent, shouldAdoptEditorContent, countWords } from "@/lib/tiptap-content";
 import { FONT_FAMILY_MAP, WRITING_PRESETS } from "./types";
 
 type PresetId = "novel" | "essay" | "screenplay";
@@ -98,6 +99,17 @@ function getSelectionText(editor: NonNullable<ReturnType<typeof useEditor>>): st
 
 const emptySubscribe = () => () => {};
 
+/** Server text is not the author's keystroke. Drop undo so it cannot be saved back over the write. */
+function replaceFromServer(editor: NonNullable<ReturnType<typeof useEditor>>, content: ReturnType<typeof toTiptapContent>) {
+  const key = editor.state.plugins.find((item) => {
+    const name = (item.spec.key as { key?: string } | undefined)?.key;
+    return typeof name === "string" && name.startsWith("history$");
+  })?.spec.key;
+  if (key) editor.unregisterPlugin(key);
+  editor.commands.setContent(content, { emitUpdate: false });
+  if (key) editor.registerPlugin(history());
+}
+
 export default function TiptapEditor({
   content,
   onUpdate,
@@ -123,6 +135,17 @@ export default function TiptapEditor({
   // an effect so it always sees the current props without reading a ref during
   // render.
   const autosave = useMemo(() => createAutosaveScheduler<EditorSnapshot>(), []);
+  const wordCountRef = useRef(onWordCount);
+  // Installed from an effect, not assigned during render: the React compiler
+  // rejects a ref write in the render body, and the comment above already
+  // describes this as the pattern the scheduler relies on.
+  useEffect(() => {
+    wordCountRef.current = onWordCount;
+  }, [onWordCount]);
+  // The last chapter string this effect already dealt with. Without it, a word
+  // count update re-renders the parent, the effect runs again, and a document
+  // Tiptap normalises differently from the stored JSON gets replaced forever.
+  const adoptedContent = useRef<string | null>(null);
 
   useEffect(() => {
     autosave.setCommit((snapshot) => {
@@ -170,6 +193,22 @@ export default function TiptapEditor({
       onEditorReady?.(editor);
     }
   }, [editor, onWordCount, onEditorReady]);
+
+  // `content` is only the initial document. After an agent write the prop
+  // changes and the open chapter would keep showing the old prose.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    if (autosave.hasPending()) return;
+    const key = typeof content === "string" ? content : JSON.stringify(content ?? null);
+    if (adoptedContent.current === key) return;
+    if (!shouldAdoptEditorContent(editor.getJSON(), content, false)) {
+      adoptedContent.current = key;
+      return;
+    }
+    replaceFromServer(editor, toTiptapContent(content));
+    adoptedContent.current = key;
+    wordCountRef.current?.(countWords(editor.getText()));
+  }, [editor, content, autosave]);
 
   useEffect(() => {
     return () => {

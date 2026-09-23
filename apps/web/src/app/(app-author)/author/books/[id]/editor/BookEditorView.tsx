@@ -117,10 +117,6 @@ export default function BookEditorView({
   // ── Chapters ──────────────────────────────────────────────────────────────
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
 
-  useEffect(() => {
-    setChapters(initialChapters);
-  }, [initialChapters]);
-
   const {
     CHAPTERS_PER_PAGE,
     chapterPage,
@@ -297,6 +293,18 @@ export default function BookEditorView({
     chaptersPerPage: CHAPTERS_PER_PAGE,
     getBookWorkspaceHref,
   });
+
+  // A refresh after the agent writes must show the new prose, and must leave
+  // an unsaved draft in this tab alone.
+  //
+  // Destructured so the dependency is the function itself. `chapterCrud` is a
+  // fresh object every render, so depending on it would re-adopt the server
+  // chapters constantly and wipe the open draft; the method is a useCallback
+  // and therefore stable.
+  const { adoptServerChapters } = chapterCrud;
+  useEffect(() => {
+    adoptServerChapters(initialChapters);
+  }, [initialChapters, adoptServerChapters]);
 
   // ── Print-on-demand ───────────────────────────────────────────────────────
   const { printOnDemandSettings, handleSavePrintOnDemandSettings } = useBookPrintOnDemand({ book });
