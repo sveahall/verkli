@@ -55,3 +55,32 @@ test("keeps mobile comparison readable and preview explicitly requested", async 
   await page.getByRole("button", { name: "Generate opening preview" }).click();
   await expect(page.getByTestId("requests")).toContainText("translation-preview");
 });
+
+
+test("keeps the displayed target and read request consistent after changing source language", async ({ page }) => {
+  await page.getByLabel("Source edition", { exact: true }).selectOption("swedish-edition");
+  await expect(page.getByLabel("Target language")).toHaveValue("en");
+  await expect(page.getByText("Full book → English", { exact: true })).toBeVisible();
+  await open(page);
+  await expect(comparison(page).getByText("Saved English edition: saved-en")).toBeVisible();
+  const requests = JSON.parse(await page.getByTestId("requests").textContent() ?? "[]");
+  const saved = requests.filter((item: { path: string }) => item.path.includes("/saved-translation"));
+  expect(saved).toHaveLength(1);
+  expect(saved[0].path).toContain("targetLanguage=en");
+  expect(saved[0].path).toContain("sourceVersionId=swedish-edition");
+  expect(JSON.stringify(requests)).not.toMatch(/translation-preview|\/translate["?]|checkout/);
+});
+
+for (const [code, label, edition] of [["nl", "Dutch", "dutch-edition"], ["pl", "Polish", "polish-edition"]]) {
+  test(`opens saved ${label} target and uses its edition as a new source`, async ({ page }) => {
+    await page.getByLabel("Target language").selectOption(code);
+    await open(page);
+    await expect(comparison(page).getByText(`Saved ${label} edition: saved-${code}`)).toBeVisible();
+    await page.getByLabel("Source edition", { exact: true }).selectOption(edition);
+    await expect(page.getByLabel("Target language")).not.toHaveValue(code);
+    await open(page);
+    await expect(comparison(page).getByText(`Source edition: ${edition}`)).toBeVisible();
+    await expect(comparison(page).getByText(`[${code} synthetic source text]`, { exact: true })).toBeVisible();
+    expect(await page.getByTestId("requests").textContent()).not.toMatch(/translation-preview|\/translate["?]|checkout/);
+  });
+}
