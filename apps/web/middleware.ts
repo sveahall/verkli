@@ -313,9 +313,12 @@ export async function middleware(request: NextRequest) {
     // { ok, timestamp, version } — the database and Redis probes are behind
     // hasAdminOrOpsAccess. See api/health/route.ts.
     const isHealth = p === '/api/health'
+    // The invitation form is account-less and linked from the waitlist email.
+    // Exact paths only: /apply-admin or /api/apply/extra must stay locked.
+    const isApply = p === '/apply' || p === '/api/apply'
 
     const allowed =
-      isWaitlist || isApiWaitlist || isOrder || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth || PUBLIC_BUYER_PATHS.has(p)
+      isWaitlist || isApiWaitlist || isApply || isOrder || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth || PUBLIC_BUYER_PATHS.has(p)
     if (!allowed) {
       const url = request.nextUrl.clone()
       url.pathname = '/waitlist'
@@ -394,6 +397,7 @@ export async function middleware(request: NextRequest) {
     // { ok, timestamp, version } — the database and Redis probes are behind
     // hasAdminOrOpsAccess. See api/health/route.ts.
     const isHealth = p === '/api/health'
+    const isApply = p === '/apply' || p === '/api/apply'
 
     const isAuthEntry = BETA_LOCK_AUTH_PATHS.has(p)
     // Publish the author landing page and its explanation CTA during beta.
@@ -405,7 +409,7 @@ export async function middleware(request: NextRequest) {
     // goes on for the cohort — see PUBLIC_ORDER_SLUGS.
     const isOrderPath = isPublicOrderPath(p)
 
-    const allowedPath = isWaitlist || isAuth || isAuthEntry || isPublicMarketing || isApiWaitlist || isApiAuth || isOrderPath || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth
+    const allowedPath = isWaitlist || isAuth || isAuthEntry || isPublicMarketing || isApiWaitlist || isApiAuth || isApply || isOrderPath || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth
     // Only look up cohort membership when it can change the outcome. `isBeta` is
     // read once, in `!allowedPath && !isBeta` below, so on an allowed path the
     // result is discarded — and a transient failure of that lookup would 503 a

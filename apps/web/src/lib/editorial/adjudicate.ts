@@ -161,12 +161,8 @@ export function estimateEditorialCriticUnits(input: EditorialCriticInput): numbe
  */
 export async function adjudicateEditorialReport(input: EditorialCriticInput & {
   report: EditorialReport;
- codex/translation-critic-source-20260922
-
-  text: string;
   /** When present, the critic's token spend is billed to this user. */
   meter?: MeterContext;
-platform
   onReceipt?: (receipt: EditorialCriticReceipt) => Promise<void>;
 }): Promise<{
   report: EditorialReport;

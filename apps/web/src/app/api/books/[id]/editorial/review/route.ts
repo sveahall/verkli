@@ -20,8 +20,6 @@ import { isAiChatEnabled } from "@/lib/flags";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
-import { isBrowserOriginAllowed } from "@/lib/request-url";
-
 export const runtime = "nodejs";
 export const maxDuration = 60;
 const limiter = createPerUserRateLimiter({ name: "editorial-review", maxPerMinute: 20 });
@@ -51,10 +49,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const configuredBudget = Number(process.env.EDITORIAL_DAILY_BUDGET);
   if (!Number.isSafeInteger(configuredBudget) || configuredBudget <= 0) return fail("Editorial review is unavailable until its daily AI allowance is configured. Please contact support.", 503);
   if (!process.env.ANTHROPIC_API_KEY?.trim()) return fail("Editorial AI is not configured. Please contact support.", 503);
-fix/editorial-origin-check-proxy
-=======
-  if (!isBrowserOriginAllowed(request)) return fail("Request origin is not allowed.", 403);
-platform
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) return fail("Invalid book ID.", 400);
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));

@@ -29,13 +29,8 @@ function setup(rows: unknown[] = [{ id: bookId, author_id: "author" }, chapter])
   } });
   return filters;
 }
- fix/editorial-origin-check-proxy
 const run = (body: Record<string, unknown> = {}, origin?: string) => POST(new NextRequest(`http://localhost/api/books/${bookId}/editorial/review`, { method: "POST", body: JSON.stringify({ mode: "proofread", chapterId, ...body }), headers: origin ? { origin } : undefined }), { params: Promise.resolve({ id: bookId }) });
-beforeEach(() => { vi.clearAllMocks(); mocks.gate.mockResolvedValue({ user: { id: "author" } }); mocks.check.mockResolvedValue({ allowed: true }); mocks.enabled.mockReturnValue(true); mocks.budget.mockResolvedValue({ limit: 40000, current: 20000 }); mocks.insert.mockResolvedValue({ error: null });
-
-const run = (body: Record<string, unknown> = {}) => POST(new NextRequest(`http://localhost/api/books/${bookId}/editorial/review`, { method: "POST", body: JSON.stringify({ mode: "proofread", chapterId, ...body }) }), { params: Promise.resolve({ id: bookId }) });
 beforeEach(() => { vi.clearAllMocks(); mocks.gate.mockResolvedValue({ user: { id: "author" } }); mocks.pro.mockResolvedValue({ ok: true, state: {} }); mocks.check.mockResolvedValue({ allowed: true }); mocks.enabled.mockReturnValue(true); mocks.budget.mockResolvedValue({ limit: 40000, current: 20000 }); mocks.insert.mockResolvedValue({ error: null });
- platform
   vi.stubEnv("EDITORIAL_DAILY_BUDGET", "40000"); vi.stubEnv("ANTHROPIC_API_KEY", "test");
   mocks.generate.mockImplementation(async (_input, onUsage) => { await onUsage({ model: "claude-sonnet-5", inputTokens: 15, outputTokens: 20, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 }); return report; }); setup(); });
 afterEach(() => vi.unstubAllEnvs());

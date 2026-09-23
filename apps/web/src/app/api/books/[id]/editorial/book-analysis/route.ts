@@ -12,7 +12,6 @@ import { splitBookAnalysis } from "@/lib/editorial/book-analysis-content";
 import { generateBookAnalysisNotes, generateBookAnalysisReport, estimateBookAnalysisNotesUnits, estimateBookAnalysisReportUnits } from "@/lib/editorial/book-analysis-provider";
 import { analysisManifestSchema, analysisRunSchema, type AnalysisManifest, type AnalysisRun, type BookAnalysisResult } from "@/lib/editorial/book-analysis-run-schema";
 import type { Json } from "@/lib/supabase/types";
-import { isBrowserOriginAllowed } from "@/lib/request-url";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -104,10 +103,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   let completionAttempted = false;
   let reservationId = "";
   try {
- fix/editorial-origin-check-proxy
-
-    if (!isBrowserOriginAllowed(request)) throw new AnalysisError("Request origin is not allowed.", 403);
- platform
     const { id } = await params;
     const parsed = bodySchema.safeParse(await request.json().catch(() => null));
     if (!z.string().uuid().safeParse(id).success || !parsed.success) throw new AnalysisError("Choose a valid edition and analysis step.", 400);

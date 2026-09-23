@@ -116,10 +116,13 @@ export async function generateEditorialReview(input: EditorialInput, onUsage?: (
     await onCriticReceipt?.({ status: "skipped", usage: null });
     return report;
   }
- codex/translation-critic-source-20260922
-  const adjudicated = await adjudicateEditorialReport({ report, mode: input.mode, text: input.text, sourceText: input.sourceText, onReceipt: onCriticReceipt });
-=======
-  const adjudicated = await adjudicateEditorialReport({ report, text: input.text, meter: input.meter, onReceipt: onCriticReceipt });
- platform
+  const adjudicated = await adjudicateEditorialReport({
+    report,
+    mode: input.mode,
+    text: input.text,
+    sourceText: input.sourceText,
+    meter: input.meter,
+    onReceipt: onCriticReceipt,
+  });
   return adjudicated.report;
 }
