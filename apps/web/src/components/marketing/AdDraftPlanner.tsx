@@ -73,7 +73,7 @@ export function AdDraftPlanner({ client = adDraftsClient, testMode = false }: { 
     {error ? <p role="alert" className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300">{error}</p> : null}
     {notice ? <p role="status" className="rounded-xl bg-muted p-3 text-sm">{notice}</p> : null}
     <div className="flex flex-wrap items-end gap-3">
-      <label className="min-w-0 flex-1 text-sm">Saved drafts
+      <label className="min-w-0 basis-full text-sm sm:flex-1 sm:basis-auto">Saved drafts
         <select className="input-base mt-1 w-full" aria-label="Saved drafts" value={current?.id ?? ""} disabled={busy || pending !== null} onChange={event => choose(event.target.value)}>
           <option value="">New draft</option>{list?.drafts.map(item => <option key={item.id} value={item.id}>{item.draft.name}</option>)}
         </select>
