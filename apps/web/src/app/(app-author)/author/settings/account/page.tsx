@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import AccountEmailSection from "@/components/author/settings/AccountEmailSection";
+import { UsageMeter } from "@/components/billing/UsageMeter";
 
 export const metadata = { title: "Account \u00b7 Settings" };
 
@@ -11,6 +12,7 @@ export default async function AccountSettingsPage() {
 
   return (
     <>
+      <UsageMeter state={{ mode: "beta" }} />
       <AccountEmailSection currentEmail={user?.email ?? ""} />
 
       <section
