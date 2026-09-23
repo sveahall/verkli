@@ -1,3 +1,7 @@
+import { recordEgressGrant } from "@/lib/usage/egress";
+import { getChapterText } from "@/lib/audiobook/chapter-text";
+import { parseTimingSidecar } from "@/lib/audiobook/timing-storage";
+import type { AudioTiming } from "@/lib/audiobook/timing";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -39,6 +43,7 @@ type ChapterRow = {
   book_id: string;
   order: number;
   book_version_id: string;
+  content: string | null;
 };
 
 export async function GET(
@@ -70,7 +75,7 @@ export async function GET(
 
   const { data: chapter, error: chapterError } = await admin
     .from("chapters")
-    .select("id, book_id, order, book_version_id")
+    .select("id, book_id, order, book_version_id, content")
     .eq("id", chapterId)
     .eq("book_id", bookId)
     .maybeSingle();
@@ -215,7 +220,7 @@ export async function GET(
   }
 
   if (cache?.audio_path == null || (typeof cache.audio_path === "string" && !cache.audio_path.trim())) {
-    return NextResponse.json({ audioUrl: null });
+    return NextResponse.json({ audioUrl: null, timing: null }, { headers: { "Cache-Control": "private, no-store" } });
   }
 
   // Cache rows have no bucket metadata; only the server configuration chooses it.
@@ -238,6 +243,20 @@ export async function GET(
   const { data: signed, error: signedError } = await admin.storage
     .from(bucket)
     .createSignedUrl(audioPath, SIGNED_URL_TTL_SECONDS);
+
+  // Audio is the heaviest thing this platform hands out, so the grant is
+  // recorded here. Only for a signed-in listener: usage_events.user_id is NOT
+  // NULL, and an anonymous play has nobody to attribute the bytes to — that
+  // share shows up as the gap between this figure and Supabase's own total.
+  if (!signedError && signed?.signedUrl && user?.id) {
+    await recordEgressGrant({
+      userId: user.id,
+      bucket,
+      path: audioPath,
+      bookId: bookRow.id,
+      pipeline: "tts",
+    });
+  }
 
   if (signedError || !signed?.signedUrl) {
     console.error("[audiobook play] signed URL failed", {
@@ -269,7 +288,7 @@ export async function GET(
   //
   // Run in parallel with the resume lookup below — they are independent, and the
   // reader is blocked on this response before any audio can start.
-  const [, resumePositionSeconds] = await Promise.all([
+  const [, resumePositionSeconds, timing] = await Promise.all([
     logAnalyticsEvent(admin, {
       eventType: "audio_requested",
       userId: user?.id ?? null,
@@ -291,12 +310,14 @@ export async function GET(
       userId: user?.id ?? null,
       chapterId: chapterRow.id,
     }),
+    readTiming(admin, bucket, audioPath, chapterRow),
   ]);
 
   return NextResponse.json({
     audioUrl: signed.signedUrl,
     resumePositionSeconds,
-  });
+    timing,
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 /**
@@ -341,6 +362,28 @@ async function readResumePosition(input: {
       chapterId: input.chapterId,
       message: err instanceof Error ? err.message : String(err),
     });
+    return null;
+  }
+}
+
+/** Private sidecar, fetched only after entitlement and exact chapter path validation. */
+async function readTiming(admin: ReturnType<typeof createAdminClient>, bucket: string, audioPath: string, chapter: ChapterRow): Promise<AudioTiming | null> {
+  try {
+    const { data, error } = await admin.storage.from(bucket).download(`${audioPath}.timing.json`);
+    // Older assets intentionally have no sidecar. Never synthesize/estimate during playback.
+    if (error || !data) return null;
+    if (data.size > 16 * 1024 * 1024) {
+      console.warn("[audiobook play] timing exceeds size limit", { chapterId: chapter.id });
+      return null;
+    }
+    const timing = parseTimingSidecar(JSON.parse(await data.text()), {
+      chapterId: chapter.id, bookVersionId: chapter.book_version_id, audioPath,
+      sourceText: getChapterText(chapter.content),
+    });
+    if (!timing) console.warn("[audiobook play] timing identity or text mismatch", { chapterId: chapter.id });
+    return timing;
+  } catch {
+    console.warn("[audiobook play] timing unavailable", { chapterId: chapter.id });
     return null;
   }
 }

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { updateActiveRole } from "@/features/auth/roles";
 import { ACTIVE_ROLE_COOKIE } from "@/lib/active-role";
 import { requireAuthorRole } from "@/lib/auth/require-author";
+import type { Json } from "@/lib/supabase/types";
 import { parseAiSettingsForm } from "@/features/ai-team/settings/contracts";
 import { AiSettingsError, saveAiSettings } from "@/features/ai-team/settings/server";
 
@@ -138,7 +139,56 @@ export async function saveAuthorProfile(
   return { ok: true, message: "Profile saved." };
 }
 
-export async function saveAuthorSettings(
+/**
+ * Read-merge-write one slice of `profiles.preferences`.
+ *
+ * Settings live on separate pages now, so each form posts only its own fields.
+ * That makes a blind `upsert` of the whole blob destructive: saving
+ * Notifications would post no language and reset Publishing defaults. Every
+ * action therefore mutates a copy of what is stored and writes that back.
+ *
+ * The read and the write are not one statement, so two sections saved in two
+ * tabs within the same moment can still have the later write win. That is a
+ * narrow, same-user race with no data loss beyond one re-save, and closing it
+ * would mean a jsonb-merge RPC for a preference blob — not worth the migration.
+ */
+async function updatePreferences(
+  userId: string,
+  mutate: (current: Record<string, unknown>) => Record<string, unknown>
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const supabase = await createClient();
+  const { data: profile, error: readError } = await supabase
+    .from("profiles")
+    .select("preferences")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (readError) {
+    return { ok: false, message: "Could not read your current settings. Nothing was changed." };
+  }
+
+  const current = isRecord(profile?.preferences)
+    ? (profile.preferences as Record<string, unknown>)
+    : {};
+
+  const { error } = await supabase
+    .from("profiles")
+    // `preferences` is a jsonb column typed as `Json`; the mutator works in
+    // plain records because that is what the callers spread into.
+    .upsert(
+      { user_id: userId, preferences: mutate(current) as Json },
+      { onConflict: "user_id" }
+    );
+
+  if (error) {
+    return { ok: false, message: "Could not save settings." };
+  }
+
+  revalidatePath("/author/settings", "layout");
+  return { ok: true };
+}
+
+export async function savePublishingDefaults(
   prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
@@ -149,95 +199,115 @@ export async function saveAuthorSettings(
     return { ok: false, message: roleCheck.error };
   }
 
-  const user = roleCheck.user;
   const defaultLanguage = String(formData.get("default_language") || "sv").trim() || "sv";
   const defaultVisibility =
     String(formData.get("default_visibility") || "public").trim() || "public";
-  const emailNotifications = String(formData.get("email_notifications") || "false") === "true";
-  const password = String(formData.get("new_password") || "");
-  const confirmPassword = String(formData.get("confirm_password") || "");
 
-  if (password || confirmPassword) {
-    if (password.length < 8) {
-      return { ok: false, message: "Password must be at least 8 characters." };
-    }
-
-    if (password !== confirmPassword) {
-      return { ok: false, message: "Passwords do not match." };
-    }
-  }
-
-  // Validate every part of the form before writing any of it, so a rejected
-  // AI field cannot leave the profile half-saved.
-  const aiSettings = parseAiSettingsForm(formData);
-  if (!aiSettings.success) {
-    const field = aiSettings.error.issues[0]?.path.join(".") ?? "AI settings";
-    return { ok: false, message: `Check your AI settings (${field}) and try again.` };
-  }
-
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("preferences")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const existingPreferences = isRecord(profile?.preferences)
-    ? (profile.preferences as Record<string, unknown>)
-    : {};
-  const existingNotifications = isRecord(existingPreferences.notifications)
-    ? (existingPreferences.notifications as Record<string, unknown>)
-    : {};
-
-  const nextPreferences = {
-    ...existingPreferences,
+  const result = await updatePreferences(roleCheck.user.id, (current) => ({
+    ...current,
     default_language: defaultLanguage,
     default_visibility: defaultVisibility,
     visibility: {
       shelves: defaultVisibility,
       books: defaultVisibility,
     },
-    notifications: {
-      ...existingNotifications,
-      email: emailNotifications,
-    },
-  };
+  }));
 
-  const { error } = await supabase
-    .from("profiles")
-    .upsert(
-      {
-        user_id: user.id,
-        preferences: nextPreferences,
-      },
-      { onConflict: "user_id" }
-    );
+  return result.ok
+    ? { ok: true, message: "Publishing defaults saved." }
+    : { ok: false, message: result.message };
+}
 
-  if (error) {
-    return { ok: false, message: "Could not save settings." };
+export async function saveNotificationPreferences(
+  prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  void prevState;
+
+  const roleCheck = await requireAuthorRole();
+  if (!roleCheck.ok) {
+    return { ok: false, message: roleCheck.error };
   }
 
+  const emailNotifications = String(formData.get("email_notifications") || "false") === "true";
+
+  const result = await updatePreferences(roleCheck.user.id, (current) => ({
+    ...current,
+    notifications: {
+      ...(isRecord(current.notifications) ? (current.notifications as Record<string, unknown>) : {}),
+      email: emailNotifications,
+    },
+  }));
+
+  return result.ok
+    ? { ok: true, message: "Notification preferences saved." }
+    : { ok: false, message: result.message };
+}
+
+export async function changePassword(
+  prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  void prevState;
+
+  const roleCheck = await requireAuthorRole();
+  if (!roleCheck.ok) {
+    return { ok: false, message: roleCheck.error };
+  }
+
+  const password = String(formData.get("new_password") || "");
+  const confirmPassword = String(formData.get("confirm_password") || "");
+
+  if (!password && !confirmPassword) {
+    return { ok: false, message: "Enter a new password in both fields." };
+  }
+  if (password.length < 8) {
+    return { ok: false, message: "Password must be at least 8 characters." };
+  }
+  if (password !== confirmPassword) {
+    return { ok: false, message: "Passwords do not match." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    return { ok: false, message: "Could not update password." };
+  }
+
+  return { ok: true, message: "Password updated." };
+}
+
+export async function saveAiPreferences(
+  prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  void prevState;
+
+  const roleCheck = await requireAuthorRole();
+  if (!roleCheck.ok) {
+    return { ok: false, message: roleCheck.error };
+  }
+
+  const parsed = parseAiSettingsForm(formData);
+  if (!parsed.success) {
+    const field = parsed.error.issues[0]?.path.join(".") ?? "AI settings";
+    return { ok: false, message: `Check your AI settings (${field}) and try again.` };
+  }
+
+  const supabase = await createClient();
   try {
-    await saveAiSettings(supabase, user.id, aiSettings.data);
-  } catch (aiError) {
+    await saveAiSettings(supabase, roleCheck.user.id, parsed.data);
+  } catch (error) {
     return {
       ok: false,
-      message: aiError instanceof AiSettingsError
-        ? aiError.message
-        : "Your other settings were saved, but your AI settings could not be. Please try again.",
+      message: error instanceof AiSettingsError ? error.message : "Could not save your AI settings.",
     };
   }
 
-  if (password) {
-    const { error: passwordError } = await supabase.auth.updateUser({ password });
-    if (passwordError) {
-      return { ok: false, message: "Could not update password." };
-    }
-  }
-
-  revalidatePath("/author/settings");
-
-  return { ok: true, message: password ? "Settings and password saved." : "Settings saved." };
+  // The author layout reads `ai_enabled` to decide which AI surfaces render, so
+  // the whole author tree — not just this page — has to be revalidated.
+  revalidatePath("/author", "layout");
+  return { ok: true, message: parsed.data.aiEnabled ? "AI settings saved." : "AI is now off for your account." };
 }
 
 export async function switchRoleToReader(): Promise<void> {

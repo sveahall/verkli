@@ -1,3 +1,5 @@
+import AudioTextSync from "./AudioTextSync";
+import { getChapterText } from "@/lib/audiobook/chapter-text";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -268,12 +270,12 @@ export default async function ReaderReadPage({
           .eq("user_id", user.id)
           .eq("book_id", book.id)
           .maybeSingle()
-      : Promise.resolve({ data: null }),
+      : Promise.resolve({ data: null, error: null }),
   ]);
 
-  const shouldLogStartReading = user
-    ? !existingReadingResult?.data
-    : Number(chapter.order ?? 0) === 1;
+  const shouldLogStartReading = !isAuthorView && (user
+    ? !existingReadingResult?.error && !existingReadingResult?.data
+    : chapters?.[0]?.id === chapter.id);
 
   if (shouldLogStartReading) {
     logAnalyticsEvent(supabase, {
@@ -284,6 +286,7 @@ export default async function ReaderReadPage({
       props: {
         chapterId: chapter.id,
         chapterOrder: chapter.order,
+        bookVersionId: chapter.book_version_id,
       },
     }).catch(() => {});
   }
@@ -487,6 +490,10 @@ export default async function ReaderReadPage({
         currentChapter={chapterIndex + 1}
         userId={user?.id ?? null}
       />
+      <AudioTextSync key={chapter.id} textOffset={Math.max(0,
+        getChapterText(typeof rawChapterContent === "string" ? rawChapterContent : JSON.stringify(rawChapterContent)).length -
+        getChapterText(typeof chapterContent === "string" ? chapterContent : JSON.stringify(chapterContent)).length
+      )}>
       <ReadingView
         backHref={`/reader/books/${book.id}`}
         backLabel="Back to book"
@@ -549,6 +556,7 @@ export default async function ReaderReadPage({
         footerNavigation={footerNavigation}
         commentsSection={commentsSection}
       />
+      </AudioTextSync>
     </>
   );
 }

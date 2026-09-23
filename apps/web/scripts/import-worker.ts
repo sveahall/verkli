@@ -20,12 +20,14 @@ import {
   normalizeChapterTitlesToNumericSequence,
 } from "../src/lib/import-extract";
 import { plainTextToTiptapDoc } from "../src/lib/tiptap-content";
+import { uploadImportedChapterImages } from "../src/lib/import-images";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { enqueueTranslationJob } from "../src/lib/translation-queue";
 import { detectLanguageFromParts } from "../src/lib/language-detect";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
+import { IMPORT_OVERWRITE_ERROR, requestsDraftOverwrite } from "../src/lib/imports/import-safety";
 import type { ImportMode } from "../src/lib/import-queue";
 
 import { QUEUE_NAMES } from "../src/lib/queue-names";
@@ -263,6 +265,12 @@ export async function processJob(payload: ProcessJobPayload) {
 
     const importRow = importRowData as ImportRow;
 
+    // Old queue payloads must also stop before extraction, dedupe or content writes.
+    // A conflicting "new_version" field must not override an overwrite signal.
+    if (requestsDraftOverwrite(importRow.mode) || requestsDraftOverwrite(payload.mode, payload.overwrite)) {
+      throw new UnrecoverableError(IMPORT_OVERWRITE_ERROR);
+    }
+
     // Processor-level dedupe: skip if import already completed with chapters.
     const versionId = importRow.book_version_id;
     const alreadyDone = await isDuplicate(async () => {
@@ -347,66 +355,7 @@ export async function processJob(payload: ProcessJobPayload) {
       existingBookTitle = normalizeTitleValue(bookRow.title);
 
       if (mode === "overwrite_draft") {
-        const requestedVersionId =
-          payload.targetVersionId ?? importRow.book_version_id ?? null;
-
-        let targetVersion:
-          | {
-              id: string;
-              book_id: string;
-              language_code: string;
-              published_at: string | null;
-            }
-          | null = null;
-
-        if (requestedVersionId) {
-          const { data: versionRow, error: versionError } = await supabase
-            .from("book_versions")
-            .select("id, book_id, language_code, published_at")
-            .eq("id", requestedVersionId)
-            .single();
-
-          if (versionError || !versionRow) {
-            throw new Error(versionError?.message ?? "Draft version not found");
-          }
-
-          targetVersion = versionRow;
-        } else {
-          const { data: latestDraft, error: latestDraftError } = await supabase
-            .from("book_versions")
-            .select("id, book_id, language_code, published_at")
-            .eq("book_id", targetBookId)
-            .is("published_at", null)
-            .order("updated_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (latestDraftError) {
-            throw new Error(latestDraftError.message);
-          }
-
-          targetVersion = latestDraft;
-        }
-
-        if (!targetVersion || targetVersion.book_id !== targetBookId) {
-          throw new Error("No draft version available for overwrite");
-        }
-
-        if (targetVersion.published_at) {
-          throw new Error("Cannot overwrite a published version");
-        }
-
-        const { error: deleteError } = await supabase
-          .from("chapters")
-          .delete()
-          .eq("book_version_id", targetVersion.id);
-
-        if (deleteError) {
-          throw new Error(`Failed to clear draft chapters: ${deleteError.message}`);
-        }
-
-        targetBookVersionId = targetVersion.id;
-        targetLanguageCode = targetVersion.language_code;
+        throw new UnrecoverableError(IMPORT_OVERWRITE_ERROR);
       } else {
         const preferredLanguage =
           normalizedDetected ??
@@ -516,6 +465,31 @@ export async function processJob(payload: ProcessJobPayload) {
 
     await updateImport({ status: "extracting", progress: 70, book_id: targetBookId, book_version_id: targetBookVersionId, mode });
 
+    // ─── Images: move mammoth's inline data: URIs into storage ───
+    // Has to run before rows are built. mammoth returns pictures embedded in a
+    // .docx as base64 data: URIs, and persisting one into chapters.content
+    // inlines the whole file into a text column that is then rewritten on
+    // every autosave. Failures here drop the picture, never the import.
+    const media = await uploadImportedChapterImages({
+      documents: normalizedChapters.map((chapter) => chapter.tiptapContent),
+      bookId: targetBookId,
+      importId,
+      storage: supabase.storage,
+    });
+    const chaptersWithMedia = normalizedChapters.map((chapter, index) => ({
+      ...chapter,
+      tiptapContent: media.documents[index],
+    }));
+    warnings.push(...media.warnings);
+    if (media.uploaded > 0 || media.reused > 0 || media.dropped > 0) {
+      console.log("[import worker] chapter images", {
+        importId,
+        uploaded: media.uploaded,
+        reused: media.reused,
+        dropped: media.dropped,
+      });
+    }
+
     // ─── Dedup: fetch existing content hashes so we skip identical chapters ───
     const { data: existingChapters } = await supabase
       .from("chapters")
@@ -531,8 +505,8 @@ export async function processJob(payload: ProcessJobPayload) {
     const rows: TablesInsert<"chapters">[] = [];
     let dedupSkipped = 0;
 
-    for (let i = 0; i < normalizedChapters.length; i++) {
-      const ch = normalizedChapters[i];
+    for (let i = 0; i < chaptersWithMedia.length; i++) {
+      const ch = chaptersWithMedia[i];
       const chapterTitle = (ch.title ?? "").trim() || `Kapitel ${i + 1}`;
       if (!ch.title?.trim()) {
         warnings.push(`title_fallback_${i + 1}`);

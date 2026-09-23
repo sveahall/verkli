@@ -27,8 +27,14 @@ import {
   getChapterText,
   sumChapterTextLength,
 } from "../src/lib/audiobook/chapter-text";
+import { uploadChapterAudio } from "../src/lib/audiobook/chapter-audio-storage";
+import { audioObjectHash } from "../src/lib/audiobook/timing-storage";
+import type { AudioTiming } from "../src/lib/audiobook/timing";
 import { Sentry } from "./sentry-worker-init";
 import type { AudiobookJobData } from "../src/lib/audiobook-queue";
+import { processFullBookExportJob, reconcileFailedFullBookExport, reconcileFullBookExportCleanup } from "../src/lib/audiobook/full-book-export-supabase";
+import { enqueueExportCleanup } from "../src/lib/audiobook/full-book-export-queue";
+import type { ExportJobRecord } from "../src/lib/audiobook/full-book-export-jobs";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
 import {
@@ -230,6 +236,7 @@ function createManifest(chapters: ChapterAudio[], bookId: string): object {
 // ─────────────────────────────────────────────────────────────────────────────
 
 type SynthesisResult = {
+  timing?: AudioTiming | null;
   wav: Buffer;
   sampleRate: number;
   outputPath: string;
@@ -560,12 +567,15 @@ async function processJob(payload: AudiobookJobData) {
         voiceId: resolvedVoiceId,
         modelId: resolvedModelId,
         timeoutMs: chapterTimeoutMs,
+        meter: { userId, pipeline: "tts", bookId, jobId },
+        withTimestamps: true,
       });
       const audioFormat: AudioFormat = result.format === "mp3" ? "mp3" : "wav";
       const outputPath = `${outputBasePath}.${audioExtension(audioFormat)}`;
       await fs.writeFile(outputPath, result.wav);
       return {
         wav: result.wav,
+        timing: result.timing,
         sampleRate: result.sampleRate,
         outputPath,
         audioFormat,
@@ -643,20 +653,14 @@ async function processJob(payload: AudiobookJobData) {
           console.warn(`[audiobook worker] chapter ${i} synthesized via elevenlabs`);
 
           // Upload to cache
-          const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.${audioExtension(synthesis.audioFormat)}`;
-          await uploadAndCacheChapter(
-            supabase,
-            cachePath,
-            synthesis.wav,
-            chapter.id,
-            bookVersionId,
-            contentHash,
-            resolvedVoiceId,
-            resolvedModelId,
-            language,
-            durationSeconds,
-            audioContentType(synthesis.audioFormat)
-          );
+          const cachePath = `cache/${bookId}/${chapter.id}-${audioObjectHash(synthesis.wav, text)}.${audioExtension(synthesis.audioFormat)}`;
+          await uploadChapterAudio(supabase, {
+          bucket: BUCKET, storagePath: cachePath, audio: synthesis.wav,
+          chapterId: chapter.id, bookVersionId, contentHash, voiceId: resolvedVoiceId,
+          modelPath: resolvedModelId, language, durationSeconds,
+          contentType: audioContentType(synthesis.audioFormat),
+          timing: synthesis.timing ?? null, smoke: PIPELINE_SMOKE_MODE,
+        });
           storagePath = cachePath;
         }
       } else {
@@ -669,20 +673,14 @@ async function processJob(payload: AudiobookJobData) {
         console.warn(`[audiobook worker] chapter ${i} synthesized via elevenlabs`);
 
         // Upload to cache
-        const cachePath = `cache/${bookId}/${chapter.id}-${contentHash.slice(0, 16)}.${audioExtension(synthesis.audioFormat)}`;
-        await uploadAndCacheChapter(
-          supabase,
-          cachePath,
-          synthesis.wav,
-          chapter.id,
-          bookVersionId,
-          contentHash,
-          resolvedVoiceId,
-          resolvedModelId,
-          language,
-          durationSeconds,
-          audioContentType(synthesis.audioFormat)
-        );
+        const cachePath = `cache/${bookId}/${chapter.id}-${audioObjectHash(synthesis.wav, text)}.${audioExtension(synthesis.audioFormat)}`;
+        await uploadChapterAudio(supabase, {
+            bucket: BUCKET, storagePath: cachePath, audio: synthesis.wav,
+            chapterId: chapter.id, bookVersionId, contentHash, voiceId: resolvedVoiceId,
+            modelPath: resolvedModelId, language, durationSeconds,
+            contentType: audioContentType(synthesis.audioFormat),
+            timing: synthesis.timing ?? null, smoke: PIPELINE_SMOKE_MODE,
+          });
         storagePath = cachePath;
       }
 
@@ -959,57 +957,6 @@ async function processJob(payload: AudiobookJobData) {
   }
 }
 
-async function uploadAndCacheChapter(
-  supabase: ReturnType<typeof createAdminClient>,
-  storagePath: string,
-  audio: Buffer,
-  chapterId: string,
-  bookVersionId: string,
-  contentHash: string,
-  voiceId: string,
-  modelPath: string,
-  language: string,
-  durationSeconds: number,
-  contentType: string
-) {
-  // Upload to storage
-  await supabase.storage.from(BUCKET).upload(storagePath, audio, {
-    contentType,
-    upsert: true,
-  });
-
-  // Smoke output never enters the shared cache.
-  //
-  // The cache key is (chapter, content_hash, voice, model, language) — nothing
-  // in it records that the bytes are silence. So a chapter generated under
-  // PIPELINE_SMOKE_MODE would be reused by a LATER whole-book run with smoke
-  // mode off, and that run would write is_smoke: false over an audiobook made
-  // of silent wavs. Marking the asset is worthless if the silence can launder
-  // itself through the cache on the way there.
-  //
-  // Not cached rather than cached-and-flagged: smoke output exists to prove the
-  // pipeline runs, and regenerating it costs nothing worth saving.
-  if (PIPELINE_SMOKE_MODE) {
-    return;
-  }
-
-  // Insert cache record
-  await supabase.from("chapter_audio_cache").upsert(
-    {
-      chapter_id: chapterId,
-      book_version_id: bookVersionId,
-      content_hash: contentHash,
-      voice_id: voiceId,
-      model_path: modelPath,
-      language,
-      audio_path: storagePath,
-      duration_seconds: durationSeconds,
-      file_size_bytes: audio.length,
-    },
-    { onConflict: "chapter_id,content_hash,voice_id,model_path,language" }
-  );
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Main
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1036,6 +983,14 @@ function main() {
   const worker = new Worker(
     QUEUE_NAME,
     async (job) => {
+      if (job.name === "export-cleanup") {
+        await reconcileFullBookExportCleanup(job.data as ExportJobRecord, (record) => job.updateData(record));
+        return;
+      }
+      if (job.name === "export") {
+        await processFullBookExportJob(job.data as ExportJobRecord, job.attemptsMade + 1 >= (job.opts.attempts ?? 3), async (record) => { await job.updateData(record); await enqueueExportCleanup(record); });
+        return;
+      }
       if (job.name === "generate" && job.data) {
         console.log("[audiobook-worker] processing job", job.id);
         await processJob(job.data as AudiobookJobData);
@@ -1057,6 +1012,17 @@ function main() {
   worker.on("failed", (job, err) => {
     Sentry.captureException(err);
     console.error("[audiobook-worker] job failed", job?.id, err?.message);
+    if (job?.name === "export-cleanup") {
+      console.error("[audiobook export] cleanup remains unconfirmed; retained queue metadata requires reconciliation");
+      return;
+    }
+    if (job?.name === "export") {
+      const terminal = job.attemptsMade >= (job.opts.attempts ?? 3) || /stalled more than allowable limit/i.test(err?.message ?? "");
+      if (terminal) void reconcileFailedFullBookExport(job.data as ExportJobRecord).catch(() => {
+        console.error("[audiobook export] terminal job reconciliation failed");
+      });
+      return;
+    }
     // Reconcile orphaned DB state. The in-process catch writes ai_jobs="failed"
     // before re-throwing, so on an ordinary failure the row is already terminal
     // by the time this fires. But when the worker is hard-killed (OOM/SIGKILL/

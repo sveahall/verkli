@@ -41,19 +41,39 @@ export async function POST() {
 
   const admin = createAdminClient();
 
+  // Only stamp a request that is not already pending. Re-posting used to move
+  // the timestamp forward, which restarts the grace window — so an account
+  // could postpone its own deletion indefinitely, one click at a time.
   const { data, error } = await admin
     .from("profiles")
     .update({ deletion_requested_at: new Date().toISOString() })
     .eq("user_id", user.id)
+    .is("deletion_requested_at", null)
     .select("user_id")
     .maybeSingle();
 
-  if (error || !data) {
-    console.error("[account.delete] soft-request failed", {
-      userId: user.id,
-      message: error?.message ?? "No profile was updated",
-    });
+  if (error) {
+    console.error("[account.delete] soft-request failed", { userId: user.id, message: error.message });
     return apiError(E_DATABASE_ERROR, 500);
+  }
+
+  if (!data) {
+    // The conditional update matched nothing. Either a request is already
+    // pending — in which case the author's goal is met and re-posting is a
+    // success, not a 500 — or there is no profile row at all, which is.
+    const { data: existing, error: readError } = await admin
+      .from("profiles")
+      .select("deletion_requested_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (readError || !existing?.deletion_requested_at) {
+      console.error("[account.delete] soft-request failed", {
+        userId: user.id,
+        message: readError?.message ?? "No profile was updated",
+      });
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+    return NextResponse.json({ ok: true, deletionRequested: true, alreadyRequested: true, signedOut: false });
   }
 
   // Audit trail — best-effort. Hard-deleting an auth row later should check
@@ -92,4 +112,76 @@ export async function POST() {
   }
 
   return NextResponse.json({ ok: true, deletionRequested: true, signedOut });
+}
+
+
+/**
+ * Withdraw a pending deletion request.
+ *
+ * A request that cannot be taken back is a trap, not a grace period: the whole
+ * point of recording intent instead of deleting is that the author has time to
+ * change their mind. POST signs the author out, so the realistic path here is
+ * signing back in and cancelling from settings.
+ *
+ * Idempotent. Cancelling when nothing is pending is a success, because the
+ * author's goal — "my account is not being deleted" — is already true, and an
+ * error would read as though it still is.
+ */
+export async function DELETE() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return apiError(E_NOT_AUTHENTICATED, 401);
+  }
+
+  const rl = await deleteLimiter.check(user.id);
+  if (!rl.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429);
+  }
+
+  const admin = createAdminClient();
+
+  // Only clear a request that is actually there, so the audit log records a
+  // withdrawal only when there was something to withdraw.
+  const { data, error } = await admin
+    .from("profiles")
+    .update({ deletion_requested_at: null })
+    .eq("user_id", user.id)
+    .not("deletion_requested_at", "is", null)
+    .select("user_id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[account.delete] cancel failed", {
+      userId: user.id,
+      message: error.message,
+    });
+    return apiError(E_DATABASE_ERROR, 500);
+  }
+
+  if (!data) {
+    return NextResponse.json({ ok: true, deletionRequested: false, alreadyCancelled: true });
+  }
+
+  try {
+    const { error: auditError } = await admin.from("audit_log").insert({
+      entity_type: "user",
+      entity_id: user.id,
+      action: "deletion_cancelled",
+      actor_user_id: user.id,
+      actor_role: "user",
+      meta: {},
+    });
+    if (auditError) throw new Error(auditError.message);
+  } catch (auditError) {
+    console.error("[account.delete] cancel audit log insert failed", {
+      userId: user.id,
+      message: auditError instanceof Error ? auditError.message : String(auditError),
+    });
+  }
+
+  return NextResponse.json({ ok: true, deletionRequested: false });
 }

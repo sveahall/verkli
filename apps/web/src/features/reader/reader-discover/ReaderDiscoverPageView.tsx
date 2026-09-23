@@ -450,7 +450,7 @@ export default function ReaderDiscoverPageView({
           field="sort"
           options={[
             { value: "newest", label: "Newest" },
-            { value: "popular", label: "Popular" },
+            { value: "popular", label: "Featured" },
             { value: "title", label: "A–Z" },
           ]}
         />

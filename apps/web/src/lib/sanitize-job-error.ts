@@ -4,7 +4,10 @@
  * Never expose raw worker/provider errors directly. Map to controlled strings.
  */
 
+import { IMPORT_OVERWRITE_MESSAGE } from "./imports/import-safety";
+
 const CONTROLLED_MAPPINGS: Array<{ pattern: RegExp; message: string }> = [
+  { pattern: /^IMPORT_OVERWRITE_UNAVAILABLE$/, message: IMPORT_OVERWRITE_MESSAGE },
   { pattern: /^Queue unavailable/i, message: "Kön är tillfälligt otillgänglig. Försök igen senare." },
   { pattern: /^Ownership mismatch/i, message: "Du har inte behörighet för detta jobb." },
   { pattern: /^Book not found/i, message: "Boken hittades inte." },

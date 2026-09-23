@@ -11,6 +11,7 @@ import { Worker, UnrecoverableError, type Job } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import type { TranslationJobData } from "../src/lib/translation-queue";
 import { getProviderForPair } from "../src/lib/translation-pairs";
+import { isOpenAiConfigured } from "../src/lib/ai/providers/openai";
 import { createAuthorProfile } from "../src/lib/ai/translation-quality/anthropic";
 import { TranslationQualityError } from "../src/lib/ai/translation-quality/pipeline";
 import { buildBookProfileSample, translateQualityChapter, TranslationNeedsReviewError } from "../src/lib/translation-quality-chapter";
@@ -303,7 +304,7 @@ export async function processJob(payload: TranslationJobData, workerJobId?: stri
       chapterCount: chapterList.length,
       totalChars,
       scope: selectedChapterId ? "chapter" : "book",
-      provider: PIPELINE_SMOKE_MODE ? "smoke" : "anthropic",
+      provider: PIPELINE_SMOKE_MODE ? "smoke" : isOpenAiConfigured() ? "openai+anthropic" : "anthropic",
     });
 
     const reviewedTargets: Array<{ title: string; content: string; order: number }> = [];

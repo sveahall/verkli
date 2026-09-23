@@ -57,6 +57,7 @@ if (!parsedMode.success) die("--mode must be proofread, analysis or translation.
 // Pulled out of the union: discriminated-union narrowing does not survive into
 // the async closure below.
 const mode = parsedMode.data;
+if (mode === "translation") die("Translation comparison requires source text. Use the editor with a selected source edition; this script only supports proofread and analysis.");
 
 const partIndex = Number(arg("part") ?? 0);
 if (!Number.isInteger(partIndex) || partIndex < 0) die("--part must be a non-negative integer.");
@@ -119,7 +120,7 @@ async function main() {
   });
 
   console.log("Adjudicating it (OpenAI)...\n");
-  const { report, stats, decisions } = await adjudicateEditorialReport({ report: baseline, text });
+  const { report, stats, decisions } = await adjudicateEditorialReport({ report: baseline, mode, text, sourceText: null });
 
   if (!stats.ran) {
     die("The critic did not run. Check OPENAI_API_KEY and OPENAI_MODEL — the provider degrades silently by design.");

@@ -207,10 +207,18 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
     void send(prompt, pendingRequest.selectedText);
     onPendingRequestHandled?.();
   }, [pendingRequest, threadKey, thread.sending, send, onPendingRequestHandled, memory.ready, memory.pending]);
+  const lastRole = thread.messages.at(-1)?.role;
   useEffect(() => {
     const transcript = transcriptRef.current;
-    if (transcript) transcript.scrollTop = transcript.scrollHeight;
-  }, [threadKey, thread.messages.length, thread.sending]);
+    if (!transcript) return;
+    // A reply lands at its first line, not its last. Scrolling to the bottom put
+    // a long answer with a proposal card below it out of view in a short dock,
+    // so the author saw only the card and the tail of what the agent said.
+    const turns = transcript.querySelectorAll<HTMLElement>("[data-role]");
+    const reply = !thread.sending && lastRole === "assistant" ? turns[turns.length - 1] : null;
+    if (reply) transcript.scrollTop += reply.getBoundingClientRect().top - transcript.getBoundingClientRect().top - 12;
+    else transcript.scrollTop = transcript.scrollHeight;
+  }, [threadKey, thread.messages.length, thread.sending, lastRole]);
 
   const execute = async (id: string, action: AgentAction, context: ProposalContext) => {
     if (busyActions.current.has(id) || results[id]?.message) return;
@@ -405,7 +413,7 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
       <label htmlFor={inputId} className="sr-only">Message to {agent.name}</label>
       <textarea id={inputId} ref={inputRef} value={thread.draft} onChange={(event) => updateThread(threadKey, (previous) => ({ ...previous, draft: event.target.value }))}
         onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing && (event.metaKey || event.ctrlKey)) { event.preventDefault(); submit(); } }}
-        placeholder={`Tell ${agent.name} what you’d like to change…`} maxLength={2000} rows={3} />
+        placeholder={`Tell ${agent.name} what you’d like to change…`} maxLength={2000} rows={2} />
       <div className={styles.composerActions}><span><CornerDownLeft size={12} aria-hidden /> Ctrl / ⌘ + Enter</span><button type="button" onClick={submit} disabled={thread.sending || !memory.ready || memory.pending || !thread.draft.trim()} aria-label={`Send message to ${agent.name}`}><Send size={15} aria-hidden />Send</button></div>
       <p className={styles.disclosure}>AI suggestions can be wrong. Review each proposed change.</p>
     </div>

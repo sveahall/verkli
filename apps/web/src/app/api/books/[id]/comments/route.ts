@@ -399,7 +399,7 @@ export async function POST(
         .maybeSingle();
 
       if (parentComment && parentComment.author_id !== user.id) {
-        await createNotification(supabase, {
+        await createNotification({
           userId: parentComment.author_id,
           type: "comment_reply",
           title: "Reply to your comment",

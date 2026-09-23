@@ -1,4 +1,7 @@
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { ErrorState } from "@/components/ui/states";
 import { createClient } from "@/lib/supabase/server";
 import { getMarketingEnabled } from "@/lib/flags";
 import CampaignDetailView from "@/features/author-workspaces/marketing/CampaignDetailView";
@@ -80,7 +83,7 @@ export default async function MarketingCampaignPage({
     updated_at: string;
   };
 
-  const { data: postsRaw } = await supabase
+  const { data: postsRaw, error: postsError } = await supabase
     .from("marketing_posts")
     .select(
       `id, scheduled_for, channel, language, content_type, status, headline,
@@ -89,6 +92,29 @@ export default async function MarketingCampaignPage({
     )
     .eq("campaign_plan_id", id)
     .order("scheduled_for", { ascending: true });
+
+  if (postsError) {
+    console.error("[marketing campaign] Could not load posts", { campaignId: id, code: postsError.code });
+    return (
+      <main className="mx-auto w-full max-w-5xl space-y-5 px-6 py-8">
+        <header>
+          <Link href="/author/marketing" className="text-sm text-muted-foreground">← Marketing</Link>
+          <h1 className="author-page-title mt-1 text-foreground">{plan.name ?? bookRaw?.title ?? "Campaign"}</h1>
+        </header>
+        <div role="alert">
+          <ErrorState
+            title="Could not load campaign posts"
+            description="Your posts are temporarily unavailable. Try loading this campaign again."
+            action={
+              <form action={`/author/marketing/${encodeURIComponent(plan.id)}`} method="get">
+                <Button type="submit">Try again</Button>
+              </form>
+            }
+          />
+        </div>
+      </main>
+    );
+  }
 
   const posts = ((postsRaw ?? []) as unknown as PostRow[]).map((p) => ({
     id: p.id,

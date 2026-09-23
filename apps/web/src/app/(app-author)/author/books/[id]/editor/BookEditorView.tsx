@@ -29,6 +29,7 @@ import { useTranslation } from "./hooks/useTranslation";
 import { useAudiobook } from "./hooks/useAudiobook";
 import { useMarketing } from "./hooks/useMarketing";
 import { useBookPrintOnDemand } from "./hooks/useBookPrintOnDemand";
+import { useCoverCopy } from "./hooks/useCoverCopy";
 import { useJobRetry } from "./hooks/useJobRetry";
 import { useBookEditorNavigation } from "./hooks/useBookEditorNavigation";
 import {
@@ -67,6 +68,7 @@ type Props = {
   activeVersion: BookVersion | null;
   authorDisplayName?: string;
   authorDisplayNameSet?: boolean;
+  authorBio?: string;
   defaultPublishVisibility?: PublishVisibility;
   latestAudiobookAsset?: LatestAudiobookAsset;
   marketingCampaigns?: MarketingCampaignRow[];
@@ -82,6 +84,7 @@ export default function BookEditorView({
   activeVersion,
   authorDisplayName = "Author",
   authorDisplayNameSet = true,
+  authorBio = "",
   defaultPublishVisibility = "public",
   latestAudiobookAsset = null,
   marketingCampaigns = [],
@@ -296,12 +299,19 @@ export default function BookEditorView({
 
   // A refresh after the agent writes must show the new prose, and must leave
   // an unsaved draft in this tab alone.
+  //
+  // Destructured so the dependency is the function itself. `chapterCrud` is a
+  // fresh object every render, so depending on it would re-adopt the server
+  // chapters constantly and wipe the open draft; the method is a useCallback
+  // and therefore stable.
+  const { adoptServerChapters } = chapterCrud;
   useEffect(() => {
-    chapterCrud.adoptServerChapters(initialChapters);
-  }, [initialChapters, chapterCrud.adoptServerChapters]);
+    adoptServerChapters(initialChapters);
+  }, [initialChapters, adoptServerChapters]);
 
   // ── Print-on-demand ───────────────────────────────────────────────────────
   const { printOnDemandSettings, handleSavePrintOnDemandSettings } = useBookPrintOnDemand({ book });
+  const { coverCopy, updateCoverCopy, saveState: coverCopySaveState } = useCoverCopy({ book });
 
   // ── Effects: refresh, preset, session words, panel sync ───────────────────
   useEffect(() => {
@@ -744,6 +754,10 @@ export default function BookEditorView({
                 bookTrailerStatus={typeof book.trailer_status === "string" ? book.trailer_status : null}
                 bookTrailerUrl={typeof book.trailer_url === "string" ? book.trailer_url : null}
                 authorDisplayName={authorDisplayName}
+                authorBio={authorBio}
+                coverCopy={coverCopy}
+                coverCopySaveState={coverCopySaveState}
+                onCoverCopyChange={updateCoverCopy}
                 tool={tool}
                 tools={effectiveTools as Tool[]}
                 chapters={chapters}

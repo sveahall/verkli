@@ -12,6 +12,7 @@
 import { Suspense, useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
+import { sanitizePostHogEvent } from "@/lib/analytics/posthog-privacy";
 
 let posthogInitialized = false;
 
@@ -32,6 +33,10 @@ function initPostHogOnce(): boolean {
       persistence: "localStorage",
       autocapture: false,
       disable_session_recording: true,
+      before_send: sanitizePostHogEvent,
+      // This provider only tracks page views. Flags/remote configuration send
+      // persisted initial URLs through a separate transport, outside before_send.
+      advanced_disable_flags: true,
     });
     posthogInitialized = true;
     return true;
@@ -48,11 +53,8 @@ function PostHogPageview() {
     if (!initPostHogOnce()) return;
     if (!pathname) return;
 
-    const search = searchParams?.toString();
-    const url = search ? `${pathname}?${search}` : pathname;
-
     try {
-      posthog.capture("$pageview", { $current_url: url, path: pathname });
+      posthog.capture("$pageview", { $current_url: pathname, path: pathname });
     } catch {
       // ignore
     }

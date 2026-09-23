@@ -163,13 +163,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     modelStarted = true;
-    const result = await runAgent({ book, message: body.data.message, tool: body.data.tool });
+    const result = await runAgent({
+      book,
+      message: body.data.message,
+      tool: body.data.tool,
+      meter: { userId: user.id, pipeline: "assistant", bookId: parsedParams.data.id },
+    });
 
-    // The one place a run's real cost is visible. A book-wide search re-sends
-    // the conversation every turn, so input tokens compound in a way a single
-    // chat reply never does, and until the per-user usage ledger on
-    // feat/usage-metering lands and this call can take a `meter` context, a log
-    // line is the only thing standing between that and an invisible bill.
+    // A book-wide search re-sends the conversation every turn, so input tokens
+    // compound in a way a single chat reply never does. The `meter` above now
+    // records each turn as it happens, which is what the log line below stood
+    // in for while the usage ledger was still on a branch.
     // The reservation is an opening position taken before anything is known.
     // Charging only that would make the daily ceiling a guess: a search for a
     // common substring fills the conversation and is re-sent every turn, so a

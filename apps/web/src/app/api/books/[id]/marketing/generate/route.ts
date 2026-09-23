@@ -16,6 +16,7 @@ import {
   E_MARKETING_FEATURE_DISABLED,
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 const CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
 type Channel = (typeof CHANNELS)[number];
@@ -39,6 +40,11 @@ export async function POST(
   // SECURITY: Require author role for marketing generation
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
+
+  // Account master AI switch. Server-side, so turning AI off is a real
+  // setting and not just a hidden button.
+  const aiOff = await aiDisabledResponse(user.id);
+  if (aiOff) return aiOff;
 
   const proGate = await requireProBillingForApi(user.id);
   if (!proGate.ok) return proGate.response;
@@ -68,7 +74,8 @@ export async function POST(
   }
   let copy;
   try {
-    copy = await generateLaunchCopy({ authorId: user.id, title: book.title, description: book.description, language, channel });
+    copy = await generateLaunchCopy({ authorId: user.id, title: book.title, description: book.description, language, channel,
+      meter: { userId: user.id, pipeline: "marketing", bookId } });
   } catch (error) {
     const code = error instanceof LaunchCopyError ? error.code : "MARKETING_AI_FAILED";
     console.error("[marketing generate] draft failed:", code);

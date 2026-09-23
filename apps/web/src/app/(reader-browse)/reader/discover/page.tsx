@@ -15,11 +15,11 @@ import ReaderDiscoverPageView from "@/features/reader/reader-discover/ReaderDisc
 /* ── Search param types ── */
 
 type SearchParams = {
-  lang?: string;
-  q?: string;
-  genre?: string; // comma-separated slugs, e.g. "fiction,romance"
-  format?: string;
-  sort?: string;
+  lang?: string | string[];
+  q?: string | string[];
+  genre?: string | string[]; // comma-separated slugs, e.g. "fiction,romance"
+  format?: string | string[];
+  sort?: string | string[];
 };
 
 export const revalidate = 300;
@@ -54,6 +54,12 @@ function parseSort(raw: string | undefined): Sort {
   return "newest";
 }
 
+// Next.js returns arrays for repeated query keys. Scalar filters use the first
+// value; genres combine repeated keys and comma-separated selections.
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 /* ── Data fetching ── */
 
 function checkDiscoveryError(operation: string, error: { message: string } | null) {
@@ -75,43 +81,14 @@ async function fetchFilteredBooks(
 ) {
   const { language, query, genreSlugs, format, sort, limit } = opts;
 
-  // If filtering by genres, get all matching book IDs (union across selected genres)
-  let genreBookIds: string[] | null = null;
-  if (genreSlugs.length > 0) {
-    const { data: genreRows, error: genreError } = await supabase
-      .from("genres")
-      .select("id")
-      .in("slug", genreSlugs);
-
-    checkDiscoveryError("genre filter lookup", genreError);
-
-    if (genreRows && genreRows.length > 0) {
-      const genreIds = genreRows.map((r) => r.id);
-      const { data: junctionRows, error: junctionError } = await supabase
-        .from("book_genres")
-        .select("book_id")
-        .in("genre_id", genreIds)
-        .limit(500);
-
-      checkDiscoveryError("genre books lookup", junctionError);
-
-      // Deduplicate — a book tagged with multiple selected genres appears once
-      genreBookIds = [...new Set((junctionRows ?? []).map((r) => r.book_id))];
-      if (genreBookIds.length === 0) {
-        return [];
-      }
-    } else {
-      // None of the requested slugs exist — return empty
-      return [];
-    }
-  }
-
-  // Build the main query
-  let base = supabase
-    .from("books")
-    .select(
-      "id, title, cover_image, author_id, published_at, is_featured, audiobook_status, trailer_url"
-    )
+  // Apply genre membership in the same query as the book filters. A capped
+  // junction lookup can discard relevant books before language/title/format.
+  let base = (genreSlugs.length > 0
+    ? supabase.from("books")
+      .select("id, title, cover_image, author_id, published_at, is_featured, audiobook_status, trailer_url, book_genres!inner(genres!inner(slug))")
+      .in("book_genres.genres.slug", genreSlugs)
+    : supabase.from("books")
+      .select("id, title, cover_image, author_id, published_at, is_featured, audiobook_status, trailer_url"))
     .eq("status", "PUBLISHED");
 
   // Language filter
@@ -123,12 +100,7 @@ async function fetchFilteredBooks(
 
   // Text search
   if (query) {
-    base = base.ilike("title", `%${query}%`);
-  }
-
-  // Genre filter (restrict to matched book IDs)
-  if (genreBookIds) {
-    base = base.in("id", genreBookIds);
+    base = base.ilike("title", `%${query.replace(/[\\%_]/g, "\\$&")}%`);
   }
 
   // Format filter
@@ -293,15 +265,15 @@ export default async function ReaderDiscoverPage({
   }
 
   const params = await searchParams;
-  const language = normalizeLanguage(params?.lang);
+  const language = normalizeLanguage(firstParam(params?.lang));
   const langLabel = getLanguageLabel(language);
-  const query = (params?.q ?? "").trim();
-  const genreSlugs = (params?.genre ?? "")
-    .split(",")
+  const query = (firstParam(params?.q) ?? "").trim();
+  const genreSlugs = [...new Set([params?.genre ?? ""].flat()
+    .flatMap((value) => value.split(","))
     .map((s) => s.trim())
-    .filter(Boolean);
-  const format = parseFormat(params?.format);
-  const sort = parseSort(params?.sort);
+    .filter(Boolean))];
+  const format = parseFormat(firstParam(params?.format));
+  const sort = parseSort(firstParam(params?.sort));
 
   const supabase = await createClient();
 

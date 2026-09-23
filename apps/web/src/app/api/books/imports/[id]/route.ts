@@ -9,6 +9,7 @@ import type { ImportMode } from "@/lib/import-queue";
 import {
   apiError,
   E_DATABASE_ERROR,
+  E_IMPORT_OVERWRITE_UNAVAILABLE,
   E_IMPORT_NOT_FOUND,
   E_IMPORT_NOT_FAILED,
   E_IMPORT_MISSING_FILE_INFO,
@@ -87,6 +88,11 @@ export async function POST(
 
   if (row.status !== "failed") {
     return apiError(E_IMPORT_NOT_FAILED, 400);
+  }
+
+  if (row.mode === "overwrite_draft") {
+    console.warn("[import retry] draft replacement blocked", { importId: id });
+    return apiError(E_IMPORT_OVERWRITE_UNAVAILABLE, 409);
   }
 
   const filePath = (row as { file_path?: string }).file_path;

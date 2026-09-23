@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { AiSettingsError, requireAiEnabled } from "@/features/ai-team/settings/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -12,7 +13,7 @@ import { splitBookAnalysis } from "@/lib/editorial/book-analysis-content";
 import { generateBookAnalysisNotes, generateBookAnalysisReport, estimateBookAnalysisNotesUnits, estimateBookAnalysisReportUnits } from "@/lib/editorial/book-analysis-provider";
 import { analysisManifestSchema, analysisRunSchema, type AnalysisManifest, type AnalysisRun, type BookAnalysisResult } from "@/lib/editorial/book-analysis-run-schema";
 import type { Json } from "@/lib/supabase/types";
-import { isBrowserOriginAllowed } from "@/lib/request-url";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -74,7 +75,8 @@ function result(job: Job, currentFingerprint: string): BookAnalysisResult {
 }
 function handleError(error: unknown) {
   console.error("[book analysis] request failed", { errorType: error instanceof Error ? error.name : "unknown" });
-  return response({ error: error instanceof AnalysisError ? error.message : "The analysis could not be loaded. Please try again." }, error instanceof AnalysisError ? error.status : 503);
+  const known = error instanceof AnalysisError || error instanceof AiSettingsError;
+  return response({ error: known ? error.message : "The analysis could not be loaded. Please try again." }, known ? error.status : 503);
 }
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await requireAuthorRoleForApi();
@@ -88,7 +90,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const current = await manuscript(db, id, versionId!, userId);
     const { data, error } = await db.from("ai_jobs").select(columns).eq("book_id", id).eq("book_version_id", versionId!).eq("user_id", userId).eq("kind", kind).order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (error) throw new AnalysisError("Could not load the saved analysis.", 503);
-    const reason = unavailableReason();
+    let reason = unavailableReason();
+    if (!reason) {
+      try { await requireAiEnabled(db, userId); }
+      catch (error) {
+        if (!(error instanceof AiSettingsError)) throw error;
+        reason = error.message;
+      }
+    }
     return response({ analysis: data ? result(data as Job, current.fingerprint) : null, available: reason === null, unavailableReason: reason });
   } catch (error) { return handleError(error); }
 }
@@ -96,6 +105,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const gate = await requireAuthorRoleForApi();
   if (gate.response) return gate.response;
   const userId = gate.user.id;
+
   let admin: ReturnType<typeof createAdminClient> | null = null;
   let ownedJob: Job | null = null;
   let run: AnalysisRun | null = null;
@@ -104,17 +114,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   let completionAttempted = false;
   let reservationId = "";
   try {
-    if (!isBrowserOriginAllowed(request)) throw new AnalysisError("Request origin is not allowed.", 403);
     const { id } = await params;
     const parsed = bodySchema.safeParse(await request.json().catch(() => null));
     if (!z.string().uuid().safeParse(id).success || !parsed.success) throw new AnalysisError("Choose a valid edition and analysis step.", 400);
     if (!(await limiter.check(userId)).allowed) throw new AnalysisError("Too many analysis requests. Wait a minute and continue.", 429);
     const body = parsed.data;
     if (body.action !== "abandon") {
+      // Stopping owned work must remain possible when AI is off or settings cannot be read.
+      const aiOff = await aiDisabledResponse(userId);
+      if (aiOff) return aiOff;
       const reason = unavailableReason();
       if (reason) throw new AnalysisError(reason, 503);
     }
     const db = await createClient();
+    if (body.action !== "abandon") await requireAiEnabled(db, userId);
     const current = await manuscript(db, id, body.versionId, userId);
     let parts;
     try { parts = body.action === "abandon" ? [] : splitBookAnalysis(current.chapters); } catch (error) { throw new AnalysisError(error instanceof Error ? error.message : "This manuscript is too large to analyse.", 422); }
@@ -170,8 +183,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await persistRun();
     modelStarted = true;
     const onUsage = async (usage: NonNullable<typeof receipt.usage>) => { receipt.usage = usage; await persistRun(); };
-    if (synthesis) run.report = await generateBookAnalysisReport(current.chapters, run.notes, onUsage);
-    else { run.notes.push(...await generateBookAnalysisNotes(parts[step], onUsage)); run.completedParts += 1; }
+    // The receipt above is the budget ledger; this is the cost record. Whole-book
+    // analysis reads every chapter, so it is the largest single spend here.
+    const meter = { userId, pipeline: "editorial" as const, bookId: id };
+    if (synthesis) run.report = await generateBookAnalysisReport(current.chapters, run.notes, onUsage, meter);
+    else { run.notes.push(...await generateBookAnalysisNotes(parts[step], onUsage, meter)); run.completedParts += 1; }
     const latest = await manuscript(db, id, body.versionId, userId);
     if (latest.fingerprint !== current.fingerprint) throw new AnalysisError("The manuscript changed during analysis. Start again to review the current text.", 409);
     // A rejected transport may follow a committed write and a subsequent claim.
@@ -188,8 +204,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (reserved && !modelStarted) { try { await releaseBudget({ pipeline: "editorial", jobId: reservationId }); } catch { console.error("[book analysis] reservation release unavailable", { reservationId }); } }
     const uncertain = completionAttempted && ownedJob !== null;
     const budgetPaused = error instanceof BudgetExceededError && !modelStarted;
+    const known = error instanceof AnalysisError || error instanceof AiSettingsError;
     const message = error instanceof BudgetExceededError ? "This analysis exceeds your remaining daily editorial AI allowance. Your completed parts are saved; continue this analysis after the daily reset."
-      : error instanceof AnalysisError ? error.message : modelStarted ? "The AI could not complete this analysis. No complete report was produced; your manuscript has not changed." : "Analysis limits or receipt storage are unavailable. No AI work was started.";
+      : known ? error.message : modelStarted ? "The AI could not complete this analysis. No complete report was produced; your manuscript has not changed." : "Analysis limits or receipt storage are unavailable. No AI work was started.";
     if (ownedJob && admin && !uncertain) {
       try { await admin.from("ai_jobs").update({ status: budgetPaused ? "pending" : "failed", error: message,
         ...(!budgetPaused ? { finished_at: new Date().toISOString() } : {}), output: run as unknown as Json })
@@ -197,6 +214,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         .eq("output->>completedParts", String(ownedJob.output && analysisRunSchema.parse(ownedJob.output).completedParts)); } catch { console.error("[book analysis] failure receipt unavailable", { jobId: ownedJob.id }); }
     }
     console.error("[book analysis] step failed", { jobId: ownedJob?.id, modelStarted, uncertain, errorType: error instanceof Error ? error.name : "unknown" });
-    return response({ error: uncertain ? "The save response was interrupted. Refresh the analysis status before continuing; the step may already be saved." : message }, error instanceof BudgetExceededError ? 429 : error instanceof AnalysisError ? error.status : modelStarted ? 502 : 503);
+    return response({ error: uncertain ? "The save response was interrupted. Refresh the analysis status before continuing; the step may already be saved." : message }, error instanceof BudgetExceededError ? 429 : known ? error.status : modelStarted ? 502 : 503);
   }
 }

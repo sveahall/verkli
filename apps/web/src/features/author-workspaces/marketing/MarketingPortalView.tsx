@@ -218,6 +218,7 @@ export default function MarketingPortalView({
               >
                 Create campaign
               </Button>
+              <Link href="/author/marketing/channels" className="text-sm font-medium underline underline-offset-4">Manage channel connections</Link>
               <span className="text-[13px] text-muted-foreground dark:text-muted-foreground">
                 Organic now · Paid ads later
               </span>
@@ -228,6 +229,8 @@ export default function MarketingPortalView({
               </p>
             ) : null}
           </div>
+
+          <Link href="/author/marketing/ads" className="text-sm font-medium underline underline-offset-4">Plan an ad draft and budget</Link>
 
           {/* Campaign list */}
           {campaigns.length === 0 ? (

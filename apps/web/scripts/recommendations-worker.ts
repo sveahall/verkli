@@ -17,6 +17,9 @@ import { createAdminClient } from "../src/lib/supabase/admin";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 import { Sentry } from "./sentry-worker-init";
+import { startUsageScheduler } from "../src/lib/usage/scheduler";
+import { startAccountDeletionSweeper } from "../src/lib/account/sweeper";
+import { describeAlert } from "../src/lib/usage/alerts";
 import type { RecommendationsJobData } from "../src/lib/recommendations-queue";
 
 const QUEUE_NAME = QUEUE_NAMES.RECOMMENDATIONS;
@@ -341,6 +344,36 @@ function main() {
   const heartbeatInterval = startHeartbeatInterval(QUEUE_NAME);
 
   worker.on("closed", () => clearInterval(heartbeatInterval));
+
+  // Nightly usage maintenance lives here, in the least busy always-on worker.
+  //
+  // It was wired into `start-workers.ts`, which is the unified runtime — and
+  // nothing in production runs that. Railway runs four services, each booting a
+  // single worker script from its own Dockerfile, so the scheduler was started
+  // by no process at all: job sync, storage snapshots, rollup and cost alerts
+  // would simply never have happened, silently, which is the exact failure the
+  // scheduler exists to prevent.
+  //
+  // Safe to sit in a worker that has nothing to do with usage: every task is
+  // idempotent, the due-check is "has today's moment passed with nothing run
+  // since", and the scheduler swallows its own errors. If this service is ever
+  // scaled to several replicas they race to the same rows and write the same
+  // result. Move it to a dedicated maintenance service when there is one.
+  startUsageScheduler((alert) => {
+    // A cost anomaly is not an exception; captureException would bury it under
+    // a synthetic stack trace.
+    Sentry.captureMessage(`[usage] ${describeAlert(alert)}`, "warning");
+  });
+
+  // Account deletion requests are carried out here for exactly the reason the
+  // comment above gives: this is a script production actually boots. Wiring it
+  // only into `start-workers.ts` would have meant the settings page promising a
+  // deletion that no process ever performs. Idempotent and self-limiting —
+  // carrying a request out clears `deletion_requested_at` — so replicas would
+  // race to the same already-finished rows rather than erase anything twice.
+  startAccountDeletionSweeper((error) => {
+    Sentry.captureException(error);
+  });
 
   // Scheduled recomputation every 6 hours
   const SIX_HOURS = 6 * 60 * 60 * 1000;

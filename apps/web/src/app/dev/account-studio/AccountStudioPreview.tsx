@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import ProfilePage from "@/components/author/profile/ProfilePage";
-import SettingsPage from "@/components/author/settings/SettingsPage";
+import AccountEmailSection from "@/components/author/settings/AccountEmailSection";
+import SecuritySection from "@/components/author/settings/SecuritySection";
+import PublishingDefaultsSection from "@/components/author/settings/PublishingDefaultsSection";
+import NotificationsSection from "@/components/author/settings/NotificationsSection";
+import SettingsNav from "@/components/author/settings/SettingsNav";
+import AiSettingsSection from "@/features/ai-team/settings/AiSettingsSection";
 import SubscriptionPlanSection from "@/components/author/settings/SubscriptionPlanSection";
 import shellStyles from "@/features/author-shell/AuthorAppShell.module.css";
 import type { ActionState } from "@/features/author/settings/actions";
@@ -68,26 +73,68 @@ export default function AccountStudioPreview() {
           },
         }} />
       ) : (
-        <SettingsPage user={{ email: "alex@example.test" }} profile={{ preferences: { default_language: "en", default_visibility: "private", notifications: { email: true } } }} aiSettings={{ ...DEFAULT_AI_SETTINGS, nickname: "Alex", craft: "Historical fiction" }} headerActions={null} actions={{
-          saveAuthorSettings: async (_previous, data) => {
-            await delay();
-            if (fail) return { ok: false, message: "Simulated save failure. Your changes are still here." };
-            const password = String(data.get("new_password") || "");
-            const confirmation = String(data.get("confirm_password") || "");
-            if (password || confirmation) {
+        // Settings is a set of routes in the app; the fixture stacks every
+        // section so one screen still shows the whole surface. Each section
+        // takes a local action, so nothing here writes to an account.
+        <div className="@container/settings space-y-6">
+          <SettingsNav />
+          <AccountEmailSection
+            currentEmail="alex@example.test"
+            action={async (_previous: ActionState, data: FormData) => {
+              await delay();
+              if (fail) return { ok: false, message: "Simulated failure. Your address is unchanged." };
+              setLastAction(`Local email change preview: ${data.get("email")}. No mail was sent.`);
+              return { ok: true, message: "Confirmation emails would be sent in production." };
+            }}
+          />
+          <SecuritySection
+            action={async (_previous: ActionState, data: FormData) => {
+              await delay();
+              if (fail) return { ok: false, message: "Simulated save failure. Your changes are still here." };
+              const password = String(data.get("new_password") || "");
+              const confirmation = String(data.get("confirm_password") || "");
               if (password.length < 8) return { ok: false, message: "Password must be at least 8 characters." };
               if (password !== confirmation) return { ok: false, message: "Passwords do not match." };
-            }
-            setLastAction(`Local settings save: ${data.get("default_language")} · ${data.get("default_visibility")} · email: ${data.get("email_notifications")} · password change: ${Boolean(password)}`);
-            return { ok: true, message: password ? "Settings and password saved in this preview." : "Settings saved in this preview." };
-          },
-          signOutAllSessions: async () => { setLastAction("Local sign-out preview. All real sessions remain active."); },
-        }} subscriptionPlanSection={<SubscriptionPlanSection initialEnabled initialPriceMonthly={4900} initialCurrency="sek" initialDescription="All my books and early chapters." savePlan={async (plan) => {
-          await delay();
-          if (fail) return Response.json({ error: "Simulated subscription save failure." }, { status: 500 });
-          setLastAction(`Local subscription save: ${JSON.stringify(plan)}`);
-          return Response.json({ ok: true });
-        }} />} />
+              setLastAction("Local password change preview. Your real password is unchanged.");
+              return { ok: true, message: "Password updated in this preview." };
+            }}
+            onSignOut={() => setLastAction("Local sign-out preview. All real sessions remain active.")}
+          />
+          <PublishingDefaultsSection
+            initialLanguage="en"
+            initialVisibility="private"
+            action={async (_previous: ActionState, data: FormData) => {
+              await delay();
+              if (fail) return { ok: false, message: "Simulated save failure. Your changes are still here." };
+              setLastAction(`Local defaults save: ${data.get("default_language")} · ${data.get("default_visibility")}`);
+              return { ok: true, message: "Publishing defaults saved in this preview." };
+            }}
+          />
+          <NotificationsSection
+            initialEmail
+            action={async (_previous: ActionState, data: FormData) => {
+              await delay();
+              if (fail) return { ok: false, message: "Simulated save failure. Your changes are still here." };
+              setLastAction(`Local notifications save: email ${data.get("email_notifications")}`);
+              return { ok: true, message: "Notification preferences saved in this preview." };
+            }}
+          />
+          <AiSettingsSection
+            settings={{ ...DEFAULT_AI_SETTINGS, nickname: "Alex", craft: "Historical fiction" }}
+            action={async (_previous: ActionState, data: FormData) => {
+              await delay();
+              if (fail) return { ok: false, message: "Simulated save failure. Your changes are still here." };
+              setLastAction(`Local AI save: ${data.get("ai_enabled") === "true" ? "on" : "off"} · ${data.get("ai_reply_style")} · emoji ${data.get("ai_emoji")}`);
+              return { ok: true, message: "AI settings saved in this preview." };
+            }}
+          />
+          <SubscriptionPlanSection initialEnabled initialPriceMonthly={4900} initialCurrency="sek" initialDescription="All my books and early chapters." savePlan={async (plan) => {
+            await delay();
+            if (fail) return Response.json({ error: "Simulated subscription save failure." }, { status: 500 });
+            setLastAction(`Local subscription save: ${JSON.stringify(plan)}`);
+            return Response.json({ ok: true });
+          }} />
+        </div>
       )}
     </div>
   );

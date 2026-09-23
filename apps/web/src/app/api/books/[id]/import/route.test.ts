@@ -139,42 +139,15 @@ describe("POST /api/books/[id]/import", () => {
     expect(mocks.startScopedBookImport).not.toHaveBeenCalled();
   });
 
-  it("passes mode + draft version payload to scoped import service", async () => {
+  it("rejects draft replacement before attestation or import creation", async () => {
     mocks.parseImportMode.mockReturnValueOnce("overwrite_draft");
-    mocks.startScopedBookImport.mockResolvedValueOnce({
-      ok: true,
-      importId: "imp-1",
-      jobId: "job-1",
-      mode: "overwrite_draft",
-      targetVersionId: "version-1",
-      message: "Import queued",
-    });
-
-    const form = attested();
-    form.set("mode", "overwrite_draft");
-    form.set("bookVersionId", "version-1");
-
-    const res = await POST(makeMultipartRequest(form), {
+    const res = await POST(makeMultipartRequest(attested({ mode: "overwrite_draft" })), {
       params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
     });
-
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(mocks.startScopedBookImport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "author-1",
-        bookId: "00000000-0000-4000-8000-000000000001",
-        mode: "overwrite_draft",
-        targetVersionId: "version-1",
-      })
-    );
-    expect(body).toMatchObject({
-      id: "imp-1",
-      jobId: "job-1",
-      mode: "overwrite_draft",
-      targetVersionId: "version-1",
-    });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "IMPORT_OVERWRITE_UNAVAILABLE" });
+    expect(mocks.startScopedBookImport).not.toHaveBeenCalled();
+    expect(mocks.attestationInsert).not.toHaveBeenCalled();
   });
 
   it("returns safe error key from scoped import helper failures", async () => {

@@ -1,8 +1,10 @@
 import "server-only";
 import { createHiggsfieldClient } from "@higgsfield/client/v2";
+import { recordUsage } from "@/lib/usage/meter";
+import type { MeterContext } from "@/lib/usage/types";
 
 const HIGGSFIELD_ENDPOINT = "/v1/image2video/dop";
-const HIGGSFIELD_MODEL = "dop-standard" as const;
+export const HIGGSFIELD_MODEL = "dop-standard" as const;
 // Keep headroom for provider-file download + Supabase upload within route maxDuration=180s.
 const HIGGSFIELD_TIMEOUT_MS = 150_000;
 
@@ -11,6 +13,8 @@ type GenerateImageToVideoInput = {
   imageUrl: string;
   durationSeconds?: number;
   includeAudio?: boolean;
+  /** When present, the render is billed to this user. Absent = not measured. */
+  meter?: MeterContext;
 };
 
 type GenerateImageToVideoResult = {
@@ -58,6 +62,7 @@ export async function generateImageToVideo({
   imageUrl,
   durationSeconds,
   includeAudio = true,
+  meter,
 }: GenerateImageToVideoInput): Promise<GenerateImageToVideoResult> {
   const trimmedPrompt = prompt.trim();
   const trimmedImageUrl = imageUrl.trim();
@@ -96,6 +101,24 @@ export async function generateImageToVideo({
   }
   if (!videoUrl) {
     throw new Error("Higgsfield response missing video URL.");
+  }
+
+  // Video is the highest unit cost on the platform, so it is measured even
+  // though one render is one row. `duration_seconds` rides in meta because
+  // Higgsfield prices by length: if the price book later needs per-second
+  // rates, the raw number is already recorded and history reprices.
+  if (meter) {
+    await recordUsage(meter, [
+      {
+        kind: "ai_call",
+        provider: "higgsfield",
+        model: HIGGSFIELD_MODEL,
+        quantity: 1,
+        unit: "renders",
+        requestId,
+        meta: { duration_seconds: durationSeconds ?? null, audio: includeAudio },
+      },
+    ]);
   }
 
   return { requestId, videoUrl };

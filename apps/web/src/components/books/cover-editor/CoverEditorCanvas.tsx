@@ -37,6 +37,7 @@ type CoverEditorCanvasProps = {
   onSelectLayer: (id: string | null) => void;
   onUpdateLayer: (id: string, patch: Partial<CoverTextLayer>) => void;
   stageRef: React.RefObject<Konva.Stage | null>;
+  onImageStatus?: (status: "loading" | "ready" | "error") => void;
 };
 
 export default function CoverEditorCanvas({
@@ -47,6 +48,7 @@ export default function CoverEditorCanvas({
   onSelectLayer,
   onUpdateLayer,
   stageRef,
+  onImageStatus,
 }: CoverEditorCanvasProps) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const transformerRef = useRef<Konva.Transformer | null>(null);
@@ -54,15 +56,16 @@ export default function CoverEditorCanvas({
   const [guides, setGuides] = useState<SnapGuide[]>([]);
 
   useEffect(() => {
-    if (!imageUrl) return;
+    if (!imageUrl) { onImageStatus?.("error"); return; }
+    onImageStatus?.("loading");
     let cancelled = false;
     const img = new window.Image();
     img.crossOrigin = "anonymous";
+    img.onload = () => { if (!cancelled) { setImage(img); onImageStatus?.("ready"); } };
+    img.onerror = () => { if (!cancelled) { setImage(null); onImageStatus?.("error"); } };
     img.src = imageUrl;
-    img.onload = () => { if (!cancelled) setImage(img); };
-    img.onerror = () => { if (!cancelled) setImage(null); };
     return () => { cancelled = true; };
-  }, [imageUrl]);
+  }, [imageUrl, onImageStatus]);
 
   useEffect(() => {
     const tr = transformerRef.current;

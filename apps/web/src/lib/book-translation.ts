@@ -193,13 +193,15 @@ export async function resolveTranslationSourceContext({
   }
 
   if (!sourceLanguage) {
-    const { data: chapters } = await supabase
+    const { data: chapters, error } = await supabase
       .from("chapters")
       .select("content")
       .eq("book_version_id", sourceVersionId)
       .is("deleted_at", null)
       .order("order", { ascending: true })
       .limit(12);
+
+    if (error) throw new Error(error.message);
 
     const detected = detectLanguageFromParts(
       (chapters ?? []).map((chapter: { content?: unknown }) => extractPlainText(chapter.content as string | null))

@@ -11,6 +11,8 @@
  * turns one decision into forty-seven.
  */
 
+import { recordUsage } from "@/lib/usage/meter";
+import type { MeterContext } from "@/lib/usage/types";
 import Anthropic from "@anthropic-ai/sdk";
 import { assistantToolPersonas, type AssistantTool } from "@/lib/ai/agent-actions";
 import type { AgentBook } from "./book-context";
@@ -123,6 +125,8 @@ export async function runAgent(input: {
   book: AgentBook;
   message: string;
   tool: AssistantTool;
+  /** When present, every turn's token spend is billed to this user. */
+  meter?: MeterContext;
 }): Promise<AgentRunResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   if (!apiKey) throw new AgentRunError("ANTHROPIC_API_KEY is not set", "PROVIDER_UNAVAILABLE");
@@ -156,6 +160,16 @@ export async function runAgent(input: {
       turns++;
       inputTokens += response.usage.input_tokens;
       outputTokens += response.usage.output_tokens;
+
+      // Per turn, not per run: an agent loop is many billed requests, and a run
+      // that stops on the turn limit has paid for every one of them. Summing
+      // only at the end would lose the cost of a run that throws midway.
+      await recordUsage(input.meter, [
+        { kind: "ai_call", provider: "anthropic", model: MODEL_ID,
+          quantity: response.usage.input_tokens, unit: "input_tokens" },
+        { kind: "ai_call", provider: "anthropic", model: MODEL_ID,
+          quantity: response.usage.output_tokens, unit: "output_tokens" },
+      ]);
 
       const text = response.content
         .filter((block): block is Anthropic.TextBlock => block.type === "text")

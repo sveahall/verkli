@@ -16,6 +16,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { draftAdviceWithCritic } from "./writing-assistant-critic";
 import { getLanguageLabel } from "../languages";
 import {
   assistantToolPersonas,
@@ -82,12 +83,14 @@ export type WritingAssistantInput = {
    */
   chapterTitle: string | null;
   chapterText: string | null;
+  /** When set, the advice critic bills each of its own model calls. */
+  meter?: import("@/lib/usage/types").MeterContext;
 };
 
 export type WritingAssistantResult = {
   content: string;
   /** Which provider actually served the reply. Surfaced to the UI for honesty. */
-  provider: "anthropic" | "nvidia-nim";
+  provider: "anthropic" | "nvidia-nim" | "openai+anthropic";
   model: string;
   usage?: {
     promptTokens?: number;
@@ -401,7 +404,22 @@ export async function generateWritingAssistantReply(
   input: WritingAssistantInput,
 ): Promise<WritingAssistantResult> {
   const anthropicKey = process.env.ANTHROPIC_API_KEY?.trim();
+  const openAiKey = process.env.OPENAI_API_KEY?.trim();
   const nimKey = process.env.NVIDIA_NIM_API_KEY?.trim();
+
+  if (input.mode !== "actions" && anthropicKey && openAiKey) {
+    try {
+      return await draftAdviceWithCritic({
+        system: buildSystemPrompt(input),
+        conversation: buildMessages(input).map((message) => `${message.role}: ${message.content}`).join("\n\n"),
+        meter: input.meter,
+      });
+    } catch (err) {
+      console.warn("[ai.writing-assistant] critic loop failed, answering with one model", {
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   if (!anthropicKey && !nimKey) {
     throw new WritingAssistantError(

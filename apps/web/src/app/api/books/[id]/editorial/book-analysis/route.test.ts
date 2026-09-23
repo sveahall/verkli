@@ -5,7 +5,12 @@ import { analysisManifestSchema, analysisRunSchema, type BookAnalysisResult } fr
 import { splitBookAnalysis, type BookAnalysisPart } from "@/lib/editorial/book-analysis-content";
 import { reviewText } from "@/lib/editorial/content";
 import type { EditorialUsage } from "@/lib/editorial/provider";
-const mocks = vi.hoisted(() => ({ gate: vi.fn(), db: vi.fn(), admin: vi.fn(), notes: vi.fn(), report: vi.fn(), estimateNotes: vi.fn(), estimateReport: vi.fn(), check: vi.fn(), enabled: vi.fn(), budget: vi.fn(), release: vi.fn() }));
+const mocks = vi.hoisted(() => ({ gate: vi.fn(), db: vi.fn(), admin: vi.fn(), notes: vi.fn(), report: vi.fn(), estimateNotes: vi.fn(), estimateReport: vi.fn(), check: vi.fn(), enabled: vi.fn(), budget: vi.fn(), release: vi.fn(), requireAiEnabled: vi.fn(), aiDisabledResponse: vi.fn() }));
+vi.mock("@/features/ai-team/settings/server", async (original) => ({
+  ...(await original<typeof import("@/features/ai-team/settings/server")>()),
+  requireAiEnabled: mocks.requireAiEnabled,
+}));
+import { AiSettingsError } from "@/features/ai-team/settings/server";
 vi.mock("@/lib/auth/require-author", () => ({ requireAuthorRoleForApi: mocks.gate }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.db }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.admin }));
@@ -13,6 +18,7 @@ vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: m
 vi.mock("@/lib/flags", () => ({ isAiChatEnabled: mocks.enabled }));
 vi.mock("@/lib/editorial/book-analysis-provider", () => ({ generateBookAnalysisNotes: mocks.notes, generateBookAnalysisReport: mocks.report, estimateBookAnalysisNotesUnits: mocks.estimateNotes, estimateBookAnalysisReportUnits: mocks.estimateReport }));
 vi.mock("@/lib/workers/budget", () => ({ checkBudget: mocks.budget, releaseBudget: mocks.release, BudgetExceededError: class extends Error {} }));
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: mocks.aiDisabledResponse }));
 import { BudgetExceededError } from "@/lib/workers/budget";
 import { GET, POST } from "./route";
 
@@ -127,6 +133,8 @@ async function finishParts(jobId: string, count: number) {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.requireAiEnabled.mockResolvedValue(undefined);
+  mocks.aiDisabledResponse.mockResolvedValue(null);
   vi.spyOn(console, "error").mockImplementation(() => {});
   tables = { books: [{ id: bookId, author_id: authorId, deleted_at: null }], book_versions: [{ id: versionId, book_id: bookId }], chapters: [makeChapter(0, "a".repeat(11999) + "🦋This entire chapter is split safely."), makeChapter(1, "On Tuesday Ada arrived."), makeChapter(2, "On Wednesday Ada left.")], ai_jobs: [] };
   history = []; failReceipt = 0; ambiguousSave = null; throwAfterPartSave = false; beforeClaim = null;
@@ -146,6 +154,52 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe("whole-book analysis API", () => {
+  it.each([
+    ["AI_DISABLED", 403, "AI is turned off for your account."],
+    ["AI_SETTINGS_UNAVAILABLE", 503, "Your AI settings could not be read."],
+  ] as const)("blocks start and advance for %s without spending or changing jobs", async (code, status, message) => {
+    const analysis = await start();
+    const jobs = clone(tables.ai_jobs);
+    mocks.requireAiEnabled.mockRejectedValue(new AiSettingsError(code, status, message));
+
+    for (const body of [{ action: "start" }, { action: "advance", jobId: analysis.jobId, expectedPart: 0 }]) {
+      const result = await post(body);
+      expect(result.status).toBe(status);
+      expect(await result.json()).toMatchObject({ error: message });
+    }
+    expect(mocks.requireAiEnabled).toHaveBeenCalledWith(expect.anything(), authorId);
+    expect(tables.ai_jobs).toEqual(jobs);
+    expect(mocks.budget).not.toHaveBeenCalled();
+    expect(mocks.notes).not.toHaveBeenCalled();
+    expect(mocks.report).not.toHaveBeenCalled();
+  });
+
+  it.each([403, 503])("allows stopping without consulting unavailable or disabled AI settings (%s)", async (status) => {
+    const analysis = await start();
+    mocks.aiDisabledResponse.mockResolvedValue(NextResponse.json({ error: "AI settings unavailable" }, { status }));
+    mocks.requireAiEnabled.mockRejectedValue(new AiSettingsError("AI_SETTINGS_UNAVAILABLE", 503, "AI settings unavailable"));
+    const stopped = await post({ action: "abandon", jobId: analysis.jobId });
+    expect(stopped.status).toBe(200);
+    expect(tables.ai_jobs[0].status).toBe("failed");
+    expect(mocks.budget).not.toHaveBeenCalled();
+    expect(mocks.notes).not.toHaveBeenCalled();
+  });
+
+  it("keeps saved analysis readable and lets the author stop work with account AI off", async () => {
+    const analysis = await start();
+    mocks.requireAiEnabled.mockRejectedValue(new AiSettingsError("AI_DISABLED", 403, "AI is turned off for your account."));
+
+    const loaded = await get();
+    expect(loaded.status).toBe(200);
+    expect(await loaded.json()).toMatchObject({ analysis: { jobId: analysis.jobId }, available: false, unavailableReason: "AI is turned off for your account." });
+    const calls = mocks.requireAiEnabled.mock.calls.length;
+    expect((await post({ action: "abandon", jobId: analysis.jobId })).status).toBe(200);
+    expect(mocks.requireAiEnabled).toHaveBeenCalledTimes(calls);
+    expect(tables.ai_jobs[0].status).toBe("failed");
+    expect(mocks.budget).not.toHaveBeenCalled();
+    expect(mocks.notes).not.toHaveBeenCalled();
+  });
+
   it("starts without spend, extracts every complete chapter part, then saves one synthesis and receipts", async () => {
     const analysis = await start();
     expect(analysis).toMatchObject({ status: "pending", completedParts: 0, totalParts: 4, stale: false, report: null });
@@ -159,7 +213,16 @@ describe("whole-book analysis API", () => {
     const completed = await advance(analysis.jobId, analysis.totalParts);
     expect(completed.status).toBe(200);
     expect(await completed.json()).toMatchObject({ analysis: { status: "completed", completedParts: 4, report } });
-    expect(mocks.report).toHaveBeenCalledWith(inputChapters(), savedRun().notes, expect.any(Function));
+    // Four arguments now: the receipt callback the budget ledger needs, and the
+    // meter context the cost ledger needs. Whole-book analysis reads every
+    // chapter, so it is the largest single spend on the platform — asserting
+    // the meter here is what keeps it from going quiet again.
+    expect(mocks.report).toHaveBeenCalledWith(
+      inputChapters(),
+      savedRun().notes,
+      expect.any(Function),
+      expect.objectContaining({ pipeline: "editorial" })
+    );
     expect(savedRun().receipts).toEqual(Array.from({ length: 5 }, (_, step) => ({ step, reservedUnits: step === 4 ? 30000 : 20000, usage })));
     expect(mocks.budget.mock.calls.map(([input]) => input.jobId)).toEqual(Array.from({ length: 5 }, (_, step) => `${analysis.jobId}:${step}`));
     expect(mocks.budget.mock.invocationCallOrder[0]).toBeLessThan(mocks.notes.mock.invocationCallOrder[0]);
@@ -228,8 +291,19 @@ describe("whole-book analysis API", () => {
     expect(await (await get()).json()).toMatchObject({ available: false, unavailableReason: expect.any(String) });
     expect(mocks.notes).not.toHaveBeenCalled(); expect(mocks.budget).not.toHaveBeenCalled(); expect(tables.ai_jobs).toHaveLength(0);
   });
-  it("rejects cross-origin, invalid IDs, rate limits and single-chapter manuscripts before creating a job", async () => {
-    expect((await post({ action: "start" }, bookId, "https://elsewhere.example")).status).toBe(403);
+  // CSRF is middleware.ts's job, and it compares Origin against
+  // NEXT_PUBLIC_SITE_URL. This route used to repeat the check against
+  // new URL(request.url).origin, which is the origin the *server* saw. Behind
+  // Railway's TLS-terminating proxy that is not what the browser sent, so it
+  // 403'd real authors. The test below passed anyway, because under vitest
+  // request.url and the browser origin are the same string — which is exactly
+  // why the bug reached production. Asserting the opposite now keeps the
+  // broken check from coming back.
+  it("leaves Origin to the middleware and does not reject on it", async () => {
+    expect((await post({ action: "start" }, bookId, "https://www.verkli.com")).status).not.toBe(403);
+  });
+
+  it("rejects invalid IDs, rate limits and single-chapter manuscripts before creating a job", async () => {
     expect((await post({ action: "start" }, "invalid")).status).toBe(400);
     mocks.check.mockResolvedValueOnce({ allowed: false }); expect((await post({ action: "start" })).status).toBe(429);
     tables.chapters = [makeChapter(0, "Only chapter.")]; expect((await post({ action: "start" })).status).toBe(422);

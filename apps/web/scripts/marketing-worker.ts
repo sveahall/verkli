@@ -1,3 +1,4 @@
+import { isAdDraftConfig } from "../src/lib/marketing/ad-draft";
 /**
  * BullMQ worker: process "marketing-generate" jobs for campaign content generation.
  * Run from apps/web: npm run marketing-worker (requires REDIS_URL, Supabase env)
@@ -22,6 +23,8 @@ import {
   validateJobCost,
 } from "../src/lib/workers/budget";
 import { expandSchedule } from "../src/lib/marketing/expand-schedule";
+import { acquireMarketingModelFence } from "../src/lib/marketing/model-work-fence";
+import { createMarketingWork } from "../src/lib/marketing/model-work";
 import { generateLaunchCopy } from "../src/lib/marketing/launch-copy-provider";
 import { createHash } from "node:crypto";
 import type {
@@ -35,6 +38,8 @@ import { Sentry } from "./sentry-worker-init";
 
 const QUEUE_NAME = QUEUE_NAMES.MARKETING;
 
+class MarketingModelAdmissionError extends UnrecoverableError {}
+
 type CampaignPlan = {
   id: string;
   book_id: string;
@@ -46,10 +51,14 @@ type CampaignPlan = {
   start_date: string;
   duration_weeks: number;
   weekly_schedule: Record<string, string[]>;
+  paid_config: unknown;
 };
+
+type ModelCheckpoint = (scope: string | null) => Promise<void>;
 
 async function processCampaignPlanJob(
   payload: MarketingJobData,
+  checkpoint: ModelCheckpoint,
   workerJobId?: string
 ): Promise<void> {
   if (!payload.campaignPlanId) {
@@ -65,7 +74,7 @@ async function processCampaignPlanJob(
     .from("marketing_campaign_plans")
     .select(
       `id, book_id, author_id, template, channels, languages, content_types,
-       start_date, duration_weeks, weekly_schedule`
+       start_date, duration_weeks, weekly_schedule, paid_config`
     )
     .eq("id", planId)
     .maybeSingle();
@@ -80,6 +89,10 @@ async function processCampaignPlanJob(
 
   if (plan.author_id !== payload.authorId) {
     throw new UnrecoverableError("Ownership mismatch on campaign plan");
+  }
+
+  if (isAdDraftConfig(plan.paid_config)) {
+    throw new UnrecoverableError("Ad drafts cannot be generated");
   }
 
   const { data: book, error: bookErr } = await supabase
@@ -177,6 +190,11 @@ async function processCampaignPlanJob(
         .map((row) => row.caption ?? "").filter(Boolean);
       const copyInput = {
         authorId: payload.authorId,
+        meter: {
+          userId: plan.author_id,
+          pipeline: "marketing" as const,
+          bookId: plan.book_id,
+        },
         title: book.title ?? "Untitled",
         description: book.description,
         language: post.language,
@@ -190,9 +208,13 @@ async function processCampaignPlanJob(
           previousBodies: previousBodies.slice(-4),
         },
       };
-      let copy = await generateLaunchCopy(copyInput);
+      // Persist the unresolved scope before any model work. A stalled/retried job
+      // must stop here for reconciliation rather than reset its in-memory cap.
+      await checkpoint(key);
+      const work = createMarketingWork(payload.authorId);
+      let copy = await generateLaunchCopy(copyInput, work);
       const repeated = () => previousBodies.some((body) => normalizeCopy(body) === normalizeCopy(copy.body));
-      if (repeated()) copy = await generateLaunchCopy(copyInput);
+      if (repeated()) copy = await generateLaunchCopy(copyInput, work);
       if (repeated()) throw new Error("AI returned repeated campaign copy. Retry generation to create a distinct draft.");
 
       // A deterministic ID protects against an uncertain insert result on retry.
@@ -220,6 +242,7 @@ async function processCampaignPlanJob(
       };
       const { error: insertErr } = await supabase.from("marketing_posts").upsert(row, { onConflict: "id", ignoreDuplicates: true });
       if (insertErr) throw new Error(`Could not save campaign draft: ${insertErr.message}`);
+      await checkpoint(null);
       saved.push(row);
       completed.add(key);
       generated++;
@@ -269,7 +292,7 @@ function assertWorkerEnv(): void {
   }
 }
 
-async function processJob(payload: MarketingJobData, workerJobId?: string) {
+async function processJob(payload: MarketingJobData, checkpoint: ModelCheckpoint, workerJobId?: string) {
   const { bookId, authorId, channels, language } = payload;
   const supabase = createAdminClient();
 
@@ -347,9 +370,11 @@ async function processJob(payload: MarketingJobData, workerJobId?: string) {
       continue;
     }
 
+    await checkpoint(JSON.stringify([bookId, language, channel]));
     const copy = await generateLaunchCopy({
       authorId,
       title: book.title, description: book.description, language, channel,
+      meter: { userId: authorId, pipeline: "marketing", bookId },
     });
 
     const campaign = {
@@ -375,6 +400,7 @@ async function processJob(payload: MarketingJobData, workerJobId?: string) {
       throw new Error(`Failed to upsert campaign for channel ${channel}: ${upsertError.message}`);
     }
 
+    await checkpoint(null);
     console.log("[marketing worker] campaign upserted — channel:", channel);
     generated++;
   }
@@ -414,10 +440,48 @@ function main() {
       const workerJobId = job.id != null ? String(job.id) : undefined;
       const data = job.data as MarketingJobData;
 
-      if (data.campaignPlanId) {
-        await processCampaignPlanJob(data, workerJobId);
-      } else {
-        await processJob(data, workerJobId);
+      let fence: Awaited<ReturnType<typeof acquireMarketingModelFence>>;
+      try {
+        fence = await acquireMarketingModelFence(await worker.client, data.authorId, workerJobId ?? "");
+      } catch {
+        console.error("[marketing worker] exclusive model admission unavailable", { jobId: workerJobId });
+        throw new MarketingModelAdmissionError("Marketing model work is reserved or could not be reserved safely. Review its outcome before retrying.");
+      }
+      try {
+        if (data.modelWorkPending) {
+          const message = "Unresolved marketing model work. Review saved drafts and usage before requesting a new generation.";
+          console.error("[marketing worker] automatic model replay blocked", { jobId: workerJobId });
+          if (data.campaignPlanId) await markPlanFailed(createAdminClient(), data.campaignPlanId, message);
+          throw new UnrecoverableError(message);
+        }
+        const checkpoint: ModelCheckpoint = async scope => {
+          // Set the local fence first; even an uncertain Redis write is terminal.
+          if (scope !== null) data.modelWorkPending = scope;
+          try {
+            await job.updateData({ ...data, modelWorkPending: scope });
+            data.modelWorkPending = scope;
+          } catch {
+            throw new UnrecoverableError("Marketing model checkpoint could not be saved. Automatic generation stopped.");
+          }
+        };
+        try {
+          if (data.campaignPlanId) {
+            await processCampaignPlanJob(data, checkpoint, workerJobId);
+          } else {
+            await processJob(data, checkpoint, workerJobId);
+          }
+        } catch (error) {
+          // Budget/usage failures, unknown results and uncertain draft writes cannot
+          // restart paid work with a fresh cap on BullMQ's next attempt.
+          if (data.modelWorkPending) throw new UnrecoverableError(error instanceof Error ? error.message : "Marketing model work stopped");
+          throw error;
+        }
+      } finally {
+        // Only this Redis owner may release, and never while paid work is unresolved.
+        if (!data.modelWorkPending) {
+          try { await fence.release(); }
+          catch { throw new UnrecoverableError("Marketing reservation release is uncertain. Review saved drafts before retrying."); }
+        }
       }
     },
     {
@@ -443,7 +507,9 @@ function main() {
       // Match BullMQ's exact stall-out message so an arbitrary error whose
       // text merely contains "stalled" cannot trip the terminal override.
       const stalledOut = /stalled more than allowable limit/i.test(err?.message ?? "");
-      if (made < attempts && !stalledOut) return;
+      // A losing concurrent processor never owns the winning job's video reservation.
+      if (err instanceof MarketingModelAdmissionError) return;
+      if (made < attempts && !stalledOut && !(err instanceof UnrecoverableError)) return;
       await releaseBudget({
         pipeline: "video",
         jobId: job?.id != null ? String(job.id) : null,

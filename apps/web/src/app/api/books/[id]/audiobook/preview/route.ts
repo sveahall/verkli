@@ -1,3 +1,4 @@
+import { audioLanguageUnavailableReason, AUDIOBOOK_LANGUAGE_UNAVAILABLE } from "@/lib/audiobook/language-capabilities";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
@@ -195,6 +196,12 @@ export async function POST(
     }
   }
 
+  const languageUnavailable = audioLanguageUnavailableReason(previewLanguage);
+  if (languageUnavailable) {
+    console.warn("[audiobook preview] language unavailable", { bookId, language: previewLanguage });
+    return apiError(AUDIOBOOK_LANGUAGE_UNAVAILABLE, 422, { detail: languageUnavailable });
+  }
+
   try {
     // Same resolver the generate route and worker use, so a deployment with only
     // TTS_VOICE_ID set previews in the voice it will actually narrate in.
@@ -222,6 +229,7 @@ export async function POST(
       voiceId,
       modelId: modelId || "eleven_multilingual_v2",
       timeoutMs: 30_000,
+      meter: { userId: user.id, pipeline: "tts", bookId },
     });
 
     // Return audio directly as a binary response

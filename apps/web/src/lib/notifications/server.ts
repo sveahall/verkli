@@ -1,5 +1,4 @@
-import type { createClient } from "@/lib/supabase/server";
-
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 
 type CreateNotificationOpts = {
@@ -15,10 +14,10 @@ type CreateNotificationOpts = {
   data?: Json;
 };
 
-export async function createNotification(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  opts: CreateNotificationOpts
-) {
+export async function createNotification(opts: CreateNotificationOpts) {
+  // The recipient is not the caller. Client inserts were removed, so this
+  // write uses the service role. The follow or comment still uses the session.
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("notifications")
     .insert({

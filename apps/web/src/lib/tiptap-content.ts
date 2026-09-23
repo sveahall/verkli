@@ -12,6 +12,11 @@ export type TiptapListItemNode = {
 export type TiptapBlockNode =
   | { type: "paragraph"; content?: TiptapInlineNode[] }
   | { type: "heading"; attrs: { level: 1 | 2 | 3 }; content: TiptapInlineNode[] }
+  // Matches @tiptap/extension-image's attrs, which both TiptapEditor and
+  // TiptapRenderer already register. `src` is always a resolved URL by the
+  // time a document reaches the database — the import pipeline uploads the
+  // `data:` URIs that mammoth emits and rewrites them (see import-images.ts).
+  | { type: "image"; attrs: { src: string; alt: string | null; title: string | null } }
   | { type: "blockquote"; content: TiptapBlockNode[] }
   | { type: "bulletList"; content: TiptapListItemNode[] }
   | { type: "orderedList"; content: TiptapListItemNode[] };

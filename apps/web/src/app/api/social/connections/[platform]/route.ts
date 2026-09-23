@@ -36,31 +36,26 @@ export async function DELETE(
   const admin = createAdminClient();
 
   // Fetch connection (base table via admin)
-  const { data: connection } = await admin
+  const { data: connection, error: readError } = await admin
     .from("social_connections")
-    .select("id, access_token_enc, status")
+    .select("id, access_token_enc, status, updated_at")
     .eq("user_id", user.id)
     .eq("platform", platform)
     .maybeSingle();
+
+  if (readError) {
+    console.error("[social disconnect] connection lookup failed", { platform, code: readError.code });
+    return apiError("SOCIAL_DISCONNECT_FAILED", 500);
+  }
 
   if (!connection) {
     return apiError(E_SOCIAL_PLATFORM_NOT_CONNECTED, 404);
   }
 
-  const conn = connection as { id: string; access_token_enc: string | null; status: string };
-
-  // Try to revoke token at platform level
-  if (conn.access_token_enc && conn.status === "active") {
-    try {
-      const accessToken = decryptToken(conn.access_token_enc);
-      await revokeToken(platform, accessToken);
-    } catch (err) {
-      console.warn("[social revoke] platform revocation failed:", err instanceof Error ? err.message : String(err));
-    }
-  }
+  const conn = connection as { id: string; access_token_enc: string | null; status: string; updated_at: string };
 
   // Null out encrypted tokens and set status to revoked
-  await admin
+  const { data: saved, error: writeError } = await admin
     .from("social_connections")
     .update({
       access_token_enc: null,
@@ -68,7 +63,30 @@ export async function DELETE(
       email_config_enc: null,
       status: "revoked",
     })
-    .eq("id", conn.id);
+    .eq("id", conn.id)
+    .eq("user_id", user.id)
+    .eq("updated_at", conn.updated_at)
+    .select("id")
+    .maybeSingle();
 
-  return NextResponse.json({ ok: true, platform, status: "revoked" });
+  if (writeError) {
+    console.error("[social disconnect] local disconnect failed", { platform, code: writeError.code });
+    return apiError("SOCIAL_DISCONNECT_FAILED", 500);
+  }
+  if (!saved) return apiError("SOCIAL_CONNECTION_CHANGED", 409);
+
+  // Revoke only after local credentials are cleared. The existing provider
+  // helper does not confirm HTTP success, so never report confirmed revocation.
+  let providerRevocation = "not-requested";
+  if (conn.access_token_enc && conn.status === "active") {
+    try {
+      await revokeToken(platform, decryptToken(conn.access_token_enc));
+      providerRevocation = "requested";
+    } catch {
+      providerRevocation = "unconfirmed";
+      console.warn("[social disconnect] platform revocation unconfirmed", { platform });
+    }
+  }
+
+  return NextResponse.json({ ok: true, platform, status: "revoked", providerRevocation });
 }
