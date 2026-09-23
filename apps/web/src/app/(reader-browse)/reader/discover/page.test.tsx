@@ -216,6 +216,7 @@ describe("genre filtering before the catalog window", () => {
     });
     mocks.createClient.mockResolvedValueOnce(createSupabaseClient("https://fixture.invalid", "fixture-anon", {
       global: { fetch }, auth: { persistSession: false, autoRefreshToken: false },
+      realtime: { transport: class { close() {} send() {} addEventListener() {} removeEventListener() {} } as unknown as typeof WebSocket },
     }));
     await ReaderDiscoverPage({ searchParams: Promise.resolve({ q: "Relevant", lang: "sv", genre: "fiction,romance", format: "audiobook" }) });
     const books = requests.filter((url) => url.pathname.endsWith("/books"));

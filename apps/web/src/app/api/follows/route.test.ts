@@ -52,7 +52,7 @@ describe("follow ownership", () => {
     const response = await POST(request("POST", { followeeId: authorId, followerId: authorId }));
     expect(response.status).toBe(200);
     expect(db.inserts).toEqual([["follows", { follower_id: readerId, followee_id: authorId }]]);
-    expect(mocks.createNotification).toHaveBeenCalledWith(db, expect.objectContaining({ userId: authorId, actorId: readerId }));
+    expect(mocks.createNotification).toHaveBeenCalledWith(expect.objectContaining({ userId: authorId, actorId: readerId }));
   });
 
   it("rejects self-following before writing or notifying", async () => {

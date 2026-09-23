@@ -238,6 +238,7 @@ export async function POST(
         marketingEnabled: actionContext.marketingEnabled,
         audiobookEnabled: actionContext.audiobookEnabled,
         translationsEnabled: actionContext.translationsEnabled,
+        meter: { userId: user.id, pipeline: "assistant", bookId },
       };
       const startedAt = Date.now();
       let usage: WritingAssistantResult["usage"];

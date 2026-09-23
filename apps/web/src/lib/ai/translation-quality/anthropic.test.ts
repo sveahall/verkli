@@ -24,8 +24,9 @@ describe("Anthropic translation quality adapter", () => {
     create.mockReset();
     construct.mockReset();
     vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
+    vi.stubEnv("OPENAI_API_KEY", "");
   });
-  afterEach(() => { vi.unstubAllEnvs(); });
+  afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
   it("records paid responses before malformed review output is rejected", async () => {
     const onUsage = vi.fn();
@@ -246,5 +247,25 @@ describe("Anthropic translation quality adapter", () => {
       vi.restoreAllMocks();
       vi.useRealTimers();
     }
+  });
+
+  it("asks OpenAI for the draft and leaves both reviews on Anthropic", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "sk-openai");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        model: "gpt-6-astra",
+        status: "completed",
+        output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(translatedSegments) }] }],
+        usage: { input_tokens: 10, output_tokens: 4 },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    create.mockResolvedValue(reply(clean));
+    const result = await translateWithQuality({ ...input, profile });
+    expect(result.translations).toEqual(translations);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0][0])).toBe("https://api.openai.com/v1/responses");
   });
 });
