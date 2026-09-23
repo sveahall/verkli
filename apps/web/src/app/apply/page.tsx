@@ -198,6 +198,10 @@ export default function ApplyPage() {
 
         <section className="dark relative flex min-h-screen min-h-dvh flex-col items-center justify-center px-4 py-14">
           <div className="apply-in mb-8 flex justify-center">
+            {/* The supplied wordmark vector, used at its own size. next/image does
+                not optimise SVG, and routing it through the loader would only add a
+                request for a file DESIGN.md requires us to serve unaltered. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/favicon.svg" alt="Verkli" className="h-7 w-auto" />
           </div>
 
