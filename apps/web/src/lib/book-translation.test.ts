@@ -22,7 +22,7 @@ function client(chapters: Chapter[], error: { message: string } | null = null) {
         order: () => query,
         limit: () => query,
         update: () => query,
-        maybeSingle: async () => ({ data: rows[0], error }),
+        maybeSingle: async () => ({ data: rows[0], error: table === "chapters" ? error : null }),
         then: (resolve: (result: { data: typeof rows; error: typeof error }) => unknown) => resolve({ data: rows, error }),
       };
       return query;
@@ -72,6 +72,13 @@ describe("translation manuscript source", () => {
 
     expect(result.sourceLanguage).toBe("sv");
     expect(result.sourceLanguageOrigin).toBe("heuristic");
+  });
+
+  it("propagates a chapter read error instead of persisting the request language hint", async () => {
+    await expect(resolveTranslationSourceContext({
+      supabase: client([], { message: "Chapter read failed" }),
+      bookId: "book", book: {}, requestedSourceVersionId: "edition", requestedSourceLanguage: "en",
+    })).rejects.toThrow("Chapter read failed");
   });
 
   it("reads past a short introduction when the edition language is unknown", async () => {
