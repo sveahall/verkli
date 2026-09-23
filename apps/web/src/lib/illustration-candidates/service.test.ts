@@ -52,7 +52,7 @@ it("keeps previous result when upload fails and resumes the same pending ID", as
 });
 it("does not complete an upload after its chapter changed", async () => {
   const f = setup(); const upload = f.ports.upload;
-  f.ports.upload = vi.fn(async (...args) => { await upload(...args); f.change(); });
+  f.ports.upload = vi.fn(async (...args: Parameters<CandidatePorts["upload"]>) => { await upload(...args); f.change(); });
   await expect(f.service.save(intent(), await png())).rejects.toMatchObject({ status: 409 });
   expect(f.ports.complete).not.toHaveBeenCalled(); expect((await f.service.list()) as object).toMatchObject({ candidates: [] });
 });
@@ -85,7 +85,7 @@ it("bounds global sequence collisions and never uploads an unreserved object", a
 });
 it("reconciles an unknown completion outcome with the same request ID", async () => {
   const f = setup(); const complete = f.ports.complete;
-  f.ports.complete = vi.fn(async (...args) => { await complete(...args); throw new Error("connection lost after commit"); });
+  f.ports.complete = vi.fn(async (...args: Parameters<CandidatePorts["complete"]>) => { await complete(...args); throw new Error("connection lost after commit"); });
   const file = await png(); await expect(f.service.save(intent(), file)).rejects.toThrow("connection lost");
   const saved = await f.service.save(intent(), file);
   expect(saved.id).toBe(id(9)); expect(f.rows.size).toBe(1); expect(f.ports.upload).toHaveBeenCalledTimes(1);
