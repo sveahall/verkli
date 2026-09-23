@@ -1,3 +1,4 @@
+import type { MeterContext } from "@/lib/usage/types";
 export type AuthorProfile = {
   voice: string;
   rhythm: string;
@@ -41,6 +42,13 @@ export type QualityInput = {
   authorGuidance?: string;
   signal?: AbortSignal;
   onUsage?: (receipt: UsageReceipt) => void | Promise<void>;
+  /**
+   * When present, token spend is billed to this user.
+   *
+   * Separate from `onUsage`: that receipt is the budget ledger and may throw
+   * when it is missing; this is the cost record and must never throw.
+   */
+  meter?: MeterContext;
 };
 
 export const MAX_QUALITY_SOURCE_CHARS = 12_000;

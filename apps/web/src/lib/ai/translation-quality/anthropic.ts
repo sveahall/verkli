@@ -1,5 +1,7 @@
 // Shared by Next.js server routes and standalone Node workers. Keep runtime
 // imports out of client components; public report types live in types.ts.
+import { recordUsage } from "@/lib/usage/meter";
+import type { MeterContext } from "@/lib/usage/types";
 import Anthropic from "@anthropic-ai/sdk";
 
 import {
@@ -8,7 +10,7 @@ import {
 } from "./pipeline";
 import { MAX_PROFILE_SAMPLE_CHARS, QUALITY_MODEL, QUALITY_RUBRIC_VERSION, type AuthorProfile, type QualityInput, type QualityResult, type QualityIssue, type TokenUsage, type UsageReceipt } from "./types";
 
-export type ProfileInput = { sourceSample: string; sourceLanguage: string; targetLanguage: string; authorGuidance?: string };
+export type ProfileInput = { sourceSample: string; sourceLanguage: string; targetLanguage: string; authorGuidance?: string; meter?: MeterContext };
 
 const REQUEST_TIMEOUT_MS = 45_000;
 const PIPELINE_TIMEOUT_MS = 150_000;
@@ -81,7 +83,7 @@ function getClient(): Anthropic {
   return new Anthropic({ apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
 }
 
-function caller(client: Anthropic, signal: AbortSignal, onUsage?: (usage: UsageReceipt) => void | Promise<void>) {
+function caller(client: Anthropic, signal: AbortSignal, onUsage?: (usage: UsageReceipt) => void | Promise<void>, meter?: MeterContext) {
   return async (stage: QualityStage, system: string, data: unknown, maxTokens: number, schema: Record<string, unknown>): Promise<QualityCallResult> => {
     let response: Anthropic.Message;
     try {
@@ -109,6 +111,15 @@ function caller(client: Anthropic, signal: AbortSignal, onUsage?: (usage: UsageR
     const cacheReadTokens = response.usage.cache_read_input_tokens ?? 0;
     if (![cacheCreationTokens, cacheReadTokens].every((value) => Number.isSafeInteger(value) && value >= 0)) throw invalid();
     await onUsage?.({ ...usage, stage, model: response.model ?? QUALITY_MODEL, cacheCreationTokens, cacheReadTokens });
+
+    // Beside the receipt, not instead of it: the receipt may throw when it is
+    // missing, the meter may not. Billed against the model that actually ran.
+    await recordUsage(meter, [
+      { kind: "ai_call", provider: "anthropic", model: response.model ?? QUALITY_MODEL,
+        quantity: usage.inputTokens, unit: "input_tokens", meta: { stage } },
+      { kind: "ai_call", provider: "anthropic", model: response.model ?? QUALITY_MODEL,
+        quantity: usage.outputTokens, unit: "output_tokens", meta: { stage } },
+    ]);
     if (response.stop_reason !== "end_turn" || !Array.isArray(response.content) ||
       response.content.length === 0 || response.content.some((block) => !["text", "thinking", "redacted_thinking"].includes(block.type))) throw invalid();
     // Sonnet can include reasoning metadata by default. Only final text is
@@ -150,7 +161,7 @@ function parseTranslationSegments(source: string[], data: unknown): string[] {
 export async function createAuthorProfile(input: ProfileInput, onUsage?: (usage: UsageReceipt) => void | Promise<void>): Promise<AuthorProfile> {
   validateQualityInput({ ...input, texts: [input.sourceSample] });
   if (input.sourceSample.length > MAX_PROFILE_SAMPLE_CHARS) throw new TranslationQualityError("INVALID_INPUT", "The author profile sample is too long.");
-  const call = caller(getClient(), AbortSignal.timeout(REQUEST_TIMEOUT_MS), onUsage);
+  const call = caller(getClient(), AbortSignal.timeout(REQUEST_TIMEOUT_MS), onUsage, input.meter);
   const result = await call("PROFILE", PROFILE_PROMPT, input, 2500, OUTPUT_SCHEMAS.PROFILE);
   return validateAuthorProfile(result.data, input.sourceSample);
 }
@@ -180,7 +191,7 @@ export async function reviewTranslationCandidate(input: ReviewInput): Promise<Ca
   const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(PIPELINE_TIMEOUT_MS), ...(input.signal ? [input.signal] : [])]);
   if (signal.aborted) throw new TranslationQualityError("CANCELLED", "Translation quality processing was cancelled or timed out.");
   const usage = { inputTokens: 0, outputTokens: 0 };
-  const call = caller(getClient(), signal, (tokens) => { usage.inputTokens += tokens.inputTokens; usage.outputTokens += tokens.outputTokens; });
+  const call = caller(getClient(), signal, (tokens) => { usage.inputTokens += tokens.inputTokens; usage.outputTokens += tokens.outputTokens; }, input.meter);
   const review = createReviewCall(call, { sourceLanguage: input.sourceLanguage, targetLanguage: input.targetLanguage, authorGuidance: input.authorGuidance ?? "" });
   try {
     const results = await Promise.all((["fidelity", "style"] as const).map(async (reviewer) => {
@@ -199,7 +210,7 @@ export async function translateWithQuality(input: QualityInput): Promise<Quality
   const controller = new AbortController();
   const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(PIPELINE_TIMEOUT_MS), ...(input.signal ? [input.signal] : [])]);
   if (signal.aborted) throw new TranslationQualityError("CANCELLED", "Translation quality processing was cancelled or timed out.");
-  const call = caller(getClient(), signal, input.onUsage);
+  const call = caller(getClient(), signal, input.onUsage, input.meter);
   const context = { sourceLanguage: input.sourceLanguage, targetLanguage: input.targetLanguage, authorGuidance: input.authorGuidance ?? "" };
   const dependencies: QualityDependencies = {
     cancelReviews: () => controller.abort(),
