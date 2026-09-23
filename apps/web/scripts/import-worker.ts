@@ -26,6 +26,7 @@ import { detectLanguageFromText } from "../src/lib/language-detect";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
+import { IMPORT_OVERWRITE_ERROR, requestsDraftOverwrite } from "../src/lib/imports/import-safety";
 import type { ImportMode } from "../src/lib/import-queue";
 
 import { QUEUE_NAMES } from "../src/lib/queue-names";
@@ -263,6 +264,12 @@ export async function processJob(payload: ProcessJobPayload) {
 
     const importRow = importRowData as ImportRow;
 
+    // Old queue payloads must also stop before extraction, dedupe or content writes.
+    // A conflicting "new_version" field must not override an overwrite signal.
+    if (requestsDraftOverwrite(importRow.mode) || requestsDraftOverwrite(payload.mode, payload.overwrite)) {
+      throw new UnrecoverableError(IMPORT_OVERWRITE_ERROR);
+    }
+
     // Processor-level dedupe: skip if import already completed with chapters.
     const versionId = importRow.book_version_id;
     const alreadyDone = await isDuplicate(async () => {
@@ -348,66 +355,7 @@ export async function processJob(payload: ProcessJobPayload) {
       existingBookTitle = normalizeTitleValue(bookRow.title);
 
       if (mode === "overwrite_draft") {
-        const requestedVersionId =
-          payload.targetVersionId ?? importRow.book_version_id ?? null;
-
-        let targetVersion:
-          | {
-              id: string;
-              book_id: string;
-              language_code: string;
-              published_at: string | null;
-            }
-          | null = null;
-
-        if (requestedVersionId) {
-          const { data: versionRow, error: versionError } = await supabase
-            .from("book_versions")
-            .select("id, book_id, language_code, published_at")
-            .eq("id", requestedVersionId)
-            .single();
-
-          if (versionError || !versionRow) {
-            throw new Error(versionError?.message ?? "Draft version not found");
-          }
-
-          targetVersion = versionRow;
-        } else {
-          const { data: latestDraft, error: latestDraftError } = await supabase
-            .from("book_versions")
-            .select("id, book_id, language_code, published_at")
-            .eq("book_id", targetBookId)
-            .is("published_at", null)
-            .order("updated_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (latestDraftError) {
-            throw new Error(latestDraftError.message);
-          }
-
-          targetVersion = latestDraft;
-        }
-
-        if (!targetVersion || targetVersion.book_id !== targetBookId) {
-          throw new Error("No draft version available for overwrite");
-        }
-
-        if (targetVersion.published_at) {
-          throw new Error("Cannot overwrite a published version");
-        }
-
-        const { error: deleteError } = await supabase
-          .from("chapters")
-          .delete()
-          .eq("book_version_id", targetVersion.id);
-
-        if (deleteError) {
-          throw new Error(`Failed to clear draft chapters: ${deleteError.message}`);
-        }
-
-        targetBookVersionId = targetVersion.id;
-        targetLanguageCode = targetVersion.language_code;
+        throw new UnrecoverableError(IMPORT_OVERWRITE_ERROR);
       } else {
         const preferredLanguage =
           normalizedDetected ??

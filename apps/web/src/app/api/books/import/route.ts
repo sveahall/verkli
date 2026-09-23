@@ -18,6 +18,7 @@ import {
   E_INVALID_MULTIPART_BODY,
   E_MISSING_FILE,
   E_INVALID_IMPORT_MODE,
+  E_IMPORT_OVERWRITE_UNAVAILABLE,
   E_IMPORT_RECORD_CREATION_FAILED,
   E_IMPORT_FILE_STORAGE_FAILED,
   E_VALIDATION_FAILED,
@@ -61,6 +62,10 @@ export async function POST(request: Request) {
 
   if (!mode) {
     return apiError(E_INVALID_IMPORT_MODE, 400);
+  }
+  if (mode === "overwrite_draft") {
+    console.warn("[book-import] draft replacement blocked");
+    return apiError(E_IMPORT_OVERWRITE_UNAVAILABLE, 409);
   }
 
   // Rights attestation. Placed here on purpose: the file has been validated, and

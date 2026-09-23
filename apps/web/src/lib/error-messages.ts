@@ -4,6 +4,8 @@
  * This module resolves them to user-friendly text.
  */
 
+import { IMPORT_OVERWRITE_MESSAGE } from "./imports/import-safety";
+
 const ERROR_MESSAGES: Record<string, string> = {
   // Common
   UNAUTHORIZED: "You must be logged in.",
@@ -73,6 +75,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   // Import
   INVALID_MULTIPART_BODY: "Invalid file upload.",
   MISSING_FILE: "File is missing.",
+  IMPORT_OVERWRITE_UNAVAILABLE: IMPORT_OVERWRITE_MESSAGE,
   INVALID_IMPORT_MODE: "Invalid import mode.",
   IMPORT_RECORD_CREATION_FAILED: "Failed to create import record.",
   IMPORT_FILE_STORAGE_FAILED: "Failed to save the import file.",
