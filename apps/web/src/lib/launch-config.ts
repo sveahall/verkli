@@ -336,8 +336,12 @@ export function validateStripeWebhookSecret(
 
 /** A daily AI ceiling that lib/workers/budget reads with requirePositiveIntEnv. */
 function validateDailyBudget(value: string): string | null {
+  // isSafeInteger, matching requirePositiveIntEnv exactly. isInteger accepts
+  // 1e16 and 9007199254740993, which the runtime refuses — so an operator
+  // setting "effectively uncapped" passed the gate and got a 503 in production,
+  // which is the one outage this check exists to catch.
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
     return "must be a positive whole number of daily units; budget.ts rejects anything else and the route then answers 503.";
   }
   return null;

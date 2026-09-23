@@ -14,8 +14,8 @@ import { chapterSchema } from "@/lib/tiptap-schema";
 import { hashChapterContent, type AgentBook } from "./book-context";
 import { runAgent } from "./loop";
 
-function book(): AgentBook {
-  const json = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Johan gick." }] }] };
+function book(paragraph = "Johan gick."): AgentBook {
+  const json = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: paragraph }] }] };
   return {
     bookId: "00000000-0000-4000-8000-00000000000b",
     versionId: "00000000-0000-4000-8000-0000000000ff",
@@ -65,5 +65,31 @@ describe("runAgent", () => {
       code: "PROVIDER_UNAVAILABLE",
     });
     expect(create).not.toHaveBeenCalled();
+  });
+});
+
+describe("the run's own ceiling", () => {
+  it("stops before paying for a turn it cannot afford", async () => {
+    // A search costs a few dozen output tokens and appends its whole result to
+    // the conversation, which is then re-sent every turn. Comparing the running
+    // total after a turn meant the crossing turn had already been billed, and
+    // nothing bounded one turn: a model could pack several searches into it.
+    const crowded = book(Array.from({ length: 600 }, (_, index) => `Johan gick ${index}.`).join(" "));
+    create.mockResolvedValue({
+      content: [{ type: "tool_use", id: "t1", name: "search_book", input: { query: "Johan" } }],
+      stop_reason: "tool_use",
+      usage: { input_tokens: 500, output_tokens: 50 },
+    });
+
+    const result = await runAgent({ book: crowded, message: "Hitta Johan.", tool: "edit" });
+
+    expect(result.stoppedBecause).toBe("token_ceiling");
+    // It gave up rather than spending all eight turns on a conversation it
+    // already knew it could not afford to send again.
+    expect(result.turns).toBeLessThan(8);
+    // Nothing was recorded, so the author is told that rather than being handed
+    // an empty plan that looks like a finished one.
+    expect(result.plan.steps).toEqual([]);
+    expect(result.summary).toMatch(/ran out of room/i);
   });
 });

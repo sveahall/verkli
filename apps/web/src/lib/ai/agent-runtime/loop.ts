@@ -17,6 +17,7 @@ import type { AgentBook } from "./book-context";
 import { listChapters, readChapter, searchBook, MatchRegistry } from "./read-tools";
 import { PlanBuilder, PlanRejection, type Plan } from "./plan";
 import { MAX_TOOL_TURNS, TOOL_DEFINITIONS, isWriteTool, toolInputSchemas, type ToolName } from "./tools";
+import { projectNextTurnUnits } from "./budget";
 
 const MODEL_ID = "claude-sonnet-5";
 const MAX_TOKENS_PER_TURN = 4000;
@@ -137,6 +138,8 @@ export async function runAgent(input: {
   let turns = 0;
   let inputTokens = 0;
   let outputTokens = 0;
+  /** Everything the tools have put into the conversation, which is re-sent every turn. */
+  let conversationChars = 0;
   let stoppedBecause: AgentRunResult["stoppedBecause"] = "turn_limit";
 
   try {
@@ -170,16 +173,20 @@ export async function runAgent(input: {
       // The assistant turn goes back verbatim, thinking blocks included — the
       // API requires them alongside the tool calls they justify.
       messages.push({ role: "assistant", content: response.content });
-      messages.push({
-        role: "user",
-        content: calls.map((call) => ({
-          type: "tool_result" as const,
-          tool_use_id: call.id,
-          content: callTool(call.name, call.input, { book: input.book, registry, planner }),
-        })),
-      });
+      const results = calls.map((call) => ({
+        type: "tool_result" as const,
+        tool_use_id: call.id,
+        content: callTool(call.name, call.input, { book: input.book, registry, planner }),
+      }));
+      for (const result of results) conversationChars += result.content.length;
+      messages.push({ role: "user", content: results });
 
-      if (inputTokens >= MAX_RUN_INPUT_TOKENS) {
+      // Projected, not observed. Comparing the running total after a turn meant
+      // the turn that crossed the line had already been billed, and nothing
+      // bounded one turn: several search calls cost a few dozen output tokens
+      // and append tens of thousands of units of results in a single step. Here
+      // the next request's size is known and has not been paid for yet.
+      if (inputTokens + projectNextTurnUnits(conversationChars) >= MAX_RUN_INPUT_TOKENS) {
         stoppedBecause = "token_ceiling";
         break;
       }

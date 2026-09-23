@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AGENT_RUN_CEILING_UNITS, estimateAgentRunUnits, reconcileAgentRunUnits } from "./budget";
+import { AGENT_RUN_CEILING_UNITS, estimateAgentRunUnits, projectNextTurnUnits, reconcileAgentRunUnits } from "./budget";
 
 describe("estimateAgentRunUnits", () => {
   it("reserves more than a real run costs, without being absurd about it", () => {
@@ -15,10 +15,10 @@ describe("estimateAgentRunUnits", () => {
   });
 
   it("never reserves more than the loop could spend", () => {
-    // The ceiling counts one whole turn past MAX_RUN_INPUT_TOKENS, because the
-    // loop adds a turn's input to the total and only then compares — the turn
-    // that crosses the line has already been billed.
-    expect(AGENT_RUN_CEILING_UNITS).toBe(2 * 150_000 + 8 * 4_000);
+    // Holds only because the loop projects a turn before paying for it. While
+    // the check was post-hoc the crossing turn was already billed, and a model
+    // could pack one turn far past this.
+    expect(AGENT_RUN_CEILING_UNITS).toBe(150_000 + 8 * 4_000);
     expect(estimateAgentRunUnits(50_000_000)).toBe(AGENT_RUN_CEILING_UNITS);
     expect(estimateAgentRunUnits(0)).toBeLessThan(AGENT_RUN_CEILING_UNITS);
   });
@@ -46,5 +46,18 @@ describe("reconcileAgentRunUnits", () => {
   it("treats missing usage as nothing further to charge, never as a credit", () => {
     expect(reconcileAgentRunUnits(76_000, { inputTokens: 0, outputTokens: 0 })).toBe(0);
     expect(reconcileAgentRunUnits(0, { inputTokens: -5, outputTokens: -5 })).toBe(0);
+  });
+});
+
+describe("projectNextTurnUnits", () => {
+  it("prices the whole conversation, because the whole conversation is re-sent", () => {
+    // Four search results of ~31 000 characters each: a few dozen output tokens
+    // to ask for, and the next request carries all of it.
+    expect(projectNextTurnUnits(124_000)).toBeGreaterThan(40_000);
+    expect(projectNextTurnUnits(0)).toBe(2_800);
+  });
+
+  it("never returns a credit for an empty or negative conversation", () => {
+    expect(projectNextTurnUnits(-1)).toBe(projectNextTurnUnits(0));
   });
 });

@@ -33,16 +33,24 @@ const MAX_RUN_INPUT_TOKENS = 150_000;
 const CHARS_PER_MATCH = 270;
 
 /**
- * The most a run can actually cost.
+ * The most a run can cost.
  *
- * Not `MAX_RUN_INPUT_TOKENS + output`, which is what this claimed and is wrong:
- * loop.ts adds a turn's input to the running total and only then compares it to
- * the ceiling, so the turn that crosses the line has already been billed in
- * full. Nothing bounds a single turn's input either. The real worst case is
- * therefore the ceiling plus one more whole turn, and a whole turn is itself
- * bounded by the conversation, which is bounded by the ceiling.
+ * This only holds because loop.ts now projects a turn's cost before paying for
+ * it. While the check was post-hoc the turn that crossed the line had already
+ * been billed in full, and nothing bounded a single turn: four search_book
+ * calls cost about fifty output tokens and append some 174 000 units of tool
+ * results in one step, so a model could pack a turn far past this figure.
  */
-export const AGENT_RUN_CEILING_UNITS = 2 * MAX_RUN_INPUT_TOKENS + MAX_TOOL_TURNS * MAX_TOKENS_PER_TURN;
+export const AGENT_RUN_CEILING_UNITS = MAX_RUN_INPUT_TOKENS + MAX_TOOL_TURNS * MAX_TOKENS_PER_TURN;
+
+/**
+ * What the next turn will cost, given everything the tools have put into the
+ * conversation so far. Charged against the ceiling before the request is sent,
+ * because the whole conversation is re-sent every turn.
+ */
+export function projectNextTurnUnits(conversationChars: number): number {
+  return Math.ceil(TURN_FRAMING_TOKENS + Math.max(0, conversationChars) * TOKENS_PER_CHAR);
+}
 
 /**
  * `chapterChars` is the manuscript's size, which bounds what any tool can put
