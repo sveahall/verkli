@@ -5,6 +5,7 @@ import { fullBookExportRequestSchema, FULL_BOOK_EXPORT_SOURCE_LIMITS, type FullB
 import { privateSnapshotId, privateExportMetadata, PrivateExportError, type PrivateExportSnapshot } from "./private-export-contract";
 import { exportProfile, type ExportFormat } from "./export-contract";
 export type FullBookExportRuntime = {
+  singleFileFixture?: boolean;
   authorize(signal: AbortSignal): Promise<string>;
   rateLimit?(ownerId: string): Promise<boolean>;
   assertEdition(ownerId: string, bookId: string, editionId: string, signal: AbortSignal): Promise<void>;
@@ -85,16 +86,17 @@ export function createFullBookExportHandlers(deps: FullBookExportRuntime) {
         }
         if (query.has("download")) {
           if (query.get("download") !== "1" || job.input.snapshotId !== identity || job.status !== "completed" || !job.artifact) throw unavailable();
+          if (request.headers.has("range")) return new Response(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${job.artifact.byteLength}`, "Accept-Ranges": "none", "Content-Length": "0" } });
           const stream = await deps.download(job, request.signal);
           if (signal.aborted) { await stream.cancel().catch(() => undefined); signal.throwIfAborted(); }
           const profile = exportProfile(job.input.format), filename = `audiobook-${editionId}-${job.id}-${job.input.format}.${profile.extension}`;
-          return new Response(stream, { headers: { ...headers, "Content-Type": profile.contentType, "Content-Length": String(job.artifact.byteLength), "Content-Disposition": `attachment; filename="${filename}"` } });
+          return new Response(stream, { headers: { ...headers, "Content-Type": profile.contentType, "Accept-Ranges": "none", "Content-Length": String(job.artifact.byteLength), "Content-Disposition": `attachment; filename="${filename}"` } });
         }
         return Response.json(fullBookJobView(job, identity), { headers });
       }
       if (method !== "GET" || query.has("download")) throw new PrivateExportError(400, "INVALID_EXPORT", "Choose an export first.");
-      const maxOutputBytes = await deps.capacity("m4b", signal); signal.throwIfAborted();
-      return Response.json({ editionId, snapshotId: identity, metadata: source ? privateExportMetadata(source) : null, sourceError, chapterCount: source?.chapterCount ?? 0, maxOutputBytes, jobs: jobs.map((job) => fullBookJobView(job, identity)) }, { headers });
+      const capacity = await deps.capacity("m4b", signal), maxOutputBytes = deps.singleFileFixture ? capacity : Math.min(4 * 1024 ** 3, capacity * 4096), maxPartBytes = deps.singleFileFixture ? null : capacity; signal.throwIfAborted();
+      return Response.json({ editionId, snapshotId: identity, metadata: source ? privateExportMetadata(source) : null, sourceError, chapterCount: source?.chapterCount ?? 0, maxOutputBytes, maxPartBytes, jobs: jobs.map((job) => fullBookJobView(job, identity)) }, { headers });
     } catch (cause) {
       const error = cause instanceof PrivateExportError ? cause : cause instanceof z.ZodError ? new PrivateExportError(400, "INVALID_EXPORT", "Choose a valid edition and export.") : signal.aborted ? new PrivateExportError(504, "EXPORT_REQUEST_TIMEOUT", "The request timed out. Reload to check the saved export before retrying.") : new PrivateExportError(503, "EXPORT_UNAVAILABLE", "The export could not be loaded or queued. Reload its saved status before retrying.");
       console.error("[audiobook full export] request failed", { code: error.code, status: error.status });

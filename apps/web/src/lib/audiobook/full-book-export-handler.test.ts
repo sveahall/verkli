@@ -98,3 +98,24 @@ describe("full book HTTP ownership and publication", () => {
     expect(response.status).toBe(200); expect(response.headers.get("Cache-Control")).toBe("private, no-store"); expect(response.headers.get("Content-Type")).toBe("audio/mp4"); expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
   });
 });
+
+describe("multipart HTTP contract", () => {
+  it("reports total export capacity independently of the current bucket part cap", async () => {
+    const f = await fixture(), result = await (await f.handlers.GET(new Request(url), context)).json();
+    expect(result.maxOutputBytes).toBe(4 * 1024 ** 3); expect(result.maxPartBytes).toBe(1024 ** 2); expect(JSON.stringify(result)).not.toContain("exports/");
+    vi.mocked(f.runtime.capacity).mockResolvedValue(1024);
+    const tiny = await (await f.handlers.GET(new Request(url), context)).json(); expect(tiny.maxOutputBytes).toBe(1024 * 4096); expect(tiny.maxPartBytes).toBe(1024);
+    vi.mocked(f.runtime.capacity).mockResolvedValue(1024 ** 2);
+    f.runtime.singleFileFixture = true; const legacy = await (await createFullBookExportHandlers(f.runtime).GET(new Request(url), context)).json();
+    expect(legacy.maxOutputBytes).toBe(1024 ** 2); expect(legacy.maxPartBytes).toBeNull();
+  });
+  it("returns Range 416 with the real size without opening private storage", async () => {
+    const f = await fixture(); await f.handlers.POST(new Request(url, { method: "POST", body: JSON.stringify(f.input) }), context);
+    f.saved = { ...f.saved, status: "completed", artifact: { path: "server-only", byteLength: 12345, sha256: "a".repeat(64), durationSeconds: 5, chapterCount: 2 } };
+    for (const range of ["bytes=0-1", "bytes=999999-", "malformed"]) {
+      const response = await f.handlers.GET(new Request(`${url}&jobId=${f.saved.id}&download=1`, { headers: { Range: range } }), context);
+      expect(response.status).toBe(416); expect(response.headers.get("Content-Range")).toBe("bytes */12345"); expect(response.headers.get("Accept-Ranges")).toBe("none"); expect(await response.text()).toBe("");
+    }
+    expect(f.runtime.download).not.toHaveBeenCalled();
+  });
+});

@@ -65,7 +65,7 @@ export function createFullBookExportFixture(scenario: FullBookFixtureScenario): 
       } catch (error) { await fs.rm(artifactFile(job), { force: true }); throw error; }
       finally { await result.cleanup(); }
     },
-    async remove(artifact) { if (artifact.path.startsWith(path.join(root, scenario) + path.sep)) await fs.rm(artifact.path, { force: true }); },
+    async remove(artifact) { if ("path" in artifact && artifact.path.startsWith(path.join(root, scenario) + path.sep)) await fs.rm(artifact.path, { force: true }); },
   };
   const enqueue = async (job: ExportJobRecord) => {
     const key = `${scenario}/${job.id}`; if (state.active.has(key)) return;
@@ -73,7 +73,7 @@ export function createFullBookExportFixture(scenario: FullBookFixtureScenario): 
     state.active.set(key, work);
   };
   return {
-    store, snapshot, enqueue,
+    store, snapshot, enqueue, singleFileFixture: true,
     async assertEdition(ownerId, bookId, editionId, signal) { signal.throwIfAborted(); if (ownerId !== id(1) || bookId !== id(2) || editionId !== id(3)) throw new PrivateExportError(404, "EDITION_NOT_FOUND", "The simulated edition is unavailable."); },
     async authorize(signal) { signal.throwIfAborted(); if (scenario === "denied") throw new PrivateExportError(403, "AUTHOR_REQUIRED", "The simulated account does not own this edition."); return id(1); },
     async capacity() { return 512 * 1024 * 1024; },
@@ -85,6 +85,6 @@ export function createFullBookExportFixture(scenario: FullBookFixtureScenario): 
       for (const job of jobs) if (job.status === "pending" || job.status === "processing" && job.leaseUntil < Date.now()) await enqueue(job);
       return jobs;
     },
-    async download(job, signal) { if (!job.artifact || job.artifact.path !== artifactFile(job) || job.status !== "completed") throw new Error("Synthetic artifact unavailable"); const stat = await fs.stat(job.artifact.path); if (stat.size !== job.artifact.byteLength) throw new Error("Synthetic artifact changed"); return Readable.toWeb(createReadStream(job.artifact.path, { signal })) as ReadableStream<Uint8Array>; },
+    async download(job, signal) { if (!job.artifact || !("path" in job.artifact) || job.artifact.path !== artifactFile(job) || job.status !== "completed") throw new Error("Synthetic artifact unavailable"); const stat = await fs.stat(job.artifact.path); if (stat.size !== job.artifact.byteLength) throw new Error("Synthetic artifact changed"); return Readable.toWeb(createReadStream(job.artifact.path, { signal })) as ReadableStream<Uint8Array>; },
   };
 }
