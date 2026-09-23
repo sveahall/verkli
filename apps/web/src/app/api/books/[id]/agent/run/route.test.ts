@@ -94,7 +94,7 @@ const threadId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const step = { id: "s1", tool: "set_cover_text", reason: "Subtitle.", fields: { subtitle: "A harbour story" } };
 const summary = "The subtitle becomes A harbour story.";
 
-function run() {
+function run(conversation: Record<string, unknown> | null = { threadId, requestId, editionId: versionId, temporary: false }) {
   return POST(
     new NextRequest(`http://localhost/api/books/${bookId}/agent/run`, {
       method: "POST",
@@ -102,7 +102,7 @@ function run() {
         message: "Set the subtitle",
         tool: "edit",
         versionId,
-        conversation: { threadId, requestId, editionId: versionId, temporary: false },
+        ...(conversation ? { conversation } : {}),
       }),
     }),
     { params: Promise.resolve({ id: bookId }) },
@@ -227,12 +227,26 @@ describe("agent run spending", () => {
     expect(jobIds[0]).toContain(requestId);
   });
 
-  it("gives the allowance back when nothing reached the model", async () => {
+  it("never releases a reservation a request in flight is sharing", async () => {
+    // A duplicate of a live request reuses the original's reservation by
+    // design, then fails on the pending conversation. Releasing there refunded
+    // a run that was at that moment calling the model, and repeating it walked
+    // past the daily allowance entirely.
+    mocks.reserve.mockRejectedValue(new Error("conversation pending"));
+    await run();
+    expect(mocks.release).not.toHaveBeenCalled();
+  });
+
+  it("keeps the reservation when the conversation could not be reserved", async () => {
+    // The only failure between reserving and the model is reserveTurn, which
+    // runs only for persisted conversations — the ones sharing their budget key
+    // with any duplicate. Refunding there gave back a run that was at that
+    // moment calling the model.
     mocks.reserve.mockRejectedValue(new Error("conversation unavailable"));
 
     await run();
     expect(mocks.run).not.toHaveBeenCalled();
-    expect(mocks.release).toHaveBeenCalledTimes(1);
+    expect(mocks.release).not.toHaveBeenCalled();
   });
 
   it("keeps the reservation once the model has been called, even on failure", async () => {

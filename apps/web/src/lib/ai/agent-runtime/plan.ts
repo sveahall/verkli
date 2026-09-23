@@ -169,21 +169,29 @@ export class PlanBuilder {
       };
     };
 
+    // Nothing is claimed until the whole call has passed. Claiming as we went
+    // meant a call naming one good id and one bad one left the good one taken:
+    // the model's corrected retry was refused with "already part of this plan"
+    // for a change that had never been recorded, and it had no way back.
     const matches: PlannedMatch[] = [];
+    const claiming = new Set<string>();
     for (const [ids, preselected] of [[input.matchIds, true], [input.optionalMatchIds ?? [], false]] as const) {
       for (const matchId of ids) {
         // The same match offered twice would be applied twice, at positions
         // that no longer mean what they did after the first pass.
-        if (this.claimed.has(matchId)) throw new PlanRejection(`${matchId} is already part of this plan. Each match belongs to one change.`);
-        this.claimed.add(matchId);
+        if (this.claimed.has(matchId) || claiming.has(matchId)) {
+          throw new PlanRejection(`${matchId} is already part of this plan. Each match belongs to one change.`);
+        }
+        claiming.add(matchId);
         matches.push(resolve(matchId, preselected));
       }
     }
 
-    this.replacements += matches.length;
-    if (this.replacements > MAX_REPLACEMENTS_PER_RUN) {
+    if (this.replacements + matches.length > MAX_REPLACEMENTS_PER_RUN) {
       throw new PlanRejection(`A single plan may change at most ${MAX_REPLACEMENTS_PER_RUN} passages. Narrow the search.`);
     }
+    this.replacements += matches.length;
+    for (const matchId of claiming) this.claimed.add(matchId);
 
     this.steps.push({
       id, tool: "replace_in_book", reason: input.reason, replacement: input.replacement, matches,

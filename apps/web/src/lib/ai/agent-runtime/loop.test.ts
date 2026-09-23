@@ -59,6 +59,18 @@ describe("runAgent", () => {
     expect(result.stoppedBecause).toBe("finished");
   });
 
+  it("does not call a reply that ran out of output tokens finished", async () => {
+    // A plan built from half a sentence looked exactly like a complete one, and
+    // the card's incomplete-plan warning keys off this field.
+    create.mockResolvedValue({
+      content: [{ type: "text", text: "I will now update the remaining chapters by" }],
+      stop_reason: "max_tokens",
+      usage: { input_tokens: 10, output_tokens: 4_000 },
+    });
+    const result = await runAgent({ book: book(), message: "Gör allt.", tool: "edit" });
+    expect(result.stoppedBecause).toBe("output_truncated");
+  });
+
   it("refuses to start without a provider key rather than failing mid-run", async () => {
     delete process.env.ANTHROPIC_API_KEY;
     await expect(runAgent({ book: book(), message: "x", tool: "edit" })).rejects.toMatchObject({
