@@ -12,6 +12,9 @@ vi.mock("@/lib/book-translation", async (original) => ({ ...await original<objec
 vi.mock("@/lib/ai/translation-quality/anthropic", () => ({ translateWithQuality: mocks.translate }));
 vi.mock("@/lib/translation-queue", () => ({ getTranslationQueue: mocks.queue }));
 vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: mocks.limit }) }));
+// This route now checks the account's master AI switch first. Its own guard
+// test covers the blocked path; here the account simply has AI on.
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 
 const { POST, GET } = await import("./route");
 const { BudgetExceededError } = await import("@/lib/workers/budget");

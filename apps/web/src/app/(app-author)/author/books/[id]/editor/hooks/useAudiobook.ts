@@ -1,5 +1,6 @@
 "use client";
 
+import { audioLanguageUnavailableReason } from "@/lib/audiobook/language-capabilities";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getAudiobookEnabled } from "@/lib/flags";
@@ -281,7 +282,7 @@ export function useAudiobook({
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            setAudiobookError(resolveErrorMessage(data.error));
+            setAudiobookError(typeof data.detail === "string" ? data.detail : resolveErrorMessage(data.error));
             setIsGeneratingAudiobook(false);
             return;
           }
@@ -305,6 +306,9 @@ export function useAudiobook({
   const handleGenerateAudiobook = useCallback(
     async () => {
     if (isGeneratingAudiobook || !audiobookFeatureEnabled) return;
+
+    const languageUnavailable = audioLanguageUnavailableReason(activeVersion?.language_code ?? activeLanguage);
+    if (languageUnavailable) { setAudiobookError(languageUnavailable); return; }
 
     // Non-Pro: show payment modal (force full book)
     if (isProFeatureLocked) {
@@ -338,7 +342,7 @@ export function useAudiobook({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setAudiobookError(resolveErrorMessage(data.error));
+        setAudiobookError(typeof data.detail === "string" ? data.detail : resolveErrorMessage(data.error));
         setIsGeneratingAudiobook(false);
         return;
       }
@@ -399,6 +403,8 @@ export function useAudiobook({
 
   const handleAudiobookCheckout = useCallback(async () => {
     if (audiobookCheckoutLoading) return;
+    const languageUnavailable = audioLanguageUnavailableReason(activeVersion?.language_code ?? activeLanguage);
+    if (languageUnavailable) { setAudiobookError(languageUnavailable); return; }
     setAudiobookCheckoutLoading(true);
     setAudiobookError(null);
     try {

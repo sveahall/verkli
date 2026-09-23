@@ -11,6 +11,9 @@ vi.mock("@/lib/flags", () => ({ isAudiobookEnabled: mocks.isAudiobookEnabled }))
 vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: mocks.check }) }));
 vi.mock("@/lib/tts/tts-provider", () => ({ resolveNarratorVoiceId: mocks.resolveNarratorVoiceId }));
 vi.mock("@/lib/tts/elevenlabs-tts-provider", () => ({ ElevenLabsTtsProvider: class { synthesize = mocks.synthesize; } }));
+// This route now checks the account's master AI switch first. Its own guard
+// test covers the blocked path; here the account simply has AI on.
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 
 const { POST } = await import("./route");
 const bookId = "00000000-0000-4000-8000-000000000001";
@@ -95,13 +98,21 @@ describe("POST audiobook pronunciation preview", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it.each(["nl", "pl"])("refuses text-only %s previews before provider use", async (language) => {
+    editionDatabase({ language });
+    const res = await post({ versionId });
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe("AUDIOBOOK_LANGUAGE_UNAVAILABLE");
+    expect(mocks.synthesize).not.toHaveBeenCalled();
+  });
+
   it("previews the selected older English edition instead of the newest Swedish edition", async () => {
     editionDatabase();
     const res = await post({ versionId });
     expect(res.status).toBe(200);
-    expect(mocks.synthesize).toHaveBeenCalledWith(englishText, {
+    expect(mocks.synthesize).toHaveBeenCalledWith(englishText, expect.objectContaining({
       language: "en", voiceId: "narrator-1", modelId: "eleven_multilingual_v2", timeoutMs: 30_000,
-    });
+    }));
   });
 
   it("reads the first nondeleted chapter containing text and keeps the 200-character bound", async () => {

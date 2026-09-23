@@ -1,12 +1,17 @@
+import type { AudioTiming } from "../audiobook/timing";
+
 /**
  * TTS Provider Interface — ElevenLabs is the sole TTS backend.
  *
  * The audiobook worker calls `synthesize()` on the provider.
  */
 
+import type { MeterContext } from "@/lib/usage/types";
+
 export type TtsSynthesisResult = {
   /** Raw audio buffer */
   wav: Buffer;
+  timing?: AudioTiming | null;
   /** Sample rate in Hz (0 if unknown) */
   sampleRate: number;
   /** Encoded audio format */
@@ -19,11 +24,14 @@ export type TtsSynthesisResult = {
 
 export type TtsSynthesisOptions = {
   language: string;
+  withTimestamps?: boolean;
   voiceId: string;
   /** Provider-specific model identifier */
   modelId: string;
   /** Timeout in ms for this synthesis call */
   timeoutMs: number;
+  /** When present, character spend is billed to this user. Absent = not measured. */
+  meter?: MeterContext;
 };
 
 export interface TtsProvider {

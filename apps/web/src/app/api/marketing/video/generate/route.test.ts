@@ -53,6 +53,9 @@ vi.mock("@/lib/marketing/video-budget", () => ({
   })),
   refundVideoBudget: vi.fn(async () => {}),
 }));
+// This route now checks the account's master AI switch first. Its own guard
+// test covers the blocked path; here the account simply has AI on.
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 
 
 const { requireAuthorAndMarketingEnabled } = await import("@/lib/auth/require-author-marketing");

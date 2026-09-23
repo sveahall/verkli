@@ -20,6 +20,12 @@ function render(genreSlugs = ["fiction"]) {
 }
 
 describe("ReaderDiscoverPageView", () => {
+  it("labels the editorial sort Featured instead of implying measured popularity", () => {
+    const $ = render();
+    expect($("a").filter((_, el) => $(el).text() === "Featured").length).toBe(1);
+    expect($("a").filter((_, el) => $(el).text() === "Popular").length).toBe(0);
+  });
+
   it("preserves format and sort when applying a language change", () => {
     const $ = render();
     const form = $('select[name="lang"]').closest("form");

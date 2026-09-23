@@ -53,6 +53,9 @@ vi.mock("@/lib/env", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/env")>();
   return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
 });
+// This route now checks the account's master AI switch first. Its own guard
+// test covers the blocked path; here the account simply has AI on.
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 
 const { POST } = await import("./route");
 
@@ -161,6 +164,15 @@ describe("POST /api/books/[id]/audiobook/checkout", () => {
     else process.env.ELEVENLABS_VOICE_ID = ORIGINAL_ELEVENLABS_VOICE_ID;
     if (typeof ORIGINAL_TTS_VOICE_ID === "undefined") delete process.env.TTS_VOICE_ID;
     else process.env.TTS_VOICE_ID = ORIGINAL_TTS_VOICE_ID;
+  });
+
+  it.each(["nl", "pl", "NL-nl"])("refuses text-only %s before Stripe checkout", async (language) => {
+    mockAuthedUser(); mockBookLookup({ found: true });
+    const res = await POST(makeRequest({ language }), { params: Promise.resolve({ id: VALID_UUID }) });
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({ error: "AUDIOBOOK_LANGUAGE_UNAVAILABLE" });
+    expect(mocks.createAudiobookCheckoutSession).not.toHaveBeenCalled();
+    expect(mocks.getRemainingCredits).not.toHaveBeenCalled();
   });
 
   it("returns 401 when not authenticated", async () => {

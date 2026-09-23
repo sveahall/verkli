@@ -1,7 +1,10 @@
+import { recordUsage } from "@/lib/usage/meter";
+import type { MeterContext } from "@/lib/usage/types";
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { editorialReportSchema, type EditorialReport, type ReviewMode } from "./review-schema";
-import { adjudicateEditorialReport } from "./adjudicate";
+import { adjudicateEditorialReport, estimateEditorialCriticUnits, assertEditorialSource, type EditorialCriticReceipt } from "./adjudicate";
+import { isOpenAiConfigured } from "@/lib/ai/providers/openai";
 import { isAiCriticEnabled } from "@/lib/flags";
 
 // Constrain the wire format as well as validating content locally. A prose-only
@@ -25,12 +28,20 @@ const outputSchema = {
   },
 };
 
-export type EditorialInput = { mode: ReviewMode; text: string; chapterTitle: string; sourceText: string | null };
+export type EditorialInput = {
+  mode: ReviewMode;
+  text: string;
+  chapterTitle: string;
+  sourceText: string | null;
+  /** When present, both the review and the critic are billed to this user. */
+  meter?: MeterContext;
+};
 export type EditorialUsage = { model: string; inputTokens: number; outputTokens: number; cacheCreationInputTokens: number; cacheReadInputTokens: number };
 export const EDITORIAL_MODEL = "claude-sonnet-5";
 const MAX_OUTPUT_TOKENS = 6000;
 
 function buildRequest(input: EditorialInput): Anthropic.MessageCreateParamsNonStreaming {
+  assertEditorialSource(input);
   const purpose = {
     proofread: "Proofread spelling, grammar and punctuation. Preserve the author's language, voice and meaning. Do not rewrite creatively.",
     analysis: "Analyse character motivation, pacing, plot clarity, narrative voice and consistency in the supplied text. Distinguish observed issues from optional ideas. Do not invent events in other chapters. Return no corrections, only findings.",
@@ -55,20 +66,40 @@ function buildRequest(input: EditorialInput): Anthropic.MessageCreateParamsNonSt
  * schema and escaping, 4096 framing units, plus the entire output/thinking cap.
  * No chars/4 assumption and no automatic refund after provider work starts. */
 export function estimateEditorialUnits(input: EditorialInput): number {
-  return Buffer.byteLength(JSON.stringify(buildRequest(input)), "utf8") + 4096 + MAX_OUTPUT_TOKENS;
+  return Buffer.byteLength(JSON.stringify(buildRequest(input)), "utf8") + 4096 + MAX_OUTPUT_TOKENS
+    + (isAiCriticEnabled() && isOpenAiConfigured() ? estimateEditorialCriticUnits(input) : 0);
 }
 
-export async function generateEditorialReview(input: EditorialInput, onUsage?: (usage: EditorialUsage) => Promise<void>): Promise<EditorialReport> {
+export async function generateEditorialReview(input: EditorialInput, onUsage?: (usage: EditorialUsage) => Promise<void>, onCriticReceipt?: (receipt: EditorialCriticReceipt) => Promise<void>): Promise<EditorialReport> {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
   if (!key) throw new Error("Editorial AI is not configured. Please contact support.");
   const client = new Anthropic({ apiKey: key, timeout: 45000, maxRetries: 0 });
   const result = await client.messages.create(buildRequest(input));
+
+  // Recorded beside the existing `onUsage` receipt rather than replacing it:
+  // that callback is the budget ledger and throws when a receipt is missing,
+  // while this is the cost meter and must never throw. Two readers of the same
+  // numbers, with opposite failure contracts.
+  //
+  // Before the parse guards below, because the tokens were spent whether or not
+  // the reply turns out to be usable — a review that fails validation is exactly
+  // the cost that would otherwise be priced at zero.
+  if (input.meter) {
+    await recordUsage(input.meter, [
+      { kind: "ai_call", provider: "anthropic", model: EDITORIAL_MODEL,
+        quantity: result.usage?.input_tokens ?? 0, unit: "input_tokens" },
+      { kind: "ai_call", provider: "anthropic", model: EDITORIAL_MODEL,
+        quantity: result.usage?.output_tokens ?? 0, unit: "output_tokens" },
+    ]);
+  }
+
   if (onUsage) {
     const usage = result.usage;
     if (!usage || !Number.isFinite(usage.input_tokens) || !Number.isFinite(usage.output_tokens)) throw new Error("Editorial usage receipt is missing.");
     await onUsage({ model: result.model, inputTokens: usage.input_tokens, outputTokens: usage.output_tokens,
       cacheCreationInputTokens: usage.cache_creation_input_tokens ?? 0, cacheReadInputTokens: usage.cache_read_input_tokens ?? 0 });
   }
+
   if (result.stop_reason === "max_tokens" || result.stop_reason === "refusal") {
     throw new Error("The AI review was incomplete. Please try again.");
   }
@@ -81,7 +112,14 @@ export async function generateEditorialReview(input: EditorialInput, onUsage?: (
   // Clear before adjudicating: analysis mode discards corrections anyway, and
   // paying a second model to judge items nobody will see is pure waste.
   if (input.mode === "analysis") report.corrections = [];
-  if (!isAiCriticEnabled()) return report;
-  const adjudicated = await adjudicateEditorialReport({ report, text: input.text });
+  if (!isAiCriticEnabled()) {
+    await onCriticReceipt?.({ status: "skipped", usage: null });
+    return report;
+  }
+ codex/translation-critic-source-20260922
+  const adjudicated = await adjudicateEditorialReport({ report, mode: input.mode, text: input.text, sourceText: input.sourceText, onReceipt: onCriticReceipt });
+=======
+  const adjudicated = await adjudicateEditorialReport({ report, text: input.text, meter: input.meter, onReceipt: onCriticReceipt });
+ platform
   return adjudicated.report;
 }

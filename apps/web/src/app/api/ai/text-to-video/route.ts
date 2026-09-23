@@ -10,6 +10,7 @@ import {
   E_TEXT_TO_VIDEO_FAILED,
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 /** Higgsfield image→video can take 1–2+ minutes. */
 export const maxDuration = 300;
@@ -66,6 +67,10 @@ export async function POST(req: Request) {
   // SECURITY: Require author role - this endpoint uses paid video credits
   const { user, response } = await requireAuthorRoleForApi();
   if (response) return response;
+  // Account master AI switch. Server-side, so turning AI off is a real
+  // setting and not just a hidden button.
+  const aiOff = await aiDisabledResponse(user.id);
+  if (aiOff) return aiOff;
   if (!user) return apiError(E_UNAUTHORIZED, 401);
 
   // SECURITY: Rate limit per user — video credits are expensive
