@@ -45,6 +45,7 @@ function setupData(audioPath: unknown, bucket: unknown, userId: string | null = 
       return chain;
     },
   });
+  return tables;
 }
 
 describe("author workspace audiobook storage signing", () => {
@@ -62,6 +63,20 @@ describe("author workspace audiobook storage signing", () => {
   });
 
   afterEach(() => vi.restoreAllMocks());
+
+  it("loads the profile bio and saved cover text for the book editor", async () => {
+    const tables = setupData(null, null);
+    tables.profiles = [{ display_name: "NN", bio: "  Professor of archaeology.  " }];
+    tables.books[0].cover_copy = { authorLine: "Saved line", dustJacket: true, flapText: "Saved flap" };
+    const result = await loadBookWorkspaceData(BOOK_ID);
+    expect(result?.authorBio).toBe("Professor of archaeology.");
+    expect(result?.book.cover_copy).toEqual(tables.books[0].cover_copy);
+  });
+
+  it("leaves the cover profile bio empty when no profile exists", async () => {
+    setupData(null, null);
+    expect((await loadBookWorkspaceData(BOOK_ID))?.authorBio).toBe("");
+  });
 
   it.each([
     AUDIO_PATH,

@@ -19,6 +19,8 @@ import type {
   Tool,
 } from "./BookEditorView.types";
 import type { PrintOnDemandSettings } from "@/lib/print-on-demand";
+import type { CoverCopy } from "@/lib/cover-copy";
+import type { CoverCopySaveState } from "./hooks/useCoverCopy";
 import type { useBookCover } from "./hooks/useBookCover";
 import type { useAudiobook } from "./hooks/useAudiobook";
 import type { useTranslation } from "./hooks/useTranslation";
@@ -54,6 +56,10 @@ interface BookEditorPanelContentProps {
   bookTrailerStatus: string | null;
   bookTrailerUrl: string | null;
   authorDisplayName: string;
+  authorBio: string;
+  coverCopy: CoverCopy;
+  coverCopySaveState: CoverCopySaveState;
+  onCoverCopyChange: (next: CoverCopy) => void;
   tool: Tool;
   tools: Tool[];
   chapters: Chapter[];
@@ -97,6 +103,10 @@ export default function BookEditorPanelContent({
   bookDescription,
   bookOriginalUrl,
   authorDisplayName,
+  authorBio,
+  coverCopy,
+  coverCopySaveState,
+  onCoverCopyChange,
   tool,
   tools,
   chapters,
@@ -196,6 +206,10 @@ export default function BookEditorPanelContent({
             bookId={bookId}
             bookTitle={bookTitle}
             authorName={authorDisplayName}
+            profileBio={authorBio}
+            coverCopy={coverCopy}
+            coverCopySaveState={coverCopySaveState}
+            onCoverCopyChange={onCoverCopyChange}
           />
           </BookCoverWorkspace>
         )}
