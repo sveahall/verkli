@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ComponentPropsWithoutRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ComponentPropsWithoutRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import styles from "./WorkspaceLayout.module.css";
 import { cn } from "@/lib/utils";
 
@@ -135,6 +135,29 @@ export function hasDockSpaceForContentWidth(contentWidth: number): boolean {
   return contentWidth >= DOCK_MIN_CONTENT_WIDTH;
 }
 
+/**
+ * The docked assistant is a full-height column on the right edge, like an IDE
+ * chat, and the author drags its left edge to resize it. The width is clamped
+ * so the canvas never drops below MIN_CANVAS_WIDTH.
+ */
+export const DOCK_DEFAULT_WIDTH = 420;
+export const DOCK_MIN_WIDTH = 340;
+const MIN_CANVAS_WIDTH = 620;
+const HORIZONTAL_PADDING = 64;
+const WIDTH_STORAGE_KEY = "verkli:assistant-width";
+
+export function clampDockWidth(width: number, workspaceWidth: number): number {
+  const max = Math.max(DOCK_MIN_WIDTH, workspaceWidth - MIN_CANVAS_WIDTH - HORIZONTAL_PADDING);
+  return Math.round(Math.min(max, Math.max(DOCK_MIN_WIDTH, width)));
+}
+
+function readStoredWidth(): number {
+  try {
+    const stored = Number(window.localStorage.getItem(WIDTH_STORAGE_KEY));
+    return Number.isFinite(stored) && stored > 0 ? stored : DOCK_DEFAULT_WIDTH;
+  } catch { return DOCK_DEFAULT_WIDTH; }
+}
+
 export default function WorkspaceLayout({
   header,
   headerRight,
@@ -147,23 +170,71 @@ export default function WorkspaceLayout({
   asideLabel = "Assistant",
   asideId,
 }: WorkspaceLayoutProps) {
-  const contentRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const handleRef = useRef<HTMLDivElement>(null);
+  const widthRef = useRef(DOCK_DEFAULT_WIDTH);
+  const workspaceWidthRef = useRef(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const [hasDockSpace, setHasDockSpace] = useState(false);
   const docked = Boolean(aside) && asideOpen && hasDockSpace;
 
+  // The width lives on the DOM as a CSS variable, not in React state, so a
+  // drag repaints one column instead of re-rendering the whole editor.
+  const applyWidth = (width: number, persist = false) => {
+    const next = clampDockWidth(width, workspaceWidthRef.current || window.innerWidth);
+    widthRef.current = next;
+    // On <html> so page-level chrome (the floating theme toggle) can step aside.
+    document.documentElement.style.setProperty("--assistant-width", `${next}px`);
+    handleRef.current?.setAttribute("aria-valuenow", String(next));
+    if (persist) { try { window.localStorage.setItem(WIDTH_STORAGE_KEY, String(next)); } catch { /* per-viewer nicety */ } }
+  };
+
   useEffect(() => {
-    const content = contentRef.current;
-    if (!content) return;
-    // Measure the workspace, not the viewport: the author navigation also
-    // consumes space.
+    const root = rootRef.current;
+    if (!root) return;
+    widthRef.current = readStoredWidth();
+    // Measure the workspace including the padding the dock reserves, so docking
+    // does not shrink the box it is measured on and flip itself back off. The
+    // author navigation is excluded, which is why this is not the viewport.
     const observer = new ResizeObserver(([entry]) => {
-      setHasDockSpace(hasDockSpaceForContentWidth(entry.contentRect.width));
+      const width = entry.borderBoxSize?.[0]?.inlineSize ?? root.getBoundingClientRect().width;
+      workspaceWidthRef.current = width;
+      applyWidth(widthRef.current);
+      setHasDockSpace(hasDockSpaceForContentWidth(width - HORIZONTAL_PADDING));
     });
-    observer.observe(content);
+    observer.observe(root);
     return () => observer.disconnect();
   }, []);
+
+  const startResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const handle = event.currentTarget;
+    handle.setPointerCapture(event.pointerId);
+    const startX = event.clientX;
+    const startWidth = widthRef.current;
+    const page = document.documentElement;
+    page.dataset.resizingAssistant = "true";
+    // Keep the resize cursor and stop text selection while the pointer
+    // wanders over the manuscript mid-drag.
+    const previous = { cursor: page.style.cursor, userSelect: page.style.userSelect };
+    page.style.cursor = "col-resize";
+    page.style.userSelect = "none";
+    const move = (moveEvent: PointerEvent) => applyWidth(startWidth + startX - moveEvent.clientX);
+    const end = () => {
+      delete page.dataset.resizingAssistant;
+      page.style.cursor = previous.cursor;
+      page.style.userSelect = previous.userSelect;
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", end);
+      handle.removeEventListener("pointercancel", end);
+      applyWidth(widthRef.current, true);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", end);
+    handle.addEventListener("pointercancel", end);
+  };
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -189,7 +260,7 @@ export default function WorkspaceLayout({
   }, [asideOpen, hasDockSpace]);
 
   return (
-    <div className={cn("w-full", className)}>
+    <div ref={rootRef} className={cn("w-full", docked && styles.withDock, className)}>
       <div className="border-b border-border bg-background">
         {/* The book workspace bleeds to the edges: its layout pulls this bar up
             by 16px, and 24px from lg (`-mt-4 lg:-mt-6` in books/[id]/layout.tsx).
@@ -203,12 +274,7 @@ export default function WorkspaceLayout({
       </div>
 
       <div
-        ref={contentRef}
-        className={cn(
-          "mx-auto max-w-[1520px] px-4 pb-12 pt-5 sm:px-6 lg:px-8",
-          docked &&
-            "grid grid-cols-[minmax(0,1fr)_360px] items-start gap-7"
-        )}
+        className="mx-auto max-w-[1520px] px-4 pb-12 pt-5 sm:px-6 lg:px-8"
       >
         {/* min-w-0 so a wide child (a table, a code block) shrinks the column
             instead of pushing the dock off-screen. */}
@@ -220,6 +286,7 @@ export default function WorkspaceLayout({
             id={asideId}
             aria-label={asideLabel}
             aria-modal={asideOpen && !hasDockSpace ? true : undefined}
+            data-docked-assistant={hasDockSpace ? "" : undefined}
             className={cn(styles.assistant, hasDockSpace && styles.docked)}
             onCancel={(event) => { event.preventDefault(); onAsideClose?.(); }}
             onKeyDown={(event) => {
@@ -247,6 +314,26 @@ export default function WorkspaceLayout({
             }}
           >
             {aside}
+            {hasDockSpace && (
+              <div
+                ref={handleRef}
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize assistant"
+                aria-valuemin={DOCK_MIN_WIDTH}
+                aria-valuenow={DOCK_DEFAULT_WIDTH}
+                tabIndex={0}
+                title="Drag to resize · double-click to reset"
+                className={styles.resizeHandle}
+                onPointerDown={startResize}
+                onDoubleClick={() => applyWidth(DOCK_DEFAULT_WIDTH, true)}
+                onKeyDown={(event) => {
+                  const step = event.shiftKey ? 64 : 16;
+                  if (event.key === "ArrowLeft") { event.preventDefault(); applyWidth(widthRef.current + step, true); }
+                  if (event.key === "ArrowRight") { event.preventDefault(); applyWidth(widthRef.current - step, true); }
+                }}
+              />
+            )}
           </dialog>
         ) : null}
       </div>
