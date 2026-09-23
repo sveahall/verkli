@@ -13,6 +13,7 @@ import { splitBookAnalysis } from "@/lib/editorial/book-analysis-content";
 import { generateBookAnalysisNotes, generateBookAnalysisReport, estimateBookAnalysisNotesUnits, estimateBookAnalysisReportUnits } from "@/lib/editorial/book-analysis-provider";
 import { analysisManifestSchema, analysisRunSchema, type AnalysisManifest, type AnalysisRun, type BookAnalysisResult } from "@/lib/editorial/book-analysis-run-schema";
 import type { Json } from "@/lib/supabase/types";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -104,6 +105,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const gate = await requireAuthorRoleForApi();
   if (gate.response) return gate.response;
   const userId = gate.user.id;
+
+  // Account master AI switch. Server-side, so turning AI off is a real
+  // setting and not just a hidden button.
+  const aiOff = await aiDisabledResponse(userId);
+  if (aiOff) return aiOff;
   let admin: ReturnType<typeof createAdminClient> | null = null;
   let ownedJob: Job | null = null;
   let run: AnalysisRun | null = null;

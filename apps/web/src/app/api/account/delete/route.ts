@@ -41,19 +41,39 @@ export async function POST() {
 
   const admin = createAdminClient();
 
+  // Only stamp a request that is not already pending. Re-posting used to move
+  // the timestamp forward, which restarts the grace window — so an account
+  // could postpone its own deletion indefinitely, one click at a time.
   const { data, error } = await admin
     .from("profiles")
     .update({ deletion_requested_at: new Date().toISOString() })
     .eq("user_id", user.id)
+    .is("deletion_requested_at", null)
     .select("user_id")
     .maybeSingle();
 
-  if (error || !data) {
-    console.error("[account.delete] soft-request failed", {
-      userId: user.id,
-      message: error?.message ?? "No profile was updated",
-    });
+  if (error) {
+    console.error("[account.delete] soft-request failed", { userId: user.id, message: error.message });
     return apiError(E_DATABASE_ERROR, 500);
+  }
+
+  if (!data) {
+    // The conditional update matched nothing. Either a request is already
+    // pending — in which case the author's goal is met and re-posting is a
+    // success, not a 500 — or there is no profile row at all, which is.
+    const { data: existing, error: readError } = await admin
+      .from("profiles")
+      .select("deletion_requested_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (readError || !existing?.deletion_requested_at) {
+      console.error("[account.delete] soft-request failed", {
+        userId: user.id,
+        message: readError?.message ?? "No profile was updated",
+      });
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+    return NextResponse.json({ ok: true, deletionRequested: true, alreadyRequested: true, signedOut: false });
   }
 
   // Audit trail — best-effort. Hard-deleting an auth row later should check

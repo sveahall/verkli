@@ -9,6 +9,9 @@ vi.mock("@/lib/billing/server", () => ({ requireProBillingForApi: m.pro }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ from: m.from }) }));
 vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: m.limit }) }));
 vi.mock("@/lib/marketing/generate-launch-copy", async (original) => ({ ...await original<object>(), generateLaunchCopy: m.copy }));
+// This route now checks the account's master AI switch first. Its own guard
+// test covers the blocked path; here the account simply has AI on.
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 
 // Mutable error slots so both DB failure branches stay expressible; reset in beforeEach.
 const dbErrors: { book: { message: string } | null; upsert: { message: string } | null } = { book: null, upsert: null };

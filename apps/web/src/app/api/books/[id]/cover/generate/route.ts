@@ -23,6 +23,7 @@ import {
   E_UNAUTHORIZED,
   E_VALIDATION_FAILED,
 } from "@/lib/api-errors";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 export const runtime = "nodejs";
 // Vercel caps functions well below 180s on the current plan, so declaring 180
@@ -95,6 +96,11 @@ export async function POST(
   step("auth");
   if (response) return response;
   if (!user) return apiError(E_UNAUTHORIZED, 401);
+
+  // Account master AI switch. Server-side, so turning AI off is a real
+  // setting and not just a hidden button.
+  const aiOff = await aiDisabledResponse(user.id);
+  if (aiOff) return aiOff;
 
   // Whitelist the investor-pitch demo profile from the 3/min cover-gen
   // rate limit. The demo flow re-rolls the cover live on stage; the limit

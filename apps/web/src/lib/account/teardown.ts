@@ -41,7 +41,7 @@ export const DELETION_GRACE_DAYS = 14;
 export const REMOVED_AUTHOR_NAME = "Removed account";
 
 export type TeardownOutcome =
-  | { userId: string; ok: true }
+  | { userId: string; ok: true; skipped?: "withdrawn" }
   | { userId: string; ok: false; step: string };
 
 export function graceCutoff(now: Date, days = DELETION_GRACE_DAYS): string {
@@ -73,6 +73,23 @@ export function tombstoneEmail(userId: string): string {
 }
 
 export async function tearDownAccount(admin: Admin, userId: string, now: Date): Promise<TeardownOutcome> {
+  // The sweep lists due accounts and then works through them one at a time, so
+  // a withdrawal can land after the list was taken. Re-read the intent here, as
+  // late as possible: without it an author can be told "Keep my account" worked
+  // and lose it seconds later.
+  const { data: current, error: intentError } = await admin
+    .from("profiles")
+    .select("deletion_requested_at,deletion_completed_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (intentError) {
+    console.error("[account.teardown] intent re-check failed", { userId, code: intentError.code ?? "unknown" });
+    return { userId, ok: false, step: "intent" };
+  }
+  if (!current || current.deletion_requested_at == null || current.deletion_completed_at != null) {
+    return { userId, ok: true, skipped: "withdrawn" };
+  }
+
   const fail = (step: string, detail: unknown): TeardownOutcome => {
     console.error("[account.teardown] step failed", {
       userId,
@@ -89,6 +106,11 @@ export async function tearDownAccount(admin: Admin, userId: string, now: Date): 
     if (error) return fail(table, error);
   }
 
+  // Erase the profile identity, but do NOT record completion yet. Marking the
+  // account done before the last destructive step is what makes a failure
+  // permanent: the next sweep filters on `deletion_completed_at is null`, so a
+  // crash between here and the ban would leave personal data half-erased, sign-in
+  // still working, and nothing ever retrying it.
   const { error: profileError } = await admin
     .from("profiles")
     .update({
@@ -100,19 +122,28 @@ export async function tearDownAccount(admin: Admin, userId: string, now: Date): 
       social_links: null,
       username: null,
       is_public: false,
-      deletion_requested_at: null,
-      deletion_completed_at: now.toISOString(),
     })
     .eq("user_id", userId);
   if (profileError) return fail("profiles", profileError);
 
-  // Sign-in last: until it is gone the author could still withdraw, and a
-  // half-finished teardown should leave them able to reach support.
+  // Sign-in and the last copy of the address. `user_metadata` carries the name
+  // and avatar the account signed up with, and `public-author.ts` falls back to
+  // it when the profile row cannot be read — so clearing the profile alone does
+  // not erase the person.
   const { error: authError } = await admin.auth.admin.updateUserById(userId, {
     email: tombstoneEmail(userId),
     ban_duration: "876000h", // 100 years; Supabase has no permanent ban flag.
+    user_metadata: {},
   });
   if (authError) return fail("auth", authError);
+
+  // Only now is the account actually torn down. Written last so that every
+  // failure above leaves the request in the queue for the next sweep.
+  const { error: completionError } = await admin
+    .from("profiles")
+    .update({ deletion_requested_at: null, deletion_completed_at: now.toISOString() })
+    .eq("user_id", userId);
+  if (completionError) return fail("completion", completionError);
 
   const { error: auditError } = await admin.from("audit_log").insert({
     entity_type: "user",

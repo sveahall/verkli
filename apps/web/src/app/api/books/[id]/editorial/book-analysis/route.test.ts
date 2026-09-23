@@ -18,6 +18,9 @@ vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: m
 vi.mock("@/lib/flags", () => ({ isAiChatEnabled: mocks.enabled }));
 vi.mock("@/lib/editorial/book-analysis-provider", () => ({ generateBookAnalysisNotes: mocks.notes, generateBookAnalysisReport: mocks.report, estimateBookAnalysisNotesUnits: mocks.estimateNotes, estimateBookAnalysisReportUnits: mocks.estimateReport }));
 vi.mock("@/lib/workers/budget", () => ({ checkBudget: mocks.budget, releaseBudget: mocks.release, BudgetExceededError: class extends Error {} }));
+// This route now checks the account's master AI switch first. Its own guard
+// test covers the blocked path; here the account simply has AI on.
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 import { BudgetExceededError } from "@/lib/workers/budget";
 import { GET, POST } from "./route";
 
