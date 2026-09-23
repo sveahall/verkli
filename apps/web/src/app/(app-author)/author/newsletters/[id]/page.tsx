@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getNewslettersEnabled } from "@/lib/flags";
 import { requireAuthorRole } from "@/lib/auth/require-author";
 import NewsletterComposer from "@/components/newsletters/NewsletterComposer";
+import { NewsletterAudienceSummary } from "@/components/newsletters/NewsletterAudienceSummary";
 
 type NewsletterDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -48,6 +49,20 @@ export default async function NewsletterDetailPage({
     created_at: string;
   };
 
+  let activeCount: number | null = null;
+  if (typed.status === "draft") {
+    const { count, error } = await supabase
+      .from("newsletter_subscriptions")
+      .select("id", { count: "exact", head: true })
+      .eq("author_id", user.id)
+      .eq("status", "active");
+    if (error) {
+      console.error("[newsletters] audience count failed", { newsletterId: id, code: error.code });
+    } else {
+      activeCount = count;
+    }
+  }
+
   return (
     <div className="section-gap">
       <div className="mb-6 flex items-center gap-3">
@@ -76,6 +91,8 @@ export default async function NewsletterDetailPage({
           </span>
         </div>
       )}
+
+      {typed.status === "draft" ? <div className="mb-6"><NewsletterAudienceSummary activeCount={activeCount} /></div> : null}
 
       <NewsletterComposer
         newsletter={{
