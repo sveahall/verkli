@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   drainPendingSaves,
+  mergeServerChapters,
   type PersistChapter,
   type PersistOutcome,
 } from "./useChapterCrud.autosave";
@@ -318,5 +319,40 @@ describe("drainPendingSaves", () => {
     const result = await drainPendingSaves(pending, persist);
 
     expect(result.saved.get("a")).toBe(JSON.stringify({ body: "hello", extra: 1 }));
+  });
+});
+
+describe("mergeServerChapters", () => {
+  const chapter = (id: string, content: string) => ({ id, content, title: id });
+
+  it("adopts server text for a chapter this tab has not changed", () => {
+    const merged = mergeServerChapters(
+      [chapter("a", "old"), chapter("b", "local untouched")],
+      [chapter("a", "the agent wrote this"), chapter("b", "local untouched")],
+      new Set(),
+    );
+    expect(merged.chapters.map((item) => item.content)).toEqual(["the agent wrote this", "local untouched"]);
+    expect(merged.adoptedIds).toEqual(["a", "b"]);
+  });
+
+  it("keeps an unsaved draft when the server chapter changed underneath it", () => {
+    const merged = mergeServerChapters(
+      [chapter("a", "my unsaved sentence"), chapter("b", "clean")],
+      [chapter("a", "the agent wrote this"), chapter("b", "also from the server")],
+      new Set(["a"]),
+    );
+    expect(merged.chapters.find((item) => item.id === "a")?.content).toBe("my unsaved sentence");
+    expect(merged.chapters.find((item) => item.id === "b")?.content).toBe("also from the server");
+    expect(merged.adoptedIds).toEqual(["b"]);
+  });
+
+  it("does not drop a protected chapter the server list no longer includes", () => {
+    const merged = mergeServerChapters(
+      [chapter("a", "still typing")],
+      [],
+      new Set(["a"]),
+    );
+    expect(merged.chapters).toEqual([chapter("a", "still typing")]);
+    expect(merged.adoptedIds).toEqual([]);
   });
 });

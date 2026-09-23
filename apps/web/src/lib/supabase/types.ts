@@ -65,7 +65,9 @@ export type Database = {
           id: string
           outcome: Json | null
           owner_id: string
+          request_id: string | null
           steps: Json
+          stopped_because: string
           summary: string
           tool: string
           version_id: string
@@ -78,7 +80,9 @@ export type Database = {
           id?: string
           outcome?: Json | null
           owner_id: string
+          request_id?: string | null
           steps: Json
+          stopped_because?: string
           summary?: string
           tool: string
           version_id: string
@@ -91,7 +95,9 @@ export type Database = {
           id?: string
           outcome?: Json | null
           owner_id?: string
+          request_id?: string | null
           steps?: Json
+          stopped_because?: string
           summary?: string
           tool?: string
           version_id?: string

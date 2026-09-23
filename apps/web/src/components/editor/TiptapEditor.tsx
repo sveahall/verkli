@@ -18,6 +18,7 @@ import {
 import { createPortal } from "react-dom";
 import type { InlineAiAction } from "@/features/book-workspace/types";
 import { uploadChapterMedia } from "@/lib/supabase/storage";
+import { history } from "@tiptap/pm/history";
 import { toTiptapContent, shouldAdoptEditorContent, countWords } from "@/lib/tiptap-content";
 import { FONT_FAMILY_MAP, WRITING_PRESETS } from "./types";
 
@@ -97,6 +98,17 @@ function getSelectionText(editor: NonNullable<ReturnType<typeof useEditor>>): st
 }
 
 const emptySubscribe = () => () => {};
+
+/** Server text is not the author's keystroke. Drop undo so it cannot be saved back over the write. */
+function replaceFromServer(editor: NonNullable<ReturnType<typeof useEditor>>, content: ReturnType<typeof toTiptapContent>) {
+  const key = editor.state.plugins.find((item) => {
+    const name = (item.spec.key as { key?: string } | undefined)?.key;
+    return typeof name === "string" && name.startsWith("history$");
+  })?.spec.key;
+  if (key) editor.unregisterPlugin(key);
+  editor.commands.setContent(content, { emitUpdate: false });
+  if (key) editor.registerPlugin(history());
+}
 
 export default function TiptapEditor({
   content,
@@ -193,7 +205,7 @@ export default function TiptapEditor({
       adoptedContent.current = key;
       return;
     }
-    editor.commands.setContent(toTiptapContent(content), { emitUpdate: false });
+    replaceFromServer(editor, toTiptapContent(content));
     adoptedContent.current = key;
     wordCountRef.current?.(countWords(editor.getText()));
   }, [editor, content, autosave]);

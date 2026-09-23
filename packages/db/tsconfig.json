@@ -9,8 +9,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "resolveJsonModule": true,
-    "baseUrl": "."
+    "resolveJsonModule": true
   },
   "files": ["./src/index.ts"],
   "exclude": ["node_modules", "dist"]
