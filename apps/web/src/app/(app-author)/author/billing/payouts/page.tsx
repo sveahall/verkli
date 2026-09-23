@@ -4,6 +4,7 @@ import { requireAuthorRole } from "@/lib/auth/require-author";
 import { getConnectedPayoutSnapshot, type PayoutSnapshot } from "@/lib/payments/stripe-payouts";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPayoutAccount, type ConnectAccount } from "@/lib/payments/stripe-connect";
+import MonthlyReport from "@/features/author-workspaces/analytics/MonthlyReport";
 import PayoutsView from "@/components/author/PayoutsView";
 
 export const dynamic = "force-dynamic";
@@ -39,5 +40,10 @@ export default async function AuthorPayoutsPage({
   const statusKey = Array.isArray(statusParam) ? statusParam[0] : statusParam;
   const t = (await getTranslations("author.billing.payouts"));
 
-  return <PayoutsView account={account} snapshot={snapshot} loadFailed={loadFailed} locale={locale} t={t} statusKey={statusKey} />;
+  return <>
+    <PayoutsView account={account} snapshot={snapshot} loadFailed={loadFailed} locale={locale} t={t} statusKey={statusKey} />
+    <div className="mx-auto max-w-4xl px-6 pb-10">
+      <MonthlyReport locale={locale} initialMonth={new Date().toISOString().slice(0, 7)} />
+    </div>
+  </>;
 }

@@ -12,6 +12,8 @@ export type BetaDeliveryResult = {
   message: string;
 };
 type Payload = { from: string; to: string; subject: string; html: string; text: string };
+/** getBetaDeliveryStates value for someone this ledger has never invited. */
+export const NO_WELCOME_RECORDED = "No welcome recorded in this delivery log";
 
 // Deterministic primary keys make reservations atomic across server instances.
 function eventId(key: string): string {
@@ -148,6 +150,6 @@ export async function getBetaDeliveryStates(admin: Admin, recipients: Array<{ em
     const attempt = records.get(key.operation);
     if (attempt) return Date.now() - Date.parse(attempt.created_at) >= RETRY_WINDOW_MS ? "Review required in Resend — retry window expired" : "Acceptance unconfirmed — safe to retry within 23 hours";
     if (records.has(key.legacy) || (recipients[index].invitedAt && !records.has(key.intent))) return "Older invitation — review delivery before resending";
-    return "No welcome recorded in this delivery log";
+    return NO_WELCOME_RECORDED;
   });
 }

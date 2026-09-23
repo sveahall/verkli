@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
 import type { Editor } from "@tiptap/react";
+import { findTextMatches } from "@/lib/tiptap-text-offsets";
 
 type EditorFindReplaceProps = {
   editor: Editor;
@@ -12,40 +13,10 @@ type EditorFindReplaceProps = {
 type Match = { from: number; to: number };
 
 export function findAllMatches(editor: Editor, query: string, caseSensitive: boolean): Match[] {
-  if (!query) return [];
-  const matches: Match[] = [];
-  // ProseMirror positions include block boundaries; plain-text offsets do not.
-  // Map each text block directly, retaining positions across inline marks.
-  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(escapedQuery, caseSensitive ? "g" : "gi");
-  editor.state.doc.descendants((block, blockPos) => {
-    if (!block.isTextblock) return;
-    let text = "";
-    const positions: number[] = [];
-    block.descendants((node, offset) => {
-      if (node.isText && node.text) {
-        text += node.text;
-        for (let index = 0; index < node.text.length; index++) {
-          positions.push(blockPos + 1 + offset + index);
-        }
-      } else if (node.isLeaf) {
-        // A hard break or inline image must not join two separate words.
-        text += "\uFFFC";
-        positions.push(-1);
-      }
-    });
-    pattern.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(text)) !== null) {
-      const from = positions[match.index];
-      const last = positions[match.index + match[0].length - 1];
-      if (from >= 0 && last >= 0 && !positions.slice(match.index, match.index + match[0].length).includes(-1)) {
-        matches.push({ from, to: last + 1 });
-      }
-    }
-    return false;
-  });
-  return matches;
+  // The walk itself lives in lib/tiptap-text-offsets, shared with the agent's
+  // edit transaction so the author's find and the agent's replace can never
+  // disagree about where a match starts.
+  return findTextMatches(editor.state.doc, query, { caseSensitive });
 }
 
 export default function EditorFindReplace({ editor, onClose }: EditorFindReplaceProps) {

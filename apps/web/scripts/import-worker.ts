@@ -20,9 +20,10 @@ import {
   normalizeChapterTitlesToNumericSequence,
 } from "../src/lib/import-extract";
 import { plainTextToTiptapDoc } from "../src/lib/tiptap-content";
+import { uploadImportedChapterImages } from "../src/lib/import-images";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { enqueueTranslationJob } from "../src/lib/translation-queue";
-import { detectLanguageFromText } from "../src/lib/language-detect";
+import { detectLanguageFromParts } from "../src/lib/language-detect";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
@@ -315,8 +316,7 @@ export async function processJob(payload: ProcessJobPayload) {
     await updateImport({ status: "extracting", progress: 55 });
 
     const warnings: string[] = [];
-    const sampleText = normalizedChapters.find((ch) => ch.sourceText?.trim())?.sourceText ?? "";
-    const detectedLanguage = detectLanguageFromText(sampleText);
+    const detectedLanguage = detectLanguageFromParts(normalizedChapters.map((chapter) => chapter.sourceText));
     const normalizedDetected = normalizeLanguageOrNull(detectedLanguage);
     if (!normalizedDetected) {
       warnings.push("language_detection_fallback");
@@ -517,6 +517,31 @@ export async function processJob(payload: ProcessJobPayload) {
 
     await updateImport({ status: "extracting", progress: 70, book_id: targetBookId, book_version_id: targetBookVersionId, mode });
 
+    // ─── Images: move mammoth's inline data: URIs into storage ───
+    // Has to run before rows are built. mammoth returns pictures embedded in a
+    // .docx as base64 data: URIs, and persisting one into chapters.content
+    // inlines the whole file into a text column that is then rewritten on
+    // every autosave. Failures here drop the picture, never the import.
+    const media = await uploadImportedChapterImages({
+      documents: normalizedChapters.map((chapter) => chapter.tiptapContent),
+      bookId: targetBookId,
+      importId,
+      storage: supabase.storage,
+    });
+    const chaptersWithMedia = normalizedChapters.map((chapter, index) => ({
+      ...chapter,
+      tiptapContent: media.documents[index],
+    }));
+    warnings.push(...media.warnings);
+    if (media.uploaded > 0 || media.reused > 0 || media.dropped > 0) {
+      console.log("[import worker] chapter images", {
+        importId,
+        uploaded: media.uploaded,
+        reused: media.reused,
+        dropped: media.dropped,
+      });
+    }
+
     // ─── Dedup: fetch existing content hashes so we skip identical chapters ───
     const { data: existingChapters } = await supabase
       .from("chapters")
@@ -532,8 +557,8 @@ export async function processJob(payload: ProcessJobPayload) {
     const rows: TablesInsert<"chapters">[] = [];
     let dedupSkipped = 0;
 
-    for (let i = 0; i < normalizedChapters.length; i++) {
-      const ch = normalizedChapters[i];
+    for (let i = 0; i < chaptersWithMedia.length; i++) {
+      const ch = chaptersWithMedia[i];
       const chapterTitle = (ch.title ?? "").trim() || `Kapitel ${i + 1}`;
       if (!ch.title?.trim()) {
         warnings.push(`title_fallback_${i + 1}`);

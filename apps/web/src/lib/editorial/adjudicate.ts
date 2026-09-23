@@ -1,3 +1,4 @@
+import type { MeterContext } from "@/lib/usage/types";
 import "server-only";
 import { z } from "zod";
 import { callOpenAi, isOpenAiConfigured, estimateOpenAiUnits, type OpenAiUsage } from "@/lib/ai/providers/openai";
@@ -160,6 +161,12 @@ export function estimateEditorialCriticUnits(input: EditorialCriticInput): numbe
  */
 export async function adjudicateEditorialReport(input: EditorialCriticInput & {
   report: EditorialReport;
+ codex/translation-critic-source-20260922
+
+  text: string;
+  /** When present, the critic's token spend is billed to this user. */
+  meter?: MeterContext;
+platform
   onReceipt?: (receipt: EditorialCriticReceipt) => Promise<void>;
 }): Promise<{
   report: EditorialReport;
@@ -179,7 +186,9 @@ export async function adjudicateEditorialReport(input: EditorialCriticInput & {
   await input.onReceipt?.({ status: "started", usage: null });
   let verdicts: z.infer<typeof verdictsSchema>;
   try {
-    const raw = await callOpenAi({ ...request, onUsage: (value) => { usage = value; } });
+    // Both hang off the same call. `onUsage` is the receipt the budget ledger
+    // needs and may throw; `meter` is the cost record and may not.
+    const raw = await callOpenAi({ ...request, meter: input.meter, onUsage: (value) => { usage = value; } });
     verdicts = verdictsSchema.parse(JSON.parse(raw));
   } catch {
     // Never log manuscript content, provider responses, or credentials.

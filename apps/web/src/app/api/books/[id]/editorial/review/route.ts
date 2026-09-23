@@ -2,16 +2,25 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
+import { requireProBillingForApi } from "@/lib/billing/server";
 import { createClient } from "@/lib/supabase/server";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
+import {
+  BudgetExceededError,
+  JobCostExceededError,
+  checkBudget,
+  releaseBudget,
+  validateJobCost,
+} from "@/lib/workers/budget";
 import { reviewText, splitReviewText } from "@/lib/editorial/content";
 import { reviewModeSchema } from "@/lib/editorial/review-schema";
 import { generateEditorialReview, estimateEditorialUnits, EDITORIAL_MODEL, type EditorialUsage } from "@/lib/editorial/provider";
 import type { EditorialCriticReceipt } from "@/lib/editorial/adjudicate";
 import { isAiChatEnabled } from "@/lib/flags";
-import { checkBudget, releaseBudget, BudgetExceededError } from "@/lib/workers/budget";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
+import { isBrowserOriginAllowed } from "@/lib/request-url";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -27,12 +36,22 @@ const fail = (error: string, status: number) => NextResponse.json({ error }, { s
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const gate = await requireAuthorRoleForApi();
   if (gate.response) return gate.response;
+  // Account master AI switch. Server-side, so turning AI off is a real
+  // setting and not just a hidden button.
+  const aiOff = await aiDisabledResponse(gate.user.id);
+  if (aiOff) return aiOff;
+  // Pro, like every other route that spends money on a model. This import had
+  // been sitting here unused: editorial review was the one AI feature any
+  // author could run for free, while translation, audiobook, video, trailer and
+  // marketing all required a subscription. Invited beta authors resolve as Pro
+  // through BETA_AUTHOR_PRO_ENABLED, so this locks out nobody who was invited.
+  const proGate = await requireProBillingForApi(gate.user.id);
+  if (!proGate.ok) return proGate.response;
   if (!isAiChatEnabled()) return fail("Editorial AI review is currently turned off. Your manuscript has not changed.", 503);
   const configuredBudget = Number(process.env.EDITORIAL_DAILY_BUDGET);
   if (!Number.isSafeInteger(configuredBudget) || configuredBudget <= 0) return fail("Editorial review is unavailable until its daily AI allowance is configured. Please contact support.", 503);
   if (!process.env.ANTHROPIC_API_KEY?.trim()) return fail("Editorial AI is not configured. Please contact support.", 503);
-  const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) return fail("Request origin is not allowed.", 403);
+  if (!isBrowserOriginAllowed(request)) return fail("Request origin is not allowed.", 403);
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) return fail("Invalid book ID.", 400);
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
@@ -62,7 +81,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const parts = mode === "translation" ? [text] : splitReviewText(text);
   if (parts.length > 1001) return fail("This chapter is too long to review. Split it into smaller chapters first.", 422);
   if (part >= parts.length) return fail("This review part no longer exists. Run a new review.", 409);
-  const input = { mode, text: parts[part], sourceText, chapterTitle: chapter.title };
+  const input = { mode, text: parts[part], sourceText, chapterTitle: chapter.title,
+    // The budget ledger below decides whether this may run; the meter records
+    // what it cost. Both read the same usage block, with opposite contracts.
+    meter: { userId: gate.user.id, pipeline: "editorial" as const, bookId: id } };
   const reservedUnits = estimateEditorialUnits(input);
   const jobId = randomUUID();
   let reserved = false;
@@ -72,6 +94,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   let admin: ReturnType<typeof createAdminClient> | null = null;
   const receipt = () => ({ model: EDITORIAL_MODEL, reservedUnits, usage, modelStarted, critic });
   try {
+    // Ceiling first, then the daily reservation — the same order the marketing
+    // pipeline uses (model-work.ts). `editorial` has had a configured 80k-char
+    // per-job cap all along and never checked it, so one oversized chapter
+    // could swallow the whole day's allowance in a single call.
+    validateJobCost({ userId: gate.user.id, pipeline: "editorial", jobSize: reservedUnits, jobId });
     await checkBudget({ userId: gate.user.id, pipeline: "editorial", units: reservedUnits, jobId });
     reserved = true;
     admin = createAdminClient();
@@ -99,6 +126,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (saveError || !data) throw new Error("EditorialReportStorageUnavailable");
     return NextResponse.json({ jobId, chapterId, chapterTitle: chapter.title, mode, part, partCount: parts.length, reviewedText: parts[part], sourceText, originalContent: chapter.content, report }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
+    if (error instanceof JobCostExceededError) return fail("This chapter is too long to review in one pass. Review it in parts, or split the chapter.", 413);
     if (error instanceof BudgetExceededError) return fail("This review exceeds your remaining daily AI allowance. Try again after the daily reset.", 429);
     if (reserved && !modelStarted) await releaseBudget({ pipeline: "editorial", jobId });
     // A failed call can still be billed. Keep its reservation; absent usage is
@@ -113,5 +141,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     console.error("[editorial review] generation failed", { bookId: id, chapterId, mode, jobId, modelStarted, errorType: error instanceof Error ? error.name : "unknown" });
     return fail(modelStarted ? "The AI could not complete a valid review. Your text has not changed. Please try again." : "Review limits or usage storage are temporarily unavailable. No model work was started. Please try again.", modelStarted ? 502 : 503);
+
   }
 }

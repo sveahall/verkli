@@ -10,6 +10,7 @@ import {
   Rocket,
   ListChecks,
   MessageSquare,
+  Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/admin/beta", label: "Beta", icon: Rocket },
   { href: "/admin/feedback", label: "Feedback", icon: MessageSquare },
   { href: "/admin/queues", label: "Queues", icon: ListChecks },
+  { href: "/admin/usage", label: "Usage & cost", icon: Gauge },
 ];
 
 function isActive(pathname: string, href: string): boolean {

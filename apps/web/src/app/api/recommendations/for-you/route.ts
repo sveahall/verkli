@@ -65,7 +65,8 @@ export async function GET(request: Request) {
   }
 
   const [readingsRes, genrePrefRes] = await Promise.all([
-    supabase.from("readings").select("book_id").eq("user_id", user.id).limit(50),
+    supabase.from("readings").select("book_id").eq("user_id", user.id)
+      .order("last_read_at", { ascending: false }).limit(50),
     supabase.from("reader_genre_preferences").select("genre_id").eq("user_id", user.id).limit(30),
   ]);
 

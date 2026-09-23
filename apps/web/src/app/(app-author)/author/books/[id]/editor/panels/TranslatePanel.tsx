@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getLanguageLabel, LANGUAGE_OPTIONS, isSupportedLanguage, type SupportedLanguage } from "@/lib/languages";
+import { resolveErrorMessage } from "@/lib/error-messages";
 import { isTranslationPairSupported } from "@/lib/translation-pairs";
 import { ArrowRight, BookOpen, ChevronDown, Languages, Check } from "lucide-react";
 import styles from "./TranslatePanel.module.css";
+import SavedTranslationComparison from "./SavedTranslationComparison";
 import TranslationQualityCard from "./TranslationQualityCard";
 import TranslationCheckoutModal from "./TranslationCheckoutModal";
 import { TranslateMoreLanguagesCard, TranslatePreviewPanes } from "./TranslatePanel.components";
@@ -60,6 +62,7 @@ export default function TranslatePanel({
   });
   const [originalPreview, setOriginalPreview] = useState<string>("");
   const [translationPreview, setTranslationPreview] = useState<string>("");
+  const [previewRequested, setPreviewRequested] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const reportMessage = useCallback((message: string | null) => {
@@ -143,6 +146,7 @@ export default function TranslatePanel({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               targetLanguage: lang,
+              sourceLanguage,
               sourceVersionId,
               overwrite: false,
               stripeSessionId,
@@ -150,7 +154,7 @@ export default function TranslatePanel({
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || data?.ok === false) {
-            failed.push({ lang, error: data?.error ?? "Unknown error" });
+            failed.push({ lang, error: resolveErrorMessage(data?.error, "Could not start translation.") });
           } else {
             succeeded.push(lang);
             trackJob(lang, data.jobId);
@@ -176,7 +180,7 @@ export default function TranslatePanel({
     } finally {
       setTranslating(false);
     }
-  }, [bookId, sourceVersionId, reportMessage, request, trackJob]);
+  }, [bookId, sourceLanguage, sourceVersionId, reportMessage, request, trackJob]);
 
   // Handle return from Stripe checkout. Runs once per mount via
   // checkoutHandledRef so re-renders from prop changes can't double-fire.
@@ -209,13 +213,14 @@ export default function TranslatePanel({
     const controller = new AbortController();
     previewAbortRef.current = controller;
 
+    setPreviewRequested(true);
     setLoadingPreview(true);
     setTranslationPreview("");
     setPreviewUnavailable(false);
     setPreviewError(null);
     try {
       const res = await request(
-        `/api/books/${bookId}/translation-preview?targetLanguage=${encodeURIComponent(targetLanguage)}&sourceVersionId=${encodeURIComponent(sourceVersionId ?? "")}`,
+        `/api/books/${bookId}/translation-preview?targetLanguage=${encodeURIComponent(targetLanguage)}&sourceVersionId=${encodeURIComponent(sourceVersionId ?? "")}&sourceLanguage=${encodeURIComponent(sourceLanguage)}`,
         { signal: controller.signal },
       );
       if (controller.signal.aborted) return;
@@ -233,7 +238,7 @@ export default function TranslatePanel({
         setPreviewUnavailable(nextPreviewUnavailable || Boolean(data.pairUnsupported));
       } else {
         setTranslationPreview("");
-        setPreviewError(res.status === 401 ? "Your session expired. Sign in again to load the preview." : "We couldn’t load the preview. Your manuscript has not changed.");
+        setPreviewError(res.status === 401 ? "Your session expired. Sign in again to load the preview." : resolveErrorMessage(data?.error, "We couldn’t load the preview. Your manuscript has not changed."));
       }
     } catch (err) {
       if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
@@ -244,10 +249,15 @@ export default function TranslatePanel({
         setLoadingPreview(false);
       }
     }
-  }, [bookId, targetLanguage, sourceVersionId, request]);
+  }, [bookId, sourceLanguage, targetLanguage, sourceVersionId, request]);
 
   useEffect(() => {
-    void fetchPreview();
+    setPreviewRequested(false);
+    setOriginalPreview("");
+    setTranslationPreview("");
+    setPreviewError(null);
+    setLoadingPreview(false);
+    setPreviewUnavailable(false);
     return () => {
       previewAbortRef.current?.abort();
     };
@@ -282,13 +292,14 @@ export default function TranslatePanel({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               targetLanguage: lang,
+              sourceLanguage,
               sourceVersionId,
               overwrite: false,
             }),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || data?.ok === false) {
-            failed.push({ lang, error: data?.error ?? "Unknown error" });
+            failed.push({ lang, error: resolveErrorMessage(data?.error, "Could not start translation.") });
           } else {
             succeeded.push(lang);
             trackJob(lang, data.jobId);
@@ -336,6 +347,7 @@ export default function TranslatePanel({
     try {
       const body: Record<string, unknown> = {
         targetLanguage,
+        sourceLanguage,
         sourceVersionId,
         overwrite: false,
       };
@@ -349,7 +361,7 @@ export default function TranslatePanel({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.ok === false) {
-        reportMessage(data?.error ?? "Could not start translation.");
+        reportMessage(resolveErrorMessage(data?.error, "Could not start translation."));
         setTranslating(false);
         return;
       }
@@ -362,7 +374,7 @@ export default function TranslatePanel({
     } finally {
       setTranslating(false);
     }
-  }, [bookId, sourceVersionId, targetLanguage, translating, billingLoading, isProLocked, translateScope, selectedChapterId, reportMessage, request, trackJob]);
+  }, [bookId, sourceLanguage, sourceVersionId, targetLanguage, translating, billingLoading, isProLocked, translateScope, selectedChapterId, reportMessage, request, trackJob]);
 
   const handleProSubscribe = useCallback(() => {
     setCheckoutModalOpen(false);
@@ -399,6 +411,8 @@ export default function TranslatePanel({
         <span className={styles.length}><BookOpen size={16} aria-hidden />{bookLengthLabel.replace(/^1 chapters$/, "1 chapter")}</span>
       </header>
 
+      <SavedTranslationComparison key={`saved:${bookId}:${sourceVersionId}:${targetLanguage}`} bookId={bookId} sourceVersionId={sourceVersionId} targetLanguage={targetLanguage} request={request} />
+
       <div className={styles.workbench}>
         <div className={styles.toolbar}>
           <div className={styles.languagePair}>
@@ -422,13 +436,16 @@ export default function TranslatePanel({
             </div>
           )}
         </div>
-        <p className="px-6 pt-4 text-xs text-muted-foreground">Quick preview · not yet reviewed. Check meaning and author voice below.</p>
-        <TranslatePreviewPanes
+        <div className="px-6 pt-4">
+          <p className="text-xs text-muted-foreground">Optional AI opening preview · not yet reviewed. Generating a new preview uses your AI allowance.</p>
+          <button type="button" className="mt-3 min-h-11 rounded-full border border-border px-4 text-sm" disabled={loadingPreview || !sourceVersionId} onClick={() => void fetchPreview()}>Generate opening preview</button>
+        </div>
+        {previewRequested && <TranslatePreviewPanes
           targetLanguage={targetLanguage} loadingPreview={loadingPreview}
           originalPreview={originalPreview} translationPreview={translationPreview}
           previewUnavailable={previewUnavailable} previewError={previewError}
           onRetry={() => void fetchPreview()}
-        />
+        />}
         <div className={styles.actionBar}>
           <div>
             <p>{translateScope === "chapter" && !isProLocked ? selectedChapter ? selectedChapter.title || "Untitled chapter" : "Select a chapter in Write first" : `Full book → ${getLanguageLabel(targetLanguage)}`}</p>
@@ -469,7 +486,7 @@ export default function TranslatePanel({
         </div>
       </details>
       <TranslationCheckoutModal open={checkoutModalOpen} onClose={() => setCheckoutModalOpen(false)}
-        bookId={bookId} sourceVersionId={sourceVersionId ?? ""} languages={checkoutLanguages} onProSubscribe={handleProSubscribe} />
+        bookId={bookId} sourceVersionId={sourceVersionId ?? ""} sourceLanguage={sourceLanguage} languages={checkoutLanguages} onProSubscribe={handleProSubscribe} />
     </section>
   );
 }

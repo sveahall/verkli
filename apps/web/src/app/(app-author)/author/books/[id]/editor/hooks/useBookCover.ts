@@ -538,11 +538,13 @@ export function useBookCover({ book, demoFallbackEnabled = false }: UseBookCover
     async (file: File) => {
       if (demoFallbackEnabled) {
         const ok = await applyDemoLocalCover(file);
+        if (!ok) throw new Error("Could not save the edited cover. Try again.");
         setCoverEditorOpen(false);
-        if (ok) toast.success("Cover updated.");
+        toast.success("Cover updated.");
         return;
       }
-      await saveCoverFile(file);
+      const saved = await saveCoverFile(file);
+      if (!saved) throw new Error("Could not save the edited cover. Try again.");
       setCoverEditorOpen(false);
     },
     [demoFallbackEnabled, applyDemoLocalCover, saveCoverFile, toast]

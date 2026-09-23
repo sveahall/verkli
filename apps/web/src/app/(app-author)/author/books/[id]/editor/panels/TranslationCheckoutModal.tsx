@@ -9,6 +9,7 @@ type TranslationCheckoutModalProps = {
   onClose: () => void;
   bookId: string;
   sourceVersionId: string;
+  sourceLanguage?: string;
   languages: string[];
   /** Called when user picks Pro subscription and should be redirected to billing. */
   onProSubscribe: () => void;
@@ -21,6 +22,7 @@ export default function TranslationCheckoutModal({
   onClose,
   bookId,
   sourceVersionId,
+  sourceLanguage,
   languages,
   onProSubscribe,
   onCheckoutStarted,
@@ -63,7 +65,7 @@ export default function TranslationCheckoutModal({
       const res = await fetch(`/api/books/${bookId}/translate/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ languages, sourceVersionId }),
+        body: JSON.stringify({ languages, sourceVersionId, sourceLanguage }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.url) {
@@ -82,7 +84,7 @@ export default function TranslationCheckoutModal({
       setLoading(false);
       submittingRef.current = false;
     }
-  }, [plan, bookId, languages, sourceVersionId, onProSubscribe, onCheckoutStarted]);
+  }, [plan, bookId, languages, sourceVersionId, sourceLanguage, onProSubscribe, onCheckoutStarted]);
 
   if (!open) return null;
 

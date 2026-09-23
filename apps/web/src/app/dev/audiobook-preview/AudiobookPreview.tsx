@@ -72,7 +72,7 @@ export default function AudiobookPreview() {
         {STATES.map((value) => <option key={value}>{value}</option>)}
       </select></label>
       <label className="flex min-h-11 items-center gap-2">Selected edition<select className="min-h-11 rounded border border-border bg-background px-2" value={language} onChange={(event) => setLanguage(event.target.value)}>
-        <option value="en">English · older edition</option><option value="sv">Swedish · newer edition</option>
+        <option value="en">English · older edition</option><option value="sv">Swedish · newer edition</option><option value="nl">Dutch · text only</option><option value="pl">Polish · text only</option>
       </select></label>
       <button className="min-h-11 px-3" onClick={() => document.documentElement.classList.toggle("dark")}>Toggle theme</button>
       <p>Synthetic manuscript · local test tone · no generation, payments or saved changes</p>

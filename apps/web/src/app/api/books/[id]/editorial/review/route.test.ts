@@ -1,13 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
-const mocks = vi.hoisted(() => ({ gate: vi.fn(), db: vi.fn(), generate: vi.fn(), check: vi.fn(), enabled: vi.fn(), budget: vi.fn(), release: vi.fn(), insert: vi.fn(), receipt: vi.fn() }));
+const mocks = vi.hoisted(() => ({ gate: vi.fn(), pro: vi.fn(), jobCost: vi.fn(), db: vi.fn(), generate: vi.fn(), check: vi.fn(), enabled: vi.fn(), budget: vi.fn(), release: vi.fn(), insert: vi.fn(), receipt: vi.fn(), JobCostExceededError: class extends Error {} }));
 vi.mock("@/lib/auth/require-author", () => ({ requireAuthorRoleForApi: mocks.gate }));
+vi.mock("@/lib/billing/server", () => ({ requireProBillingForApi: mocks.pro }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.db }));
 vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: mocks.check }) }));
 vi.mock("@/lib/editorial/provider", () => ({ generateEditorialReview: mocks.generate, estimateEditorialUnits: () => 20000, EDITORIAL_MODEL: "claude-sonnet-5" }));
 vi.mock("@/lib/flags", () => ({ isAiChatEnabled: mocks.enabled }));
-vi.mock("@/lib/workers/budget", () => ({ checkBudget: mocks.budget, releaseBudget: mocks.release, BudgetExceededError: class extends Error {} }));
+vi.mock("@/lib/workers/budget", () => ({ checkBudget: mocks.budget, releaseBudget: mocks.release, validateJobCost: mocks.jobCost, BudgetExceededError: class extends Error {}, JobCostExceededError: mocks.JobCostExceededError }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: () => ({ insert: mocks.insert, update: (patch: unknown) => { mocks.receipt(patch); const chain = { eq: () => chain, select: () => chain, maybeSingle: async () => ({ data: { id: "job" }, error: null }) }; return chain; } }) }) }));
+// This route now checks the account's master AI switch first. Its own guard
+// test covers the blocked path; here the account simply has AI on.
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 import { POST } from "./route";
 const bookId = "11111111-1111-4111-8111-111111111111";
 const chapterId = "22222222-2222-4222-8222-222222222222";
@@ -26,7 +30,7 @@ function setup(rows: unknown[] = [{ id: bookId, author_id: "author" }, chapter])
   return filters;
 }
 const run = (body: Record<string, unknown> = {}) => POST(new NextRequest(`http://localhost/api/books/${bookId}/editorial/review`, { method: "POST", body: JSON.stringify({ mode: "proofread", chapterId, ...body }) }), { params: Promise.resolve({ id: bookId }) });
-beforeEach(() => { vi.clearAllMocks(); mocks.gate.mockResolvedValue({ user: { id: "author" } }); mocks.check.mockResolvedValue({ allowed: true }); mocks.enabled.mockReturnValue(true); mocks.budget.mockResolvedValue({ limit: 40000, current: 20000 }); mocks.insert.mockResolvedValue({ error: null });
+beforeEach(() => { vi.clearAllMocks(); mocks.gate.mockResolvedValue({ user: { id: "author" } }); mocks.pro.mockResolvedValue({ ok: true, state: {} }); mocks.check.mockResolvedValue({ allowed: true }); mocks.enabled.mockReturnValue(true); mocks.budget.mockResolvedValue({ limit: 40000, current: 20000 }); mocks.insert.mockResolvedValue({ error: null });
   vi.stubEnv("EDITORIAL_DAILY_BUDGET", "40000"); vi.stubEnv("ANTHROPIC_API_KEY", "test");
   mocks.generate.mockImplementation(async (_input, onUsage) => { await onUsage({ model: "claude-sonnet-5", inputTokens: 15, outputTokens: 20, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 }); return report; }); setup(); });
 afterEach(() => vi.unstubAllEnvs());
@@ -122,5 +126,33 @@ describe("editorial review API", () => {
   });
   it("enforces rate limiting before reading manuscripts", async () => {
     mocks.check.mockResolvedValue({ allowed: false }); expect((await run()).status).toBe(429); expect(mocks.db).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Editorial review was the one AI feature any author could run for free while
+   * translation, audiobook, video, trailer and marketing all required a
+   * subscription — the gate was imported here and never called. Invited beta
+   * authors resolve as Pro through BETA_AUTHOR_PRO_ENABLED, so this locks out
+   * nobody who was invited.
+   */
+  it("requires Pro before reading a manuscript or reserving budget", async () => {
+    mocks.pro.mockResolvedValue({ ok: false, response: NextResponse.json({ error: "PRO_SUBSCRIPTION_REQUIRED" }, { status: 403 }) });
+    expect((await run()).status).toBe(403);
+    expect(mocks.db).not.toHaveBeenCalled();
+    expect(mocks.budget).not.toHaveBeenCalled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  /**
+   * `editorial` has had a configured 80k-char per-job cap all along and never
+   * checked it, so one oversized chapter could swallow a whole day's allowance
+   * in a single call. The ceiling is checked before the daily reservation.
+   */
+  it("refuses a chapter over the per-job ceiling without reserving the day's allowance", async () => {
+    mocks.jobCost.mockImplementation(() => { throw new mocks.JobCostExceededError("too large"); });
+    expect((await run()).status).toBe(413);
+    expect(mocks.budget).not.toHaveBeenCalled();
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.release).not.toHaveBeenCalled();
   });
 });

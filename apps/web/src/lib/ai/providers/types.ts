@@ -9,6 +9,8 @@
 // Common Error Type
 // ─────────────────────────────────────────────────────────────
 
+import type { MeterContext } from "@/lib/usage/types";
+
 export type AIProviderErrorCode =
   | "PROVIDER_UNAVAILABLE"
   | "INVALID_INPUT"
@@ -69,6 +71,8 @@ export interface TranslateOptions {
   text: string;
   sourceLanguage: string;
   targetLanguage: string;
+  /** When present, token spend is billed to this user. Absent = not measured. */
+  meter?: MeterContext;
 }
 
 export interface TranslateResult {
@@ -78,6 +82,11 @@ export interface TranslateResult {
 export interface TranslatorProvider {
   readonly name: string;
   translate(options: TranslateOptions): Promise<TranslateResult>;
-  translateBatch?(texts: string[], sourceLanguage: string, targetLanguage: string): Promise<string[]>;
+  translateBatch?(
+    texts: string[],
+    sourceLanguage: string,
+    targetLanguage: string,
+    meter?: MeterContext
+  ): Promise<string[]>;
   getSupportedPairs(): string[];
 }

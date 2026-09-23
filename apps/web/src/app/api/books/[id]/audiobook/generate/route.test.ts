@@ -7,7 +7,12 @@ const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   createAdminClient: vi.fn(),
   enqueueAudiobookJob: vi.fn(),
+  getStripeCheckoutSession: vi.fn(),
+  claimStripeSessionRedemption: vi.fn(),
 }));
+
+vi.mock("@/lib/payments/stripe", () => ({ getStripeCheckoutSession: mocks.getStripeCheckoutSession }));
+vi.mock("@/lib/payments/session-redemption", () => ({ claimStripeSessionRedemption: mocks.claimStripeSessionRedemption, releaseStripeSessionRedemption: vi.fn() }));
 
 vi.mock("@/lib/auth/require-author", () => ({
   requireAuthorRoleForApi: mocks.requireAuthorRoleForApi,
@@ -34,6 +39,9 @@ vi.mock("@/lib/env", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/env")>();
   return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
 });
+// This route now checks the account's master AI switch first. Its own guard
+// test covers the blocked path; here the account simply has AI on.
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 
 const { POST } = await import("./route");
 
@@ -161,7 +169,7 @@ function setupHappyPathMocks(userId = "author-1") {
     }),
   });
 
-  return { insert };
+  return { insert, booksQuery };
 }
 
 function generateRequest() {
@@ -191,6 +199,32 @@ describe("POST /api/books/[id]/audiobook/generate", () => {
     restoreEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
     restoreEnv("ELEVENLABS_VOICE_ID");
     restoreEnv("TTS_VOICE_ID");
+  });
+
+  it.each(["nl", "pl"])("refuses requested %s before payment redemption or enqueue", async (language) => {
+    process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED = "true"; process.env.AUDIOBOOK_ENABLED = "true";
+    setupHappyPathMocks(`author-${language}`);
+    const res = await POST(new Request(`http://localhost/api/books/${BOOK_ID}/audiobook/generate?lang=${language}`, {
+      method: "POST", body: JSON.stringify({ stripeSessionId: "paid-session" }),
+    }), { params: Promise.resolve({ id: BOOK_ID }) });
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe("AUDIOBOOK_LANGUAGE_UNAVAILABLE");
+    expect(mocks.getStripeCheckoutSession).not.toHaveBeenCalled();
+    expect(mocks.claimStripeSessionRedemption).not.toHaveBeenCalled();
+    expect(mocks.enqueueAudiobookJob).not.toHaveBeenCalled();
+  });
+
+  it("also guards the resolved original language when lang is omitted", async () => {
+    process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED = "true"; process.env.AUDIOBOOK_ENABLED = "true";
+    const { booksQuery } = setupHappyPathMocks("author-default-pl");
+    booksQuery.maybeSingle.mockResolvedValue({ data: { id: BOOK_ID, author_id: "author-default-pl", original_language: "pl" }, error: null });
+    const res = await POST(new Request(`http://localhost/api/books/${BOOK_ID}/audiobook/generate`, {
+      method: "POST", body: JSON.stringify({ stripeSessionId: "paid-session" }),
+    }), { params: Promise.resolve({ id: BOOK_ID }) });
+    expect(res.status).toBe(422);
+    expect(mocks.getStripeCheckoutSession).not.toHaveBeenCalled();
+    expect(mocks.claimStripeSessionRedemption).not.toHaveBeenCalled();
+    expect(mocks.enqueueAudiobookJob).not.toHaveBeenCalled();
   });
 
   it("returns 503 and never attempts enqueue when audiobook feature flag is off", async () => {

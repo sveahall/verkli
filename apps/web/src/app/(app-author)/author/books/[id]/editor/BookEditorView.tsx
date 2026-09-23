@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import BookToolsMenu from "../BookToolsMenu";
 import AgentAvatar from "@/features/ai-team/AgentAvatar";
+import { useAiEnabled } from "@/features/ai-team/settings/availability";
 import { getAgent } from "@/features/ai-team/agents";
 import { agentConversations, conversationTool } from "@/features/ai-team/agent-conversations";
 import { useState, useCallback, useEffect, useMemo } from "react";
@@ -94,13 +95,20 @@ export default function BookEditorView({
     setContextPanelState,
     clearContextPanelState,
   } = useAuthorWorkspace();
+  // Account-level AI switch. Presentation only — every AI route enforces it
+  // again on the server, so a stale tab cannot spend anything.
+  const aiEnabled = useAiEnabled();
+  const workspaceTools = useMemo(
+    () => (aiEnabled ? visibleTools : visibleTools?.filter((entry) => entry !== "ai")),
+    [aiEnabled, visibleTools]
+  );
   const {
     activePanel: tool,
     setActivePanel: setTool,
     focusMode,
     setFocusMode,
     effectiveTools,
-  } = useBookWorkspaceController({ bookId: book.id, visibleTools });
+  } = useBookWorkspaceController({ bookId: book.id, visibleTools: workspaceTools });
   const {
     openPalette,
     setCommands,
@@ -183,6 +191,11 @@ export default function BookEditorView({
     }
   });
 
+  // A remembered open dock must not reopen for an author who has since turned
+  // AI off, so the stored preference is read through the account switch rather
+  // than reset — turning AI back on restores the dock where they left it.
+  const assistantVisible = aiEnabled && assistantOpen;
+
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_ASSISTANT_OPEN, String(assistantOpen));
@@ -200,6 +213,7 @@ export default function BookEditorView({
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "i") {
+        if (!aiEnabled) return;
         event.preventDefault();
         setAssistantTool(tool);
         setAssistantOpen((open) => !open);
@@ -207,7 +221,7 @@ export default function BookEditorView({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [tool]);
+  }, [aiEnabled, tool]);
 
   // ── Jobs & billing ────────────────────────────────────────────────────────
   const { jobs: allJobs, loading: jobLoading, error: jobError, refetch: refetchBookJob, settled: jobsSettled } = useBookJobs(book.id);
@@ -314,8 +328,10 @@ export default function BookEditorView({
     // `ai` is no longer a page. The sidebar entry and any existing ?panel=ai
     // link now open the dock and leave the author on the manuscript.
     if (requestedPanel === "ai") {
-      setAssistantTool("edit");
-      setAssistantOpen(true);
+      if (aiEnabled) {
+        setAssistantTool("edit");
+        setAssistantOpen(true);
+      }
       setTool("edit");
       // Drop the param so the URL describes what is actually on screen: the
       // manuscript, with the dock open. Leaving it would also make a refresh
@@ -330,7 +346,7 @@ export default function BookEditorView({
     } else if (!requestedPanel) {
       setTool("edit");
     }
-  }, [book.id, effectiveTools, panelParam, router, setTool, searchParams]);
+  }, [aiEnabled, book.id, effectiveTools, panelParam, router, setTool, searchParams]);
 
   useEffect(() => {
     if (tool === "publish") {
@@ -365,8 +381,8 @@ export default function BookEditorView({
   const agentExecution = useAgentExecution({ bookId: book.id, chapter: selectedChapter,
     navigate: navigateToPanel, cover, pricing, demo: isDemoEditorView });
   useEffect(() => {
-    if (pendingAiRequest) { setAssistantTool("edit"); setAssistantOpen(true); }
-  }, [pendingAiRequest]);
+    if (pendingAiRequest && aiEnabled) { setAssistantTool("edit"); setAssistantOpen(true); }
+  }, [aiEnabled, pendingAiRequest]);
 
   // ── Write-only workspace context sync ─────────────────────────────────────
   useEffect(() => {
@@ -556,9 +572,9 @@ export default function BookEditorView({
       <WorkspaceLayout
         asideLabel={`Talk to ${currentAgent.name}`}
         asideId="book-ai-assistant"
-        asideOpen={assistantOpen}
+        asideOpen={assistantVisible}
         onAsideClose={() => setAssistantOpen(false)}
-        aside={
+        aside={!assistantVisible ? null : (
           <AiAssistantDock
             key={`${book.id}:${activeVersion?.id ?? "book"}`}
             editionId={activeVersion?.id ?? null}
@@ -571,11 +587,15 @@ export default function BookEditorView({
             chapterTitle={selectedChapter?.title}
             getDraftText={agentExecution.getDraftText}
             onExecuteAction={agentExecution.execute}
+            // The agent writes chapters on the server, so the workspace has to
+            // re-read them. The existing "saved elsewhere" banner covers the
+            // case where the author also has unsaved typing in this tab.
+            onBookChanged={() => router.refresh()}
             onClose={() => setAssistantOpen(false)}
             pendingRequest={pendingAiRequest}
             onPendingRequestHandled={() => setPendingAiRequest(null)}
           />
-        }
+        )}
         header={
           <header>
             <nav className="flex min-w-0 items-center gap-1.5 text-[14px]">
@@ -611,22 +631,24 @@ export default function BookEditorView({
                 </svg>
               </Link>
             )}
-            <button
-              type="button"
-              onClick={() => { if (!assistantOpen) setAssistantTool(tool); setAssistantOpen((open) => !open); }}
-              aria-expanded={assistantOpen}
-              aria-controls="book-ai-assistant"
-              title={`Talk to ${currentAgent.name} (⌘I)`}
-              aria-label={`Talk to ${currentAgent.name}`}
-              className={`inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition ${
-                assistantOpen
-                  ? "border-[#907AFF]/40 bg-[#907AFF]/[0.08] text-accent-foreground"
-                  : "border-border text-muted-foreground hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
-              }`}
-            >
-              <AgentAvatar agent={currentAgent.id} size={28} />
-              <span className="hidden sm:inline">{currentAgent.name}</span>
-            </button>
+            {aiEnabled && (
+              <button
+                type="button"
+                onClick={() => { if (!assistantOpen) setAssistantTool(tool); setAssistantOpen((open) => !open); }}
+                aria-expanded={assistantVisible}
+                aria-controls="book-ai-assistant"
+                title={`Talk to ${currentAgent.name} (⌘I)`}
+                aria-label={`Talk to ${currentAgent.name}`}
+                className={`inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition ${
+                  assistantVisible
+                    ? "border-[#907AFF]/40 bg-[#907AFF]/[0.08] text-accent-foreground"
+                    : "border-border text-muted-foreground hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
+                }`}
+              >
+                <AgentAvatar agent={currentAgent.id} size={28} />
+                <span className="hidden sm:inline">{currentAgent.name}</span>
+              </button>
+            )}
             <WorkspaceHeaderActions />
           </div>
         }

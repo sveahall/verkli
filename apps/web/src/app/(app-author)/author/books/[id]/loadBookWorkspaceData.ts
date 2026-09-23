@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizeLanguage } from "@/lib/languages";
+import { normalizeLanguage, normalizeLanguageOrNull } from "@/lib/languages";
 import { isStripeConfigured } from "@/lib/payments/stripe";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
 import { validateAudiobookStoragePath } from "@/lib/tts/validate-storage-path";
@@ -82,10 +82,11 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
   }
 
   if (!bookVersionsError && versions.length === 0) {
-    const fallbackLanguage = normalizeLanguage(
-      (book as { original_language?: string | null; language?: string | null }).original_language ??
-        book.language
-    );
+    const fallbackLanguage =
+      normalizeLanguageOrNull(
+        (book as { original_language?: string | null; language?: string | null }).original_language ??
+          book.language
+      ) ?? "und";
     const { data: createdVersion, error: createVersionError } = await supabase
       .from("book_versions")
       .insert({ book_id: book.id, language_code: fallbackLanguage, status: "draft" })
