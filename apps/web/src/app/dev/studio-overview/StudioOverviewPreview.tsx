@@ -139,7 +139,7 @@ export default function StudioOverviewPreview() {
       <AuthorAppShell>
         {view === "analytics" ? <AnalyticsWorkspace key={scenario} books={books} />
           : view === "library" ? <LibraryWorkspace key={scenario} books={books} />
-          : <HomeWorkspace stats={{ sales: 0, salesCurrency: "SEK", readers: 0, subscribers: 0, comments: 0, reviews: 0 }} books={books.map((book) => ({ id: book.id, title: book.title, status: book.status, readers: 0, updatedAt: book.updatedAt!, coverUrl: book.coverImageUrl }))} activity={[]} countrySales={[]} />}
+          : <HomeWorkspace greeting="Great to see you, Svea. Let’s get going!" stats={{ sales: 0, salesCurrency: "SEK", readers: 0, subscribers: 0, comments: 0, reviews: 0 }} books={books.map((book) => ({ id: book.id, title: book.title, status: book.status, readers: 0, updatedAt: book.updatedAt!, coverUrl: book.coverImageUrl }))} activity={[]} countrySales={[]} />}
       </AuthorAppShell>
     </NextIntlClientProvider> : <p role="status" className="p-6 text-sm text-muted-foreground">Preparing local studio…</p>}
   </>;
