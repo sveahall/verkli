@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToastHelpers } from "@/components/ui/toast";
 import { normalizeLanguageOrNull } from "@/lib/languages";
 import type { Book, BookVersion, Chapter } from "../BookEditorView.types";
-import { drainPendingSaves, type PersistChapter } from "./useChapterCrud.autosave";
+import { drainPendingSaves, mergeServerChapters, type PersistChapter } from "./useChapterCrud.autosave";
 import { assertReviewCanApply, persistReviewedChapterContent, persistAutosavedChapterContent } from "./useChapterCrud.review";
 
 interface UseChapterCrudOptions {
@@ -70,6 +70,23 @@ export function useChapterCrud({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [deletingChapterId, setDeletingChapterId] = useState<string | null>(null);
+
+  const adoptServerChapters = useCallback((incoming: Chapter[]) => {
+    const protectedIds = new Set<string>([
+      ...dirtyRevisionsRef.current.keys(),
+      ...pendingSavesRef.current.keys(),
+      ...inFlightSavesRef.current.keys(),
+      ...conflictIdsRef.current,
+    ]);
+    setChapters((current) => {
+      const merged = mergeServerChapters(current, incoming, protectedIds);
+      for (const id of merged.adoptedIds) {
+        const chapter = merged.chapters.find((item) => item.id === id);
+        if (chapter) expectedContentRef.current.set(id, chapter.content);
+      }
+      return merged.chapters;
+    });
+  }, [setChapters]);
 
   const markChapterDirty = useCallback((chapterId: string | null) => {
     if (!chapterId) return;
@@ -489,6 +506,7 @@ export function useChapterCrud({
     setTempTitle,
     lastSaved,
     hasUnsavedChanges,
+    adoptServerChapters,
     markChapterDirty,
     isApplyingReview,
     hasSaveConflict,

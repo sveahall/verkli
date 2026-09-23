@@ -77,7 +77,13 @@ function planEdit(state: EditorState, edit: TextEdit):
   }
 
   // Ignore the user's current typing marks: this change belongs to the target.
-  const marks = (from === target.to ? position.nodeBefore : position.nodeAfter)?.marks ?? [];
+  const adjacent = (from === target.to ? position.nodeBefore : position.nodeAfter)?.marks ?? [];
+  // Except a link. Inheriting emphasis onto inserted text matches what an
+  // author expects — "Johan" in bold becoming "unge Johan" in bold. A link is
+  // different: its href belongs to the words that were linked, so extending
+  // "Ulysses" to "Ulysses and Dubliners" would quietly point a second title at
+  // the first one's URL. Purely added characters do not inherit it.
+  const marks = from === to ? adjacent.filter((mark) => mark.type.name !== "link") : adjacent;
   return { from, to, text, marks };
 }
 

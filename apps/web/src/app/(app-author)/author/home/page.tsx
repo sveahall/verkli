@@ -10,6 +10,7 @@ import {
   type CurrencyTotals,
 } from "@/lib/author/stats-scope";
 import HomeWorkspace from "@/features/author-workspaces/home/HomeWorkspace";
+import { firstNameOf, pickGreeting } from "@/features/ai-team/briefing";
 import type {
   DashboardStats,
   DashboardBook,
@@ -31,6 +32,10 @@ function Sprint0DemoBadge() {
   );
 }
 
+function hourSeed() {
+  return Math.floor(Date.now() / 3_600_000);
+}
+
 export default async function AuthorHomePage() {
   const supabase = await createClient();
   const {
@@ -40,6 +45,15 @@ export default async function AuthorHomePage() {
   if (!user) {
     redirect("/author/signin");
   }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const metadataName = typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name : null;
+  // Rotates hourly; seeded here rather than on the client so hydration agrees.
+  const greeting = pickGreeting(firstNameOf(profile?.display_name ?? metadataName), hourSeed());
 
   // ── Fetch author's books (needed for bookIds in subsequent queries) ──
   const { data: bookRows } = await supabase
@@ -96,7 +110,7 @@ export default async function AuthorHomePage() {
     return (
       <>
         <Sprint0DemoBadge />
-        <HomeWorkspace stats={stats} books={[]} activity={[]} countrySales={[]} />
+        <HomeWorkspace greeting={greeting} stats={stats} books={[]} activity={[]} countrySales={[]} />
       </>
     );
   }
@@ -318,7 +332,7 @@ export default async function AuthorHomePage() {
   return (
     <>
       <Sprint0DemoBadge />
-      <HomeWorkspace stats={stats} books={dashboardBooks} activity={activity} countrySales={countrySales} />
+      <HomeWorkspace greeting={greeting} stats={stats} books={dashboardBooks} activity={activity} countrySales={countrySales} />
     </>
   );
 }

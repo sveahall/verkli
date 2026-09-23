@@ -37,6 +37,13 @@ export type RegisteredMatch = {
 export class MatchRegistry {
   private counter = 0;
   private readonly entries = new Map<string, RegisteredMatch>();
+  /**
+   * Set when a search hit the cap. Carried structurally rather than left to the
+   * model to mention: a plan built from a truncated search covers part of the
+   * book, and an author reading "47 changes" has no way to tell that from all
+   * of them.
+   */
+  truncated = false;
 
   add(entry: Omit<RegisteredMatch, "id">): RegisteredMatch {
     const id = `m${++this.counter}`;
@@ -130,6 +137,8 @@ export function searchBook(book: AgentBook, registry: MatchRegistry, input: Tool
     }
     if (total >= MAX_MATCHES_PER_SEARCH) break;
   }
+
+  if (total >= MAX_MATCHES_PER_SEARCH) registry.truncated = true;
 
   return JSON.stringify({
     query: input.query,

@@ -39,6 +39,8 @@ export const planStepSchema = z.discriminatedUnion("tool", [
   z.object({
     id: z.string(), tool: z.literal("replace_in_book"), reason: z.string(),
     replacement: z.string(), matches: z.array(plannedMatchSchema).min(1),
+    /** The search this was built from hit its cap, so the book holds more. */
+    searchTruncated: z.boolean().optional(),
   }),
   z.object({
     id: z.string(), tool: z.literal("rewrite_passage"), reason: z.string(),
@@ -55,6 +57,15 @@ export const planStepSchema = z.discriminatedUnion("tool", [
       background: z.string().optional(), textColor: z.string().optional(),
       printTitle: z.boolean().optional(), reserveBarcode: z.boolean().optional(),
     }),
+  }),
+  z.object({
+    id: z.string(), tool: z.literal("set_book_description"), reason: z.string(),
+    description: z.string(),
+  }),
+  z.object({
+    id: z.string(), tool: z.literal("add_front_matter_section"), reason: z.string(),
+    kind: z.enum(["dedication", "foreword", "preface", "acknowledgements", "afterword", "bibliography", "about-author", "custom"]),
+    title: z.string(), body: z.string(),
   }),
   z.object({
     id: z.string(), tool: z.literal("generate_cover_image"), reason: z.string(),
@@ -75,6 +86,13 @@ export class PlanRejection extends Error {}
 export class PlanBuilder {
   private readonly steps: PlanStep[] = [];
   private replacements = 0;
+  /**
+   * Across the whole plan, not one call. Scoped per call, two steps could name
+   * the same match: the card keys its checkboxes by matchId, so both rows moved
+   * together and the author could not keep one and drop the other — and which
+   * replacement actually landed was decided by step order.
+   */
+  private readonly claimed = new Set<string>();
 
   constructor(private readonly book: AgentBook, private readonly registry: MatchRegistry) {}
 
@@ -109,6 +127,16 @@ export class PlanBuilder {
         this.steps.push({ id, tool, reason, fields });
         return JSON.stringify({ recorded: true, stepId: id, awaitingApproval: true });
       }
+      case "set_book_description": {
+        const input = toolInputSchemas.set_book_description.parse(rawInput);
+        this.steps.push({ id, tool, reason: input.reason, description: input.description });
+        return JSON.stringify({ recorded: true, stepId: id, awaitingApproval: true });
+      }
+      case "add_front_matter_section": {
+        const input = toolInputSchemas.add_front_matter_section.parse(rawInput);
+        this.steps.push({ id, tool, reason: input.reason, kind: input.kind, title: input.title, body: input.body });
+        return JSON.stringify({ recorded: true, stepId: id, awaitingApproval: true });
+      }
       case "generate_cover_image": {
         const input = toolInputSchemas.generate_cover_image.parse(rawInput);
         this.steps.push({ id, tool, reason: input.reason, prompt: input.prompt, style: input.style });
@@ -141,14 +169,13 @@ export class PlanBuilder {
       };
     };
 
-    const seen = new Set<string>();
     const matches: PlannedMatch[] = [];
     for (const [ids, preselected] of [[input.matchIds, true], [input.optionalMatchIds ?? [], false]] as const) {
       for (const matchId of ids) {
         // The same match offered twice would be applied twice, at positions
         // that no longer mean what they did after the first pass.
-        if (seen.has(matchId)) throw new PlanRejection(`${matchId} appears more than once. List every match exactly once.`);
-        seen.add(matchId);
+        if (this.claimed.has(matchId)) throw new PlanRejection(`${matchId} is already part of this plan. Each match belongs to one change.`);
+        this.claimed.add(matchId);
         matches.push(resolve(matchId, preselected));
       }
     }
@@ -158,7 +185,10 @@ export class PlanBuilder {
       throw new PlanRejection(`A single plan may change at most ${MAX_REPLACEMENTS_PER_RUN} passages. Narrow the search.`);
     }
 
-    this.steps.push({ id, tool: "replace_in_book", reason: input.reason, replacement: input.replacement, matches });
+    this.steps.push({
+      id, tool: "replace_in_book", reason: input.reason, replacement: input.replacement, matches,
+      ...(this.registry.truncated ? { searchTruncated: true } : {}),
+    });
     return JSON.stringify({
       recorded: true,
       stepId: id,
@@ -197,6 +227,7 @@ export function summarisePlan(plan: Plan): {
   steps: number;
   replacements: number;
   optional: number;
+  truncated: boolean;
   chapters: { chapterId: string; chapterTitle: string; count: number }[];
 } {
   const chapters = new Map<string, { chapterId: string; chapterTitle: string; count: number }>();
@@ -222,5 +253,11 @@ export function summarisePlan(plan: Plan): {
     }
   }
 
-  return { steps: plan.steps.length, replacements, optional, chapters: [...chapters.values()] };
+  return {
+    steps: plan.steps.length,
+    replacements,
+    optional,
+    truncated: plan.steps.some((step) => step.tool === "replace_in_book" && step.searchTruncated === true),
+    chapters: [...chapters.values()],
+  };
 }
