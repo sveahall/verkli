@@ -7,6 +7,8 @@
  * Requires env: NVIDIA_NIM_API_KEY
  */
 
+import { recordUsage } from "@/lib/usage/meter";
+import type { MeterContext } from "@/lib/usage/types";
 import type { TranslatorProvider, TranslateOptions, TranslateResult } from "./types";
 import { AIProviderError } from "./types";
 
@@ -57,6 +59,8 @@ async function translateSingle(
   sourceLanguage: string,
   targetLanguage: string,
   apiKey: string,
+
+  meter?: MeterContext,
 ): Promise<string> {
   const sourceName = getLanguageName(sourceLanguage);
   const targetName = getLanguageName(targetLanguage);
@@ -107,7 +111,18 @@ async function translateSingle(
 
     const data = (await res.json()) as {
       choices?: Array<{ message?: { content?: string } }>;
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
     };
+
+    // NIM speaks the OpenAI wire format: prompt/completion, not input/output.
+    // Recorded before the empty-reply guard below — the tokens were bought
+    // whether or not the reply turned out usable.
+    await recordUsage(meter, [
+      { kind: "ai_call", provider: "nvidia-nim", model: MODEL_ID,
+        quantity: data.usage?.prompt_tokens ?? 0, unit: "input_tokens" },
+      { kind: "ai_call", provider: "nvidia-nim", model: MODEL_ID,
+        quantity: data.usage?.completion_tokens ?? 0, unit: "output_tokens" },
+    ]);
     const translated = data?.choices?.[0]?.message?.content?.trim();
     if (!translated) {
       throw new AIProviderError("Empty response from NVIDIA NIM API", "MODEL_ERROR", "nvidia-riva");
@@ -134,7 +149,7 @@ export class NvidiaRivaTranslator implements TranslatorProvider {
   async translate(options: TranslateOptions): Promise<TranslateResult> {
     const { text, sourceLanguage, targetLanguage } = options;
     const apiKey = getApiKey();
-    const translatedText = await translateSingle(text, sourceLanguage, targetLanguage, apiKey);
+    const translatedText = await translateSingle(text, sourceLanguage, targetLanguage, apiKey, options.meter);
     return { translatedText };
   }
 
@@ -146,6 +161,7 @@ export class NvidiaRivaTranslator implements TranslatorProvider {
     texts: string[],
     sourceLanguage: string,
     targetLanguage: string,
+    meter?: MeterContext,
   ): Promise<string[]> {
     if (texts.length === 0) return [];
     const apiKey = getApiKey();
@@ -162,7 +178,7 @@ export class NvidiaRivaTranslator implements TranslatorProvider {
           results[index] = text;
           continue;
         }
-        results[index] = await translateSingle(text, sourceLanguage, targetLanguage, apiKey);
+        results[index] = await translateSingle(text, sourceLanguage, targetLanguage, apiKey, meter);
       }
     };
 

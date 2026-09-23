@@ -168,8 +168,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await persistRun();
     modelStarted = true;
     const onUsage = async (usage: NonNullable<typeof receipt.usage>) => { receipt.usage = usage; await persistRun(); };
-    if (synthesis) run.report = await generateBookAnalysisReport(current.chapters, run.notes, onUsage);
-    else { run.notes.push(...await generateBookAnalysisNotes(parts[step], onUsage)); run.completedParts += 1; }
+    // The receipt above is the budget ledger; this is the cost record. Whole-book
+    // analysis reads every chapter, so it is the largest single spend here.
+    const meter = { userId, pipeline: "editorial" as const, bookId: id };
+    if (synthesis) run.report = await generateBookAnalysisReport(current.chapters, run.notes, onUsage, meter);
+    else { run.notes.push(...await generateBookAnalysisNotes(parts[step], onUsage, meter)); run.completedParts += 1; }
     const latest = await manuscript(db, id, body.versionId, userId);
     if (latest.fingerprint !== current.fingerprint) throw new AnalysisError("The manuscript changed during analysis. Start again to review the current text.", 409);
     // A rejected transport may follow a committed write and a subsequent claim.

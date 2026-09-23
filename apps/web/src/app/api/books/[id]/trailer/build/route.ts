@@ -205,6 +205,7 @@ export async function POST(
           imageUrl: safeCoverImageUrl,
           durationSeconds: SCENE_DURATION_SECONDS,
           includeAudio,
+          meter: { userId: user.id, pipeline: "video", bookId },
         })
       )
     );
