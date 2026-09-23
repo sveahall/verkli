@@ -53,3 +53,24 @@ describe("brokenProviders", () => {
     expect(out).toEqual([]);
   });
 });
+
+describe("the ElevenLabs quota probe", () => {
+  it("treats a scoped key as a FAILURE, unlike every other probe", () => {
+    // Synthesis works with a TTS-only key, so every other check passes while
+    // `getRemainingCredits` cannot read the balance and checkout refuses every
+    // audiobook purchase on an unverifiable quota. Production ran exactly like
+    // that on 2026-09-23: elevenlabs "ok (scoped)", elevenlabs-quota broken.
+    const out = brokenProviders([
+      p({ provider: "elevenlabs", ok: true, scoped: true, status: 401, detail: "key valid but scoped" }),
+      p({ provider: "elevenlabs-quota", ok: false, status: 401,
+          detail: "key lacks `user_read` — every audiobook purchase will be refused on an unverifiable quota" }),
+    ]);
+    expect(out.map((x) => x.provider)).toEqual(["elevenlabs-quota"]);
+  });
+
+  it("is quiet once the key can read the balance", () => {
+    expect(
+      brokenProviders([p({ provider: "elevenlabs-quota", ok: true, status: 200, detail: "balance readable" })])
+    ).toEqual([]);
+  });
+});
