@@ -6,7 +6,7 @@ import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { isAiChatEnabled } from "@/lib/flags";
 import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
-import { BudgetConfigurationError, BudgetExceededError, checkBudget, releaseBudget } from "@/lib/workers/budget";
+import { BudgetConfigurationError, BudgetExceededError, checkBudget } from "@/lib/workers/budget";
 import { estimateAgentRunUnits, reconcileAgentRunUnits } from "@/lib/ai/agent-runtime/budget";
 import { randomUUID } from "node:crypto";
 import { assistantToolSchema } from "@/lib/ai/agent-actions";
@@ -253,9 +253,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       console.error("[agent.run] budget is not configured", { message: error.message });
       return apiError(E_GENERIC_ERROR, 503);
     }
-    // A model call that failed can still have been billed, so a reservation is
-    // released only when nothing reached the model at all.
-    if (reserved && !modelStarted) await releaseBudget({ pipeline: "agent", jobId: budgetJobId });
+    // No release, deliberately. The only thing that can fail between reserving
+    // and calling the model is reserveTurn, and that runs only for persisted
+    // conversations — exactly the ones whose budget key is shared with any
+    // duplicate request. Releasing there refunded a run that was at that moment
+    // calling the model, and repeating it walked straight past the daily
+    // allowance. Keeping an unspent reservation over-charges by one run and the
+    // key expires at midnight UTC; the other direction has no floor.
     // Only for genuine memory errors: memoryErrorResponse turns anything it is
     // handed into a 503 about saved conversations, which would mislabel every
     // other failure below it.

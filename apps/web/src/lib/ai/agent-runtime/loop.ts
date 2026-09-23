@@ -59,7 +59,7 @@ export type AgentRunResult = {
   summary: string;
   plan: Plan;
   turns: number;
-  stoppedBecause: "finished" | "turn_limit" | "token_ceiling";
+  stoppedBecause: "finished" | "turn_limit" | "token_ceiling" | "output_truncated";
   usage: { inputTokens: number; outputTokens: number };
 };
 
@@ -166,7 +166,10 @@ export async function runAgent(input: {
         (block): block is Anthropic.ToolUseBlock => block.type === "tool_use",
       );
       if (response.stop_reason !== "tool_use" || !calls.length) {
-        stoppedBecause = "finished";
+        // A reply cut off at max_tokens is not a finished one. Counting it as
+        // finished returned a partial plan and half a sentence with nothing to
+        // say so, and suppressed the card's incomplete-plan warning.
+        stoppedBecause = response.stop_reason === "max_tokens" ? "output_truncated" : "finished";
         break;
       }
 
