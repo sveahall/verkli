@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { CREDIT_PACKS } from "@/lib/billing/credit-packs";
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -7,6 +8,19 @@ const mocks = vi.hoisted(() => ({
   createCreditTopUpCheckoutSession: vi.fn(),
   getStripeCheckoutSession: vi.fn(),
 }));
+
+// The route 404s while the shipped pack prices are unconfirmed. Keep the real
+// packs (the assertions below compare against them) and flip only the flag, so
+// the behavioural tests exercise the route as it will run once pricing lands.
+//
+// This mock would hide the gate from every test in this file, so the gate has
+// its own file where the module is untouched: ./route.pricing-gate.test.ts.
+// Verified to fail when the `if (!CREDIT_PRICING_CONFIRMED)` block is deleted.
+vi.mock("@/lib/billing/credit-packs", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/billing/credit-packs")>();
+  return { ...actual, CREDIT_PRICING_CONFIRMED: true };
+});
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.createAdminClient }));
@@ -84,7 +98,7 @@ describe("POST /api/credits/checkout", () => {
 
   it("returns 401 when not authenticated", async () => {
     mockNoUser();
-    const res = await POST(makeReq({ amountMinor: 5000, creditsDelta: 100 }));
+    const res = await POST(makeReq({ packId: "medium" }));
     expect(res.status).toBe(401);
   });
 
@@ -94,22 +108,20 @@ describe("POST /api/credits/checkout", () => {
       ok: false,
       response: new Response(JSON.stringify({ error: "PRO_REQUIRED" }), { status: 403 }),
     });
-    const res = await POST(makeReq({ amountMinor: 5000, creditsDelta: 100 }));
+    const res = await POST(makeReq({ packId: "medium" }));
     expect(res.status).toBe(403);
   });
 
-  it("returns 400 when amountMinor is zero", async () => {
+  // amountMinor and creditsDelta no longer exist in the request body — the two
+  // tests that used to live here validated client-supplied values, which was
+  // the vulnerability. A body carrying only those fields must now 400 for the
+  // missing packId, not succeed on them.
+  it("returns 400 when no packId is given", async () => {
     mockUser();
     mocks.requireProBillingForApi.mockResolvedValue({ ok: true });
-    const res = await POST(makeReq({ amountMinor: 0, creditsDelta: 100 }));
+    const res = await POST(makeReq({ amountMinor: 5000, creditsDelta: 100 }));
     expect(res.status).toBe(400);
-  });
-
-  it("returns 400 when creditsDelta is zero", async () => {
-    mockUser();
-    mocks.requireProBillingForApi.mockResolvedValue({ ok: true });
-    const res = await POST(makeReq({ amountMinor: 5000, creditsDelta: 0 }));
-    expect(res.status).toBe(400);
+    expect(mocks.createCreditTopUpCheckoutSession).not.toHaveBeenCalled();
   });
 
   it("returns checkout URL on success", async () => {
@@ -121,7 +133,7 @@ describe("POST /api/credits/checkout", () => {
       url: "https://checkout.stripe.com/cs_test_123",
     });
 
-    const res = await POST(makeReq({ amountMinor: 5000, creditsDelta: 100 }));
+    const res = await POST(makeReq({ packId: "medium" }));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.url).toContain("stripe.com");
@@ -134,9 +146,52 @@ describe("POST /api/credits/checkout", () => {
     mockAdminInsertSuccess("topup-2");
     mocks.createCreditTopUpCheckoutSession.mockRejectedValue(new Error("stripe down"));
 
-    const res = await POST(makeReq({ amountMinor: 5000, creditsDelta: 100 }));
+    const res = await POST(makeReq({ packId: "medium" }));
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.error).toBe("CHECKOUT_SESSION_FAILED");
+  });
+
+  // The route used to take amountMinor AND creditsDelta from the body with only
+  // a > 0 check, so 3 SEK could buy a hundred million credits. These two lock
+  // the server-owned pricing in place.
+  it("rejects an unknown packId instead of falling back to a client price", async () => {
+    mockUser();
+    mocks.requireProBillingForApi.mockResolvedValue({ ok: true });
+
+    for (const packId of ["enormous", "", null, 42, { id: "medium" }, "constructor"]) {
+      const res = await POST(makeReq({ packId }));
+      expect(res.status).toBe(400);
+    }
+    expect(mocks.createCreditTopUpCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it("charges the pack's price and credits, ignoring anything the client sends", async () => {
+    mockUser();
+    mocks.requireProBillingForApi.mockResolvedValue({ ok: true });
+    mockAdminInsertSuccess("topup-3");
+    mocks.createCreditTopUpCheckoutSession.mockResolvedValue({
+      id: "cs_test_789",
+      url: "https://checkout.stripe.com/cs_test_789",
+    });
+
+    // A caller trying the old exploit: pay 3 SEK, ask for 100 million credits.
+    await POST(
+      makeReq({
+        packId: "small",
+        amountMinor: 300,
+        creditsDelta: 100_000_000,
+        credits: 100_000_000,
+        currency: "XXX",
+      })
+    );
+
+    expect(mocks.createCreditTopUpCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amountMinor: CREDIT_PACKS.small.amountMinor,
+        creditsDelta: CREDIT_PACKS.small.credits,
+        currency: CREDIT_PACKS.small.currency,
+      })
+    );
   });
 });

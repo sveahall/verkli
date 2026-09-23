@@ -22,7 +22,7 @@ import {
 import { createNotification } from "@/lib/notifications/server";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 
-const commentLimiter = createPerUserRateLimiter({ maxPerMinute: 10 });
+const commentLimiter = createPerUserRateLimiter({ name: "books-comments", maxPerMinute: 10 });
 
 const paramsSchema = z.object({
   id: z.string().uuid("Invalid book ID"),
@@ -399,7 +399,7 @@ export async function POST(
         .maybeSingle();
 
       if (parentComment && parentComment.author_id !== user.id) {
-        await createNotification(supabase, {
+        await createNotification({
           userId: parentComment.author_id,
           type: "comment_reply",
           title: "Reply to your comment",

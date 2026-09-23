@@ -164,6 +164,7 @@ describe("GET /api/order/ta-for-er/download", () => {
     const res = await GET(makeRequest(`?session_id=${SESSION}&format=pdf`));
     expect(res.status).toBe(302);
     expect(mocks.getStripeCheckoutSession).toHaveBeenCalledWith(SESSION, { expandPayment: true });
+    expect(mocks.createSignedUrl).toHaveBeenCalledWith(expect.any(String), 15 * 60, { download: true });
   });
 
   it("shows a support path instead of dead download buttons after a refund", async () => {

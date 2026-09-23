@@ -15,19 +15,20 @@ import {
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { getRequestBaseUrl } from "@/lib/request-url";
+import { getCreditPack, CREDIT_PRICING_CONFIRMED } from "@/lib/billing/credit-packs";
 
-const checkoutLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const checkoutLimiter = createPerUserRateLimiter({ name: "credits-checkout", maxPerMinute: 5 });
 
 export const runtime = "nodejs";
 
-
-function toPositiveInt(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.max(0, Math.trunc(value))
-    : 0;
-}
-
 export async function POST(request: Request) {
+  // Placeholder prices must not be able to charge anyone. While the figures in
+  // credit-packs.ts are unconfirmed the route does not exist, mirroring how
+  // donations/checkout hides itself behind isDonationsEnabled().
+  if (!CREDIT_PRICING_CONFIRMED) {
+    return new NextResponse("Not Found", { status: 404 });
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -54,23 +55,17 @@ export async function POST(request: Request) {
     return apiError(E_INVALID_REQUEST_BODY, 400);
   }
 
-  const payload = (body ?? {}) as {
-    amountMinor?: unknown;
-    creditsDelta?: unknown;
-    credits?: unknown;
-    currency?: unknown;
-  };
+  // The ONLY thing the client chooses is which pack. Price, credit count and
+  // currency are resolved server-side — see lib/billing/credit-packs.ts for why
+  // reading `creditsDelta` from the body was a vulnerability, not a shortcut.
+  const payload = (body ?? {}) as { packId?: unknown };
 
-  const amountMinor = toPositiveInt(payload.amountMinor);
-  const creditsDelta = toPositiveInt(payload.creditsDelta ?? payload.credits);
-  const currency =
-    typeof payload.currency === "string" && payload.currency.trim()
-      ? payload.currency.trim().toUpperCase()
-      : "SEK";
-
-  if (amountMinor <= 0 || creditsDelta <= 0) {
+  const pack = getCreditPack(payload.packId);
+  if (!pack) {
     return apiError(E_INVALID_REQUEST_BODY, 400);
   }
+
+  const { amountMinor, credits: creditsDelta, currency } = pack;
 
   const admin = createAdminClient();
 

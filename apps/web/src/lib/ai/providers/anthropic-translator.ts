@@ -77,7 +77,9 @@ function getClient(): Anthropic {
       "anthropic"
     );
   }
-  return new Anthropic({ apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: 2 });
+  // The translation worker already retries the batch. The SDK's own retries
+  // would bill the same chunk again inside that attempt.
+  return new Anthropic({ apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
 }
 
 function buildSystemPrompt(sourceLanguage: string, targetLanguage: string): string {

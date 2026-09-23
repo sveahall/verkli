@@ -11,4 +11,24 @@ COPY apps/web apps/web
 COPY packages/db packages/db
 COPY packages/shared packages/shared
 WORKDIR /app/apps/web
-CMD ["npx", "tsx", "scripts/social-publish-worker.ts"]
+
+# Drop root. These workers parse attacker-supplied content as their whole job —
+# EPUB uploads through epub/adm-zip in import-worker, and ffmpeg over generated
+# media — while holding SUPABASE_SERVICE_ROLE_KEY in their environment. As root
+# any RCE in that chain is a writable, RLS-bypassing foothold; as uid 1001 it is
+# a crashed process. Mirrors infra/docker/Dockerfile.workers.
+#
+# This file is what Railway actually builds (RAILWAY_DOCKERFILE_PATH is set per
+# service and is invisible to grep); docker-compose.workers.yml only ever builds
+# Dockerfile.workers, which is why the hardening landed there first and missed
+# every deployed image.
+RUN addgroup -g 1001 -S nodejs && adduser -S worker -u 1001 -G nodejs \
+  && chown -R worker:nodejs /app
+
+USER worker
+
+# Direct path rather than `npx`: tsx hoists to the workspace root, so it lives at
+# /app/node_modules/.bin/tsx even though WORKDIR is /app/apps/web. Calling it
+# absolutely skips the npm process entirely, and `exec` makes tsx PID 1 so
+# Railway's SIGTERM reaches the BullMQ worker instead of stopping at the shell.
+CMD ["sh", "-c", "exec /app/node_modules/.bin/tsx scripts/social-publish-worker.ts"]

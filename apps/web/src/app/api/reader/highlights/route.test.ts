@@ -123,30 +123,19 @@ describe("POST /api/reader/highlights", () => {
     expect(res.status).toBe(400);
   });
 
-  it("creates highlight successfully", async () => {
+  it("returns 400 when the chapter is not visible", async () => {
     mockSupabaseWithUser();
-    mockFrom.mockReturnValue({
-      insert: () => ({
-        select: () => ({
-          maybeSingle: () =>
-            Promise.resolve({
-              data: {
-                id: "h-new",
-                chapter_id: VALID_UUID,
-                book_id: VALID_UUID_2,
-                book_version_id: VALID_UUID_3,
-                start_offset: 0,
-                end_offset: 10,
-                snippet: "Hello",
-                color: "yellow",
-                note: null,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-              error: null,
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "chapters") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
             }),
-        }),
-      }),
+          }),
+        };
+      }
+      throw new Error("insert should not run");
     });
     const req = new Request("http://localhost/api/reader/highlights", {
       method: "POST",
@@ -154,6 +143,67 @@ describe("POST /api/reader/highlights", () => {
       body: JSON.stringify({
         chapter_id: VALID_UUID,
         book_id: VALID_UUID_2,
+        book_version_id: VALID_UUID_3,
+        start_offset: 0,
+        end_offset: 10,
+        snippet: "Hello",
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  it("creates highlight successfully", async () => {
+    mockSupabaseWithUser();
+    const otherBook = "d3bbef22-2f3e-4b21-ae90-9ee2e0613d44";
+    let inserted: Record<string, unknown> | null = null;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "chapters") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: { book_id: VALID_UUID_2, book_version_id: VALID_UUID_3 },
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+      return {
+        insert: (row: Record<string, unknown>) => {
+          inserted = row;
+          return {
+            select: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: {
+                    id: "h-new",
+                    chapter_id: VALID_UUID,
+                    book_id: VALID_UUID_2,
+                    book_version_id: VALID_UUID_3,
+                    start_offset: 0,
+                    end_offset: 10,
+                    snippet: "Hello",
+                    color: "yellow",
+                    note: null,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                  },
+                  error: null,
+                }),
+            }),
+          };
+        },
+      };
+    });
+    const req = new Request("http://localhost/api/reader/highlights", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chapter_id: VALID_UUID,
+        book_id: otherBook,
         book_version_id: VALID_UUID_3,
         start_offset: 0,
         end_offset: 10,
@@ -166,20 +216,36 @@ describe("POST /api/reader/highlights", () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     expect(body.highlight.id).toBe("h-new");
+    expect(inserted?.book_id).toBe(VALID_UUID_2);
   });
 
   it("returns 409 on duplicate highlight", async () => {
     mockSupabaseWithUser();
-    mockFrom.mockReturnValue({
-      insert: () => ({
-        select: () => ({
-          maybeSingle: () =>
-            Promise.resolve({
-              data: null,
-              error: { code: "23505", message: "duplicate" },
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "chapters") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: { book_id: VALID_UUID_2, book_version_id: VALID_UUID_3 },
+                  error: null,
+                }),
             }),
+          }),
+        };
+      }
+      return {
+        insert: () => ({
+          select: () => ({
+            maybeSingle: () =>
+              Promise.resolve({
+                data: null,
+                error: { code: "23505", message: "duplicate" },
+              }),
+          }),
         }),
-      }),
+      };
     });
     const req = new Request("http://localhost/api/reader/highlights", {
       method: "POST",

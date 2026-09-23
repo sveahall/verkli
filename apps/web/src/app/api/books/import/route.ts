@@ -12,6 +12,7 @@ import {
   validateImportFile,
 } from "@/lib/imports/scoped-import";
 import { storeImportFile } from "@/lib/import-storage";
+import { IN_FLIGHT_IMPORT_STATUSES, selectInFlightImport } from "@/lib/imports/in-flight-import";
 import {
   apiError,
   isValidUuid,
@@ -125,6 +126,30 @@ export async function POST(request: Request) {
   // Legacy import flow (no explicit bookId): create import record and let worker create a new book.
   const buffer = Buffer.from(await file.arrayBuffer());
   const supabase = await createClient();
+  const { data: activeRows } = await supabase
+    .from("book_imports")
+    .select("id, status, updated_at")
+    .eq("author_id", user.id)
+    .eq("file_name", file.name)
+    .eq("mode", mode)
+    .is("book_id", null)
+    .in("status", [...IN_FLIGHT_IMPORT_STATUSES])
+    .order("updated_at", { ascending: false })
+    .limit(5);
+  const inFlight = selectInFlightImport(
+    (activeRows ?? []) as Array<{ id: string; status: string; updated_at: string }>,
+  );
+  if (inFlight) {
+    return NextResponse.json({
+      id: inFlight.id,
+      jobId: inFlight.id,
+      status: "pending",
+      progress: 0,
+      mode,
+      message: "Import already queued",
+    });
+  }
+
   const { data: importRow, error: insertError } = await supabase
     .from("book_imports")
     .insert({

@@ -11,7 +11,7 @@
     "isolatedModules": true,
     "resolveJsonModule": true,
     "outDir": "./dist",
-    "baseUrl": ".",
+    "rootDir": "../..",
     "paths": {
       "@/*": ["../web/src/*"]
     }

@@ -17,7 +17,7 @@ import {
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 
-const voteLimiter = createPerUserRateLimiter({ maxPerMinute: 10 });
+const voteLimiter = createPerUserRateLimiter({ name: "polls-vote", maxPerMinute: 10 });
 
 const paramsSchema = z.object({
   id: z.string().uuid("Invalid poll ID"),

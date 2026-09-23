@@ -41,6 +41,16 @@ const ALLOWED_EXACT = new Set([
   "sv",
 ]);
 
+// Sample book CONTENT that is multilingual on purpose — not interface copy.
+// The author landing page demonstrates translation by rendering the same
+// passage in four languages (English first), so gating it would mean deleting
+// the very feature it advertises. Add a path here ONLY when the foreign text
+// is book content the product itself renders. Never add a file to silence
+// hardcoded Swedish UI copy — catching that is the whole point of this gate.
+const CONTENT_EXEMPT_FILES = new Set([
+  "features/author/author-experience-data.ts",
+]);
+
 const SWEDISH_CHARS = /[ÅÄÖåäö]/;
 const SWEDISH_WORDS =
   /\b(?:författ\w*|ansök\w*|väntar|laddar|skicka\w*|öppna|böcker?|meddel\w*|nyhetsbrev|klubb\w*|abonnemang|inställ\w*|föregående|nästa|något|försök|logga(?:\s+ut)?|utforska|offentlig|privat|ägare|läsare|översätt\w*|språk|kapitel)\b/i;
@@ -51,6 +61,7 @@ function isCodeFile(filePath: string): boolean {
 
 function shouldSkipFile(filePath: string): boolean {
   return (
+    CONTENT_EXEMPT_FILES.has(path.relative(SRC_ROOT, filePath)) ||
     filePath.endsWith(".d.ts") ||
     filePath.includes(".test.") ||
     filePath.includes(".spec.") ||

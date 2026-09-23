@@ -422,27 +422,6 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       });
     }
 
-    if (overwrite) {
-      if (selectedChapterId) {
-        const { data: sourceChapterForDelete, error: sourceChapterForDeleteError } = await supabase
-          .from("chapters")
-          .select("order")
-          .eq("book_version_id", sourceVersionId)
-          .eq("id", selectedChapterId)
-          .maybeSingle();
-        if (sourceChapterForDeleteError || !sourceChapterForDelete) {
-          throw new Error(sourceChapterForDeleteError?.message ?? "Selected source chapter not found");
-        }
-        await supabase
-          .from("chapters")
-          .delete()
-          .eq("book_version_id", resolvedTargetVersionId)
-          .eq("order", sourceChapterForDelete.order);
-      } else {
-        await supabase.from("chapters").delete().eq("book_version_id", resolvedTargetVersionId);
-      }
-    }
-
     let chaptersQuery = supabase
       .from("chapters")
       .select("id, title, source_text, content, order")
@@ -514,6 +493,16 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       scope: selectedChapterId ? "chapter" : "book",
       provider: translationProvider,
     });
+
+    const pendingChapters: Array<{
+      book_id: string;
+      book_version_id: string;
+      title: string;
+      content: string;
+      source_text: string;
+      content_hash: string;
+      order: number;
+    }> = [];
 
     for (let i = 0; i < chapterList.length; i++) {
       const ch = chapterList[i];
@@ -615,27 +604,15 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
         }
       }
 
-      const hash = contentHash(translatedContent);
-      const { error: upsertError } = await supabase.from("chapters").upsert(
-        {
-          book_id: bookId,
-          book_version_id: resolvedTargetVersionId,
-          title: ch.title ?? `Chapter ${Number(ch.order ?? i) + 1}`,
-          content: translatedContent,
-          source_text: sourceContent,
-          content_hash: hash,
-          order: Number(ch.order ?? i),
-        },
-        { onConflict: "book_version_id,order" }
-      );
-      if (upsertError) {
-        structuredLog("chapter_upsert_failed", {
-          chapterId: ch.id,
-          error: upsertError.message,
-          details: upsertError.details,
-        });
-        throw new Error(`Failed to upsert translated chapter: ${upsertError.message}`);
-      }
+      pendingChapters.push({
+        book_id: bookId,
+        book_version_id: resolvedTargetVersionId,
+        title: ch.title ?? `Chapter ${Number(ch.order ?? i) + 1}`,
+        content: translatedContent,
+        source_text: sourceContent,
+        content_hash: contentHash(translatedContent),
+        order: Number(ch.order ?? i),
+      });
 
       if (!selectedChapterId) {
         translationProgress = Math.round(((i + 1) / chapterList.length) * 100);
@@ -653,6 +630,31 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
         sourceChars: sourceContent.length,
         translatedChars: translatedContent.length,
       });
+    }
+
+    const { error: upsertError } = await supabase
+      .from("chapters")
+      .upsert(pendingChapters, { onConflict: "book_version_id,order" });
+    if (upsertError) {
+      structuredLog("chapter_upsert_failed", {
+        error: upsertError.message,
+        details: upsertError.details,
+      });
+      throw new Error(`Failed to upsert translated chapters: ${upsertError.message}`);
+    }
+
+    if (overwrite && !selectedChapterId && pendingChapters.length > 0) {
+      const keptOrders = pendingChapters
+        .map((row) => row.order)
+        .filter((order) => Number.isFinite(order));
+      const { error: trimError } = await supabase
+        .from("chapters")
+        .delete()
+        .eq("book_version_id", resolvedTargetVersionId)
+        .not("order", "in", `(${keptOrders.join(",")})`);
+      if (trimError) {
+        throw new Error(`Failed to trim replaced translation chapters: ${trimError.message}`);
+      }
     }
 
     await supabase
