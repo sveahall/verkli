@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   getBookAsOwner: vi.fn(),
   assertPublicEnv: vi.fn(),
+  logAnalyticsEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/auth/require-author", () => ({
@@ -46,6 +47,9 @@ vi.mock("@/lib/rate-limit", () => ({
     _reset: () => {},
   }),
 }));
+
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({}) }));
+vi.mock("@/lib/analytics/events", () => ({ logAnalyticsEvent: mocks.logAnalyticsEvent }));
 
 const { POST } = await import("./route");
 
@@ -648,6 +652,21 @@ describe("POST /api/books/[id]/publish", () => {
     const res = await POST(makeRequest({ scope: "book" }), makeParams());
     expect(res.status).toBe(200);
     expect(db.versionUpdates[0]?.published_chapter_count).toBeNull();
+  });
+
+  it.each(["book", "chapter"])("correlates %s publication with its imported edition", async (scope) => {
+    mocks.getBookAsOwner.mockResolvedValue({ ok: true, data: {
+      id: BOOK_ID, title: "My Book", author_id: "author-1", status: "DRAFT",
+      original_language: "en", cover_image: "https://cdn.example.com/cover.jpg",
+    } });
+    buildSupabaseMock();
+    const res = await POST(makeRequest(scope === "chapter" ? { scope, chapterId: "ch-1" } : {}), makeParams());
+    expect(res.status).toBe(200);
+    expect(mocks.logAnalyticsEvent).toHaveBeenCalledWith(expect.anything(), {
+      eventType: "first_publish", userId: "author-1", bookId: BOOK_ID,
+      path: `/api/books/${BOOK_ID}/publish`,
+      props: { scope, bookVersionId: VERSION_ID },
+    });
   });
 
 });
