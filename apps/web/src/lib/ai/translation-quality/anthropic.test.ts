@@ -249,6 +249,21 @@ describe("Anthropic translation quality adapter", () => {
     }
   });
 
+  it("forwards cancellation to the OpenAI translation request", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "sk-openai");
+    const controller = new AbortController();
+    let providerCancelled = false;
+    const fetchMock = vi.fn().mockImplementation(async (_url, options) => {
+      controller.abort();
+      providerCancelled = options.signal.aborted;
+      throw new Error("Request cancelled");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(translateWithQuality({ ...input, profile, signal: controller.signal })).rejects.toMatchObject({ code: "CANCELLED" });
+    expect(providerCancelled).toBe(true);
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("asks OpenAI for the draft and leaves both reviews on Anthropic", async () => {
     vi.stubEnv("OPENAI_API_KEY", "sk-openai");
     const fetchMock = vi.fn().mockResolvedValue({

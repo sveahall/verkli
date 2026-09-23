@@ -59,6 +59,7 @@ describe("generateWritingAssistantReply", () => {
     callOpenAi.mockReset();
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.OPENAI_API_KEY;
+    delete process.env.AI_ADVICE_CRITIC_ENABLED;
     delete process.env.NVIDIA_NIM_API_KEY;
   });
 
@@ -361,7 +362,31 @@ describe("generateWritingAssistantReply", () => {
     });
   });
 
+  it("keeps the single-provider path unless the advice critic is explicitly enabled", async () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    process.env.OPENAI_API_KEY = "sk-openai-test";
+    callOpenAi.mockResolvedValue("Unexpected extra paid call.");
+    anthropicCreate.mockResolvedValue(anthropicReply("Keep the opening."));
+    expect(await generateWritingAssistantReply(INPUT)).toMatchObject({ provider: "anthropic", content: "Keep the opening." });
+    expect(callOpenAi).not.toHaveBeenCalled();
+    expect(anthropicCreate).toHaveBeenCalledOnce();
+  });
+
+  it("does not start another paid request after a critic draft failure or expose provider text", async () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    process.env.OPENAI_API_KEY = "sk-openai-test";
+    process.env.AI_ADVICE_CRITIC_ENABLED = "true";
+    callOpenAi.mockRejectedValue(new Error("PRIVATE_PROVIDER_TEXT"));
+    anthropicCreate.mockResolvedValue(anthropicReply("Unexpected fallback."));
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await expect(generateWritingAssistantReply(INPUT)).rejects.toMatchObject({ code: "PROVIDER_FAILED" });
+    expect(anthropicCreate).not.toHaveBeenCalled();
+    expect(callOpenAi).toHaveBeenCalledOnce();
+    expect(JSON.stringify(warning.mock.calls)).not.toContain("PRIVATE_PROVIDER_TEXT");
+  });
+
   it("drafts advice with OpenAI and keeps it when Anthropic finds nothing to fix", async () => {
+    process.env.AI_ADVICE_CRITIC_ENABLED = "true";
     process.env.ANTHROPIC_API_KEY = "sk-ant-test";
     process.env.OPENAI_API_KEY = "sk-openai-test";
     callOpenAi.mockResolvedValue("Cut the sky.");

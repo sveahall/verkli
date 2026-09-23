@@ -407,17 +407,16 @@ export async function generateWritingAssistantReply(
   const openAiKey = process.env.OPENAI_API_KEY?.trim();
   const nimKey = process.env.NVIDIA_NIM_API_KEY?.trim();
 
-  if (input.mode !== "actions" && anthropicKey && openAiKey) {
+  if (input.mode !== "actions" && process.env.AI_ADVICE_CRITIC_ENABLED === "true" && anthropicKey && openAiKey) {
     try {
       return await draftAdviceWithCritic({
         system: buildSystemPrompt(input),
         conversation: buildMessages(input).map((message) => `${message.role}: ${message.content}`).join("\n\n"),
         meter: input.meter,
       });
-    } catch (err) {
-      console.warn("[ai.writing-assistant] critic loop failed, answering with one model", {
-        message: err instanceof Error ? err.message : String(err),
-      });
+    } catch {
+      console.warn("[ai.writing-assistant] critic draft failed", { code: "PROVIDER_FAILED" });
+      throw new WritingAssistantError("The writing assistant could not complete your request. Please try again.", "PROVIDER_FAILED");
     }
   }
 
