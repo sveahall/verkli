@@ -49,3 +49,30 @@ test("ignores a late save response after changing chapter", async ({ page }) => 
   await page.getByRole("combobox", { name: "Demo chapter", exact: true }).selectOption("0");
   await expect(page.getByRole("article")).toHaveCount(1);
 });
+test("keeps retry identity when a replacement image fails to decode", async ({ page }) => {
+  await proposal(page, "Preserved proposal");
+  await page.getByRole("button", { name: "Save image candidate", exact: true }).click();
+  await expect(page.getByRole("article")).toHaveCount(1);
+  await page.getByLabel("Image file", { exact: true }).setInputFiles({ name: "broken.png", mimeType: "image/png", buffer: Buffer.from("broken image bytes") });
+  await expect(page.getByRole("alert").filter({ hasText: "could not be read" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Alternative text", exact: true })).toHaveValue("Preserved proposal");
+  await page.getByRole("button", { name: "Save image candidate", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved image candidate" })).toBeVisible();
+  await expect(page.getByRole("article")).toHaveCount(1);
+});
+test("reconciles a lost save response after a rejected replacement and newer chapter", async ({ page }) => {
+  await proposal(page, "Uncertain proposal");
+  await page.getByRole("button", { name: "Lose next save response", exact: true }).click();
+  await page.getByRole("button", { name: "Save image candidate", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "Could not confirm the save" })).toBeVisible();
+  await page.getByLabel("Image file", { exact: true }).setInputFiles({ name: "broken.png", mimeType: "image/png", buffer: Buffer.from("broken") });
+  await expect(page.getByRole("alert").filter({ hasText: "could not be read" })).toBeVisible();
+  await page.getByRole("button", { name: "Advance text version", exact: true }).click();
+  await page.getByRole("button", { name: "Reload candidates", exact: true }).click();
+  await expect(page.getByRole("article")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Use current text version", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Save image candidate", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved image candidate" })).toBeVisible();
+  await expect(page.getByRole("article")).toHaveCount(1);
+  await expect(page.getByRole("article").getByText("Based on older text", { exact: false })).toContainText("version 4");
+});

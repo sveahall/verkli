@@ -58,10 +58,12 @@ function CandidateSession({ adapter }: { adapter: CandidateAdapter }) {
   async function choose(file?: File) {
     if (!file || resources.current.save) return;
     const state = resources.current; state.read?.abort(); const token = ++state.token;
-    const controller = new AbortController(); state.read = controller; setReading(true); edited();
+    const controller = new AbortController(); state.read = controller; setReading(true); setError(""); setNotice("");
     try {
       const next = await loadLocalImage(file, controller.signal);
       if (!state.alive || token !== state.token) { next.dispose(); return; }
+      // A rejected replacement retains the previous file and its exact retry intent.
+      edited();
       state.image?.dispose(); state.image = next; setImage(next);
     } catch (cause) { if (state.alive && token === state.token) setError(cause instanceof Error ? cause.message : "Could not read this image."); }
     finally { if (state.alive && token === state.token) setReading(false); }
