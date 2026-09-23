@@ -4,6 +4,7 @@ import {
   E_INVALID_REQUEST_BODY,
   E_BOOK_NOT_FOUND,
   E_TRANSLATION_CHECKOUT_FAILED,
+  E_TRANSLATION_SERVICE_UNAVAILABLE,
 } from "@/lib/api-errors";
 
 const mocks = vi.hoisted(() => ({
@@ -203,6 +204,39 @@ describe("POST /api/books/[id]/translate/checkout", () => {
 
     expect(res.status).toBe(200);
     expect(body.url).toContain("stripe.com");
+  });
+
+  it("returns a retryable error without starting checkout when source text cannot be read", async () => {
+    mockAuthedUser();
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.createClient.mockResolvedValue({
+      from: (table: string) => {
+        const query = {
+          select: () => query,
+          eq: () => query,
+          is: () => query,
+          order: () => query,
+          maybeSingle: async () => ({ data: table === "books"
+            ? { id: VALID_UUID, author_id: "author-1", original_language: null, language: null }
+            : { id: "source-version", book_id: VALID_UUID, language_code: null }, error: null }),
+          limit: async () => ({ data: null, error: { message: "synthetic source read failed" } }),
+        };
+        return query;
+      },
+    });
+    try {
+      const res = await POST(makeRequest({ languages: ["fr"], sourceVersionId: "source-version" }), {
+        params: Promise.resolve({ id: VALID_UUID }),
+      });
+      expect(res.status).toBe(503);
+      expect(await res.json()).toMatchObject({ error: E_TRANSLATION_SERVICE_UNAVAILABLE });
+      expect(mocks.createTranslationCheckoutSession).not.toHaveBeenCalled();
+      expect(log).toHaveBeenCalledWith("[translate.checkout] source text lookup failed", {
+        bookId: VALID_UUID, userId: "author-1", message: "synthetic source read failed",
+      });
+    } finally {
+      log.mockRestore();
+    }
   });
 
   it("returns 500 when Stripe session creation fails", async () => {
