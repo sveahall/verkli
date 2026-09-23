@@ -153,6 +153,7 @@ async function openAiQualityCall(
       user: JSON.stringify(data),
       maxTokens,
       timeoutMs: REQUEST_TIMEOUT_MS,
+      signal,
       schema: { name: schemaName, schema },
       meter,
       onUsage: async (receipt) => {
