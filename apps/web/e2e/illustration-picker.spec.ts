@@ -1,0 +1,44 @@
+import { expect, test } from "@playwright/test";
+import sharp from "sharp";
+test.beforeEach(async ({ page }) => {
+  await page.goto("/dev/illustration-picker");
+  await expect(page.getByRole("heading", { name: "Illustration workspace", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Essential only", exact: true }).click();
+});
+test("opens the selected edition and chapter with no proposal leakage", async ({ page }, info) => {
+  await page.getByRole("list").getByRole("link", { name: "The harbour Choose an edition", exact: true }).click();
+  await page.getByRole("list").getByRole("link", { name: /^EN / }).click();
+  await page.getByRole("list").getByRole("link", { name: /^Across the water / }).click();
+  await expect(page.getByRole("heading", { name: "Across the water", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/edition=00000000-0000-4000-8000-000000000005&chapter=00000000-0000-4000-8000-000000000004/);
+  await page.getByLabel("Image file", { exact: true }).setInputFiles({ name: "sea.png", mimeType: "image/png", buffer: await sharp({ create: { width: 80, height: 60, channels: 3, background: "#345b67" } }).png().toBuffer() });
+  await page.getByRole("textbox", { name: "Alternative text", exact: true }).fill("A boat at sea");
+  await page.getByLabel("Style name", { exact: true }).fill("Sea"); await page.getByLabel("Medium", { exact: true }).fill("Ink"); await page.getByLabel("Palette", { exact: true }).fill("Navy");
+  await page.getByRole("button", { name: "Save image candidate", exact: true }).click();
+  await expect(page.getByRole("article")).toHaveCount(1);
+  await page.getByRole("link", { name: "Choose another chapter", exact: true }).click();
+  await page.getByRole("navigation", { name: "Illustration selection", exact: true }).getByRole("link", { name: "2. The harbour", exact: true }).click();
+  await page.getByRole("list").getByRole("link", { name: /^SV / }).click();
+  await page.getByRole("list").getByRole("link", { name: /^At the harbour / }).click();
+  await expect(page.getByRole("heading", { name: "At the harbour", exact: true })).toBeVisible();
+  await expect(page.getByRole("article")).toHaveCount(0); await expect(page.getByRole("textbox", { name: "Alternative text", exact: true })).toHaveValue("");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath("selected-chapter.png"), fullPage: true });
+});
+test("paginates and searches books and chapters with useful empty states", async ({ page }, info) => {
+  await expect(page.getByRole("list").getByRole("listitem")).toHaveCount(20);
+  await page.getByRole("link", { name: "Next page", exact: true }).click();
+  await expect(page.getByRole("list").getByRole("listitem")).toHaveCount(3);
+  await page.getByLabel("Search book titles", { exact: true }).fill("Empty notebook"); await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("list").getByRole("link", { name: /^Empty notebook / }).click();
+  await expect(page.getByText("This book has no editions yet.", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "1. Your books", exact: true }).click();
+  await page.getByRole("list").getByRole("link", { name: /^The harbour / }).click(); await page.getByRole("list").getByRole("link", { name: /^SV / }).click();
+  await page.getByRole("link", { name: "Next page", exact: true }).click(); await expect(page.getByRole("list").getByRole("listitem")).toHaveCount(3);
+  await page.getByLabel("Search chapter titles", { exact: true }).fill("missing-title"); await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("No matching titles. Try a different search.", { exact: true })).toBeVisible();
+  await page.getByLabel("Search chapter titles", { exact: true }).fill("Island chapter 22"); await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByRole("list").getByRole("listitem")).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath("picker-search.png"), fullPage: true });
+});
