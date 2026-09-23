@@ -1,3 +1,4 @@
+import { isAdDraftConfig } from "../src/lib/marketing/ad-draft";
 /**
  * BullMQ worker: process "marketing-generate" jobs for campaign content generation.
  * Run from apps/web: npm run marketing-worker (requires REDIS_URL, Supabase env)
@@ -50,6 +51,7 @@ type CampaignPlan = {
   start_date: string;
   duration_weeks: number;
   weekly_schedule: Record<string, string[]>;
+  paid_config: unknown;
 };
 
 type ModelCheckpoint = (scope: string | null) => Promise<void>;
@@ -72,7 +74,7 @@ async function processCampaignPlanJob(
     .from("marketing_campaign_plans")
     .select(
       `id, book_id, author_id, template, channels, languages, content_types,
-       start_date, duration_weeks, weekly_schedule`
+       start_date, duration_weeks, weekly_schedule, paid_config`
     )
     .eq("id", planId)
     .maybeSingle();
@@ -87,6 +89,10 @@ async function processCampaignPlanJob(
 
   if (plan.author_id !== payload.authorId) {
     throw new UnrecoverableError("Ownership mismatch on campaign plan");
+  }
+
+  if (isAdDraftConfig(plan.paid_config)) {
+    throw new UnrecoverableError("Ad drafts cannot be generated");
   }
 
   const { data: book, error: bookErr } = await supabase

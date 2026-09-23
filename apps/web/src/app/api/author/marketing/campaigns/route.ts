@@ -1,3 +1,4 @@
+import { AD_DRAFT_FILTER, isAdDraftConfig } from "@/lib/marketing/ad-draft";
 import { getMarketingQueueReadiness } from "@/lib/marketing/queue-readiness";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -58,6 +59,7 @@ export async function GET(request: Request) {
        books!marketing_campaign_plans_book_id_fkey(id, title, cover_image)`
     )
     .eq("author_id", gate.user.id)
+    .not("paid_config", "cs", AD_DRAFT_FILTER)
     .order("created_at", { ascending: false });
 
   if (bookId) query = query.eq("book_id", bookId);
@@ -142,6 +144,7 @@ export async function POST(request: Request) {
   }
 
   const input = parsed.data;
+  if (isAdDraftConfig(input.paidConfig)) return apiError("AD_DRAFT_NOT_RUNNABLE", 409);
   const supabase = await createClient();
 
   const { data: book, error: bookErr } = await supabase
