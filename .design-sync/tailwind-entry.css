@@ -1,0 +1,16 @@
+/* design-sync: Tailwind v4 compile entry.
+   globals.css is SOURCE (@import "tailwindcss"), not compiled output, so the
+   converter's cfg.cssEntry must point at the result of compiling this file.
+   Regenerate with .design-sync/build-css.sh before every converter build. */
+@import "../apps/web/src/app/globals.css";
+
+@source "../apps/web/src/components/ui/**/*.tsx";
+@source "./previews/**/*.tsx";
+
+/* The app sets --font-inter on <html> via next/font/google. Nothing sets it
+   outside a Next host, so define it here — otherwise every DS rule that reads
+   var(--font-inter) falls through to the generic sans stack. The Inter faces
+   themselves ship via cfg.extraFonts (.design-sync/fonts/inter.css). */
+:root {
+  --font-inter: "Inter";
+}

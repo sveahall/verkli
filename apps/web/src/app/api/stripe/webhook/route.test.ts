@@ -1,0 +1,848 @@
+import Stripe from "stripe";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { API_ROUTES } from "@/lib/api-routes";
+
+// Stripe webhook idempotency and billing projection tests.
+
+type BillingAccountRow = {
+  user_id: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  plan: string | null;
+  status: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  updated_at: string;
+  role?: "reader" | "author";
+};
+
+type OrderState = {
+  id: string;
+  user_id: string;
+  book_id: string;
+  status: "pending" | "paid" | "failed";
+  stripe_session_id: string;
+};
+
+type PaymentRecordState = {
+  id: string;
+  user_id: string;
+  status: "pending" | "paid" | "failed";
+  stripe_session_id: string;
+  credits_delta?: number;
+  credits_applied_at?: string | null;
+};
+
+const mocks = vi.hoisted(() => ({
+  createAdminClient: vi.fn(),
+  getBillingAccountByStripeCustomerId: vi.fn(),
+  getBillingAccountByStripeSubscriptionId: vi.fn(),
+  upsertBillingAccount: vi.fn(),
+  resolveRolePlanFromPriceIds: vi.fn(),
+  sendPurchaseReceipt: vi.fn(),
+}));
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: mocks.createAdminClient,
+}));
+
+// The claim runs for real against the stateful admin fake below — that is the
+// thing under test for receipt idempotency. Only delivery is stubbed.
+vi.mock("@/lib/payments/purchase-receipt", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/payments/purchase-receipt")>()),
+  sendPurchaseReceipt: mocks.sendPurchaseReceipt,
+}));
+
+vi.mock("@/lib/billing/server", () => ({
+  getBillingAccountByStripeCustomerId: mocks.getBillingAccountByStripeCustomerId,
+  getBillingAccountByStripeSubscriptionId: mocks.getBillingAccountByStripeSubscriptionId,
+  upsertBillingAccount: mocks.upsertBillingAccount,
+}));
+
+vi.mock("@/lib/billing/catalog", () => ({
+  resolveRolePlanFromPriceIds: mocks.resolveRolePlanFromPriceIds,
+}));
+
+const { POST } = await import("./route");
+
+const stripe = new Stripe("sk_test_local", { apiVersion: "2025-02-24.acacia" });
+
+function makeAdminClient(input?: {
+  order?: OrderState | null;
+  donation?: PaymentRecordState | null;
+  creditTopup?: PaymentRecordState | null;
+}) {
+  const state = {
+    order: input?.order ?? null,
+    donation: input?.donation ?? null,
+    creditTopup: input?.creditTopup ?? null,
+    seenEvents: new Set<string>(),
+    stripeEventInserts: [] as Record<string, unknown>[],
+    stripeEventRollbacks: [] as string[],
+    creditGrantKeys: new Set<string>(),
+    creditGrantCalls: [] as Record<string, unknown>[],
+    orderUpdates: [] as Array<{ id: string; payload: Record<string, unknown> }>,
+    orderClaims: [] as string[],
+    entitlementUpserts: [] as Record<string, unknown>[],
+    donationUpdates: [] as Array<{ id: string; payload: Record<string, unknown> }>,
+    creditTopupUpdates: [] as Array<{ id: string; payload: Record<string, unknown> }>,
+  };
+
+  const nowIso = () => new Date().toISOString();
+
+  const client = {
+    from: vi.fn((table: string) => {
+      if (table === "stripe_events") {
+        return {
+          insert: vi.fn(async (payload: Record<string, unknown>) => {
+            state.stripeEventInserts.push(payload);
+            const eventId = String(payload.stripe_event_id ?? "");
+            if (state.seenEvents.has(eventId)) {
+              return {
+                error: {
+                  code: "23505",
+                  message: "duplicate key value violates unique constraint",
+                },
+              };
+            }
+            state.seenEvents.add(eventId);
+            return { error: null };
+          }),
+          delete: vi.fn(() => ({
+            eq: vi.fn(async (column: string, value: string) => {
+              if (column !== "stripe_event_id") {
+                throw new Error(`Unexpected stripe_events.delete eq column: ${column}`);
+              }
+              state.stripeEventRollbacks.push(value);
+              state.seenEvents.delete(value);
+              return { error: null };
+            }),
+          })),
+        };
+      }
+
+      if (table === "orders") {
+        // Models the conditional UPDATE the receipt claim relies on: the status
+        // predicate is part of the write, so the second delivery of the same
+        // paid session matches zero rows.
+        return {
+          update: vi.fn((payload: Record<string, unknown>) => ({
+            eq: vi.fn((column: string, value: string) => {
+              if (column !== "stripe_session_id") {
+                throw new Error(`Unexpected orders.update eq column: ${column}`);
+              }
+              return {
+                in: vi.fn((statusColumn: string, statuses: string[]) => {
+                  if (statusColumn !== "status") {
+                    throw new Error(
+                      `Unexpected orders.update in column: ${statusColumn}`
+                    );
+                  }
+                  return {
+                    select: vi.fn(() => ({
+                      maybeSingle: vi.fn(async () => {
+                        const order = state.order;
+                        if (
+                          !order ||
+                          order.stripe_session_id !== value ||
+                          !statuses.includes(order.status)
+                        ) {
+                          return { data: null, error: null };
+                        }
+
+                        state.orderUpdates.push({ id: order.id, payload });
+                        state.orderClaims.push(order.id);
+                        state.order = { ...order, ...payload } as OrderState;
+
+                        return {
+                          data: {
+                            id: order.id,
+                            user_id: order.user_id,
+                            book_id: order.book_id,
+                            chapter_id: null,
+                            amount: 12900,
+                            currency: "SEK",
+                            created_at: nowIso(),
+                          },
+                          error: null,
+                        };
+                      }),
+                    })),
+                  };
+                }),
+              };
+            }),
+          })),
+        };
+      }
+
+      throw new Error(`Unexpected admin table ${table}`);
+    }),
+    rpc: vi.fn(async (fnName: string, args: { p_stripe_session_id?: string }) => {
+      const sessionId = String(args.p_stripe_session_id ?? "");
+
+      if (fnName === "finalize_order_checkout_session") {
+        if (!state.order || state.order.stripe_session_id !== sessionId) {
+          return { data: false, error: null };
+        }
+
+        if (state.order.status !== "paid") {
+          state.orderUpdates.push({
+            id: state.order.id,
+            payload: { status: "paid" },
+          });
+          state.order = { ...state.order, status: "paid" };
+        }
+
+        state.entitlementUpserts.push({
+          user_id: state.order.user_id,
+          book_id: state.order.book_id,
+          source: "purchase",
+        });
+
+        return { data: true, error: null };
+      }
+
+      if (fnName === "finalize_donation_checkout_session") {
+        if (!state.donation || state.donation.stripe_session_id !== sessionId) {
+          return { data: false, error: null };
+        }
+
+        state.donationUpdates.push({
+          id: state.donation.id,
+          payload: {
+            status: "paid",
+            paid_at: nowIso(),
+          },
+        });
+        state.donation = {
+          ...state.donation,
+          status: "paid",
+        };
+
+        const creditsDelta = Math.max(0, Math.trunc(state.donation.credits_delta ?? 0));
+        if (creditsDelta > 0 && !state.donation.credits_applied_at) {
+          const key = `donation:${state.donation.id}`;
+          if (!state.creditGrantKeys.has(key)) {
+            state.creditGrantKeys.add(key);
+            state.creditGrantCalls.push({
+              p_user_id: state.donation.user_id,
+              p_delta: creditsDelta,
+              p_source: "donation",
+              p_source_id: state.donation.id,
+            });
+          }
+
+          state.donation.credits_applied_at = nowIso();
+          state.donationUpdates.push({
+            id: state.donation.id,
+            payload: {
+              credits_applied_at: state.donation.credits_applied_at,
+            },
+          });
+        }
+
+        return { data: true, error: null };
+      }
+
+      if (fnName === "finalize_credit_topup_checkout_session") {
+        if (!state.creditTopup || state.creditTopup.stripe_session_id !== sessionId) {
+          return { data: false, error: null };
+        }
+
+        state.creditTopupUpdates.push({
+          id: state.creditTopup.id,
+          payload: {
+            status: "paid",
+            paid_at: nowIso(),
+          },
+        });
+        state.creditTopup = {
+          ...state.creditTopup,
+          status: "paid",
+        };
+
+        const creditsDelta = Math.max(0, Math.trunc(state.creditTopup.credits_delta ?? 0));
+        if (creditsDelta > 0 && !state.creditTopup.credits_applied_at) {
+          const key = `credit_topup:${state.creditTopup.id}`;
+          if (!state.creditGrantKeys.has(key)) {
+            state.creditGrantKeys.add(key);
+            state.creditGrantCalls.push({
+              p_user_id: state.creditTopup.user_id,
+              p_delta: creditsDelta,
+              p_source: "credit_topup",
+              p_source_id: state.creditTopup.id,
+            });
+          }
+
+          state.creditTopup.credits_applied_at = nowIso();
+          state.creditTopupUpdates.push({
+            id: state.creditTopup.id,
+            payload: {
+              credits_applied_at: state.creditTopup.credits_applied_at,
+            },
+          });
+        }
+
+        return { data: true, error: null };
+      }
+
+      throw new Error(`Unexpected rpc function ${fnName}`);
+    }),
+  };
+
+  return { client, state };
+}
+
+function makeSignedRequest(payload: Record<string, unknown>, secret: string): Request {
+  const body = JSON.stringify(payload);
+  const signature = stripe.webhooks.generateTestHeaderString({
+    payload: body,
+    secret,
+  });
+
+  return new Request(`http://localhost${API_ROUTES.stripeWebhook}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "stripe-signature": signature,
+    },
+    body,
+  });
+}
+
+describe(`POST ${API_ROUTES.stripeWebhook}`, () => {
+  const webhookSecret = "whsec_test_123";
+  const stripeSecret = "sk_test_123";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.STRIPE_WEBHOOK_SECRET = webhookSecret;
+    process.env.STRIPE_SECRET_KEY = stripeSecret;
+    process.env.PRICE_PLUS = "price_plus";
+    process.env.PRICE_PRO = "price_pro";
+
+    mocks.getBillingAccountByStripeCustomerId.mockResolvedValue({ row: null, error: null });
+    mocks.getBillingAccountByStripeSubscriptionId.mockResolvedValue({ row: null, error: null });
+    mocks.upsertBillingAccount.mockResolvedValue({ error: null });
+    mocks.resolveRolePlanFromPriceIds.mockResolvedValue(null);
+    mocks.sendPurchaseReceipt.mockResolvedValue(undefined);
+  });
+
+  it("is idempotent: duplicate stripe_event_id does not process event twice", async () => {
+    const admin = makeAdminClient({
+      order: {
+        id: "order-1",
+        user_id: "reader-1",
+        book_id: "book-1",
+        status: "pending",
+        stripe_session_id: "cs_test_1",
+      },
+    });
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const payload = {
+      id: "evt_same",
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_test_1", payment_status: "paid" } },
+    };
+
+    const first = await POST(makeSignedRequest(payload, webhookSecret));
+    const second = await POST(makeSignedRequest(payload, webhookSecret));
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(admin.state.order?.status).toBe("paid");
+    expect(admin.state.orderUpdates).toHaveLength(1);
+    expect(admin.state.entitlementUpserts).toHaveLength(1);
+    expect(admin.state.stripeEventInserts).toHaveLength(2);
+  });
+
+  it("emails exactly one receipt when Stripe delivers the same paid session twice", async () => {
+    // A duplicate receipt is a bug: the buyer is told twice that they were
+    // charged. `finalize_order_checkout_session` returns true on every call, so
+    // only the atomic pending→paid claim can arbitrate.
+    const admin = makeAdminClient({
+      order: {
+        id: "order-1",
+        user_id: "reader-1",
+        book_id: "book-1",
+        status: "pending",
+        stripe_session_id: "cs_receipt_1",
+      },
+    });
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const completed = {
+      id: "evt_receipt_1",
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_receipt_1", payment_status: "paid" } },
+    };
+    // A different event id, so the stripe_events guard does not mask the
+    // question — this is a genuine second run of the finalizer.
+    const redelivered = {
+      id: "evt_receipt_2",
+      type: "checkout.session.async_payment_succeeded",
+      data: { object: { id: "cs_receipt_1", payment_status: "paid" } },
+    };
+
+    const first = await POST(makeSignedRequest(completed, webhookSecret));
+    const second = await POST(makeSignedRequest(redelivered, webhookSecret));
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(admin.state.orderClaims).toEqual(["order-1"]);
+    expect(mocks.sendPurchaseReceipt).toHaveBeenCalledTimes(1);
+    expect(mocks.sendPurchaseReceipt).toHaveBeenCalledWith(
+      admin.client,
+      expect.objectContaining({
+        orderId: "order-1",
+        userId: "reader-1",
+        bookId: "book-1",
+        amountMinor: 12900,
+        currency: "SEK",
+        stripeSessionId: "cs_receipt_1",
+      }),
+    );
+  });
+
+  it("sends no receipt for a delayed payment that has not settled yet", async () => {
+    // `checkout.session.completed` with payment_status "unpaid" is a Klarna /
+    // Swish / SEPA purchase still processing. No money has arrived.
+    const admin = makeAdminClient({
+      order: {
+        id: "order-1",
+        user_id: "reader-1",
+        book_id: "book-1",
+        status: "pending",
+        stripe_session_id: "cs_delayed_1",
+      },
+    });
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const res = await POST(
+      makeSignedRequest(
+        {
+          id: "evt_delayed_1",
+          type: "checkout.session.completed",
+          data: {
+            object: {
+              id: "cs_delayed_1",
+              payment_status: "unpaid",
+              status: "complete",
+            },
+          },
+        },
+        webhookSecret,
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    expect(admin.state.orderClaims).toHaveLength(0);
+    expect(admin.state.order?.status).toBe("pending");
+    expect(mocks.sendPurchaseReceipt).not.toHaveBeenCalled();
+  });
+
+  it("sends the receipt when the delayed payment later settles", async () => {
+    const admin = makeAdminClient({
+      order: {
+        id: "order-1",
+        user_id: "reader-1",
+        book_id: "book-1",
+        status: "pending",
+        stripe_session_id: "cs_delayed_2",
+      },
+    });
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    await POST(
+      makeSignedRequest(
+        {
+          id: "evt_delayed_2a",
+          type: "checkout.session.completed",
+          data: {
+            object: { id: "cs_delayed_2", payment_status: "unpaid", status: "complete" },
+          },
+        },
+        webhookSecret,
+      ),
+    );
+    expect(mocks.sendPurchaseReceipt).not.toHaveBeenCalled();
+
+    await POST(
+      makeSignedRequest(
+        {
+          id: "evt_delayed_2b",
+          type: "checkout.session.async_payment_succeeded",
+          data: { object: { id: "cs_delayed_2", payment_status: "paid" } },
+        },
+        webhookSecret,
+      ),
+    );
+
+    expect(admin.state.order?.status).toBe("paid");
+    expect(mocks.sendPurchaseReceipt).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks donation records as paid for payment_type=donation", async () => {
+    const admin = makeAdminClient({
+      donation: {
+        id: "donation-1",
+        user_id: "reader-1",
+        status: "pending",
+        stripe_session_id: "cs_donate_1",
+        credits_delta: 0,
+      },
+    });
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const payload = {
+      id: "evt_donation",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_donate_1",
+          payment_status: "paid",
+          metadata: {
+            payment_type: "donation",
+          },
+        },
+      },
+    };
+
+    const res = await POST(makeSignedRequest(payload, webhookSecret));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual(expect.objectContaining({ received: true, processed: true }));
+    expect(admin.state.donation?.status).toBe("paid");
+    expect(admin.state.donationUpdates.length).toBeGreaterThanOrEqual(1);
+    expect(admin.state.creditGrantCalls).toHaveLength(0);
+    expect(admin.state.creditTopupUpdates).toHaveLength(0);
+    expect(admin.state.orderUpdates).toHaveLength(0);
+    expect(admin.state.entitlementUpserts).toHaveLength(0);
+  });
+
+  it("credits topup exactly once even if webhook is replayed with a new event id", async () => {
+    const admin = makeAdminClient({
+      creditTopup: {
+        id: "credit-topup-1",
+        user_id: "reader-1",
+        status: "pending",
+        stripe_session_id: "cs_topup_1",
+        credits_delta: 250,
+        credits_applied_at: null,
+      },
+    });
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const payloadA = {
+      id: "evt_credit_topup_a",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_topup_1",
+          payment_status: "paid",
+          metadata: {
+            payment_type: "credit_topup",
+          },
+        },
+      },
+    };
+
+    const payloadB = {
+      ...payloadA,
+      id: "evt_credit_topup_b",
+    };
+
+    const first = await POST(makeSignedRequest(payloadA, webhookSecret));
+    const second = await POST(makeSignedRequest(payloadB, webhookSecret));
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(admin.state.creditTopup?.status).toBe("paid");
+    expect(admin.state.creditGrantCalls).toHaveLength(1);
+    expect(admin.state.creditTopupUpdates.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("creates/updates billing account with plan from price ID on customer.subscription.created", async () => {
+    const admin = makeAdminClient();
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const existing: BillingAccountRow = {
+      user_id: "author-1",
+      stripe_customer_id: "cus_200",
+      stripe_subscription_id: null,
+      plan: null,
+      status: null,
+      current_period_end: null,
+      cancel_at_period_end: false,
+      updated_at: new Date().toISOString(),
+      role: "author",
+    };
+
+    mocks.getBillingAccountByStripeCustomerId.mockResolvedValue({
+      row: existing,
+      error: null,
+    });
+    mocks.resolveRolePlanFromPriceIds.mockResolvedValue({
+      role: "author",
+      planKey: "plus",
+    });
+
+    const payload = {
+      id: "evt_sub_created",
+      type: "customer.subscription.created",
+      data: {
+        object: {
+          id: "sub_200",
+          customer: "cus_200",
+          status: "active",
+          current_period_end: 1700000000,
+          cancel_at_period_end: false,
+          metadata: {},
+          items: {
+            data: [{ price: { id: "price_plus" } }],
+          },
+        },
+      },
+    };
+
+    const res = await POST(makeSignedRequest(payload, webhookSecret));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledTimes(1);
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledWith(
+      admin.client,
+      "author-1",
+      "author",
+      expect.objectContaining({
+        stripe_customer_id: "cus_200",
+        stripe_subscription_id: "sub_200",
+        plan: "plus",
+        status: "active",
+        current_period_end: new Date(1700000000 * 1000).toISOString(),
+        cancel_at_period_end: false,
+      })
+    );
+  });
+
+  it("updates plan when price changes and cancel_at_period_end on customer.subscription.updated", async () => {
+    const admin = makeAdminClient();
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const existing: BillingAccountRow = {
+      user_id: "author-1",
+      stripe_customer_id: "cus_300",
+      stripe_subscription_id: "sub_300",
+      plan: "plus",
+      status: "active",
+      current_period_end: null,
+      cancel_at_period_end: false,
+      updated_at: new Date().toISOString(),
+      role: "author",
+    };
+
+    mocks.getBillingAccountByStripeSubscriptionId.mockResolvedValue({
+      row: existing,
+      error: null,
+    });
+    mocks.resolveRolePlanFromPriceIds.mockResolvedValue({
+      role: "author",
+      planKey: "pro",
+    });
+
+    const payload = {
+      id: "evt_sub_updated",
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: "sub_300",
+          customer: "cus_300",
+          status: "active",
+          current_period_end: 1700100000,
+          cancel_at_period_end: true,
+          metadata: {},
+          items: {
+            data: [{ price: { id: "price_pro" } }],
+          },
+        },
+      },
+    };
+
+    const res = await POST(makeSignedRequest(payload, webhookSecret));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledTimes(1);
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledWith(
+      admin.client,
+      "author-1",
+      "author",
+      expect.objectContaining({
+        stripe_customer_id: "cus_300",
+        stripe_subscription_id: "sub_300",
+        plan: "pro",
+        status: "active",
+        current_period_end: new Date(1700100000 * 1000).toISOString(),
+        cancel_at_period_end: true,
+      })
+    );
+  });
+
+  it("updates billing status to past_due on invoice.payment_failed without clearing the plan", async () => {
+    const admin = makeAdminClient();
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const existing: BillingAccountRow = {
+      user_id: "author-1",
+      stripe_customer_id: "cus_400",
+      stripe_subscription_id: "sub_400",
+      plan: "pro",
+      status: "active",
+      current_period_end: null,
+      cancel_at_period_end: false,
+      updated_at: new Date().toISOString(),
+      role: "author",
+    };
+
+    mocks.getBillingAccountByStripeSubscriptionId.mockResolvedValue({
+      row: existing,
+      error: null,
+    });
+    mocks.resolveRolePlanFromPriceIds.mockResolvedValue({
+      role: "author",
+      planKey: "pro",
+    });
+
+    const payload = {
+      id: "evt_invoice_failed",
+      type: "invoice.payment_failed",
+      data: {
+        object: {
+          id: "in_400",
+          customer: "cus_400",
+          subscription: "sub_400",
+          metadata: {},
+          lines: {
+            data: [
+              {
+                price: { id: "price_pro" },
+                period: { end: 1700200000 },
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const res = await POST(makeSignedRequest(payload, webhookSecret));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledTimes(1);
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledWith(
+      admin.client,
+      "author-1",
+      "author",
+      expect.objectContaining({
+        stripe_customer_id: "cus_400",
+        stripe_subscription_id: "sub_400",
+        plan: "pro",
+        status: "past_due",
+        current_period_end: new Date(1700200000 * 1000).toISOString(),
+      })
+    );
+  });
+
+  it("returns 400 when stripe-signature header is missing", async () => {
+    const admin = makeAdminClient();
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const body = JSON.stringify({
+      id: "evt_no_sig",
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_test_999", payment_status: "paid" } },
+    });
+
+    const req = new Request(`http://localhost${API_ROUTES.stripeWebhook}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+    });
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(400);
+    expect(mocks.upsertBillingAccount).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when webhook signature is invalid", async () => {
+    const admin = makeAdminClient();
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const payload = {
+      id: "evt_bad_sig",
+      type: "checkout.session.completed",
+      data: { object: { id: "cs_test_998", payment_status: "paid" } },
+    };
+
+    const res = await POST(makeSignedRequest(payload, "whsec_wrong_secret"));
+
+    expect(res.status).toBe(400);
+    expect(mocks.upsertBillingAccount).not.toHaveBeenCalled();
+  });
+
+  it("sets plan null and status canceled on customer.subscription.deleted", async () => {
+    const admin = makeAdminClient();
+    mocks.createAdminClient.mockReturnValue(admin.client);
+
+    const existing: BillingAccountRow = {
+      user_id: "author-1",
+      stripe_customer_id: "cus_123",
+      stripe_subscription_id: "sub_123",
+      plan: "pro",
+      status: "active",
+      current_period_end: null,
+      cancel_at_period_end: false,
+      updated_at: new Date().toISOString(),
+      role: "author",
+    };
+
+    mocks.getBillingAccountByStripeSubscriptionId.mockResolvedValue({
+      row: existing,
+      error: null,
+    });
+
+    const payload = {
+      id: "evt_sub_deleted",
+      type: "customer.subscription.deleted",
+      data: {
+        object: {
+          id: "sub_123",
+          customer: "cus_123",
+          status: "canceled",
+          current_period_end: 1700000000,
+          cancel_at_period_end: false,
+          metadata: {},
+        },
+      },
+    };
+
+    const res = await POST(makeSignedRequest(payload, webhookSecret));
+
+    expect(res.status).toBe(200);
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledTimes(1);
+    expect(mocks.upsertBillingAccount).toHaveBeenCalledWith(
+      admin.client,
+      "author-1",
+      "author",
+      expect.objectContaining({
+        stripe_customer_id: "cus_123",
+        stripe_subscription_id: null,
+        plan: null,
+        status: "canceled",
+        cancel_at_period_end: false,
+        current_period_end: new Date(1700000000 * 1000).toISOString(),
+      })
+    );
+  });
+});

@@ -1,0 +1,6 @@
+cd apps/web || exit 1
+
+npm run lint || exit 1
+npx tsc --noEmit || exit 1
+npm run build || exit 1
+npm test || exit 1

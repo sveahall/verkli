@@ -1,0 +1,40 @@
+{
+  "projectId": "002f73a7-a6db-4be2-bab6-30fac6377cc7",
+  "shape": "package",
+  "pkg": "@verkli/web",
+  "globalName": "VerkliUI",
+  "srcDir": "src/components/ui",
+  "tsconfig": "../../../.design-sync/tsconfig.ds.json",
+  "cssEntry": ".ds-css/ds-tailwind.css",
+  "guidelinesGlob": [
+    "../../../DESIGN.md"
+  ],
+  "extraEntries": [
+    "../../../.design-sync/ds-shims.tsx"
+  ],
+  "componentSrcMap": {
+    "Skeleton": null
+  },
+  "extraFonts": [
+    "../../../.design-sync/fonts/inter.css"
+  ],
+  "overrides": {
+    "Dialog": {
+      "cardMode": "single",
+      "viewport": "640x360"
+    },
+    "DialogHeader": {
+      "cardMode": "single",
+      "viewport": "640x300"
+    },
+    "DialogBody": {
+      "cardMode": "single",
+      "viewport": "640x420"
+    },
+    "DialogFooter": {
+      "cardMode": "single",
+      "viewport": "640x300"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}

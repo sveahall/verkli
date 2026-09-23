@@ -1,0 +1,219 @@
+"use client";
+
+import { useCallback, useMemo, useState } from "react";
+import DOMPurify from "dompurify";
+import { Button } from "@/components/ui/button";
+import { resolveErrorMessage } from "@/lib/error-messages";
+
+const UNCERTAIN_DELIVERY_MESSAGE = "Delivery could not be confirmed. Some subscribers may have received the newsletter. Check delivery status before sending again.";
+
+type NewsletterData = {
+  id: string;
+  subject: string;
+  body_html: string;
+  body_text: string;
+  status: string;
+};
+
+type NewsletterComposerProps = {
+  newsletter: NewsletterData;
+  onSaved?: () => void;
+  onSent?: () => void;
+};
+
+export default function NewsletterComposer({
+  newsletter,
+  onSaved,
+  onSent,
+}: NewsletterComposerProps) {
+  const [subject, setSubject] = useState(newsletter.subject);
+  const [bodyHtml, setBodyHtml] = useState(newsletter.body_html);
+  const [showPreview, setShowPreview] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const [sent, setSent] = useState(false);
+  const isDraft = newsletter.status === "draft" && !sent;
+
+  const sanitizedHtml = useMemo(() => DOMPurify.sanitize(bodyHtml), [bodyHtml]);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const res = await fetch(`/api/newsletters/${newsletter.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: subject.trim(),
+          bodyHtml,
+          bodyText: bodyHtml.replace(/<[^>]*>/g, ""),
+        }),
+      });
+
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setError(resolveErrorMessage(body.error));
+        return;
+      }
+
+      setSuccess("Draft saved");
+      onSaved?.();
+    } catch {
+      setError(resolveErrorMessage(null));
+    } finally {
+      setSaving(false);
+    }
+  }, [newsletter.id, subject, bodyHtml, onSaved]);
+
+  const handleSend = useCallback(async () => {
+    if (!confirm("Are you sure you want to send this newsletter? This cannot be undone.")) {
+      return;
+    }
+
+    // Save first
+    setSending(true);
+    setError(null);
+    setSuccess(null);
+
+    let sendRequested = false;
+    try {
+      // Save draft first
+      const saveResponse = await fetch(`/api/newsletters/${newsletter.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: subject.trim(),
+          bodyHtml,
+          bodyText: bodyHtml.replace(/<[^>]*>/g, ""),
+        }),
+      });
+
+      if (!saveResponse.ok) {
+        const saveBody = await saveResponse.json().catch(() => ({}));
+        setError(resolveErrorMessage(saveBody.error));
+        return;
+      }
+
+      // Then send
+      sendRequested = true;
+      const res = await fetch(`/api/newsletters/${newsletter.id}/send`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        recipientCount?: number;
+      };
+
+      if (!res.ok) {
+        setError(res.status >= 500 ? UNCERTAIN_DELIVERY_MESSAGE : resolveErrorMessage(body.error));
+        return;
+      }
+
+      setSent(true);
+      setSuccess(`Newsletter accepted for delivery to ${body.recipientCount ?? 0} subscribers`);
+      onSent?.();
+    } catch {
+      setError(sendRequested ? UNCERTAIN_DELIVERY_MESSAGE : resolveErrorMessage(null));
+    } finally {
+      setSending(false);
+    }
+  }, [newsletter.id, subject, bodyHtml, onSent]);
+
+  return (
+    <div className="space-y-6">
+      {error && (
+        <p role="alert" className="text-[13px] text-red-600 dark:text-red-400">{error}</p>
+      )}
+      {success && (
+        <p role="status" className="text-[13px] text-green-600 dark:text-green-400">{success}</p>
+      )}
+
+      <div className="space-y-1.5">
+        <label
+          htmlFor="nl-subject"
+          className="text-[13px] font-medium text-foreground dark:text-foreground"
+        >
+          Subject
+        </label>
+        <input
+          id="nl-subject"
+          type="text"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          disabled={!isDraft || saving || sending}
+          placeholder="Subject line for the newsletter..."
+          className="min-h-[44px] w-full rounded-xl border border-border/80 bg-card px-4 text-[14px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-60 dark:border-border dark:bg-card dark:text-foreground dark:focus-visible:ring-offset-[#0b0b12]"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label htmlFor="nl-content" className="text-[13px] font-medium text-foreground dark:text-foreground">
+            Content (HTML)
+          </label>
+          <button
+            type="button"
+            onClick={() => setShowPreview(!showPreview)}
+            className="text-[12px] font-medium text-accent-foreground hover:text-[#7A66E0]"
+          >
+            {showPreview ? "Edit" : "Preview"}
+          </button>
+        </div>
+
+        {showPreview ? (
+          <div
+            className="min-h-[300px] rounded-xl border border-border/80 bg-card p-4 text-[14px] text-foreground dark:border-border dark:bg-card dark:text-foreground"
+            dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+          />
+        ) : (
+          <textarea
+            id="nl-content"
+            value={bodyHtml}
+            onChange={(e) => setBodyHtml(e.target.value)}
+            disabled={!isDraft || saving || sending}
+            rows={15}
+            placeholder="<h1>Hello!</h1><p>Here's the latest news...</p>"
+            className="w-full rounded-xl border border-border/80 bg-card px-4 py-3 font-mono text-[13px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-60 dark:border-border dark:bg-card dark:text-foreground dark:focus-visible:ring-offset-[#0b0b12]"
+          />
+        )}
+      </div>
+
+      {isDraft && (
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            onClick={handleSave}
+            isLoading={saving}
+            loadingText="Saving..."
+            disabled={!subject.trim() || saving || sending}
+          >
+            Save draft
+          </Button>
+          <Button
+            onClick={handleSend}
+            isLoading={sending}
+            loadingText="Sending..."
+            disabled={!subject.trim() || saving || sending}
+          >
+            Send newsletter
+          </Button>
+        </div>
+      )}
+
+      {!isDraft && (
+        <p className="text-[13px] text-muted-foreground dark:text-muted-foreground">
+          This newsletter has already been sent and cannot be edited.
+        </p>
+      )}
+    </div>
+  );
+}

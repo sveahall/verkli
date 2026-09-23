@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 const fallbackGradient = "linear-gradient(135deg, #907AFF 0%, #E29ED5 50%, #FCC997 100%)";
@@ -17,12 +17,15 @@ const resolveCover = (coverType?: string | null, coverUrl?: string | null, cover
       if (parsed?.from && parsed?.to) {
         return `linear-gradient(${parsed.angle ?? 135}deg, ${parsed.from}, ${parsed.to})`;
       }
-    } catch (error) {}
+    } catch {}
   }
   return fallbackGradient;
 };
 
-export default async function PublicShelfPage({ params }: { params: { id: string } }) {
+export default async function PublicShelfPage({ params }: { params: Promise<{ id: string }> }) {
+  // Next.js 16+: params is a Promise, must await
+  const { id } = await params;
+  
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -45,7 +48,7 @@ export default async function PublicShelfPage({ params }: { params: { id: string
       )
     `
     )
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
 
   if (error || !shelf) {
@@ -53,6 +56,13 @@ export default async function PublicShelfPage({ params }: { params: { id: string
   }
 
   if (!user || user.id !== shelf.user_id) {
+    // shelves.user_id is nullable. An ownerless shelf has no profile to check
+    // visibility against, so it is not viewable by anyone but its (absent)
+    // owner — fail closed rather than query on null.
+    if (!shelf.user_id) {
+      notFound();
+    }
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_public")
@@ -65,6 +75,7 @@ export default async function PublicShelfPage({ params }: { params: { id: string
   }
 
   const cover = resolveCover(shelf.cover_type, shelf.cover_url, shelf.cover_gradient);
+  const isOwner = Boolean(user && user.id === shelf.user_id);
   type BookSummary = {
     id: string;
     title: string;
@@ -82,16 +93,19 @@ export default async function PublicShelfPage({ params }: { params: { id: string
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="page-content mx-auto w-full max-w-[1200px] pb-20 pt-10 sm:pt-12">
-        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/[0.03] dark:shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
+        <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_6px_20px_rgba(15,23,42,0.06)] dark:border-border dark:bg-card dark:shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
           <div
             className="h-[240px] sm:h-[280px] w-full bg-cover bg-center"
             style={{ backgroundImage: cover }}
           />
           <div className="space-y-3 px-6 py-6 sm:px-8 sm:py-8">
-            <Link href="/author/profile" className="text-eyebrow text-[11px] inline-block hover:text-slate-600 dark:hover:text-white/60">
+            <Link
+              href={isOwner ? "/author/profile" : `/reader/authors/${shelf.user_id}`}
+              className="text-eyebrow text-[11px] inline-block hover:text-muted-foreground dark:hover:text-muted-foreground"
+            >
               Back to profile
             </Link>
-            <h1 className="text-page-title">{shelf.name}</h1>
+            <h1 className="author-page-title">{shelf.name}</h1>
             <p className="text-body max-w-2xl">
               {shelf.subtitle || "A curated shelf"}
             </p>
@@ -99,7 +113,7 @@ export default async function PublicShelfPage({ params }: { params: { id: string
         </div>
 
         <div className="mt-12">
-          <h2 className="text-section-title mb-6">Books in this shelf</h2>
+          <h2 className="author-section-title text-section-title mb-6">Books in this shelf</h2>
           {books.length === 0 ? (
             <div className="empty-state-base py-10 text-center">
               <p className="text-helper">No books have been added yet.</p>
@@ -109,7 +123,7 @@ export default async function PublicShelfPage({ params }: { params: { id: string
               {books.map((book) => (
                 <Link
                   key={book.id}
-                  href={`/author/books/${book.id}`}
+                  href={isOwner ? `/author/books/${book.id}` : `/reader/books/${book.id}`}
                   className="card-base-subtle group overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,42,0.1)] dark:hover:shadow-[0_12px_28px_rgba(0,0,0,0.35)]"
                 >
                   <div
@@ -121,10 +135,10 @@ export default async function PublicShelfPage({ params }: { params: { id: string
                     }}
                   />
                   <div className="space-y-1.5 p-5">
-                    <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+                    <h3 className="text-[15px] font-semibold text-foreground dark:text-foreground">
                       {book.title}
                     </h3>
-                    <p className="text-[12px] text-slate-500 dark:text-white/40">Book</p>
+                    <p className="text-[12px] text-muted-foreground dark:text-muted-foreground">Book</p>
                   </div>
                 </Link>
               ))}

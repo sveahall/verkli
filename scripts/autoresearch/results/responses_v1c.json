@@ -1,0 +1,12 @@
+{
+  "tc_001": "I understand how frustrating a two-week wait must be. Please check your shipping confirmation for a tracking number and look it up on the carrier's site. If the package appears lost, contact us with your order number and we'll help resolve it.",
+  "tc_002": "I'm sorry your item arrived broken. You can start a return by selecting 'Request Return' in your order history and uploading a photo of the damage. We'll process your refund once received.",
+  "tc_003": "I'm sorry the app keeps crashing. Please try updating to the latest version, clearing the app cache, and restarting your device. If the issue continues, contact our support team with your device model and OS version.",
+  "tc_004": "I appreciate your kind words! You can upgrade to premium by going to Settings > Subscription > Upgrade. You'll find all plan details and pricing there.",
+  "tc_005": "I understand your frustration and I'm sorry for the experience. I can arrange for a manager to contact you. Please share your account email and preferred contact method, and a supervisor will reach out within 24 hours.",
+  "tc_006": "Thank you for reaching out! Please share your billing question and I'll help you right away. You can also check your billing details under Settings > Billing.",
+  "tc_007": "I'm sorry about the double charge. Please check if one is a pending hold that may drop off. If both are posted, contact us with your order number and we'll refund the duplicate.",
+  "tc_008": "I understand you'd like to cancel. You can do this under Settings > Account > Subscription. Your access continues through your current billing period.",
+  "tc_009": "I'm sorry the color doesn't match what you expected. You can initiate a return from your order history, or contact us with your order number if you'd prefer an exchange.",
+  "tc_010": "Thank you for your interest! Yes, we ship to Sweden. You can see shipping options and costs at checkout when you enter your address."
+}

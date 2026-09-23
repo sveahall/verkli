@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Image from "next/image";
+import { Play } from "lucide-react";
 
 const sizeStyles = {
   sm: "w-32 sm:w-36",
@@ -10,12 +12,15 @@ type BookCardProps = {
   id?: string;
   title?: string;
   author?: string;
+  genre?: string;
   cover?: string | null;
   href?: string;
   tag?: string;
   rating?: number;
   length?: string;
   progress?: number;
+  ctaLabel?: string;
+  hasTrailer?: boolean;
   size?: keyof typeof sizeStyles;
   isSkeleton?: boolean;
   layout?: "rail" | "grid";
@@ -26,12 +31,15 @@ export default function BookCard({
   id,
   title,
   author,
+  genre,
   cover,
   href,
   tag,
   rating,
   length,
   progress,
+  ctaLabel,
+  hasTrailer,
   size = "md",
   isSkeleton,
   layout = "rail",
@@ -46,62 +54,112 @@ export default function BookCard({
   if (isSkeleton) {
     return (
       <div className={`group ${containerClass}`}>
-        <div className="animate-pulse space-y-3">
-          <div className="aspect-[3/4] rounded-2xl border border-slate-200/70 bg-slate-200/60 dark:border-white/10 dark:bg-white/10" />
-          <div className="h-3 w-3/4 rounded-full bg-slate-200/80 dark:bg-white/10" />
-          <div className="h-3 w-1/2 rounded-full bg-slate-200/80 dark:bg-white/10" />
+        <div className="motion-safe:animate-pulse space-y-3">
+          <div className="aspect-[3/4] rounded-2xl border border-border bg-muted/60 dark:bg-card" />
+          <div className="h-3 w-3/4 rounded-full bg-muted/80 dark:bg-card" />
+          <div className="h-3 w-1/2 rounded-full bg-muted/80 dark:bg-card" />
         </div>
       </div>
     );
   }
 
+  const hasProgress = typeof progress === "number";
+  const clampedProgress = hasProgress ? Math.min(Math.max(progress, 0), 100) : 0;
+  const showCta = Boolean(ctaLabel);
+
   return (
     <div className={`group ${containerClass}`}>
       <Link
         href={resolvedHref}
-        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0b0b12]"
+        className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-background"
       >
-        <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_6px_20px_rgba(15,23,42,0.08)] transition-transform duration-200 group-hover:-translate-y-1 dark:border-white/10 dark:bg-white/5 dark:shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
-          <div className="aspect-[3/4] w-full overflow-hidden">
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-[0_4px_16px_rgba(15,23,42,0.06)] transition-[background-color,border-color,color,box-shadow] duration-200 group-hover:border-[#907AFF]/20 group-hover:shadow-[0_20px_40px_-12px_rgba(144,122,255,0.15),0_8px_16px_-4px_rgba(15,23,42,0.06)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.35)] dark:group-hover:border-[#907AFF]/20 dark:group-hover:shadow-[0_20px_40px_-12px_rgba(144,122,255,0.12),0_8px_16px_-4px_rgba(0,0,0,0.3)]">
+          <div className="relative aspect-[3/4] w-full overflow-hidden">
             {cover ? (
-              <img
+              <Image
                 src={cover}
                 alt={title ?? "Book cover"}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                fill
+                sizes="(min-width: 640px) 176px, 144px"
+                className="object-cover transition-transform duration-500"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-200/70 via-white to-slate-100 dark:from-white/10 dark:via-white/5 dark:to-slate-900/60">
-                <span className="text-[12px] font-medium text-slate-500 dark:text-white/60">No cover</span>
+              /* No-cover fallback: typeset the title over the brand wash so the
+                 card reads as a deliberate "text cover", not a missing asset. */
+              <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-br from-[#907AFF]/[0.16] via-[#E29ED5]/[0.10] to-[#FCC997]/[0.20] p-4 dark:from-[#907AFF]/25 dark:via-[#E29ED5]/10 dark:to-[#FCC997]/15">
+                <div
+                  aria-hidden
+                  className="absolute inset-x-4 top-4 h-px bg-gradient-to-r from-transparent via-[#907AFF]/30 to-transparent"
+                />
+                <span className="line-clamp-4 text-center font-display text-[15px] font-medium leading-snug tracking-tight text-foreground">
+                  {title ?? "Untitled"}
+                </span>
+                <div
+                  aria-hidden
+                  className="absolute inset-x-4 bottom-4 h-px bg-gradient-to-r from-transparent via-[#907AFF]/30 to-transparent"
+                />
               </div>
             )}
+            {/* Subtle gradient overlay at bottom for depth */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/[0.06] to-transparent dark:from-black/20" />
           </div>
           {tag && (
-            <span className="absolute left-3 top-3 rounded-full border border-white/60 bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-900/90 dark:text-white/80">
+            <span className="absolute left-2.5 top-2.5 rounded-full bg-foreground px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-background shadow-sm backdrop-blur-sm">
               {tag}
             </span>
           )}
-          {typeof progress === "number" && (
+          {hasTrailer && (
+            <span className="absolute right-2 top-2 rounded-full bg-foreground/70 p-1.5 text-background backdrop-blur-sm dark:bg-foreground/80">
+              <Play className="h-3 w-3 fill-current" />
+            </span>
+          )}
+          {hasProgress && !showCta && (
             <div className="absolute inset-x-3 bottom-3">
-              <div className="h-1.5 w-full rounded-full bg-white/70 dark:bg-white/20">
+              <div className="h-1.5 w-full rounded-full bg-card/60 backdrop-blur-sm dark:bg-card">
                 <div
-                  className="h-full rounded-full bg-slate-900/90 dark:bg-white"
-                  style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }}
+                  className="h-full rounded-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5]"
+                  style={{ width: `${clampedProgress}%` }}
                 />
               </div>
             </div>
           )}
+          {showCta && (
+            <div className="pointer-events-none absolute inset-x-3 bottom-3">
+              <div className="flex items-center justify-between gap-2 rounded-full border border-white/60 bg-card/90 px-3 py-2 text-[11px] font-semibold text-foreground shadow-sm backdrop-blur dark:border-border dark:bg-card/70">
+                <span>{ctaLabel}</span>
+                {hasProgress && (
+                  <span className="text-[11px] font-medium text-accent-foreground">
+                    {Math.round(clampedProgress)}%
+                  </span>
+                )}
+              </div>
+              {hasProgress && (
+                <div className="mt-2 h-1.5 w-full rounded-full bg-card/60 backdrop-blur-sm dark:bg-card">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5]"
+                    style={{ width: `${clampedProgress}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div className="mt-3 space-y-1">
-          <h3 className="text-[14px] font-semibold text-slate-900 group-hover:text-[#7058DD] dark:text-white dark:group-hover:text-[#B8A8FF] truncate">
+          <h3 className="truncate text-[14px] font-medium text-foreground transition-colors group-hover:text-accent-foreground dark:group-hover:text-accent-foreground font-display">
             {title ?? "Untitled"}
           </h3>
-          <p className="text-[12px] text-slate-500 dark:text-white/60 truncate">
+          <p className="truncate text-[12px] text-muted-foreground">
             {author ?? "Unknown author"}
+            {genre && (
+              <span className="before:mx-1 before:content-['·'] before:text-muted-foreground before:dark:text-muted-foreground">
+                {genre}
+              </span>
+            )}
           </p>
           {(rating || length) && (
-            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-white/55">
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
               {rating && <span>★ {rating.toFixed(1)}</span>}
-              {rating && length && <span className="h-1 w-1 rounded-full bg-slate-300 dark:bg-white/30" />}
+              {rating && length && <span className="h-1 w-1 rounded-full bg-muted dark:bg-card" />}
               {length && <span>{length}</span>}
             </div>
           )}

@@ -22,6 +22,7 @@ const ROUND = "round_one";
 // university, a phone network), so a tighter limit would lock out real authors
 // long before it inconvenienced anyone abusing the form.
 const applyLimiter = createPerUserRateLimiter({
+  name: "apply",
   maxPerMinute: 10,
   windowMs: 15 * 60 * 1000,
 });

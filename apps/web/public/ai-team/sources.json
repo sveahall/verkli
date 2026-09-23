@@ -1,0 +1,32 @@
+[
+  {
+    "id": "edith",
+    "source": "ChatGPT Image 15 sep. 2026 15_24_53 (1).png",
+    "sourceSha256": "297f10ff3c71d740757b732212dbe56bcc0bc872dd0d100459389c234dd98850",
+    "bytes": 98178
+  },
+  {
+    "id": "alma",
+    "source": "ChatGPT Image 15 sep. 2026 15_24_53 (2).png",
+    "sourceSha256": "1cba361fc65e414cc68cf8b90d9b1ac3903351f1db848e126f66856c7a7d2a66",
+    "bytes": 120496
+  },
+  {
+    "id": "august",
+    "source": "ChatGPT Image 15 sep. 2026 15_24_53 (3).png",
+    "sourceSha256": "29677a81f3980bc9893bb9d3e93fcbe8a0818e77bd81c8c34785655968c7c581",
+    "bytes": 101158
+  },
+  {
+    "id": "stella",
+    "source": "ChatGPT Image 15 sep. 2026 15_24_53 (4).png",
+    "sourceSha256": "bc75af53025dbc767bf4c7994c72f75f83c5824b7473f6463fc29b6c17632df0",
+    "bytes": 122428
+  },
+  {
+    "id": "ernst",
+    "source": "ChatGPT Image 15 sep. 2026 15_24_54 (5).png",
+    "sourceSha256": "f18f34ed9c67d99f241b1ec897f64f9efd458ba49a9a0b2e4c2abbf3c54c4381",
+    "bytes": 125816
+  }
+]

@@ -1,124 +1,272 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import {
+  ArrowLeftRight,
+  Bell,
+  BookMarked,
+  Clock,
+  Compass,
+  Home,
+  Library,
+  LifeBuoy,
+  PenLine,
+  Search,
+  UserCircle,
+} from "lucide-react";
+import { setActiveRoleCookieClient } from "@/lib/active-role";
 
-const mobileNavItems = [
+export type AuthorAccessMode = "switch" | "apply" | "pending" | "hidden";
+
+const navItems = [
+  // In navItems on purpose, not in the desktop utility group. Both the sidebar
+  // and the mobile bottom bar render this array, so the book cannot end up
+  // reachable on one and not the other — which is exactly what happened when it
+  // lived in the `hidden lg:block` sidebar, and what happened again on the
+  // waitlist page's scroll cue before that.
   {
-    label: "Feed",
-    href: "/reader/feed",
-    activeMatchers: ["/reader/feed", "/reader/home"],
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-5 w-5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6.5h15M4.5 12h15M4.5 17.5h10" />
-      </svg>
-    ),
+    label: "The book",
+    href: "/waitlist",
+    icon: BookMarked,
+    matchers: ["/waitlist", "/order"],
+  },
+  {
+    label: "Home",
+    href: "/reader/home",
+    icon: Home,
+    matchers: ["/reader/home"],
   },
   {
     label: "Discover",
     href: "/reader/discover",
-    activeMatchers: ["/reader/discover"],
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-5 w-5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.5l2.6 5.2 5.7.8-4.1 4 1 5.7-5.2-2.7-5.2 2.7 1-5.7-4.1-4 5.7-.8L12 3.5z" />
-      </svg>
-    ),
+    icon: Compass,
+    matchers: [
+      "/reader/discover",
+      "/reader/books",
+      "/reader/lists",
+      "/reader/authors",
+      "/reader/genres",
+    ],
   },
   {
     label: "Library",
     href: "/reader/library",
-    activeMatchers: ["/reader/library", "/reader/bookmarks"],
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-5 w-5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 5.5h11a3 3 0 013 3v10H8a3 3 0 00-3 3v-16z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8 18.5h11" />
-      </svg>
-    ),
-  },
-  {
-    label: "Profile",
-    href: "/reader/profile",
-    activeMatchers: ["/reader/profile", "/reader/settings", "/reader/community"],
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-5 w-5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5a7.5 7.5 0 0 1 15 0" />
-      </svg>
-    ),
+    icon: Library,
+    matchers: ["/reader/library", "/reader/bookmarks"],
   },
 ];
 
 const isPathActive = (pathname: string | null, matchers: string[]) => {
   if (!pathname) return false;
-  return matchers.some((matcher) => pathname === matcher || pathname.startsWith(`${matcher}/`));
+  return matchers.some(
+    (matcher) =>
+      pathname === matcher || pathname.startsWith(`${matcher}/`)
+  );
 };
 
-export default function ReaderAppShell({ children }: { children: ReactNode }) {
+export default function ReaderAppShell({
+  children,
+  authorAccess = "hidden",
+  footer,
+}: {
+  children: ReactNode;
+  authorAccess?: AuthorAccessMode;
+  /**
+   * Site footer, passed in by the route-group layout rather than imported here
+   * so it stays a server component. Signed-in readers previously had no route
+   * to Privacy, Terms or Support from inside the app shell at all — the footer
+   * only rendered on the public marketing layouts. Omitted on the immersive
+   * reading view, where chrome below the text would break the page.
+   */
+  footer?: ReactNode;
+}) {
   const pathname = usePathname();
-  const isImmersive = Boolean(
-    pathname?.startsWith("/reader/read") || pathname?.startsWith("/reader/books")
-  );
+  const router = useRouter();
+  const isImmersive = Boolean(pathname?.startsWith("/reader/read"));
+
+  if (isImmersive) {
+    return (
+      <div className="relative min-h-[100dvh] bg-background text-foreground">
+        {children}
+      </div>
+    );
+  }
 
   return (
-    <div
-      className={
-        isImmersive
-          ? "relative min-h-[100dvh]"
-          : "relative min-h-[100dvh] bg-gradient-to-b from-slate-50 via-white to-slate-100 dark:from-[#07070c] dark:via-[#0b0b12] dark:to-[#0f111a]"
-      }
-    >
-      {!isImmersive && (
-        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-          <div className="absolute -top-32 right-[-8rem] h-72 w-72 rounded-full bg-sky-200/40 blur-3xl dark:bg-sky-500/10" />
-          <div className="absolute top-[30%] left-[-6rem] h-80 w-80 rounded-full bg-amber-200/30 blur-3xl dark:bg-violet-500/10" />
-          <div className="absolute bottom-[-10rem] right-[10%] h-72 w-72 rounded-full bg-emerald-200/30 blur-3xl dark:bg-emerald-500/10" />
+    <div className="relative min-h-[100dvh] bg-background text-foreground lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
+      {/* ── Desktop sidebar ── */}
+      <div className="hidden border-r border-border bg-card lg:block">
+      <aside className="lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:overflow-hidden">
+        <div className="px-7 pb-8 pt-8">
+          <Link href="/reader/home" className="inline-flex min-h-11 items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Verkli reader home">
+            <Image
+              src="/logo-dark.svg?v=20260916"
+              alt="Verkli"
+              width={1429}
+              height={265}
+              className="h-auto w-28 dark:hidden"
+              priority
+            />
+            <Image src="/favicon.svg?v=20260916" alt="Verkli" width={1429} height={265} className="hidden h-auto w-28 dark:block" priority />
+          </Link>
+          <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Your reading space</p>
         </div>
-      )}
 
-      {isImmersive ? (
-        <div className="relative">{children}</div>
-      ) : (
-        <main className="page-content relative pb-24 pt-8 sm:pt-10 lg:pb-12">
-          {children}
-        </main>
-      )}
+        <nav aria-label="Reader workspace" className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-4">
+          {navItems.map((item) => {
+            const active = isPathActive(pathname, item.matchers);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                onMouseEnter={() => router.prefetch(item.href)}
+                className={`inline-flex min-h-[44px] items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  active
+                    ? "border-accent-foreground/15 bg-accent font-medium text-accent-foreground"
+                    : "border-transparent font-normal text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-[18px] w-[18px] flex-shrink-0" />
+                <span className="truncate">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
-      {!isImmersive && (
-        <nav
-          aria-label="Reader navigation"
-          className="fixed bottom-0 left-0 right-0 z-[9990] border-t border-slate-200/80 bg-white/90 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur-lg dark:border-white/10 dark:bg-[#0b0b12]/90 lg:hidden"
+        <div className="mx-4 flex-shrink-0 border-t border-border py-5">
+          <div className="flex flex-col gap-1.5">
+            <Link
+              href="/reader/discover"
+              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-muted-foreground aria-[current=page]:bg-accent aria-[current=page]:text-accent-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-card dark:hover:text-foreground"
+            >
+              <Search className="h-[18px] w-[18px] flex-shrink-0" />
+              <span className="truncate">Search</span>
+            </Link>
+            <Link
+              href="/reader/notifications"
+              aria-current={pathname === "/reader/notifications" ? "page" : undefined}
+              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-muted-foreground aria-[current=page]:bg-accent aria-[current=page]:text-accent-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-card dark:hover:text-foreground"
+            >
+              <Bell className="h-[18px] w-[18px] flex-shrink-0" />
+              <span className="truncate">Notifications</span>
+            </Link>
+            <Link
+              href="/reader/profile"
+              aria-current={pathname === "/reader/profile" ? "page" : undefined}
+              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-muted-foreground aria-[current=page]:bg-accent aria-[current=page]:text-accent-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-card dark:hover:text-foreground"
+            >
+              <UserCircle className="h-[18px] w-[18px] flex-shrink-0" />
+              <span className="truncate">Profile</span>
+            </Link>
+            <Link
+              href="/support"
+              aria-current={pathname === "/support" ? "page" : undefined}
+              className="inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-muted-foreground aria-[current=page]:bg-accent aria-[current=page]:text-accent-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-card dark:hover:text-foreground"
+            >
+              <LifeBuoy className="h-[18px] w-[18px] flex-shrink-0" />
+              <span className="truncate">Support</span>
+            </Link>
+          </div>
+          {authorAccess === "switch" && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveRoleCookieClient("author");
+                window.location.href = "/author/home";
+              }}
+              className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-muted-foreground aria-[current=page]:bg-accent aria-[current=page]:text-accent-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-card dark:hover:text-foreground"
+            >
+              <ArrowLeftRight className="h-[18px] w-[18px] flex-shrink-0" />
+              <span className="truncate">Switch to Author</span>
+            </button>
+          )}
+          {authorAccess === "apply" && (
+            <Link
+              href="/author/signup"
+              className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-muted-foreground aria-[current=page]:bg-accent aria-[current=page]:text-accent-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-card dark:hover:text-foreground"
+            >
+              <PenLine className="h-[18px] w-[18px] flex-shrink-0" />
+              <span className="truncate">Become an Author</span>
+            </Link>
+          )}
+          {authorAccess === "pending" && (
+            <div className="mt-2 inline-flex min-h-[44px] w-full items-center gap-3.5 rounded-xl px-4 py-2.5 text-[15px] text-muted-foreground/60 dark:text-muted-foreground">
+              <Clock className="h-[18px] w-[18px] flex-shrink-0" />
+              <span className="truncate">Application Pending</span>
+            </div>
+          )}
+        </div>
+      </aside>
+      </div>
+
+      {/* ── Main content ── */}
+      <main
+        className={`relative isolate mx-auto min-h-screen min-w-0 w-full max-w-[1360px] px-5 pt-6 sm:px-8 sm:pt-8 lg:px-10 lg:pt-10 ${
+          footer ? "pb-8 lg:pb-4" : "pb-24 lg:pb-8"
+        }`}
+      >
+        {/* A static wash connects the workspace to the public brand. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-72 overflow-hidden"
         >
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 pb-[calc(env(safe-area-inset-bottom,0)+0.75rem)] pt-3">
-            {mobileNavItems.map((item) => {
-              const active = isPathActive(pathname, item.activeMatchers);
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={`flex min-h-[44px] min-w-[44px] flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#0b0b12] ${
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(226,158,213,0.06),transparent_65%)]" />
+        </div>
+        {children}
+      </main>
+
+      {/* ── Site footer ──
+          Spans both columns so it reads as the base of the whole shell. The
+          extra bottom padding on small screens clears the fixed mobile nav. */}
+      {footer ? (
+        <div className="pb-20 lg:col-span-2 lg:pb-0">{footer}</div>
+      ) : null}
+
+      {/* ── Mobile bottom nav ── */}
+      <nav
+        aria-label="Reader navigation"
+        data-reader-mobile-nav
+        className="fixed bottom-0 left-0 right-0 z-[9990] border-t border-border bg-card/95 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur-2xl dark:bg-background/95 lg:hidden"
+      >
+        <div className="mx-auto flex max-w-md items-center justify-around px-6 pb-[calc(env(safe-area-inset-bottom,0)+0.5rem)] pt-2">
+          {navItems.map((item) => {
+            const active = isPathActive(pathname, item.matchers);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className="group flex min-h-11 flex-col items-center gap-1 rounded-xl px-3 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors duration-150 ${
                     active
-                      ? "text-slate-900 dark:text-white"
-                      : "text-slate-500 hover:text-slate-800 dark:text-white/60 dark:hover:text-white"
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground group-hover:text-foreground dark:group-hover:text-muted-foreground"
                   }`}
                 >
-                  <span
-                    className={`flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
-                      active
-                        ? "bg-slate-900 text-white shadow-md shadow-slate-900/10 dark:bg-white dark:text-slate-900"
-                        : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-white/70"
-                    }`}
-                  >
-                    {item.icon}
-                  </span>
+                  <Icon className="h-[18px] w-[18px]" />
+                </span>
+                <span
+                  className={`text-[11px] transition-colors duration-150 ${
+                    active
+                      ? "font-semibold text-accent-foreground "
+                      : "font-medium text-muted-foreground "
+                  }`}
+                >
                   {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
-      )}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

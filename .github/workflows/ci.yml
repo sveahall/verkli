@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    # `platform` is the default branch and the de facto trunk since the
+    # 2026-06-13 branch cleanup; `main` is deliberately untouched. Listing only
+    # `main` meant NO ci ran on a direct push to platform, and Railway
+    # auto-deploys platform to production — so pushes reached live users with
+    # nothing but the pre-commit hook between them and a regression.
+    # Kept `main` so a push there is still covered if it is ever revived.
+    branches: [platform, main]
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+
+    # `next build` requires these two to be NON-EMPTY: assertPublicEnv() runs
+    # while page data is collected and throws "Missing required public
+    # environment variables" otherwise. They do not need to be REAL — verified
+    # by building with placeholders: 157/157 static pages generated, exit 0,
+    # because no prerendered page fetches live data at build time.
+    #
+    # So the fallback keeps CI green without any repo configuration, and the
+    # secrets take over automatically once they are added. Both values are
+    # public by design (the anon key ships inside the client bundle), so nothing
+    # secret is being defaulted here.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key-not-real' }}
+
+    # Installs and runs from the REPO ROOT, not apps/web.
+    #
+    # This workflow had `defaults.run.working-directory: apps/web`, and `npm ci`
+    # from a workspace child installs only that child's dependencies — while the
+    # ROOT `prepare` script still runs. `prepare` is `husky`, husky lives in the
+    # root devDependencies, so it was never installed: every run died on
+    # "husky: not found", exit 127. Every CI run in this repo's history had
+    # failed that way, on every work-package PR, which is why a red check
+    # stopped meaning anything. Installing at the root installs husky and the
+    # script succeeds — no --ignore-scripts needed.
+    #
+    # The root package.json already proxies each script to the workspace
+    # (`lint`, `test`, `build:ci`), so these are the same commands the
+    # Dockerfile runs.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the root package.json engines floor (>=22.12.0) and the
+          # node:22-alpine the web image runs on Railway. On 20 the gate ran
+          # below its own declared floor.
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run check:no-prisma
+
+      - run: npm run lint
+
+      # -p is required: the meaningful tsconfig is apps/web's, and the root one
+      # would otherwise be picked up from this working directory.
+      - run: npx tsc --noEmit -p apps/web/tsconfig.json
+
+      # `build`, matching the image. Earlier today this said `build:ci` on the
+      # reasoning that CI should gate what production builds — right principle,
+      # wrong conclusion: build:ci pins `next build --webpack`, and in Next 16
+      # the webpack builder emits no middleware at all. That made CI faithfully
+      # gate a broken artifact instead of asking why production pinned a
+      # deprecated bundler. The Dockerfile now builds with Turbopack too, so
+      # this is once again the same command that ships.
+      - run: npm run build
+
+      - run: npm test

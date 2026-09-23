@@ -1,0 +1,197 @@
+import { expect, test } from "@playwright/test";
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("verkli-cookie-consent", "declined");
+    localStorage.setItem("verkli-theme", "light");
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.route("**/api/notifications**", (route) => route.fulfill({ status: 200, json: { count: 0, notifications: [] } }));
+  // Creation is exercised through a controlled failure; no book or paid job
+  // may be written while testing the form and translation controls.
+  await page.route("**/api/books", (route) => route.request().method() === "POST"
+    ? route.fulfill({ status: 503, json: { error: "GENERIC_ERROR" } })
+    : route.continue());
+  await page.route("**/api/books/*/translate", (route) => route.abort());
+});
+
+test("new book offers upload first alongside writing and resets when reopened", async ({ page }) => {
+  await page.goto("/author/library");
+  const trigger = page.getByRole("button", { name: "New book", exact: true }).first();
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "New book", exact: true });
+  const choices = dialog.getByRole("button").filter({ has: page.getByRole("heading", { level: 3 }) });
+  await expect(choices).toHaveCount(2);
+  await expect(choices.nth(0)).toContainText("Upload a book");
+  await expect(choices.nth(1)).toContainText("Write your own");
+  await expect(dialog.getByRole("textbox", { name: "Title", exact: true })).toHaveCount(0);
+  await choices.nth(1).click();
+  await expect(dialog.getByRole("textbox", { name: "Title", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await trigger.click();
+  await expect(choices.nth(0)).toBeVisible();
+});
+
+test("new book is named, keeps keyboard focus, and restores its trigger", async ({ page }) => {
+  await page.goto("/author/library");
+  const trigger = page.getByRole("button", { name: "New book", exact: true }).first();
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "New book", exact: true });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: /Write your own/ }).click();
+  const title = dialog.getByRole("textbox", { name: "Title", exact: true });
+  await expect(title).toBeFocused();
+  await trigger.evaluate((element) => element.focus());
+  await expect(title).toBeFocused();
+  const close = dialog.getByRole("button", { name: "Close new book", exact: true });
+  await page.keyboard.press("Shift+Tab");
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
+test("new book submits with Enter and announces a recoverable error", async ({ page }) => {
+  await page.goto("/author/library");
+  await page.getByRole("button", { name: "New book", exact: true }).first().click();
+  await page.getByRole("button", { name: /Write your own/ }).click();
+  const title = page.getByPlaceholder("Book title", { exact: true });
+  await title.fill("Keyboard QA book");
+  const request = page.waitForRequest((value) => value.url().endsWith("/api/books") && value.method() === "POST");
+  await title.press("Enter");
+  expect((await request).postDataJSON()).toEqual({ title: "Keyboard QA book", language: "en" });
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText("Something went wrong. Try again.");
+  await expect(page.getByRole("button", { name: "Create book", exact: true })).toBeEnabled();
+});
+
+test("new book fits a short mobile viewport with a reachable submit control", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 480 });
+  await page.goto("/author/library");
+  await page.getByRole("button", { name: "New book", exact: true }).first().click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("button", { name: /Upload a book/ })).toBeInViewport();
+  await expect(dialog.getByRole("button", { name: /Write your own/ })).toBeInViewport();
+  await dialog.getByRole("button", { name: /Write your own/ }).click();
+  const bounds = await dialog.boundingBox();
+  expect(bounds!.y).toBeGreaterThanOrEqual(16);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(464);
+  await dialog.getByRole("button", { name: "Create book", exact: true }).scrollIntoViewIfNeeded();
+  await expect(dialog.getByRole("button", { name: "Create book", exact: true })).toBeInViewport();
+});
+
+test("switching from new book keeps the import dialog open", async ({ page }) => {
+  await page.goto("/author/library");
+  await page.getByRole("button", { name: "New book", exact: true }).first().click();
+  await page.getByRole("button", { name: /Upload a book/ }).click();
+  await expect(page.getByRole("heading", { name: "Import book", exact: true })).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("heading", { name: "Import book", exact: true })).toBeVisible();
+});
+
+test("translation target has a label and changes the preview with the keyboard", async ({ page }) => {
+  await page.route("**/api/books/*/translation-preview?**", (route) => {
+    const language = new URL(route.request().url()).searchParams.get("targetLanguage");
+    return route.fulfill({ status: 200, json: { originalText: "Original sample", previewText: `Preview in ${language}` } });
+  });
+  await page.goto("/author/library");
+  const fixture = page.getByRole("link", { name: /Continue editing E2E fixture — automated test book/i });
+  await expect(fixture).toBeVisible();
+  const url = new URL((await fixture.getAttribute("href"))!, page.url());
+  url.searchParams.set("panel", "translate");
+  await page.goto(url.toString());
+  test.skip(await page.getByRole("heading", { name: "Translation is not available in this workspace.", exact: true }).isVisible(),
+    "Run the local preview with NEXT_PUBLIC_TRANSLATIONS_ENABLED=true to exercise translation controls.");
+  const target = page.getByRole("combobox", { name: "Target language", exact: true });
+  await expect(target).toBeVisible();
+  await target.focus();
+  await target.press("Home");
+  const value = await target.inputValue();
+  await expect(page.getByText(`Preview in ${value}`, { exact: true })).toBeVisible();
+  await expect(target).toBeFocused();
+});
+
+test("reader settings dismiss with Escape and restore focus without changing preferences", async ({ page }) => {
+  await page.route("**/rest/v1/**", (route) => route.request().method() === "GET"
+    ? route.continue()
+    : route.fulfill({ status: 200, json: [] }));
+  await page.route("**/api/reader/**", (route) => route.request().method() === "GET"
+    ? route.continue()
+    : route.fulfill({ status: 200, json: { ok: true } }));
+  await page.goto("/author/library");
+  const fixture = page.getByRole("link", { name: /Continue editing E2E fixture — automated test book/i });
+  const bookUrl = new URL((await fixture.getAttribute("href"))!, page.url());
+  const response = await page.request.get(`/api/books/${bookUrl.pathname.split("/").pop()}/chapters`);
+  expect(response.ok()).toBe(true);
+  const chapters = (await response.json()).data.chapters;
+  expect(chapters.length).toBeGreaterThan(0);
+  await page.goto(`/reader/read/${chapters[0].id}`);
+  const trigger = page.getByRole("button", { name: "Reader settings", exact: true });
+  await trigger.click();
+  const lineSpacing = page.getByRole("combobox", { name: "Line spacing", exact: true });
+  await lineSpacing.focus();
+  const previousValue = await lineSpacing.inputValue();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await expect(lineSpacing).toHaveValue(previousValue);
+});
+
+// F1: install all write interceptions before opening the real editor.
+test("F1 price drafts keep focus and block invalid saves", async ({ page }) => {
+  const writes: unknown[] = [];
+  await page.route("**/api/books/*", (route) => {
+    if (route.request().method() !== "PATCH") return route.continue();
+    writes.push(route.request().postDataJSON());
+    return route.fulfill({ json: { ok: true } });
+  });
+  await page.goto("/author/library");
+  const fixture = page.getByRole("link", { name: /Automated test book/i });
+  await expect(fixture).toBeVisible();
+  const url = new URL((await fixture.getAttribute("href"))!, page.url());
+  url.searchParams.set("panel", "pricing");
+  await page.goto(url.toString());
+  const toggle = page.getByRole("switch", { name: "Book free or paid", exact: true });
+  if (!(await toggle.isChecked())) await toggle.click();
+  const price = page.getByLabel("Price in currency");
+  const save = page.getByRole("button", { name: "Save pricing", exact: true });
+  await price.fill("");
+  await expect(price).toHaveValue("");
+  await expect(price).toBeFocused();
+  await expect(save).toBeDisabled();
+  await price.fill("0");
+  await expect(price).toBeFocused();
+  await expect(toggle).toBeChecked();
+  await expect(save).toBeDisabled();
+  await price.fill("12.75");
+  // Make the candidate different even if this happens to be the saved fixture price.
+  const amount = await save.isEnabled() ? 1275 : 1350;
+  if (amount === 1350) await price.fill("13.50");
+  await save.click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0]).toMatchObject({ price_amount: amount });
+});
+
+test("F1 publish description has a mobile label and preserves blur saving", async ({ page }) => {
+  const writes: unknown[] = [];
+  await page.route("**/rest/v1/**", (route) => {
+    if (route.request().method() === "GET") return route.continue();
+    writes.push(route.request().postDataJSON());
+    return route.fulfill({ json: [] });
+  });
+  await page.goto("/author/library");
+  const fixture = page.getByRole("link", { name: /Automated test book/i });
+  await expect(fixture).toBeVisible();
+  const url = new URL((await fixture.getAttribute("href"))!, page.url());
+  url.searchParams.set("panel", "publish");
+  await page.goto(url.toString());
+  await page.setViewportSize({ width: 390, height: 844 });
+  const description = page.getByRole("textbox", { name: "Description", exact: true });
+  await page.locator("label").filter({ hasText: /^Description$/ }).click();
+  await expect(description).toBeFocused();
+  await expect.poll(() => description.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16);
+  await description.fill("F1 synthetic description");
+  await description.press("Tab");
+  await expect.poll(() => writes).toContainEqual({ description: "F1 synthetic description" });
+  await expect(description).toHaveValue("F1 synthetic description");
+});

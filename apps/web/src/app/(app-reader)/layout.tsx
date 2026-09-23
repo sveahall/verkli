@@ -1,57 +1,67 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { updateActiveRole } from "@/features/auth/roles";
+import { getActiveRoleFromCookieValue } from "@/lib/active-role";
+import {
+  getAuthorApplicationStatus,
+  isLegacyAuthorRole,
+} from "@/lib/auth/author-approval";
 import NavbarShell from "@/nav/NavbarShell";
+import OfflineModeIndicator from "@/components/offline/OfflineModeIndicator";
 
 export default async function AppReaderLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  let user: { id: string } | null = null;
+  let supabase: Awaited<ReturnType<typeof createClient>> | null = null;
+  try {
+    supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
     redirect("/reader/signin");
   }
 
-  let role: "author" | "reader" | null = null;
-
-  const metaRole = user.user_metadata?.active_role ?? user.user_metadata?.role;
-  if (metaRole === "author" || metaRole === "reader") {
-    role = metaRole;
+  if (!user || !supabase) {
+    redirect("/reader/signin");
   }
 
-  if (!role) {
+  const cookieStore = await cookies();
+  const activeRole = getActiveRoleFromCookieValue(
+    cookieStore.get("active_role")?.value
+  );
+
+  if (!activeRole) {
+    redirect("/api/auth/sync-role?redirect=/reader/home");
+  }
+
+  if (activeRole === "author") {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, preferences")
+      .select("role")
       .eq("user_id", user.id)
       .maybeSingle();
+    const profileRole = String(profile?.role ?? "").trim().toLowerCase();
+    const isAdmin = profileRole === "admin";
+    const isLegacyAuthor = isLegacyAuthorRole(profileRole);
+    const approvalStatus = !isAdmin && !isLegacyAuthor
+      ? await getAuthorApplicationStatus(supabase, user.id)
+      : null;
+    const canAccessAuthor = isAdmin || isLegacyAuthor || approvalStatus === "approved";
 
-    const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
-    if (preferenceRole === "author" || preferenceRole === "reader") {
-      role = preferenceRole;
-    } else if (profile?.role === "author" || profile?.role === "reader") {
-      role = profile.role;
+    if (canAccessAuthor) {
+      redirect("/author/home");
     }
   }
 
-  if (!role) {
-    redirect("/reader/signin");
-  }
-
-  if (role === "author") {
-    await updateActiveRole("reader");
-  }
-
-  const variant = "APP_READER";
-
   return (
     <>
-      <NavbarShell variant={variant} />
+      <div className="lg:hidden">
+        <NavbarShell variant="APP_READER" />
+      </div>
+      <OfflineModeIndicator />
       {children}
     </>
   );

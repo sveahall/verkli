@@ -1,0 +1,39 @@
+# Worker runtime image for Verkli BullMQ workers.
+# Build from repo root: docker build -f infra/docker/Dockerfile.workers .
+# Run one worker: docker run --env-file .env ... verkli-worker WORKER=import
+# Each worker is runnable independently by overriding CMD with WORKER=<name>.
+
+FROM node:22-alpine AS base
+WORKDIR /app
+
+# ffmpeg is a hard runtime dependency of the audiobook worker (chapter stitching,
+# scripts/audiobook-worker.ts) and the trailer renderer.
+#
+# It must come from the system, not from the `ffmpeg-static` npm package: the
+# install below runs `npm ci --ignore-scripts`, which suppresses ffmpeg-static's
+# postinstall step — the step that actually downloads the binary. Without this
+# apk line the audiobook worker silently degrades every whole-book job to
+# manifest-only output and writes a .json path into audiobook_assets.audio_path,
+# while still reporting success.
+RUN apk add --no-cache ffmpeg
+ENV FFMPEG_BIN=/usr/bin/ffmpeg
+
+# Copy workspace and package files
+COPY package.json package-lock.json* ./
+COPY apps/web/package.json apps/web/
+COPY packages/db/package.json packages/db/
+COPY packages/shared/package.json packages/shared/
+
+COPY infra/docker/check-worker-runtime.cjs infra/docker/
+RUN npm ci --ignore-scripts && node infra/docker/check-worker-runtime.cjs
+
+# Copy source needed for workers (apps/web + packages)
+COPY apps/web apps/web
+COPY packages/db packages/db
+COPY packages/shared packages/shared
+
+WORKDIR /app/apps/web
+
+# Default: run import worker. Override in compose with command or WORKER env.
+ENV WORKER=import
+CMD ["sh", "-c", "npx tsx scripts/${WORKER}-worker.ts"]

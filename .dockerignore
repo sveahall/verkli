@@ -1,0 +1,65 @@
+# What NOT to send into the Docker build context.
+#
+# The web image is built from the REPO ROOT (the workspace root package.json and
+# package-lock.json must be in context), so without this file Docker tars up the
+# entire tree — ~13 GB here — before the build even starts.
+#
+# Mirrors .vercelignore, with two differences that matter:
+#   - `apps/web/models` is excluded as a DIRECTORY, not just `model.bin`. It is
+#     288 MB of Opus MT weights, untracked in git, and translation runs through
+#     Anthropic and the Railway worker instead.
+#   - package.json / package-lock.json must NOT be excluded. `npm ci` needs them
+#     and the Dockerfile copies them in its own layer for caching.
+
+node_modules
+**/node_modules
+.next
+**/.next
+out
+dist
+
+# Agent worktrees: 9 GB of full repo copies, each with its own node_modules.
+.claude/worktrees
+
+.git
+.github
+*.log
+coverage
+playwright-report
+test-results
+
+# Never bake environment files into an image. Railway injects its own env vars,
+# and a .env.local landing in the build would override them at build time —
+# which for NEXT_PUBLIC_* means the wrong value is inlined into the client
+# bundle with nothing to signal it.
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Local import staging. LOCAL_IMPORTS_DIR defaults here, so it fills up with
+# real manuscripts as authors import them.
+.uploads
+
+# Opus MT weights — 288 MB, see header.
+apps/web/models
+
+# Python virtualenvs.
+.venv
+**/.venv
+
+# Local agent/tooling state, not application code.
+.gstack
+.swarm
+.claude-flow
+.ds-sync
+.design-sync
+.remember
+.serena
+
+# Docs and tests do not belong in a runtime image.
+docs
+tests
+e2e
+
+.DS_Store

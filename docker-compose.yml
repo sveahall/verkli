@@ -1,0 +1,9 @@
+# Lokal utveckling – Redis för import worker (BullMQ)
+# Kör: docker compose up -d
+# Krävs för: POST /api/books/import → worker processar jobb
+
+services:
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"

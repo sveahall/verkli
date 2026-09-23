@@ -1,0 +1,81 @@
+"use client";
+
+import { useState } from "react";
+import { API_ROUTES } from "@/lib/api-routes";
+import { formatMoney } from "@/lib/format-money";
+
+type Props = {
+  bookId: string;
+  amount: number;
+  currency: string;
+};
+
+const CHECKOUT_ERRORS: Record<string, string> = {
+  AUTHOR_CANNOT_BUY_OWN_BOOK: "You can't purchase your own book.",
+  BOOK_IS_FREE: "This book is free.",
+  ALREADY_UNLOCKED: "You already have access to this book.",
+  CHECKOUT_START_FAILED: "Could not start checkout. Try again.",
+  CHECKOUT_SESSION_FAILED: "Checkout session failed. Try again.",
+  UNAUTHORIZED: "You need to sign in.",
+  FORBIDDEN: "Access denied.",
+};
+
+const DEFAULT_CHECKOUT_ERROR = "Something went wrong. Try again.";
+
+function resolveCheckoutError(key: string | null | undefined): string {
+  if (!key) return DEFAULT_CHECKOUT_ERROR;
+  return CHECKOUT_ERRORS[key] ?? DEFAULT_CHECKOUT_ERROR;
+}
+
+export default function PurchaseBookButton({ bookId, amount, currency }: Props) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handlePurchase = async () => {
+    if (loading) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Canonical purchase checkout path.
+      const res = await fetch(API_ROUTES.bookPurchaseCheckout(bookId), {
+        method: "POST",
+      });
+      const body = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setError(resolveCheckoutError(body?.error));
+        setLoading(false);
+        return;
+      }
+
+      const checkoutUrl = typeof body?.checkoutUrl === "string" ? body.checkoutUrl : "";
+      if (!checkoutUrl) {
+        setError("Could not start checkout. Try again.");
+        setLoading(false);
+        return;
+      }
+
+      window.location.assign(checkoutUrl);
+    } catch {
+      setError("Could not start checkout. Try again.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={handlePurchase}
+        disabled={loading}
+        className="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {loading ? "Opening checkout…" : `Buy book (${formatMoney(amount, currency)})`}
+      </button>
+      <p className="text-sm text-muted-foreground">Available payment methods are shown at Stripe checkout and depend on your country, currency and device.</p>
+      {error ? <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p> : null}
+    </div>
+  );
+}

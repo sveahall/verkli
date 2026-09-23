@@ -85,7 +85,7 @@ export default async function BetaApplicationsPage({
   }
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-6 py-12">
+    <div className="page-content mx-auto w-full max-w-4xl px-6 py-12 text-foreground">
       <header className="mb-8">
         <h1 className="text-[28px] font-semibold tracking-tight text-slate-900">
           Beta applications
@@ -205,6 +205,6 @@ export default async function BetaApplicationsPage({
           })}
         </ol>
       )}
-    </main>
+    </div>
   );
 }

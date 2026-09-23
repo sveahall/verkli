@@ -1,0 +1,280 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  E_BOOK_NOT_FOUND,
+  E_COVER_GENERATION_FAILED,
+  E_PROMPT_TEXT_REQUIRED,
+  E_VALIDATION_FAILED,
+} from "@/lib/api-errors";
+
+const mocks = vi.hoisted(() => ({
+  requireAuthorRoleForApi: vi.fn(),
+  createAdminClient: vi.fn(),
+  generateCoverImages: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/require-author", () => ({
+  requireAuthorRoleForApi: mocks.requireAuthorRoleForApi,
+}));
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: mocks.createAdminClient,
+}));
+
+vi.mock("@/lib/fal-image", () => ({
+  generateCoverImages: (...args: unknown[]) => mocks.generateCoverImages(...args),
+  // Real values. The retry gate does arithmetic with these, so leaving them out
+  // of the mock makes the comparison NaN and the gate silently always-retry —
+  // which is the bug the gate exists to prevent.
+  FAL_TIMEOUT_MS: 25_000,
+  FAL_DOWNLOAD_TIMEOUT_MS: 12_000,
+  FAL_STORAGE_HEADROOM_MS: 15_000,
+}));
+
+vi.mock("@/lib/rate-limit", () => ({
+  createPerUserRateLimiter: () => ({
+    check: () => ({ allowed: true }),
+    _reset: () => {},
+  }),
+}));
+
+// Force in-memory rate limiter (no Redis)
+vi.mock("@/lib/env", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/env")>();
+  return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
+});
+
+const { POST, maxDuration } = await import("./route");
+
+function makeRequest(payload: unknown) {
+  return new Request("http://localhost/api/books/book-1/cover/generate", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+function mockBookLookup({ found }: { found: boolean }) {
+  const booksMaybeSingle = vi.fn().mockResolvedValue({
+    data: found ? { id: "00000000-0000-4000-8000-000000000001" } : null,
+    error: null,
+  });
+  const booksEqAuthor = vi.fn(() => ({ maybeSingle: booksMaybeSingle }));
+  const booksEqId = vi.fn(() => ({ eq: booksEqAuthor }));
+  const booksSelect = vi.fn(() => ({ eq: booksEqId }));
+
+  const bookGenresEq = vi.fn(() => ({
+    data: found ? [{ genre_id: "genre-1" }] : [],
+    error: null,
+  }));
+  const bookGenresSelect = vi.fn(() => ({ eq: bookGenresEq }));
+
+  const genresIn = vi.fn(() => ({
+    data: found ? [{ name_en: "Business", name_sv: "Affar", slug: "business" }] : [],
+    error: null,
+  }));
+  const genresSelect = vi.fn(() => ({ in: genresIn }));
+
+  const from = vi.fn((table: string) => {
+    if (table === "books") return { select: booksSelect };
+    if (table === "book_genres") return { select: bookGenresSelect };
+    if (table === "genres") return { select: genresSelect };
+    throw new Error(`Unexpected table in test: ${table}`);
+  });
+
+  mocks.createAdminClient.mockReturnValue({ from });
+}
+
+describe("POST /api/books/[id]/cover/generate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.requireAuthorRoleForApi.mockResolvedValue({
+      user: { id: "author-1" },
+      response: null,
+    });
+  });
+
+  it("keeps maxDuration within the platform's function limit", () => {
+    // This was 180 while the plan caps functions at 60, so a hanging provider
+    // was killed by Vercel instead of returning our error — the author saw a
+    // spinner that never resolved. It must stay at or below the platform limit
+    // and above fal-image.ts's own 40s timeout, so our error wins the race.
+    expect(maxDuration).toBeLessThanOrEqual(60);
+    expect(maxDuration).toBeGreaterThan(40);
+  });
+
+  it("returns 400 for invalid JSON", async () => {
+    const request = new Request("http://localhost/api/books/book-1/cover/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "not json",
+    });
+
+    const response = await POST(request, { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("returns 400 when prompt is blank", async () => {
+    const response = await POST(
+      makeRequest({
+        prompt: "   ",
+        style: "minimal",
+      }),
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe(E_PROMPT_TEXT_REQUIRED);
+  });
+
+  it("returns 400 for invalid style", async () => {
+    const response = await POST(
+      makeRequest({
+        prompt: "A fox in snow",
+        style: "invalid-style",
+      }),
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe(E_VALIDATION_FAILED);
+  });
+
+  it("returns 404 when book is not owned", async () => {
+    mockBookLookup({ found: false });
+
+    const response = await POST(
+      makeRequest({
+        prompt: "A fox in snow",
+        style: "minimal",
+      }),
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe(E_BOOK_NOT_FOUND);
+  });
+
+  it("returns 4 generated image URLs", async () => {
+    mockBookLookup({ found: true });
+    mocks.generateCoverImages.mockResolvedValue({
+      requestId: "req-1",
+      imageUrls: [
+        "https://cdn.example.com/cover-1.jpg",
+        "https://cdn.example.com/cover-2.jpg",
+        "https://cdn.example.com/cover-3.jpg",
+        "https://cdn.example.com/cover-4.jpg",
+      ],
+    });
+
+    const response = await POST(
+      makeRequest({
+        prompt: "A fox in snow",
+        style: "illustrated",
+      }),
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      requestId: "req-1",
+      images: [
+        "https://cdn.example.com/cover-1.jpg",
+        "https://cdn.example.com/cover-2.jpg",
+        "https://cdn.example.com/cover-3.jpg",
+        "https://cdn.example.com/cover-4.jpg",
+      ],
+    });
+    expect(mocks.generateCoverImages).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: expect.stringContaining("no text"), })
+    );
+    expect(mocks.generateCoverImages).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: expect.stringContaining("Business atmosphere"), })
+    );
+    expect(mocks.generateCoverImages).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: expect.stringContaining("A fox in snow"), })
+    );
+  });
+
+  it("returns 502 when NVIDIA SD3 generation fails", async () => {
+    mockBookLookup({ found: true });
+    mocks.generateCoverImages.mockRejectedValue(new Error("fal.ai timeout"));
+
+    const response = await POST(
+      makeRequest({
+        prompt: "A fox in snow",
+        style: "minimal",
+      }),
+      { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(body.error).toBe(E_COVER_GENERATION_FAILED);
+  });
+
+  // ── The retry has to fit in the budget ────────────────────────────────────
+  //
+  // fal-image caps one attempt at 40s to stay inside this route's 60s
+  // maxDuration. Two attempts are 80s, so a retry after a slow failure could
+  // never return — Vercel killed the function at 60s and the author got a
+  // generic error after waiting a minute, with the real cause only in the
+  // platform log. Observed in production 2026-09-02.
+
+  describe("retry budget", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-09-02T12:00:00Z"));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("retries when the first attempt failed fast enough to leave room", async () => {
+      mockBookLookup({ found: true });
+      // A transient 502 comes back immediately — the case the retry was for.
+      mocks.generateCoverImages.mockImplementation(async () => {
+        vi.setSystemTime(Date.now() + 1_000);
+        throw new Error("fal.ai error 502");
+      });
+
+      await POST(makeRequest({ prompt: "a fluffy black dog", style: "illustrated" }), {
+        params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
+      });
+
+      expect(mocks.generateCoverImages).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not retry when the first attempt burned the budget", async () => {
+      mockBookLookup({ found: true });
+      // A provider hang: fal-image aborts at its own 40s cap. A second attempt
+      // would need 40s more plus storage time, on a 60s budget.
+      mocks.generateCoverImages.mockImplementation(async () => {
+        vi.setSystemTime(Date.now() + 25_000);
+        throw new Error("fal.ai did not respond within 25s.");
+      });
+
+      const res = await POST(
+        makeRequest({ prompt: "a fluffy black dog", style: "illustrated" }),
+        { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) }
+      );
+      const body = await res.json();
+
+      expect(mocks.generateCoverImages).toHaveBeenCalledTimes(1);
+      // Still a real, handled error rather than a killed function.
+      expect(res.status).toBe(502);
+      expect(body.error).toBe(E_COVER_GENERATION_FAILED);
+    });
+
+    it("keeps the attempt cap and the budget consistent", () => {
+      // If maxDuration is ever raised, two attempts may genuinely fit and the
+      // gate should be revisited rather than silently blocking every retry.
+      expect(maxDuration * 1000).toBeLessThan(2 * 25_000 + 15_000);
+    });
+  });
+});

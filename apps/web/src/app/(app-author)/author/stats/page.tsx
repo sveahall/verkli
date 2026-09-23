@@ -1,13 +1,5 @@
-import PlaceholderPage from "@/components/PlaceholderPage";
-import { NAV_CONFIG } from "@/nav/navConfig";
+import AuthorStatsDashboard from "@/components/author/stats/AuthorStatsDashboard";
 
-export default function Page() {
-  return (
-    <PlaceholderPage
-      title="Stats"
-      variantLabel="Author"
-      links={NAV_CONFIG.APP_AUTHOR.links}
-      showAuthStatus={true}
-    />
-  );
+export default function AuthorStatsPage() {
+  return <AuthorStatsDashboard />;
 }

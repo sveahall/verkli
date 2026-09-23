@@ -1,0 +1,778 @@
+"use client";
+
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import BookToolsMenu from "../BookToolsMenu";
+import AgentAvatar from "@/features/ai-team/AgentAvatar";
+import { useAiEnabled } from "@/features/ai-team/settings/availability";
+import { getAgent } from "@/features/ai-team/agents";
+import { agentConversations, conversationTool } from "@/features/ai-team/agent-conversations";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useBookJobs } from "@/hooks/useBookJobs";
+import { useBillingState } from "@/hooks/useBillingState";
+import { getAudiobookEnabled } from "@/lib/flags";
+import { normalizeLanguage } from "@/lib/languages";
+import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
+import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
+import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
+import { useBookWorkspaceCommandPalette } from "./workspace/BookWorkspaceCommandPaletteProvider";
+import { useBookWorkspaceController } from "./hooks/useBookWorkspaceController";
+import { useChapterSelection } from "./hooks/useChapterSelection";
+import { useBookPricing } from "./hooks/useBookPricing";
+import { useAgentExecution } from "./hooks/useAgentExecution";
+import { useBookCover } from "./hooks/useBookCover";
+import { useBookRename } from "./hooks/useBookRename";
+import { useChapterCrud } from "./hooks/useChapterCrud";
+import { usePublishing } from "./hooks/usePublishing";
+import { useTranslation } from "./hooks/useTranslation";
+import { useAudiobook } from "./hooks/useAudiobook";
+import { useMarketing } from "./hooks/useMarketing";
+import { useBookPrintOnDemand } from "./hooks/useBookPrintOnDemand";
+import { useJobRetry } from "./hooks/useJobRetry";
+import { useBookEditorNavigation } from "./hooks/useBookEditorNavigation";
+import {
+  countWordsInContent,
+  normalizeLangKey,
+  STORAGE_ASSISTANT_OPEN,
+  STORAGE_PRESET,
+} from "./BookEditorView.helpers";
+import { ALL_TOOLS } from "./bookEditor.shared";
+import type {
+  Book,
+  BookVersion,
+  Chapter,
+  LatestAudiobookAsset,
+  MarketingCampaignRow,
+  PublishVisibility,
+  Tool,
+} from "./BookEditorView.types";
+import type { InlineAiAction } from "@/features/book-workspace/types";
+import type { PendingAiRequest } from "./panels/AiAssistantPanel";
+import FocusModeEditorView from "./views/FocusModeEditorView";
+import SimplifiedEditView from "./views/SimplifiedEditView";
+import WriteOnlyWorkspaceView from "./views/WriteOnlyWorkspaceView";
+import BookDashboard from "./views/BookDashboard";
+import dynamic from "next/dynamic";
+import BookEditorPanelContent from "./BookEditorPanelContent";
+// Loaded on demand: the dock is closed for most authors most of the time,
+// and its transcript state should not cost anything until it is opened.
+const AiAssistantDock = dynamic(() => import("./panels/AiAssistantPanel"));
+import { BookEditorStatusBanners } from "./components/BookEditorStatusBanners";
+
+type Props = {
+  book: Book;
+  chapters: Chapter[];
+  bookVersions: BookVersion[];
+  activeVersion: BookVersion | null;
+  authorDisplayName?: string;
+  authorDisplayNameSet?: boolean;
+  defaultPublishVisibility?: PublishVisibility;
+  latestAudiobookAsset?: LatestAudiobookAsset;
+  marketingCampaigns?: MarketingCampaignRow[];
+  stripeConfigured?: boolean;
+  /** Limit which tools appear in the sidebar. When set, only these tools are shown. */
+  visibleTools?: Tool[];
+};
+
+export default function BookEditorView({
+  book,
+  chapters: initialChapters,
+  bookVersions,
+  activeVersion,
+  authorDisplayName = "Author",
+  authorDisplayNameSet = true,
+  defaultPublishVisibility = "public",
+  latestAudiobookAsset = null,
+  marketingCampaigns = [],
+  stripeConfigured = false,
+  visibleTools,
+}: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const {
+    setCurrentBookId: setAuthorCurrentBookId,
+    setContextPanelState,
+    clearContextPanelState,
+  } = useAuthorWorkspace();
+  // Account-level AI switch. Presentation only — every AI route enforces it
+  // again on the server, so a stale tab cannot spend anything.
+  const aiEnabled = useAiEnabled();
+  const workspaceTools = useMemo(
+    () => (aiEnabled ? visibleTools : visibleTools?.filter((entry) => entry !== "ai")),
+    [aiEnabled, visibleTools]
+  );
+  const {
+    activePanel: tool,
+    setActivePanel: setTool,
+    focusMode,
+    setFocusMode,
+    effectiveTools,
+  } = useBookWorkspaceController({ bookId: book.id, visibleTools: workspaceTools });
+  const {
+    openPalette,
+    setCommands,
+  } = useBookWorkspaceCommandPalette();
+
+  // ── Chapters ──────────────────────────────────────────────────────────────
+  const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
+
+  useEffect(() => {
+    setChapters(initialChapters);
+  }, [initialChapters]);
+
+  const {
+    CHAPTERS_PER_PAGE,
+    chapterPage,
+    setChapterPage,
+    selectedChapterId,
+    selectedChapter,
+    selectedChapterIndex,
+    selectChapter,
+    selectNextChapter,
+    selectPreviousChapter,
+    setSelectedChapterId,
+    startIndex,
+    totalPages,
+    visibleChapters,
+  } = useChapterSelection({
+    chapters,
+    initialSelectedChapterId: initialChapters[0]?.id ?? null,
+  });
+
+  // ── Session & word counts ─────────────────────────────────────────────────
+  const [sessionStartWords, setSessionStartWords] = useState<number | null>(null);
+  const [preset, setPreset] = useState("novel");
+  const [wordCount, setWordCount] = useState(0);
+  const chapterWordCounts = useMemo(() => {
+    return Object.fromEntries(
+      chapters.map((chapter) => [chapter.id, countWordsInContent(chapter.content)])
+    ) as Record<string, number>;
+  }, [chapters]);
+  const totalBookWordCount = useMemo(() => {
+    return Object.values(chapterWordCounts).reduce((sum, count) => sum + count, 0);
+  }, [chapterWordCounts]);
+  const sessionWords = sessionStartWords !== null ? Math.max(0, wordCount - sessionStartWords) : 0;
+
+  const bookRename = useBookRename({ book });
+  const { bookTitle } = bookRename;
+  // The 'production' tool only ever lands in effectiveTools when the page-
+  // level isDemoModeActive(profile) check returned true, so its presence
+  // here is a clean proxy for "this viewer is in demo mode" without
+  // having to thread a separate prop through every panel container.
+  const isDemoEditorView = effectiveTools.includes("production");
+  const cover = useBookCover({ book, demoFallbackEnabled: isDemoEditorView });
+  const pricing = useBookPricing({ book });
+
+  // ── Publishing ────────────────────────────────────────────────────────────
+  const publishing = usePublishing({
+    book,
+    bookTitle,
+    chapters,
+    activeVersion,
+    displayCoverUrl: cover.displayCoverUrl,
+    coverUploading: cover.coverUploading,
+    selectedChapter,
+    defaultPublishVisibility,
+    authorDisplayNameSet,
+  });
+
+  // ── AI assistant dock ─────────────────────────────────────────────────────
+  // Docked beside the manuscript rather than replacing it, so asking a question
+  // no longer costs the author their place in the text. `?panel=ai` and the
+  // sidebar entry both open it; neither navigates away any more.
+  const [assistantTool, setAssistantTool] = useState<Tool | null>(null);
+  const [assistantOpen, setAssistantOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem(STORAGE_ASSISTANT_OPEN) === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  // A remembered open dock must not reopen for an author who has since turned
+  // AI off, so the stored preference is read through the account switch rather
+  // than reset — turning AI back on restores the dock where they left it.
+  const assistantVisible = aiEnabled && assistantOpen;
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_ASSISTANT_OPEN, String(assistantOpen));
+    } catch {
+      // Private mode / blocked storage: the dock still works, it just forgets.
+    }
+  }, [assistantOpen]);
+
+  // The specialist follows the task. Each tool keeps its own transcript in
+  // AiAssistantPanel, so changing rooms does not mix translation and editing.
+  useEffect(() => { setAssistantTool(tool); }, [tool]);
+  const currentAgent = getAgent(agentConversations[conversationTool(assistantTool ?? tool)].agent);
+
+  // ⌘I / Ctrl+I, the shortcut Cursor trained everyone on.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "i") {
+        if (!aiEnabled) return;
+        event.preventDefault();
+        setAssistantTool(tool);
+        setAssistantOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [aiEnabled, tool]);
+
+  // ── Jobs & billing ────────────────────────────────────────────────────────
+  const { jobs: allJobs, loading: jobLoading, error: jobError, refetch: refetchBookJob, settled: jobsSettled } = useBookJobs(book.id);
+  const billing = useBillingState();
+
+  const jobsForBanner = useMemo(
+    () => (getAudiobookEnabled() ? allJobs : allJobs.filter((j) => j.kind !== "audiobook")),
+    [allJobs]
+  );
+  const importJobs = useMemo(() => allJobs.filter((j) => j.kind === "import"), [allJobs]);
+
+  // ── Language helpers ──────────────────────────────────────────────────────
+  const activeLanguage = normalizeLanguage(
+    activeVersion?.language_code ?? book.original_language ?? book.language
+  );
+  const isWriteOnlyWorkspace = effectiveTools.length === 1 && effectiveTools[0] === "edit";
+
+  // ── Translation ───────────────────────────────────────────────────────────
+  const getBookWorkspaceHref = useCallback(
+    (language?: string | null) => {
+      const normalizedLanguage = language ? normalizeLangKey(language) : null;
+      if (isWriteOnlyWorkspace) {
+        const params = new URLSearchParams({ bookId: book.id });
+        if (normalizedLanguage) params.set("lang", normalizedLanguage);
+        return `/author/write?${params.toString()}`;
+      }
+      return normalizedLanguage
+        ? `/author/books/${book.id}?lang=${normalizedLanguage}`
+        : `/author/books/${book.id}`;
+    },
+    [book.id, isWriteOnlyWorkspace]
+  );
+
+  const translation = useTranslation({
+    book,
+    bookVersions,
+    activeVersion,
+    selectedChapterId,
+    getBookWorkspaceHref,
+  });
+
+  // ── Audiobook ─────────────────────────────────────────────────────────────
+  const audiobook = useAudiobook({
+    book,
+    chapters,
+    activeVersion,
+    activeLanguage,
+    selectedChapterId,
+    totalBookWordCount,
+    latestAudiobookAsset,
+    billing,
+    allJobs,
+    refetchBookJob,
+  });
+
+  // ── Marketing ─────────────────────────────────────────────────────────────
+  const marketing = useMarketing({
+    book,
+    marketingCampaigns,
+    activeVersion,
+  });
+
+  // ── Chapter CRUD ──────────────────────────────────────────────────────────
+  const chapterCrud = useChapterCrud({
+    book,
+    activeVersion,
+    chapters,
+    selectedChapterId,
+    setChapters,
+    setSelectedChapterId,
+    setChapterPage,
+    setSessionStartWords,
+    chaptersPerPage: CHAPTERS_PER_PAGE,
+    getBookWorkspaceHref,
+  });
+
+  // ── Print-on-demand ───────────────────────────────────────────────────────
+  const { printOnDemandSettings, handleSavePrintOnDemandSettings } = useBookPrintOnDemand({ book });
+
+  // ── Effects: refresh, preset, session words, panel sync ───────────────────
+  useEffect(() => {
+    if (jobsSettled) router.refresh();
+  }, [jobsSettled, router]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_PRESET);
+    if (stored && ["novel", "essay", "screenplay"].includes(stored)) setPreset(stored);
+  }, []);
+
+  useEffect(() => {
+    if (preset) localStorage.setItem(STORAGE_PRESET, preset);
+  }, [preset]);
+
+  useEffect(() => {
+    if (selectedChapterId && sessionStartWords === null) {
+      setSessionStartWords(chapterWordCounts[selectedChapterId] ?? 0);
+    }
+  }, [chapterWordCounts, selectedChapterId, sessionStartWords]);
+
+  const panelParam = searchParams?.get("panel");
+
+  useEffect(() => {
+    const requestedPanel = panelParam?.trim() ?? null;
+    // `ai` is no longer a page. The sidebar entry and any existing ?panel=ai
+    // link now open the dock and leave the author on the manuscript.
+    if (requestedPanel === "ai") {
+      if (aiEnabled) {
+        setAssistantTool("edit");
+        setAssistantOpen(true);
+      }
+      setTool("edit");
+      // Drop the param so the URL describes what is actually on screen: the
+      // manuscript, with the dock open. Leaving it would also make a refresh
+      // re-open a dock the author had since closed.
+      const query = new URLSearchParams(searchParams?.toString());
+      query.delete("panel");
+      router.replace(`/author/books/${book.id}${query.size ? `?${query}` : ""}`, { scroll: false });
+      return;
+    }
+    if (requestedPanel && (effectiveTools.includes(requestedPanel as Tool) || ALL_TOOLS.includes(requestedPanel as Tool))) {
+      setTool(requestedPanel as Tool);
+    } else if (!requestedPanel) {
+      setTool("edit");
+    }
+  }, [aiEnabled, book.id, effectiveTools, panelParam, router, setTool, searchParams]);
+
+  useEffect(() => {
+    if (tool === "publish") {
+      publishing.setPublishMenuOpen(false);
+    }
+  }, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+  // Bubble-menu → AI panel handoff. The editor and the panel are different
+  // tools, so the selection has to survive the tool switch; this component
+  // stays mounted across it, the panel does not. Recording the request and
+  // navigating are split so neither step needs a ref written during render.
+  const [pendingAiRequest, setPendingAiRequest] = useState<PendingAiRequest | null>(null);
+
+  const handleAiPanelRequest = useCallback(
+    (action: InlineAiAction, selectedText: string) => {
+      setPendingAiRequest({ id: crypto.randomUUID(), action, selectedText });
+    },
+    []
+  );
+
+  const { navigateToPanel, handleInlineAiAction } = useBookEditorNavigation({
+    bookId: book.id,
+    setTool,
+    setFocusMode,
+    setPreset,
+    handleCreateChapter: chapterCrud.handleCreateChapter,
+    setCommands,
+    onAiPanelRequest: handleAiPanelRequest,
+  });
+
+  const agentExecution = useAgentExecution({ bookId: book.id, chapter: selectedChapter,
+    navigate: navigateToPanel, cover, pricing, demo: isDemoEditorView });
+  useEffect(() => {
+    if (pendingAiRequest && aiEnabled) { setAssistantTool("edit"); setAssistantOpen(true); }
+  }, [aiEnabled, pendingAiRequest]);
+
+  // ── Write-only workspace context sync ─────────────────────────────────────
+  useEffect(() => {
+    if (!isWriteOnlyWorkspace) return;
+    setAuthorCurrentBookId(book.id);
+    setContextPanelState({
+      kind: "write",
+      payload: {
+        bookTitle,
+        activeLanguage,
+        chapterTitle: selectedChapter?.title ?? null,
+        totalBookWordCount,
+      },
+    });
+  }, [
+    activeLanguage, book.id, bookTitle, isWriteOnlyWorkspace,
+    selectedChapter?.title, setAuthorCurrentBookId, setContextPanelState, totalBookWordCount,
+  ]);
+
+  useEffect(() => {
+    if (!isWriteOnlyWorkspace) return;
+    return () => { clearContextPanelState(); };
+  }, [clearContextPanelState, isWriteOnlyWorkspace]);
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && focusMode) {
+        e.preventDefault();
+        setFocusMode(false);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "f") {
+        e.preventDefault();
+        setFocusMode((f) => !f);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "\\") {
+        e.preventDefault();
+        setFocusMode((f) => !f);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [focusMode, setFocusMode]);
+
+  // ── Job retry handler ─────────────────────────────────────────────────────
+  const { handleJobRetry } = useJobRetry({
+    bookId: book.id,
+    activeVersionId: activeVersion?.id,
+    audiobook,
+    translation,
+    refetchBookJob,
+  });
+
+  // ── Status banners ────────────────────────────────────────────────────────
+  const statusBanners = (
+    <>
+    {chapterCrud.hasSaveConflict && (
+      <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted p-4 text-sm">
+        <p className="flex-1">A newer chapter was saved elsewhere. Your unsaved draft is still in this tab. Download it before leaving or reloading to compare and keep your changes.</p>
+        <button type="button" className="min-h-11 rounded-lg border border-border px-4 font-medium" onClick={chapterCrud.downloadUnsavedDrafts}>Download unsaved draft</button>
+      </div>
+    )}
+    <BookEditorStatusBanners
+      jobLoading={jobLoading}
+      jobError={jobError}
+      jobsForBanner={jobsForBanner}
+      billingPastDue={billing.pastDue ?? false}
+      billingProActive={billing.isProActive}
+      onJobRetry={handleJobRetry}
+      suppressInDemo={isDemoEditorView}
+    />
+    </>
+  );
+
+  // A remount from saved props would discard the retained conflicted draft on
+  // the next keystroke. Keep writing paused until the author exports and reloads.
+  if (chapterCrud.hasSaveConflict && (focusMode || isWriteOnlyWorkspace || tool === "edit")) {
+    return <div className="p-6">{statusBanners}<p className="text-sm text-muted-foreground">Editing is paused to protect your unsaved draft. Download it, then reload to open the latest saved chapter.</p></div>;
+  }
+
+  // Do not mount a writing surface with old props while review persistence is in flight.
+  if (chapterCrud.isApplyingReview && (focusMode || isWriteOnlyWorkspace || tool === "edit")) {
+    return <div role="status" className="p-8 text-sm text-muted-foreground">Finishing your review change…</div>;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FOCUS MODE
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (focusMode) {
+    return (
+      <FocusModeEditorView
+        publishToast={publishing.publishToast}
+        topContent={statusBanners}
+        bookTitle={bookTitle}
+        authorDisplayName={authorDisplayName}
+        bookId={book.id}
+        chapters={chapters}
+        selectedChapterId={selectedChapterId}
+        selectedChapterIndex={selectedChapterIndex}
+        selectedChapter={selectedChapter}
+        preset={preset}
+        onSelectChapter={selectChapter}
+        onSelectPreviousChapter={selectPreviousChapter}
+        onSelectNextChapter={selectNextChapter}
+        onResetSessionWords={() => setSessionStartWords(null)}
+        onAutoSave={chapterCrud.handleAutoSave}
+        onDirty={() => chapterCrud.markChapterDirty(selectedChapterId)}
+        onWordCount={setWordCount}
+        onExitFocusMode={() => setFocusMode(false)}
+      />
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // WRITE-ONLY WORKSPACE
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (isWriteOnlyWorkspace) {
+    return (
+      <WriteOnlyWorkspaceView
+        publishToast={publishing.publishToast}
+        statusContent={statusBanners}
+        bookId={book.id}
+        bookTitle={bookTitle}
+        tool={tool}
+        tools={effectiveTools as Tool[]}
+        chapters={chapters}
+        wordCount={wordCount}
+        displayCoverUrl={cover.displayCoverUrl}
+        selectedChapterId={selectedChapterId}
+        selectedChapter={selectedChapter}
+        editingTitleId={chapterCrud.editingTitleId}
+        tempTitle={chapterCrud.tempTitle}
+        isSaving={chapterCrud.isSaving}
+        saveError={chapterCrud.saveError}
+        hasUnsavedChanges={chapterCrud.hasUnsavedChanges}
+        lastSaved={chapterCrud.lastSaved}
+        sessionWords={sessionWords}
+        preset={preset}
+        focusMode={focusMode}
+        coverUploading={cover.coverUploading}
+        coverError={cover.coverError}
+        isCreating={chapterCrud.isCreating}
+        onSelectChapter={selectChapter}
+        onResetSessionWords={() => setSessionStartWords(null)}
+        onCreateChapter={chapterCrud.handleCreateChapter}
+        onCoverChange={cover.handleCoverChange}
+        onMoveChapter={chapterCrud.handleMoveChapter}
+        onReorderChapters={chapterCrud.handleReorderChapters}
+        onDeleteChapter={chapterCrud.handleDeleteChapter}
+        deletingChapterId={chapterCrud.deletingChapterId}
+        onPresetChange={setPreset}
+        onFocusModeToggle={() => setFocusMode((current) => !current)}
+        onCommandPalette={openPalette}
+        onStartEditTitle={chapterCrud.handleStartEditTitle}
+        onTempTitleChange={chapterCrud.setTempTitle}
+        onSaveTitle={chapterCrud.handleSaveTitle}
+        onCancelEditTitle={chapterCrud.handleCancelEditTitle}
+        onWordCount={setWordCount}
+        onDirty={() => chapterCrud.markChapterDirty(selectedChapterId)}
+        onAutoSave={chapterCrud.handleAutoSave}
+        // NOTE: unlike SimplifiedEditView this passes the raw handler, so a
+        // bubble-menu action fired within 500 ms of typing would lose those
+        // characters. Harmless today — `isWriteOnlyWorkspace` requires
+        // effectiveTools === ["edit"] and no caller ever passes that — but if
+        // write-only mode is ever switched on, EditorCanvas needs an
+        // onEditorReady seam so this path can flush like the normal editor does.
+        onInlineAiAction={handleInlineAiAction}
+      />
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MAIN WORKSPACE
+  // ═══════════════════════════════════════════════════════════════════════════
+  return (
+    <>
+      {publishing.publishToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed right-3 top-3 z-[1000] rounded-full bg-primary/90 px-4 py-2 text-[13px] font-medium text-primary-foreground shadow-lg backdrop-blur-sm sm:right-6 sm:top-24 dark:bg-card dark:text-foreground"
+        >
+          {publishing.publishToast}
+        </div>
+      )}
+      <WorkspaceLayout
+        asideLabel={`Talk to ${currentAgent.name}`}
+        asideId="book-ai-assistant"
+        asideOpen={assistantVisible}
+        onAsideClose={() => setAssistantOpen(false)}
+        aside={!assistantVisible ? null : (
+          <AiAssistantDock
+            key={`${book.id}:${activeVersion?.id ?? "book"}`}
+            editionId={activeVersion?.id ?? null}
+            editionLabel={activeLanguage}
+            bookTitle={bookTitle}
+            bookId={book.id}
+            chapterId={selectedChapterId}
+            variant="dock"
+            activeTool={assistantTool ?? tool}
+            chapterTitle={selectedChapter?.title}
+            getDraftText={agentExecution.getDraftText}
+            onExecuteAction={agentExecution.execute}
+            // The agent writes chapters on the server, so the workspace has to
+            // re-read them. The existing "saved elsewhere" banner covers the
+            // case where the author also has unsaved typing in this tab.
+            onBookChanged={() => router.refresh()}
+            onClose={() => setAssistantOpen(false)}
+            pendingRequest={pendingAiRequest}
+            onPendingRequestHandled={() => setPendingAiRequest(null)}
+          />
+        )}
+        header={
+          <header>
+            <nav className="flex min-w-0 items-center gap-1.5 text-[14px]">
+              <Link
+                href="/author/library"
+                aria-label="Back to library"
+                className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-foreground"
+              >
+                <ArrowLeft size={18} className="sm:hidden" aria-hidden />
+                <span className="hidden sm:inline">Library</span>
+              </Link>
+              <span className="hidden text-muted-foreground dark:text-muted-foreground sm:inline" aria-hidden>/</span>
+              <span className="hidden max-w-[220px] truncate font-medium text-foreground dark:text-foreground sm:inline">
+                {bookTitle}
+              </span>
+            </nav>
+          </header>
+        }
+        headerRight={
+          <div className="flex items-center gap-2">
+            <BookToolsMenu bookId={book.id} language={activeLanguage} demo={isDemoEditorView} />
+            {publishing.isPublished && (
+              <Link
+                href={`/reader/books/${book.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="View as reader"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
+              >
+                <span className="hidden sm:inline">View as reader</span>
+                <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M2.5 9.5l7-7M9.5 2.5H4m5.5 0v5.5" />
+                </svg>
+              </Link>
+            )}
+            {aiEnabled && (
+              <button
+                type="button"
+                onClick={() => { if (!assistantOpen) setAssistantTool(tool); setAssistantOpen((open) => !open); }}
+                aria-expanded={assistantVisible}
+                aria-controls="book-ai-assistant"
+                title={`Talk to ${currentAgent.name} (⌘I)`}
+                aria-label={`Talk to ${currentAgent.name}`}
+                className={`inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition ${
+                  assistantVisible
+                    ? "border-[#907AFF]/40 bg-[#907AFF]/[0.08] text-accent-foreground"
+                    : "border-border text-muted-foreground hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
+                }`}
+              >
+                <AgentAvatar agent={currentAgent.id} size={28} />
+                <span className="hidden sm:inline">{currentAgent.name}</span>
+              </button>
+            )}
+            <WorkspaceHeaderActions />
+          </div>
+        }
+        mainClassName="space-y-8 pb-16"
+        main={
+          <>
+            {statusBanners}
+
+            {/* Dashboard overview */}
+            {tool === "dashboard" && (
+              <BookDashboard
+                bookId={book.id}
+                bookTitle={bookTitle}
+                chapters={chapters}
+                coverImageUrl={cover.displayCoverUrl}
+                isPublished={publishing.isPublished}
+                audiobookStatus={typeof book.audiobook_status === "string" ? book.audiobook_status : null}
+                trailerStatus={typeof book.trailer_status === "string" ? book.trailer_status : null}
+                hasTranslations={bookVersions.length > 1}
+                hasPricing={pricing.priceAmountMinor > 0}
+                totalWordCount={totalBookWordCount}
+                onNavigate={(panel) => navigateToPanel(panel as Tool)}
+              />
+            )}
+
+            {/* Edit panel (has its own white card) */}
+            {tool === "edit" && (
+              <SimplifiedEditView
+                activeLanguage={activeLanguage}
+                bookId={book.id}
+                bookTitle={bookTitle}
+                chapters={chapters}
+                visibleChapters={visibleChapters}
+                startIndex={startIndex}
+                totalPages={totalPages}
+                chapterPage={chapterPage}
+                selectedChapterId={selectedChapterId}
+                selectedChapter={selectedChapter}
+                preset={preset}
+                onPresetChange={setPreset}
+                onAgentEditorReady={agentExecution.onEditorReady}
+                focusMode={focusMode}
+                isPublished={publishing.isPublished}
+                activeTool={tool}
+                tools={effectiveTools as Tool[]}
+                onInlineAiAction={handleInlineAiAction}
+                onSetChapterPage={setChapterPage}
+                onSelectChapter={selectChapter}
+                onResetSessionWords={() => setSessionStartWords(null)}
+                onWordCount={setWordCount}
+                onAutoSave={chapterCrud.handleAutoSave}
+                onDirty={() => chapterCrud.markChapterDirty(selectedChapterId)}
+                onToggleFocusMode={() => setFocusMode((current) => !current)}
+                onDeleteChapter={chapterCrud.handleDeleteChapter}
+                onCreateChapter={chapterCrud.handleCreateChapter}
+                isCreating={chapterCrud.isCreating}
+                isSaving={chapterCrud.isSaving}
+                hasUnsavedChanges={chapterCrud.hasUnsavedChanges}
+                lastSaved={chapterCrud.lastSaved}
+                saveError={chapterCrud.saveError}
+                isRenamingBook={bookRename.isRenamingBook}
+                bookTitleDraft={bookRename.bookTitleDraft}
+                onStartRenameBook={bookRename.handleStartRenameBook}
+                onBookTitleDraftChange={bookRename.setBookTitleDraft}
+                onSaveRenameBook={bookRename.handleSaveRenameBook}
+                onCancelRenameBook={bookRename.handleCancelRenameBook}
+                editingTitleId={chapterCrud.editingTitleId}
+                tempTitle={chapterCrud.tempTitle}
+                onStartEditTitle={chapterCrud.handleStartEditTitle}
+                onTempTitleChange={chapterCrud.setTempTitle}
+                onSaveTitle={chapterCrud.handleSaveTitle}
+                onCancelEditTitle={chapterCrud.handleCancelEditTitle}
+              />
+            )}
+
+            {/* All non-edit panels */}
+            {tool !== "edit" && tool !== "dashboard" && (
+              <BookEditorPanelContent
+                savedPriceAmountMinor={book.price_amount ?? 0}
+                savedPriceCurrency={book.price_currency ?? "SEK"}
+                savedPricingModel={book.pricing_model ?? "book"}
+                bookOwnerId={book.author_id}
+                onApplyReview={chapterCrud.handleApplyReview}
+                reviewSaveBlocked={chapterCrud.isSaving || chapterCrud.hasUnsavedChanges}
+                bookId={book.id}
+                bookTitle={bookTitle}
+                demoMode={isDemoEditorView}
+                bookDescription={book.description ?? null}
+                bookOriginalUrl={book.original_url ?? null}
+                bookAudiobookStatus={typeof book.audiobook_status === "string" ? book.audiobook_status : null}
+                bookTrailerStatus={typeof book.trailer_status === "string" ? book.trailer_status : null}
+                bookTrailerUrl={typeof book.trailer_url === "string" ? book.trailer_url : null}
+                authorDisplayName={authorDisplayName}
+                tool={tool}
+                tools={effectiveTools as Tool[]}
+                chapters={chapters}
+                activeVersion={activeVersion}
+                activeLanguage={activeLanguage}
+                bookVersions={bookVersions}
+                totalBookWordCount={totalBookWordCount}
+                selectedChapterId={selectedChapterId}
+                selectedChapter={selectedChapter}
+                importJobs={importJobs}
+                stripeConfigured={stripeConfigured}
+                marketingCampaigns={marketingCampaigns}
+                printOnDemandSettings={printOnDemandSettings}
+                onSavePrintOnDemandSettings={handleSavePrintOnDemandSettings}
+                onNavigateToPanel={navigateToPanel}
+                onTalkToAgent={() => { setAssistantTool(tool); setAssistantOpen(true); }}
+                onSetSelectedChapterId={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
+                onResetSessionWords={() => setSessionStartWords(null)}
+                cover={cover}
+                audiobook={{ ...audiobook, bookLanguage: book.language ?? null, bookOriginalLanguage: book.original_language ?? null }}
+                translation={translation}
+                publishing={publishing}
+                pricing={pricing}
+                marketing={marketing}
+                billing={billing}
+                refetchBookJob={refetchBookJob}
+              />
+            )}
+          </>
+        }
+      />
+    </>
+  );
+}

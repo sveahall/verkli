@@ -1,240 +1,682 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { isNextRedirectError } from "@/lib/next-redirect";
+import { getAvatarUrlFromPathServer } from "@/lib/supabase/avatar";
+import { getRecommendationsEnabled } from "@/lib/flags";
+import {
+  getPublicAuthorInfoMap,
+  resolvePublicAuthorName,
+} from "@/lib/authors/public-author";
+import { ErrorBannerWrapper } from "@/components/ui/ErrorBanner";
+import { ErrorState } from "@/components/ui/states";
+import ReaderHomePageView from "@/features/reader/reader-home/ReaderHomePageView";
 
-import BookCard from "@/components/reader/BookCard";
-import EmptyState from "@/components/reader/EmptyState";
-import PageHeader from "@/components/reader/PageHeader";
-import Rail from "@/components/reader/Rail";
+type ContinueReadingBook = {
+  id: string;
+  title: string;
+  authorId: string;
+  author: string;
+  cover: string | null;
+  progress: number;
+  href: string;
+  chapterLabel?: string | null;
+  lastOpenedLabel?: string | null;
+};
 
-const continueReading = [
-  {
-    id: "midnight-atlas",
-    title: "Midnight Atlas",
-    author: "Lina Ko",
-    cover:
-      "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=600&auto=format&fit=crop&q=80",
-    progress: 62,
-    length: "12h",
-  },
-  {
-    id: "glass-tide",
-    title: "The Glass Tide",
-    author: "Marcus Vail",
-    cover:
-      "https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=600&auto=format&fit=crop&q=80",
-    progress: 34,
-    length: "9h",
-  },
-  {
-    id: "northbound",
-    title: "Northbound Letters",
-    author: "Ari Sun",
-    cover:
-      "https://images.unsplash.com/photo-1473862170183-6f0baff9e0b1?w=600&auto=format&fit=crop&q=80",
-    progress: 78,
-    length: "6h",
-  },
-  {
-    id: "garden-of-echoes",
-    title: "Garden of Echoes",
-    author: "June Park",
-    cover:
-      "https://images.unsplash.com/photo-1495446815901-a7297e633e8d?w=600&auto=format&fit=crop&q=80",
-    progress: 18,
-    length: "11h",
-  },
-];
+type PublishedBook = {
+  id: string;
+  title: string;
+  authorId: string;
+  author: string;
+  cover: string | null;
+  publishedAt: string | null;
+  updatedAt: string;
+  trailerUrl: string | null;
+};
 
-const recommended = [
-  {
-    id: "signal-in-the-snow",
-    title: "Signal in the Snow",
-    author: "Eva Thorne",
-    cover:
-      "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=600&auto=format&fit=crop&q=80",
-    rating: 4.6,
-    length: "8h",
-  },
-  {
-    id: "soft-edges",
-    title: "Soft Edges",
-    author: "Will Hart",
-    cover:
-      "https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=600&auto=format&fit=crop&q=80",
-    rating: 4.8,
-    length: "5h",
-  },
-  {
-    id: "city-of-threads",
-    title: "City of Threads",
-    author: "Noah Mei",
-    cover:
-      "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=600&auto=format&fit=crop&q=80",
-    rating: 4.4,
-    length: "10h",
-  },
-  {
-    id: "bloom-after-dark",
-    title: "Bloom After Dark",
-    author: "Rina Fox",
-    cover:
-      "https://images.unsplash.com/photo-1526318896980-cf78c088247c?w=600&auto=format&fit=crop&q=80",
-    rating: 4.7,
-    length: "7h",
-  },
-  {
-    id: "harborlight",
-    title: "Harborlight",
-    author: "Miles Vega",
-    cover:
-      "https://images.unsplash.com/photo-1455885666381-2d876b8e6dcf?w=600&auto=format&fit=crop&q=80",
-    rating: 4.5,
-    length: "9h",
-  },
-  {
-    id: "sunroom",
-    title: "The Sunroom",
-    author: "Ivy Lane",
-    cover:
-      "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=600&auto=format&fit=crop&q=80",
-    rating: 4.3,
-    length: "6h",
-  },
-];
+type ChartBook = PublishedBook & {
+  score: number;
+  averageRating: number | null;
+  reviewCount: number;
+  readerCount: number;
+  bookmarkCount: number;
+};
 
-const trending = [
-  {
-    id: "silent-south",
-    title: "Silent South",
-    author: "Emil Frost",
-    cover:
-      "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=600&auto=format&fit=crop&q=80",
-    tag: "Trending",
-    rating: 4.9,
-    length: "13h",
-  },
-  {
-    id: "electric-fern",
-    title: "Electric Fern",
-    author: "Cleo Mar",
-    cover:
-      "https://images.unsplash.com/photo-1509021436665-8f07dbf5bf1d?w=600&auto=format&fit=crop&q=80",
-    tag: "New",
-    rating: 4.7,
-    length: "9h",
-  },
-  {
-    id: "lakehouse",
-    title: "The Lakehouse Index",
-    author: "Harper Holt",
-    cover:
-      "https://images.unsplash.com/photo-1529148482759-b35b25c5f217?w=600&auto=format&fit=crop&q=80",
-    tag: "Mystery",
-    rating: 4.6,
-    length: "11h",
-  },
-  {
-    id: "opal-line",
-    title: "Opal Line",
-    author: "Drew Park",
-    cover:
-      "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=600&auto=format&fit=crop&q=80",
-    tag: "Audio",
-    rating: 4.5,
-    length: "7h",
-  },
-];
+type AuthorMomentum = {
+  id: string;
+  name: string;
+  avatar: string | null;
+  genre: string;
+  meta: string;
+};
 
-export default function ReaderHomePage() {
+type BookSignal = {
+  reviewCount: number;
+  ratingSum: number;
+  readerCount: number;
+  bookmarkCount: number;
+};
+
+type ProfileLite = {
+  name: string;
+  avatarPath: string | null;
+  bio: string | null;
+};
+
+type Spotlight = {
+  title: string;
+  author: string;
+  cover: string | null;
+  href: string;
+  badge: string;
+  caption: string;
+  progress?: number;
+};
+
+const BOOK_POOL_LIMIT = 72;
+const CHART_POOL_LIMIT = 60;
+
+const createEmptySignal = (): BookSignal => ({
+  reviewCount: 0,
+  ratingSum: 0,
+  readerCount: 0,
+  bookmarkCount: 0,
+});
+
+function compactNumber(value: number): string {
+  return new Intl.NumberFormat("en", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(Math.max(0, value));
+}
+
+function computeBookScore(signal: BookSignal): number {
+  const averageRating = signal.reviewCount > 0 ? signal.ratingSum / signal.reviewCount : 0;
+  const score =
+    averageRating * 24 +
+    signal.reviewCount * 4 +
+    signal.readerCount * 2.6 +
+    signal.bookmarkCount * 3.2;
+
+  return Number(score.toFixed(2));
+}
+
+function formatDateLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function takeUniqueBooks<T extends { id: string }>(
+  books: T[],
+  seenIds: Set<string>,
+  limit: number
+): T[] {
+  const unique: T[] = [];
+
+  for (const book of books) {
+    if (seenIds.has(book.id)) continue;
+    seenIds.add(book.id);
+    unique.push(book);
+    if (unique.length >= limit) break;
+  }
+
+  return unique;
+}
+
+async function resolveAvatarUrl(avatarPath: string | null | undefined): Promise<string | null> {
+  if (!avatarPath) return null;
+  try {
+    return await getAvatarUrlFromPathServer(avatarPath);
+  } catch {
+    return null;
+  }
+}
+
+export default async function ReaderHomePage() {
+  let supabase: Awaited<ReturnType<typeof createClient>>;
+
+  try {
+    supabase = await createClient();
+  } catch {
+    return (
+      <div>
+        <ErrorState
+          title="Something went wrong"
+          description="Could not load the page. Please try again later."
+          action={
+            <Link href="/reader/home" className="btn-primary rounded-full px-5 py-2.5 text-[14px]">
+              Try again
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let readerName: string | null = null;
+  let isOnboarded = false;
+
+  try {
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("onboarding_completed_at, display_name, username")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (getRecommendationsEnabled() && !profile?.onboarding_completed_at) {
+        redirect("/reader/onboarding");
+      }
+
+      readerName = profile?.display_name || profile?.username || null;
+      isOnboarded = Boolean(profile?.onboarding_completed_at);
+    }
+  } catch (err) {
+    // `redirect()` throws a special Next.js sentinel error that MUST be
+    // rethrown so the runtime can perform the actual redirect. Matching on
+    // the error message string is brittle — the canonical check lives in
+    // next/dist/client/components/redirect-error.
+    if (isNextRedirectError(err)) throw err;
+  }
+
+  // The three blocks below (continueReading, readingStats, bookPool) used to
+  // run sequentially even though none of them depend on each other's data.
+  // Each block opens 3-4 round-trips, so awaiting them in series stacked up
+  // a notable chunk of TTFB on /reader/home. Wrap each in its own helper and
+  // run all three in Promise.all — the page now blocks on the slowest block,
+  // not the sum.
+
+  async function loadContinueReading(): Promise<ContinueReadingBook[]> {
+    if (!user) return [];
+
+    try {
+      // `last_read_at`, not `updated_at`: `readings` has no such column (it has
+      // `started_at` and `last_read_at`), so this select failed on every load and
+      // the error was discarded — leaving "Continue reading" permanently empty
+      // for every reader who had in fact started something. `last_read_at` is
+      // also the column the shelf is asking about: when this was last opened.
+      const { data: readings, error: readingsError } = await supabase
+        .from("readings")
+        .select("book_id, progress_percent, last_read_at, chapter_id")
+        .eq("user_id", user.id)
+        .order("last_read_at", { ascending: false })
+        .limit(8);
+
+      if (readingsError) {
+        // An empty shelf and a broken query look identical to the reader. Only
+        // one of them is worth waking up to.
+        console.error("[reader/home] continue-reading load failed", {
+          userId: user.id,
+          message: readingsError.message,
+        });
+        return [];
+      }
+
+      if (!readings || readings.length === 0) return [];
+
+      const bookIds = readings.map((row) => row.book_id);
+      // Type guard, not `.filter(Boolean)`: the runtime behaviour was already
+  // correct, but `filter(Boolean)` does not narrow, so the array stayed
+  // `(string | null)[]` and `.in()` could not accept it.
+  const chapterIds = [
+    ...new Set(readings.map((row) => row.chapter_id).filter((id): id is string => Boolean(id))),
+  ];
+
+      const { data: books } = await supabase
+        .from("books")
+        .select("id, title, cover_image, author_id")
+        .eq("status", "PUBLISHED")
+        .in("id", bookIds);
+
+      if (!books || books.length === 0) return [];
+
+      const bookMap = new Map(books.map((book) => [book.id, book]));
+      const authorIds = [...new Set(books.map((book) => book.author_id))];
+
+      const [authorInfoMap, { data: chapterRows }] = await Promise.all([
+        getPublicAuthorInfoMap(authorIds),
+        chapterIds.length > 0
+          ? supabase.from("chapters").select("id, title").in("id", chapterIds)
+          : Promise.resolve({ data: [] as Array<{ id: string; title: string }> }),
+      ]);
+
+      const authorMap = new Map(
+        authorIds.map((authorId) => [
+          authorId,
+          resolvePublicAuthorName(authorInfoMap.get(authorId)),
+        ])
+      );
+
+      const chapterMap = new Map(
+        (chapterRows ?? []).map((chapter) => [chapter.id, chapter.title])
+      );
+
+      return readings
+        .map((row): ContinueReadingBook | null => {
+          const book = bookMap.get(row.book_id);
+          if (!book) return null;
+
+          const directHref = row.chapter_id ? `/reader/read/${row.chapter_id}` : `/reader/books/${book.id}`;
+          const lastOpened = formatDateLabel(row.last_read_at);
+
+          return {
+            id: book.id as string,
+            title: book.title as string,
+            authorId: book.author_id as string,
+            author: authorMap.get(book.author_id) ?? "Author",
+            cover: book.cover_image as string | null,
+            progress: (row.progress_percent as number) ?? 0,
+            href: directHref,
+            chapterLabel: row.chapter_id ? chapterMap.get(row.chapter_id) ?? null : null,
+            lastOpenedLabel: lastOpened ? `Last opened ${lastOpened}` : null,
+          };
+        })
+        .filter((book): book is ContinueReadingBook => book !== null);
+    } catch {
+      // Non-blocking. Continue reading can render empty.
+      return [];
+    }
+  }
+
+  async function loadReadingStats(): Promise<{
+    booksReading: number;
+    booksFinished: number;
+    bookmarksCount: number;
+  }> {
+    if (!user) return { booksReading: 0, booksFinished: 0, bookmarksCount: 0 };
+
+    try {
+      const [readingCountRes, finishedCountRes, bookmarkCountRes] =
+        await Promise.all([
+          supabase
+            .from("readings")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .lt("progress_percent", 99),
+          supabase
+            .from("readings")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .gte("progress_percent", 99),
+          supabase
+            .from("bookmarks")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", user.id),
+        ]);
+
+      return {
+        booksReading: readingCountRes.count ?? 0,
+        booksFinished: finishedCountRes.count ?? 0,
+        bookmarksCount: bookmarkCountRes.count ?? 0,
+      };
+    } catch {
+      return { booksReading: 0, booksFinished: 0, bookmarksCount: 0 };
+    }
+  }
+
+  type BookPoolResult = {
+    publishedWithAuthors: PublishedBook[];
+    newReleases: PublishedBook[];
+    topChart: ChartBook[];
+    trendingAuthors: AuthorMomentum[];
+  };
+
+  async function loadBookPool(): Promise<BookPoolResult> {
+    let publishedWithAuthors: PublishedBook[] = [];
+    let newReleases: PublishedBook[] = [];
+    let topChart: ChartBook[] = [];
+    let trendingAuthors: AuthorMomentum[] = [];
+
+    try {
+      const { data: books } = await supabase
+      .from("books")
+      .select("id, title, cover_image, author_id, published_at, updated_at")
+      .eq("status", "PUBLISHED")
+      .order("published_at", { ascending: false })
+      .order("updated_at", { ascending: false })
+      .limit(BOOK_POOL_LIMIT);
+
+    const bookPool = books ?? [];
+    const authorIds = [...new Set(bookPool.map((book) => book.author_id))];
+
+    let profileMap = new Map<string, ProfileLite>();
+
+    if (authorIds.length > 0) {
+      // Read public author identity through the admin-bypass helper so
+      // RLS-private (is_public=false) authors who have published a public
+      // book still get a real name + avatar in the reader's home rail.
+      // Bio is fetched separately below — it stays RLS-gated because it's a
+      // personal-profile field, not authorship attribution.
+      const [authorInfoMap, profilesRes] = await Promise.all([
+        getPublicAuthorInfoMap(authorIds),
+        supabase
+          .from("profiles")
+          .select("user_id, bio")
+          .in("user_id", authorIds),
+      ]);
+      const bioMap = new Map(
+        (profilesRes.data ?? []).map((row) => [row.user_id, row.bio ?? null])
+      );
+
+      profileMap = new Map(
+        authorIds.map((authorId) => {
+          const info = authorInfoMap.get(authorId);
+          return [
+            authorId,
+            {
+              name: resolvePublicAuthorName(info),
+              avatarPath: info?.avatar_url ?? null,
+              bio: bioMap.get(authorId) ?? null,
+            },
+          ];
+        })
+      );
+    }
+
+    publishedWithAuthors = bookPool.map((book) => ({
+      id: book.id,
+      title: book.title,
+      authorId: book.author_id,
+      author: profileMap.get(book.author_id)?.name ?? "Author",
+      cover: book.cover_image,
+      publishedAt: book.published_at,
+      updatedAt: book.updated_at,
+      trailerUrl: (book as { trailer_url?: string | null }).trailer_url ?? null,
+    }));
+
+    newReleases = publishedWithAuthors.slice(0, 14);
+
+    const candidateBookIds = publishedWithAuthors.slice(0, CHART_POOL_LIMIT).map((book) => book.id);
+    const signalByBook = new Map<string, BookSignal>();
+    candidateBookIds.forEach((bookId) => {
+      signalByBook.set(bookId, createEmptySignal());
+    });
+
+    if (candidateBookIds.length > 0) {
+      // These three signals used to pull up to 3 000 rows per render to
+      // compute per-book counts client-side. That blew TTFB past 1 s for
+      // hit books. A proper materialized view is the ideal fix (tracked in
+      // the final audit report); until then, tighten each to the signal we
+      // actually use downstream. Reviews still need `rating` so we keep the
+      // shape but cap the scan; readings/bookmarks only need the book_id
+      // presence and are capped similarly. The limit is generous enough
+      // that the rails stay representative without slurping everything.
+      const SIGNAL_POOL_LIMIT = 500;
+      const [reviewsResult, readingsResult, bookmarksResult] = await Promise.all([
+        supabase
+          .from("reviews")
+          .select("book_id, rating")
+          .in("book_id", candidateBookIds)
+          .limit(SIGNAL_POOL_LIMIT),
+        supabase
+          .from("readings")
+          .select("book_id")
+          .in("book_id", candidateBookIds)
+          .limit(SIGNAL_POOL_LIMIT),
+        supabase
+          .from("bookmarks")
+          .select("book_id")
+          .in("book_id", candidateBookIds)
+          .limit(SIGNAL_POOL_LIMIT),
+      ]);
+
+      (reviewsResult.data ?? []).forEach((row) => {
+        const signal = signalByBook.get(row.book_id);
+        if (!signal) return;
+        signal.reviewCount += 1;
+        signal.ratingSum += Number(row.rating ?? 0);
+      });
+
+      (readingsResult.data ?? []).forEach((row) => {
+        const signal = signalByBook.get(row.book_id);
+        if (!signal) return;
+        signal.readerCount += 1;
+      });
+
+      (bookmarksResult.data ?? []).forEach((row) => {
+        const signal = signalByBook.get(row.book_id);
+        if (!signal) return;
+        signal.bookmarkCount += 1;
+      });
+    }
+
+    topChart = publishedWithAuthors
+      .filter((book) => signalByBook.has(book.id))
+      .map((book) => {
+        const signal = signalByBook.get(book.id) ?? createEmptySignal();
+        const score = computeBookScore(signal);
+        const averageRating =
+          signal.reviewCount > 0
+            ? Number((signal.ratingSum / signal.reviewCount).toFixed(1))
+            : null;
+
+        return {
+          ...book,
+          score,
+          averageRating,
+          reviewCount: signal.reviewCount,
+          readerCount: signal.readerCount,
+          bookmarkCount: signal.bookmarkCount,
+        };
+      })
+      .filter((book) => book.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+
+    if (topChart.length === 0) {
+      topChart = publishedWithAuthors.slice(0, 10).map((book) => ({
+        ...book,
+        score: 0,
+        averageRating: null,
+        reviewCount: 0,
+        readerCount: 0,
+        bookmarkCount: 0,
+      }));
+    }
+
+    const authorMomentumMap = new Map<
+      string,
+      {
+        id: string;
+        bookCount: number;
+        score: number;
+        reviewCount: number;
+        readerCount: number;
+        bookmarkCount: number;
+        latestAt: number;
+      }
+    >();
+
+    publishedWithAuthors.slice(0, CHART_POOL_LIMIT).forEach((book) => {
+      const signal = signalByBook.get(book.id) ?? createEmptySignal();
+      const bookScore = computeBookScore(signal);
+      const publishedTimestamp = Date.parse(book.publishedAt ?? book.updatedAt);
+      const existing = authorMomentumMap.get(book.authorId);
+
+      if (!existing) {
+        authorMomentumMap.set(book.authorId, {
+          id: book.authorId,
+          bookCount: 1,
+          score: bookScore,
+          reviewCount: signal.reviewCount,
+          readerCount: signal.readerCount,
+          bookmarkCount: signal.bookmarkCount,
+          latestAt: Number.isNaN(publishedTimestamp) ? 0 : publishedTimestamp,
+        });
+        return;
+      }
+
+      existing.bookCount += 1;
+      existing.score += bookScore;
+      existing.reviewCount += signal.reviewCount;
+      existing.readerCount += signal.readerCount;
+      existing.bookmarkCount += signal.bookmarkCount;
+      existing.latestAt = Math.max(existing.latestAt, Number.isNaN(publishedTimestamp) ? 0 : publishedTimestamp);
+    });
+
+    const momentumSorted = Array.from(authorMomentumMap.values())
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.readerCount !== a.readerCount) return b.readerCount - a.readerCount;
+        return b.latestAt - a.latestAt;
+      })
+      .slice(0, 10);
+
+    trendingAuthors = await Promise.all(
+      momentumSorted.map(async (entry) => {
+        const profile = profileMap.get(entry.id);
+        const avatar = await resolveAvatarUrl(profile?.avatarPath);
+
+        const genre =
+          entry.bookCount >= 4
+            ? "Established storyteller"
+            : entry.reviewCount >= 8
+              ? "Reader favorite"
+              : "Rising creator";
+
+        return {
+          id: entry.id,
+          name: profile?.name ?? "Author",
+          avatar,
+          genre,
+          meta: `${entry.bookCount} books live · ${compactNumber(entry.readerCount + entry.bookmarkCount)} active readers`,
+        };
+      })
+    );
+    } catch {
+      // Non-blocking. Rails can render empty.
+    }
+
+    return { publishedWithAuthors, newReleases, topChart, trendingAuthors };
+  }
+
+  const [continueReading, readingStats, bookPool] = await Promise.all([
+    loadContinueReading(),
+    loadReadingStats(),
+    loadBookPool(),
+  ]);
+
+  const { publishedWithAuthors, newReleases, topChart, trendingAuthors } = bookPool;
+
+  const spotlight: Spotlight | null = continueReading[0]
+    ? {
+        title: continueReading[0].title,
+        author: continueReading[0].author,
+        cover: continueReading[0].cover,
+        href: continueReading[0].href,
+        badge: "Continue reading",
+        caption: `${Math.round(Math.max(0, continueReading[0].progress))}% completed`,
+        progress: continueReading[0].progress,
+      }
+    : topChart[0]
+      ? {
+          title: topChart[0].title,
+          author: topChart[0].author,
+          cover: topChart[0].cover,
+          href: `/reader/books/${topChart[0].id}`,
+          badge: "#1 in trending",
+          caption:
+            topChart[0].averageRating != null
+              ? `${topChart[0].averageRating.toFixed(1)} average rating`
+              : "Readers are opening this book right now",
+        }
+      : newReleases[0]
+        ? {
+            title: newReleases[0].title,
+            author: newReleases[0].author,
+            cover: newReleases[0].cover,
+            href: `/reader/books/${newReleases[0].id}`,
+            badge: "Fresh release",
+            caption: "Recently published and ready to open",
+          }
+        : null;
+
+  const isReturning = isOnboarded || continueReading.length > 0;
+  const greeting = !user
+    ? "Discover your next read"
+    : isReturning
+      ? readerName ? `Welcome back, ${readerName.split(" ")[0]}` : "Welcome back"
+      : readerName ? `Welcome, ${readerName.split(" ")[0]}` : "Welcome";
+  const readingBookIds = new Set(continueReading.map((book) => book.id));
+  const activeAuthorIds = new Set(continueReading.map((book) => book.authorId));
+  const consumedBookIds = new Set(readingBookIds);
+
+  if (spotlight?.href.startsWith("/reader/books/")) {
+    consumedBookIds.add(spotlight.href.replace("/reader/books/", ""));
+  }
+
+  const recommendedPool = publishedWithAuthors
+    .filter((book) => activeAuthorIds.has(book.authorId) && !readingBookIds.has(book.id))
+    .slice(0, 8);
+
+  if (recommendedPool.length < 8) {
+    topChart.forEach((book) => {
+      if (recommendedPool.length >= 8) return;
+      if (readingBookIds.has(book.id)) return;
+      if (recommendedPool.some((candidate) => candidate.id === book.id)) return;
+      recommendedPool.push(book);
+    });
+  }
+
+  const recommendedBooks = takeUniqueBooks(recommendedPool, consumedBookIds, 6);
+  const trendingBooks = takeUniqueBooks(topChart, consumedBookIds, 4);
+  const latestReleases = takeUniqueBooks(newReleases, consumedBookIds, 4);
+
   return (
-    <div className="section-gap-lg">
-      <PageHeader
-        eyebrow="Reader"
-        title="Welcome back"
-        subtitle="Pick up where you left off, then explore what your community is reading next."
-        actions={
-          <Link href="/reader/discover" className="btn-secondary">
-            Browse discover
-          </Link>
-        }
-      />
-
-      <Rail
-        title="Continue reading"
-        subtitle="Your open chapters, ready when you are"
-        isEmpty={continueReading.length === 0}
-        emptyState={
-          <EmptyState
-            title="Your shelf is quiet"
-            description="Start a book and it will appear here with progress tracking."
-            action={
-              <Link href="/reader/discover" className="btn-primary rounded-full bg-slate-900 px-5 py-2.5 text-[14px] hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-white/95">
-                Explore stories
-              </Link>
-            }
-          />
-        }
-      >
-        {continueReading.length > 0
-          ? continueReading.map((book) => (
-              <BookCard
-                key={book.id}
-                id={book.id}
-                title={book.title}
-                author={book.author}
-                cover={book.cover}
-                progress={book.progress}
-                length={book.length}
-                size="lg"
-              />
-            ))
-          : Array.from({ length: 4 }).map((_, index) => <BookCard key={index} isSkeleton size="lg" />)}
-      </Rail>
-
-      <Rail
-        title="Recommended for you"
-        subtitle="Fresh reads aligned with your taste"
-        action={
-          <Link href="/reader/discover" className="btn-ghost text-[13px] py-1.5">
-            See all
-          </Link>
-        }
-        isEmpty={recommended.length === 0}
-      >
-        {recommended.length > 0
-          ? recommended.map((book) => (
-              <BookCard
-                key={book.id}
-                id={book.id}
-                title={book.title}
-                author={book.author}
-                cover={book.cover}
-                rating={book.rating}
-                length={book.length}
-              />
-            ))
-          : Array.from({ length: 6 }).map((_, index) => <BookCard key={index} isSkeleton />)}
-      </Rail>
-
-      <Rail
-        title="Trending this week"
-        subtitle="What readers are finishing right now"
-        isEmpty={trending.length === 0}
-      >
-        {trending.length > 0
-          ? trending.map((book) => (
-              <BookCard
-                key={book.id}
-                id={book.id}
-                title={book.title}
-                author={book.author}
-                cover={book.cover}
-                rating={book.rating}
-                length={book.length}
-                tag={book.tag}
-              />
-            ))
-          : Array.from({ length: 4 }).map((_, index) => <BookCard key={index} isSkeleton />)}
-      </Rail>
+    <div>
+      <div className="space-y-6">
+        <ErrorBannerWrapper />
+        <ReaderHomePageView
+          greeting={greeting}
+          spotlight={spotlight}
+          continueReading={continueReading}
+          recommendedBooks={recommendedBooks.map((book) => ({
+            id: book.id,
+            title: book.title,
+            author: book.author,
+            cover: book.cover,
+            href: `/reader/books/${book.id}`,
+            tag: activeAuthorIds.has(book.authorId) ? "Familiar" : undefined,
+            length: "Recommended next",
+            hasTrailer: Boolean(book.trailerUrl),
+          }))}
+          trendingBooks={trendingBooks.map((book, index) => ({
+            id: book.id,
+            title: book.title,
+            author: book.author,
+            cover: book.cover,
+            href: `/reader/books/${book.id}`,
+            tag: `#${index + 1}`,
+            length:
+              book.averageRating != null
+                ? `${book.averageRating.toFixed(1)} rating`
+                : `${compactNumber(book.readerCount + book.bookmarkCount)} readers`,
+            hasTrailer: Boolean(book.trailerUrl),
+          }))}
+          latestReleases={latestReleases.map((book) => ({
+            id: book.id,
+            title: book.title,
+            author: book.author,
+            cover: book.cover,
+            href: `/reader/books/${book.id}`,
+            tag: "New",
+            length: formatDateLabel(book.publishedAt) ? `Published ${formatDateLabel(book.publishedAt)}` : undefined,
+            hasTrailer: Boolean(book.trailerUrl),
+          }))}
+          authorHighlights={trendingAuthors.slice(0, 5)}
+          readingStats={readingStats}
+        />
+      </div>
     </div>
   );
 }

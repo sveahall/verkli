@@ -1,0 +1,220 @@
+/**
+ * Feature flags – env-based.
+ *
+ * IMPORTANT: NEXT_PUBLIC_* env vars are baked into the JS bundle at `next build`
+ * time. Flipping any flag below requires a redeploy, NOT a runtime config change.
+ * Cohort-gated soft-launch protocol depends on this — see CEO plan §C2.
+ *
+ * Default behavior: when the env var is undefined, empty, or any non-truthy
+ * value, the flag is OFF. To enable a flag, set the env var to "true" or "1"
+ * EXPLICITLY in the deploy environment. There is no implicit-true behavior.
+ *
+ * ─── What each flag must be at launch ──────────────────────────────────────
+ *
+ * Not listed here. `lib/launch-config.ts` holds the launch matrix as data,
+ * with the decision behind every value, and `launch-config.test.ts` fails if a
+ * flag in this file is missing from it.
+ *
+ * That indirection is deliberate. This header used to list the values in prose
+ * and it drifted: it told deployers to set TRANSLATIONS and MARKETING to true,
+ * both of which the September launch plan (§3) cuts, and it called AUDIOBOOK
+ * "required OFF" after §3 had decided the opposite. Prose has no test behind
+ * it. The matrix does.
+ *
+ * Verify an environment before building:
+ *
+ *   npm run check:launch-config -- --strict
+ *
+ * Flag changes require redeploy. Rollback is the same: change env, trigger
+ * redeploy, wait ~2 min for build. There is no runtime flip.
+ *
+ * ─── Server-only fallback ───────────────────────────────────────────────────
+ *
+ * The isXxx server functions also accept a non-public env (e.g. MARKETING_ENABLED)
+ * as a fallback when the NEXT_PUBLIC_ form is not set. Use only for server-only
+ * gating that should NOT leak to the client bundle. Same default-OFF semantics.
+ */
+
+/**
+ * Exported so `launch-config.ts` can ask "would the runtime read this as on?"
+ * with the same logic the runtime uses. A launch checker with its own copy of
+ * the truthiness rules is a checker that can disagree with production — and it
+ * did: an earlier version missed "TRUE", which this accepts.
+ */
+export function parseBool(value: string | undefined): boolean {
+  if (value === undefined || value === "") return false;
+  const v = value.toLowerCase();
+  return v === "true" || v === "1";
+}
+
+// ─── Client (NEXT_PUBLIC_*) — read in client/server components ───
+export function getTranslationsEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_TRANSLATIONS_ENABLED);
+}
+
+export function getAudiobookEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED);
+}
+
+export function getMarketingEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_MARKETING_ENABLED);
+}
+
+export function getDiscoveryEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_DISCOVERY_ENABLED);
+}
+
+/**
+ * Resolve the canonical discover route href, or `null` when the discovery
+ * feature is gated off. Use this for any user-facing CTA that points at
+ * /reader/discover so the link is hidden instead of leading to a 404 during
+ * soft-launch / cohort gating. The route itself still 404s on direct access
+ * — that gating contract is intentional and unchanged.
+ */
+export function getDiscoverHref(): string | null {
+  return getDiscoveryEnabled() ? "/reader/discover" : null;
+}
+
+export function getOfflineReadingEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_OFFLINE_READING_ENABLED);
+}
+
+export function getRecommendationsEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_RECOMMENDATIONS_ENABLED);
+}
+
+export function getBookClubsEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_BOOK_CLUBS_ENABLED);
+}
+
+export function getPollsEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_POLLS_ENABLED);
+}
+
+export function getNewslettersEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_NEWSLETTERS_ENABLED);
+}
+
+export function getFreemiumGateEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_FREEMIUM_GATE_ENABLED);
+}
+
+// Sprint-0 demo flag. Toggles a small visible badge on the author home page so
+// the flag-flip pipeline (env -> redeploy -> bundle update) can be exercised
+// end-to-end. Default OFF in every environment. Safe to leave permanently OFF.
+export function getSprint0DemoBadgeEnabled(): boolean {
+  return parseBool(process.env.NEXT_PUBLIC_SPRINT0_DEMO_BADGE_ENABLED);
+}
+
+// ─── Server/API — also reads non-public fallback for server-only contexts ───
+export function isTranslationsEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_TRANSLATIONS_ENABLED ?? process.env.TRANSLATIONS_ENABLED
+  );
+}
+
+export function isAudiobookEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_AUDIOBOOK_ENABLED ?? process.env.AUDIOBOOK_ENABLED
+  );
+}
+
+export function isMarketingEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_MARKETING_ENABLED ?? process.env.MARKETING_ENABLED
+  );
+}
+
+export function isDiscoveryEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_DISCOVERY_ENABLED ?? process.env.DISCOVERY_ENABLED
+  );
+}
+
+export function isOfflineReadingEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_OFFLINE_READING_ENABLED ?? process.env.OFFLINE_READING_ENABLED
+  );
+}
+
+export function isBookClubsEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_BOOK_CLUBS_ENABLED ?? process.env.BOOK_CLUBS_ENABLED
+  );
+}
+
+export function isSocialEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_SOCIAL_ENABLED ?? process.env.SOCIAL_ENABLED
+  );
+}
+
+export function isPollsEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_POLLS_ENABLED ?? process.env.POLLS_ENABLED
+  );
+}
+
+export function isNewslettersEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_NEWSLETTERS_ENABLED ?? process.env.NEWSLETTERS_ENABLED
+  );
+}
+
+// Defaults OFF: every request is a billable LLM call, so opt-in explicitly via
+// env. When disabled the chat route returns deterministic template replies.
+export function isAiChatEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_AI_CHAT_ENABLED ?? process.env.AI_CHAT_ENABLED
+  );
+}
+
+// Defaults OFF: the critic pass multiplies every editorial and marketing
+// generation by 2-3x. Opt in explicitly, and switch it back off without a
+// deploy if quality regresses or spend spikes. Server-only on purpose — there
+// is no client surface that should branch on it.
+export function isAiCriticEnabled(): boolean {
+  return parseBool(process.env.AI_CRITIC_ENABLED);
+}
+
+export function isFreemiumGateEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_FREEMIUM_GATE_ENABLED ?? process.env.FREEMIUM_GATE_ENABLED
+  );
+}
+
+export function isSprint0DemoBadgeEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_SPRINT0_DEMO_BADGE_ENABLED ??
+      process.env.SPRINT0_DEMO_BADGE_ENABLED
+  );
+}
+
+export function isDonationsEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_DONATIONS_ENABLED ?? process.env.DONATIONS_ENABLED
+  );
+}
+
+export function isDemoFacadeEnabled(): boolean {
+  return parseBool(
+    process.env.NEXT_PUBLIC_DEMO_FACADE_ENABLED ?? process.env.DEMO_FACADE_ENABLED
+  );
+}
+
+/**
+ * The single source of truth for whether the investor-pitch demo façade
+ * should activate for a given user. Both conditions are required:
+ *   - The deployment-level flag must be on (only staging/pitch instances).
+ *   - The user's profile must be flagged demo_mode (only the seeded demo
+ *     account, never a real author).
+ *
+ * Use this everywhere in client + server code that toggles between real
+ * production/distribution UIs and their demo-façade variants. Inlining
+ * the two checks separately drifts as the demo grows.
+ */
+export function isDemoModeActive(
+  user: { demo_mode?: boolean | null } | null | undefined
+): boolean {
+  return isDemoFacadeEnabled() && Boolean(user?.demo_mode);
+}

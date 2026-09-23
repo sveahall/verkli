@@ -38,6 +38,18 @@ const ERROR_MESSAGES: Record<string, string> = {
 
   // Audiobook
   AUDIOBOOK_FEATURE_DISABLED: "The audiobook feature is not enabled.",
+  AUDIOBOOK_VOICE_UNCONFIGURED:
+    "Audiobook narration is not configured on this deployment yet. Nothing was charged — contact support and we'll turn it on.",
+  AUDIOBOOK_TOO_LONG:
+    "This book is longer than audiobook narration currently supports. Nothing was charged. Split it into shorter volumes, or contact us about longer books.",
+  AI_BUDGET_EXCEEDED:
+    "You've reached today's video generation limit. Nothing was charged — try again tomorrow.",
+  AI_JOB_TOO_LARGE:
+    "This request is larger than a single video generation allows. Nothing was charged — try fewer scenes.",
+  AUDIOBOOK_QUOTA_EXHAUSTED:
+    "Narration capacity for this month is used up. Nothing was charged — we're topping it up, try again shortly.",
+  AUDIOBOOK_QUOTA_UNKNOWN:
+    "We could not confirm narration capacity just now, so nothing was charged. Please try again in a moment.",
   AUDIOBOOK_STATUS_UNAVAILABLE: "Audiobook status is unavailable.",
   AUDIOBOOK_NO_ACTIVE_JOB: "There is no active audiobook generation to control.",
   AUDIO_SIGN_FAILED: "Failed to generate a link to the audio file. Try again.",
@@ -52,7 +64,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_TARGET_LANGUAGE: "Invalid target language.",
   NO_SOURCE_VERSION: "No source version found.",
   INVALID_SOURCE_VERSION: "Invalid source version.",
-  SOURCE_LANGUAGE_MISSING: "Source language is missing. Please set a language for the version.",
+  SOURCE_LANGUAGE_MISSING: "We couldn’t identify this edition’s language. Check that its saved chapters contain text, then retry. If it still fails, contact support.",
   SAME_SOURCE_TARGET_LANGUAGE: "The target language must differ from the source language.",
   TRANSLATION_PAIR_UNSUPPORTED: "This language pair is not supported by the translation model.",
   VERSION_ALREADY_EXISTS: "A version in that language already exists.",
@@ -67,6 +79,14 @@ const ERROR_MESSAGES: Record<string, string> = {
   IMPORT_NOT_FOUND: "Import not found.",
   IMPORT_NOT_FAILED: "Only failed import jobs can be retried.",
   IMPORT_MISSING_FILE_INFO: "The import is missing file information and cannot be retried.",
+  RIGHTS_ATTESTATION_REQUIRED:
+    "Confirm the rights statements before uploading a manuscript.",
+  RIGHTS_ATTESTATION_INCOMPLETE:
+    "Answer every rights question, including whether the text has been published before.",
+  // Deliberately says the upload did not happen. The attestation is recorded
+  // before anything is ingested, so a failure here means nothing was stored.
+  RIGHTS_ATTESTATION_NOT_RECORDED:
+    "We could not record your rights statement, so nothing was uploaded. Try again.",
 
   // Purchase
   AUTHOR_CANNOT_BUY_OWN_BOOK: "You cannot purchase your own book.",
@@ -152,6 +172,16 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_ROLE: "Invalid role.",
 
   // Marketing
+  MARKETING_BUDGET_UNAVAILABLE: "AI draft generation needs an available, configured budget. Contact support. Generation stopped before the next AI request.",
+  MARKETING_BUDGET_EXCEEDED: "This AI draft exceeds the configured request or daily limit. Try a smaller campaign or contact support.",
+  // AI
+  AI_DISABLED:
+    "AI is turned off for your account. Turn it back on under Settings \u2192 AI to use this feature.",
+  AI_SETTINGS_UNAVAILABLE:
+    "Your AI settings could not be read, so nothing was sent to the assistant. Try again.",
+
+  MARKETING_AI_UNAVAILABLE: "AI marketing drafts are not configured yet. Contact support. Your existing copy has been kept.",
+  MARKETING_AI_FAILED: "Could not generate a usable AI draft. Please try again. Your existing copy has been kept.",
   MARKETING_FEATURE_DISABLED: "The marketing feature is not enabled.",
 
   // Social
@@ -172,6 +202,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 
   // Admin
   APPLICATIONS_LOAD_FAILED: "Failed to load applications.",
+  USER_NOT_FOUND: "User not found.",
   USER_ID_REQUIRED: "User ID is required.",
   INVALID_USER_ID: "Invalid user ID.",
   INVALID_STATUS_VALUE: "Invalid status value.",

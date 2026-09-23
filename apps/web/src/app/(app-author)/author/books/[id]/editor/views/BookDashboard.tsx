@@ -1,0 +1,412 @@
+"use client";
+
+import { cn } from "@/lib/utils";
+import { getMarketingEnabled } from "@/lib/flags";
+
+type Props = {
+  bookId: string;
+  bookTitle: string;
+  chapters: { id: string; title: string; content: string | null; order: number }[];
+  coverImageUrl: string | null;
+  isPublished: boolean;
+  audiobookStatus: string | null;
+  trailerStatus: string | null;
+  hasTranslations: boolean;
+  hasPricing: boolean;
+  totalWordCount: number;
+  onNavigate: (panel: string) => void;
+};
+
+type StatusKind = "done" | "in-progress" | "pending";
+
+/* ── Minimal inline SVGs ── */
+
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg className={cn("h-5 w-5", className)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+}
+
+function ImageIcon({ className }: { className?: string }) {
+  return (
+    <svg className={cn("h-5 w-5", className)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21 15 16 10 5 21" />
+    </svg>
+  );
+}
+
+function HeadphonesIcon({ className }: { className?: string }) {
+  return (
+    <svg className={cn("h-5 w-5", className)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+      <path d="M21 19a2 2 0 0 1-2-2v-1a2 2 0 0 1 2-2h1v5h-1z" />
+      <path d="M3 19a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2H2v5h1z" />
+    </svg>
+  );
+}
+
+function GlobeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={cn("h-5 w-5", className)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  );
+}
+
+function FilmIcon({ className }: { className?: string }) {
+  return (
+    <svg className={cn("h-5 w-5", className)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="2" y="7" width="20" height="15" rx="2.18" ry="2.18" />
+      <line x1="16" y1="3" x2="16" y2="11" />
+      <line x1="8" y1="3" x2="8" y2="11" />
+    </svg>
+  );
+}
+
+function TagIcon({ className }: { className?: string }) {
+  return (
+    <svg className={cn("h-5 w-5", className)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+      <line x1="7" y1="7" x2="7.01" y2="7" />
+    </svg>
+  );
+}
+
+function MegaphoneIcon({ className }: { className?: string }) {
+  return (
+    <svg className={cn("h-5 w-5", className)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M3 11l19-9-9 19-2-8-8-2z" />
+    </svg>
+  );
+}
+
+function RocketIcon({ className }: { className?: string }) {
+  return (
+    <svg className={cn("h-5 w-5", className)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4.5 16.5c-1.5-1-2.5-3-2.5-5.5 0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10c-2.5 0-4.5-1-5.5-2.5" />
+      <path d="M12 4v8m4-4l-4-4-4 4" />
+      <circle cx="19" cy="19" r="2" />
+      <path d="M12 20v-6" />
+    </svg>
+  );
+}
+
+
+function ChevronRightIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+/* ── Dashboard card ── */
+
+interface CardDef {
+  id: string;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  statusKind: StatusKind;
+  statusLabel: string;
+  panel: string;
+  /** Columns at lg. Write takes two, which makes the grid a clean 3×3. */
+  span?: 1 | 2;
+}
+
+function DashboardCard({ card, onNavigate }: { card: CardDef; onNavigate: (p: string) => void }) {
+  return (
+    <button
+      onClick={() => onNavigate(card.panel)}
+      className={cn(
+        "group flex flex-col gap-4 rounded-2xl border border-border/80 bg-card p-5 text-left transition-[transform,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1 hover:border-[#907AFF]/20 hover:shadow-md dark:border-border dark:bg-card dark:hover:border-[#907AFF]/20 dark:hover:bg-accent",
+        card.span === 2 && "sm:col-span-2"
+      )}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#907AFF]/[0.09] text-accent-foreground dark:bg-[#907AFF]/[0.14]">
+          {card.icon}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1">
+        <h3 className="text-sm font-semibold text-[#0F172A] dark:text-foreground">{card.label}</h3>
+        <p className="mt-0.5 text-xs text-muted-foreground dark:text-muted-foreground">{card.description}</p>
+      </div>
+
+      {/* Footer: status + arrow */}
+      <div className="flex items-center justify-between">
+        <span
+          className={cn("text-xs font-medium", {
+            "text-emerald-600 dark:text-emerald-400": card.statusKind === "done",
+            "text-amber-600 dark:text-amber-400": card.statusKind === "in-progress",
+            "text-muted-foreground dark:text-muted-foreground": card.statusKind === "pending",
+          })}
+        >
+          {card.statusLabel}
+        </span>
+        <span className="text-muted-foreground transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:translate-x-0.5 dark:text-muted-foreground">
+          <ChevronRightIcon />
+        </span>
+      </div>
+    </button>
+  );
+}
+
+/* ── Main component ── */
+
+export default function BookDashboard({
+  bookTitle,
+  chapters,
+  coverImageUrl,
+  isPublished,
+  audiobookStatus,
+  trailerStatus,
+  hasTranslations,
+  hasPricing,
+  totalWordCount,
+  onNavigate,
+}: Props) {
+  /* Status derivation */
+  const audiobookDone = audiobookStatus === "completed";
+  const audiobookInProgress = audiobookStatus === "in_progress";
+  const trailerDone = trailerStatus === "completed";
+  const trailerInProgress = trailerStatus === "in_progress";
+
+  const getAudiobookLabel = (): [string, StatusKind] => {
+    if (audiobookDone) return ["Audiobook ready", "done"];
+    if (audiobookInProgress) return ["Generating...", "in-progress"];
+    return ["Generate audiobook", "pending"];
+  };
+
+  const getTrailerLabel = (): [string, StatusKind] => {
+    if (trailerDone) return ["Trailer ready", "done"];
+    if (trailerInProgress) return ["Generating...", "in-progress"];
+    return ["Create trailer", "pending"];
+  };
+
+  const [audiobookLabel, audiobookKind] = getAudiobookLabel();
+  const [trailerLabel, trailerKind] = getTrailerLabel();
+
+  /* Setup steps */
+  const setupSteps = [
+    { label: "Write", done: chapters.length > 0, panel: "edit" },
+    { label: "Cover", done: !!coverImageUrl, panel: "cover" },
+    { label: "Translate", done: hasTranslations, panel: "translate" },
+    { label: "Audiobook", done: audiobookDone, panel: "audiobook" },
+    { label: "Pricing", done: hasPricing, panel: "pricing" },
+    { label: "Publish", done: isPublished, panel: "publish" },
+  ];
+  const completedSteps = setupSteps.filter((s) => s.done).length;
+  const progressPct = Math.round((completedSteps / setupSteps.length) * 100);
+
+  /* Cards */
+  // Trailer generation runs through requireAuthorAndMarketingEnabled, so both
+  // of these tiles are governed by the marketing flag. With it off the panels
+  // render but every action answers MARKETING_FEATURE_DISABLED, so the tiles
+  // are doors to a locked room — hide them until the room opens.
+  const marketingEnabled = getMarketingEnabled();
+
+  const cards: CardDef[] = [
+    {
+      id: "write",
+      label: "Write",
+      description:
+        chapters.length > 0
+          ? `${chapters.length} chapter${chapters.length === 1 ? "" : "s"} · ${totalWordCount.toLocaleString()} words`
+          : "Start your first chapter",
+      icon: <PencilIcon />,
+      statusKind: chapters.length > 0 ? "done" : "pending",
+      // The hero button already says "Continue writing"; the card states where
+      // the manuscript stands instead of repeating the same words on one screen.
+      statusLabel: chapters.length > 0 ? "In progress" : "Write chapter one",
+      panel: "edit",
+      span: 2,
+    },
+    {
+      id: "cover",
+      label: "Cover",
+      description: "Book cover image",
+      icon: <ImageIcon />,
+      statusKind: coverImageUrl ? "done" : "pending",
+      statusLabel: coverImageUrl ? "Cover uploaded" : "Add a cover",
+      panel: "cover",
+    },
+    {
+      id: "translate",
+      label: "Translate",
+      description: "Multi-language editions",
+      icon: <GlobeIcon />,
+      statusKind: hasTranslations ? "done" : "pending",
+      statusLabel: hasTranslations ? "Translations available" : "Translate the book",
+      panel: "translate",
+    },
+    {
+      id: "audio",
+      label: "Audiobook",
+      description: "AI-generated narration",
+      icon: <HeadphonesIcon />,
+      statusKind: audiobookKind,
+      statusLabel: audiobookLabel,
+      panel: "audiobook",
+    },
+    {
+      id: "trailer",
+      label: "Trailer",
+      description: "Video preview clip",
+      icon: <FilmIcon />,
+      statusKind: trailerKind,
+      statusLabel: trailerLabel,
+      panel: "trailer",
+    },
+    {
+      id: "pricing",
+      label: "Pricing",
+      description: "Set your price",
+      icon: <TagIcon />,
+      statusKind: hasPricing ? "done" : "pending",
+      statusLabel: hasPricing ? "Price set" : "Set a price",
+      panel: "pricing",
+    },
+    {
+      id: "market",
+      label: "Marketing",
+      description: "Campaigns & outreach",
+      icon: <MegaphoneIcon />,
+      statusKind: "pending",
+      statusLabel: "Create a campaign",
+      panel: "market",
+    },
+    {
+      id: "publish",
+      label: "Publish",
+      description: "Make it discoverable",
+      icon: <RocketIcon />,
+      statusKind: isPublished ? "done" : "pending",
+      statusLabel: isPublished ? "Published" : "Publish the book",
+      panel: "publish",
+    },
+  ];
+
+  const shown = marketingEnabled
+    ? cards
+    : cards.filter((card) => card.id !== "market" && card.id !== "trailer");
+
+  // Write is the wide tile only when that leaves a complete grid. Eight tiles
+  // plus its extra column is nine cells — a clean 3×3. Six tiles would make
+  // seven, so it drops to one column and the six sit as two full rows. The
+  // point of the wide tile is a finished grid, not the width itself.
+  const visibleCards = shown.map((card) =>
+    card.id === "write"
+      ? { ...card, span: (shown.length + 1) % 3 === 0 ? (2 as const) : (1 as const) }
+      : card
+  );
+
+  return (
+    <div className="min-h-screen bg-background dark:bg-primary/50">
+      <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+
+        {/* ── Book hero ── */}
+        <div className="card-base relative mb-6 overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+            <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-[#907AFF]/[0.10] blur-[60px]" />
+          </div>
+          <div className="relative flex items-start gap-5 p-6">
+            {/* Cover thumbnail */}
+            <div className="relative h-20 w-[54px] flex-shrink-0 overflow-hidden rounded-xl border border-border/80 bg-gradient-to-br from-muted to-muted shadow-sm dark:border-border dark:from-white/[0.04] dark:to-white/[0.08]">
+              {coverImageUrl && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={coverImageUrl} alt={bookTitle} className="h-full w-full object-cover" />
+              )}
+            </div>
+
+            {/* Book info */}
+            <div className="min-w-0 flex-1">
+              <h1 className="author-page-title truncate">
+                {bookTitle}
+              </h1>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-muted-foreground dark:text-muted-foreground">
+                  {chapters.length} chapter{chapters.length !== 1 ? "s" : ""}
+                </span>
+                <span className="text-muted-foreground/40 dark:text-muted-foreground">·</span>
+                <span className="text-xs text-muted-foreground dark:text-muted-foreground">
+                  {totalWordCount.toLocaleString()} words
+                </span>
+                <span className="text-muted-foreground/40 dark:text-muted-foreground">·</span>
+                <span
+                  className={cn("text-xs font-medium", {
+                    "text-emerald-600 dark:text-emerald-400": isPublished,
+                    "text-muted-foreground dark:text-muted-foreground": !isPublished,
+                  })}
+                >
+                  {isPublished ? "Published" : "Draft"}
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="mt-3 flex items-center gap-2">
+                <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted dark:bg-card">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5] transition-[width] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+                <span className="flex-shrink-0 text-[11px] font-medium text-muted-foreground dark:text-muted-foreground">
+                  {completedSteps} of {setupSteps.length} steps done
+                </span>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <button
+              onClick={() => onNavigate("edit")}
+              className="hidden shrink-0 items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-[transform,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-[0_4px_16px_rgba(15,23,42,0.35)] active:scale-[0.97] sm:flex"
+            >
+              <PencilIcon className="h-4 w-4" />
+              Continue writing
+            </button>
+          </div>
+
+          {/* Mobile CTA */}
+          <div className="px-6 pb-6 sm:hidden">
+            <button
+              onClick={() => onNavigate("edit")}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-[transform,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-primary/90 active:scale-[0.97]"
+            >
+              <PencilIcon className="h-4 w-4" />
+              Continue writing
+            </button>
+          </div>
+        </div>
+
+        {/* ── Cards grid ── */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {visibleCards.map((card) => (
+            <DashboardCard key={card.id} card={card} onNavigate={onNavigate} />
+          ))}
+        </div>
+
+        {/* ── First chapter nudge ── */}
+        {chapters.length === 0 && (
+          <div className="mt-6 rounded-2xl border border-amber-200/80 bg-amber-50/80 p-5 dark:border-amber-900/30 dark:bg-amber-900/10">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+              Write your first chapter to get started
+            </p>
+            <p className="mt-1 text-xs text-amber-800/80 dark:text-amber-300/60">
+              Click &ldquo;Continue writing&rdquo; or the Write card above.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

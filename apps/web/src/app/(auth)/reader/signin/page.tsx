@@ -1,16 +1,201 @@
-import { Suspense } from "react";
-import ReaderSignInForm from "./ReaderSignInForm";
+"use client";
 
-export const dynamic = "force-dynamic";
+import { Suspense, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import AuthShell from "@/components/auth/AuthShell";
+import AuthCard from "@/components/auth/AuthCard";
+import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { signIn, signInWithGoogle } from "@/lib/supabase/auth";
+import { createClient } from "@/lib/supabase/client";
+import { resolveErrorMessage } from "@/lib/error-messages";
+import { resolveActiveRoleFromProfile, setActiveRoleCookieClient } from "@/lib/active-role";
+import {
+  resolvePostSignInPath,
+  sanitizeNextPath,
+  writeNextPathCookieClient,
+} from "@/lib/auth/next-path";
 
-function SignInFallback() {
-  return <div className="min-h-screen bg-background" aria-hidden style={{ background: "var(--auth-background)" }} />;
+/**
+ * Read `?next=` off the live URL rather than via `useSearchParams()`.
+ *
+ * It is only ever needed inside an event handler, so there is no reason to make
+ * the whole page depend on a hook that forces a Suspense boundary during
+ * prerender. Returns the raw value — validation happens in `next-path.ts`.
+ */
+function readRawNextParam(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("next");
 }
 
-export default function ReaderSignInPage() {
+function SignUpLink() {
+  const searchParams = useSearchParams();
+  const next = sanitizeNextPath(searchParams.get("next"));
+  const href = next ? `/reader/signup?next=${encodeURIComponent(next)}` : "/reader/signup";
+
+  return <Link href={href} className="font-medium text-foreground hover:underline">Create one</Link>;
+}
+
+export default function ReaderSignIn() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [staySignedIn, setStaySignedIn] = useState(true);
+  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const [loading, setLoading] = useState(false);
+
+  const validate = () => {
+    const nextErrors: { email?: string; password?: string } = {};
+    if (!email.trim()) nextErrors.email = "Email is required.";
+    if (!password.trim()) nextErrors.password = "Password is required.";
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (!validate()) return;
+
+    setLoading(true);
+    try {
+      const { error } = await signIn(email, password, staySignedIn);
+
+      if (error) {
+        setError(resolveErrorMessage(error.code, "Sign in failed. Check your email and password."));
+        setLoading(false);
+        return;
+      }
+
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      let nextRole: "author" | "reader" | null = null;
+      const metaRole = user?.user_metadata?.active_role ?? user?.user_metadata?.role;
+      if (metaRole === "author" || metaRole === "reader") {
+        nextRole = metaRole;
+      }
+
+      if (!nextRole && user?.id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, preferences")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        nextRole = resolveActiveRoleFromProfile(profile);
+      }
+
+      const resolvedRole = nextRole ?? "reader";
+      setActiveRoleCookieClient(resolvedRole);
+      // Honour `?next=` so a buyer who had to sign in mid-purchase lands back on
+      // the book instead of the home feed. Hostile values fall back to the role
+      // home — see `sanitizeNextPath`.
+      router.replace(resolvePostSignInPath(readRawNextParam(), resolvedRole));
+    } catch {
+      setError("Sign in failed. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError("");
+    // OAuth leaves our origin entirely, so the destination has to survive the
+    // round trip. It rides in a short-lived cookie that `/auth/callback` reads:
+    // Supabase validates `redirectTo` against an allow-list, so appending a
+    // query string to the callback URL risks the provider refusing it.
+    writeNextPathCookieClient(sanitizeNextPath(readRawNextParam()));
+    const { error } = await signInWithGoogle();
+    if (error) {
+      setError(resolveErrorMessage(null, "Sign in failed. Check your email and password."));
+    }
+  };
+
   return (
-    <Suspense fallback={<SignInFallback />}>
-      <ReaderSignInForm />
-    </Suspense>
+    <AuthShell backHref="/reader" backLabel="Back to reader home">
+      <AuthCard title="Sign in to your account" subtitle="Welcome back, reader">
+        {error && (
+          <div
+            role="alert"
+            className="mb-5 rounded-xl border border-red-200/80 bg-red-50/60 px-4 py-3 text-[14px] text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
+          >
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <FormField label="Email" error={fieldErrors.email}>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+              required
+              fullWidth
+            />
+          </FormField>
+
+          <FormField label="Password" error={fieldErrors.password}>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="current-password"
+              required
+              fullWidth
+            />
+          </FormField>
+
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={staySignedIn}
+                onChange={(e) => setStaySignedIn(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900/20 dark:border-white/20 dark:bg-white/10 dark:text-white dark:focus:ring-white/20"
+              />
+              Stay signed in
+            </label>
+            <Link
+              href="/reader/forgot-password"
+              className="text-[13px] text-muted-foreground transition hover:text-foreground"
+            >
+              Forgot password?
+            </Link>
+          </div>
+
+          <Button type="submit" fullWidth isLoading={loading} loadingText="Signing in..." className="mt-1">
+            Sign in
+          </Button>
+        </form>
+
+        <div className="my-6 flex items-center gap-4">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-[13px] text-muted-foreground">or</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+
+        <Button type="button" variant="secondary" fullWidth onClick={handleGoogleSignIn}>
+          Continue with Google
+        </Button>
+
+        <p className="mt-8 text-center text-[14px] text-muted-foreground">
+          Don&apos;t have an account?{" "}
+          {/* Resolve the destination after hydration without suspending the form. */}
+          <Suspense fallback={<Link href="/reader/signup" className="font-medium text-foreground hover:underline">Create one</Link>}>
+            <SignUpLink />
+          </Suspense>
+        </p>
+      </AuthCard>
+    </AuthShell>
   );
 }

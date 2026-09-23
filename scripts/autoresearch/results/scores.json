@@ -1,0 +1,16 @@
+{
+  "history": [
+    {"version": "v0", "file": "prompts/history/v0_30pct.txt", "pass_rate": 30.0, "cycle": 0, "note": "local mode baseline"},
+    {"version": "v1c", "file": "prompts/history/v1c_90pct.txt", "pass_rate": 90.0, "cycle": 1, "backend": "nvidia/gemma-2-27b-it", "note": "numbered rules, 20 cases x 11 assertions"},
+    {"version": "v2a", "file": "prompts/candidates/v2a.txt", "pass_rate": 95.0, "cycle": 2, "backend": "nvidia/gemma-2-27b-it", "note": "added closing offer"},
+    {"version": "v3a", "file": "prompts/current.txt", "pass_rate": 100.0, "cycle": 3, "backend": "nvidia/gemma-2-27b-it", "note": "PROMOTED — added stay-in-role rule"}
+  ],
+  "current_best": {
+    "file": "prompts/current.txt",
+    "pass_rate": 100.0,
+    "version": "v3a",
+    "backend": "nvidia/gemma-2-27b-it",
+    "assertions": 11,
+    "test_cases": 20
+  }
+}

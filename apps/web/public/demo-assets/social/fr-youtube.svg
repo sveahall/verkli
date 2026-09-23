@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920" role="img" aria-label="Le journal hanté — YouTube Shorts (FR)">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#907AFF"/>
+      <stop offset="55%" stop-color="#E29ED5"/>
+      <stop offset="100%" stop-color="#FCC997"/>
+    </linearGradient>
+    <linearGradient id="avatarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#907AFF"/>
+      <stop offset="100%" stop-color="#E29ED5"/>
+    </linearGradient>
+    <linearGradient id="videoGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#241A3D"/>
+      <stop offset="55%" stop-color="#140E26"/>
+      <stop offset="100%" stop-color="#0E0B1A"/>
+    </linearGradient>
+    <radialGradient id="videoGlow" cx="50%" cy="34%" r="55%">
+      <stop offset="0%" stop-color="#907AFF" stop-opacity="0.55"/>
+      <stop offset="60%" stop-color="#E29ED5" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#E29ED5" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="scrim" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.72"/>
+    </linearGradient>
+    <style><![CDATA[
+      .display { font-family: "Montserrat Alternates", "Inter", ui-sans-serif, system-ui, sans-serif; font-weight: 700; letter-spacing: -0.02em; }
+      .body { font-family: "Inter", ui-sans-serif, system-ui, sans-serif; font-weight: 500; }
+      .bold { font-family: "Inter", ui-sans-serif, system-ui, sans-serif; font-weight: 700; }
+      .serif { font-family: "Georgia", "Times New Roman", serif; font-style: italic; }
+    ]]></style>
+  </defs>
+  
+  <rect width="1080" height="1920" fill="url(#videoGrad)"/>
+  <rect width="1080" height="1920" fill="url(#videoGlow)"/>
+
+  <!-- Cover-art title, set large as the video's hero frame -->
+  <text class="body" x="80" y="576" fill="#FCC997" font-size="30" letter-spacing="0.24em" style="text-transform:uppercase;">Verkli Audiobook</text>
+  <text class="display" x="80" y="672" fill="#FDF8EE" font-size="92"><tspan x="80" dy="0">Le journal</tspan><tspan x="80" dy="104">hanté</tspan></text>
+  <text class="body" x="80" y="904" fill="#FDF8EE" fill-opacity="0.72" font-size="34">par Astrid Halvorsen</text>
+
+  <!-- Center play button -->
+  <circle cx="540" cy="960" r="92" fill="#FDF8EE" fill-opacity="0.16"/>
+  <circle cx="540" cy="960" r="92" fill="none" stroke="#FDF8EE" stroke-opacity="0.5" stroke-width="3"/>
+  <g transform="translate(504,924) scale(3)"><path d="M8 5v14l11-7z" fill="#FDF8EE"/></g>
+
+  <!-- Duration pill -->
+  <rect x="880" y="60" width="140" height="58" rx="29" fill="#000000" fill-opacity="0.5"/>
+  <text class="bold" x="950" y="98" text-anchor="middle" fill="#FDF8EE" font-size="30">0:59</text>
+
+  <!-- Channel chip top-left -->
+  <text class="bold" x="80" y="100" fill="#FDF8EE" font-size="34">YouTube Shorts</text>
+  <rect x="80" y="120" width="84" height="44" rx="22" fill="#907AFF"/>
+  <text class="bold" x="122" y="151" text-anchor="middle" fill="#FDF8EE" font-size="26">FR</text>
+
+  <!-- Right action rail -->
+  <circle cx="930" cy="920" r="52" fill="url(#avatarGrad)"/>
+  <text class="display" x="930" y="938.72" text-anchor="middle" fill="#FDF8EE" font-size="54.6">V</text>
+  <g transform="translate(892,1042) scale(3.1666666666666665)"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#FDF8EE"/></g>
+     <text class="bold" x="930" y="1158" text-anchor="middle" fill="#FDF8EE" font-size="32">3.8K</text>
+  <g transform="translate(892,1242) scale(3.1666666666666665)"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" fill="#FDF8EE"/></g>
+     <text class="bold" x="930" y="1358" text-anchor="middle" fill="#FDF8EE" font-size="32">151</text>
+  <g transform="translate(892,1442) scale(3.1666666666666665)"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="#FDF8EE"/></g>
+     <text class="bold" x="930" y="1558" text-anchor="middle" fill="#FDF8EE" font-size="32">644</text>
+
+  <!-- Bottom scrim + caption -->
+  <rect x="0" y="1460" width="1080" height="460" fill="url(#scrim)"/>
+  <text class="bold" x="80" y="1520" fill="#FDF8EE" font-size="40">@verkli</text>
+  <text class="body" x="80" y="1580" fill="#FDF8EE" font-size="38"><tspan x="80" dy="0">Le journal hanté — Chapitre 1</tspan><tspan x="80" dy="56">(audio complet). Un journal</tspan><tspan x="80" dy="56">qui…</tspan></text>
+  <text class="bold" x="80" y="1778" fill="#FCC997" font-size="36">#shorts  #audiobook  #gothicfiction</text>
+
+  <!-- Views + progress bar -->
+  <g transform="translate(80,1800) scale(1.5)"><path d="M8 5v14l11-7z" fill="#FDF8EE"/></g><text class="bold" x="128" y="1830" fill="#FDF8EE" font-size="32">63.9K views</text>
+  <rect x="0" y="1906" width="1080" height="14" fill="#FDF8EE" fill-opacity="0.25"/>
+  <rect x="0" y="1906" width="367.20000000000005" height="14" fill="#FDF8EE"/>
+
+</svg>

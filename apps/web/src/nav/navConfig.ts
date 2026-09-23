@@ -1,5 +1,27 @@
 export type NavVariant = "PUBLIC_AUTHOR" | "PUBLIC_READER" | "APP_AUTHOR" | "APP_READER";
 
+export type AuthorWorkflowKey =
+  | "home"
+  | "library"
+  | "audience"
+  | "analytics";
+
+export type AuthorSidebarLink = {
+  key: AuthorWorkflowKey | "profile" | "settings" | "switch-to-reader";
+  label: string;
+  href: string;
+  icon: string;
+  bookScoped?: boolean;
+  children?: AuthorSidebarChildLink[];
+};
+
+export type AuthorSidebarChildLink = {
+  key: string;
+  label: string;
+  href: string;
+  bookScoped?: boolean;
+};
+
 export type NavLinkChild = {
   label: string;
   href: string;
@@ -32,6 +54,61 @@ export type NavConfig = {
   actions: NavActions;
 };
 
+export const AUTHOR_WORKFLOW_NAV: AuthorSidebarLink[] = [
+  { key: "home", label: "Home", href: "/author/home", icon: "home" },
+  { key: "library", label: "Library", href: "/author/library", icon: "library" },
+  {
+    key: "audience",
+    label: "Marketing",
+    href: "/author/audience",
+    icon: "audience",
+    bookScoped: true,
+    children: [
+      { key: "campaigns", label: "Campaigns", href: "/author/marketing", bookScoped: true },
+      {
+        key: "reader-updates",
+        label: "Reader updates",
+        href: "/author/audience?surface=reader-updates",
+        bookScoped: true,
+      },
+      {
+        key: "beta-readers",
+        label: "Beta readers",
+        href: "/author/audience?surface=beta-readers",
+        bookScoped: true,
+      },
+    ],
+  },
+  {
+    key: "analytics",
+    label: "Analytics",
+    href: "/author/analytics",
+    icon: "analytics",
+    bookScoped: true,
+    children: [
+      { key: "overview", label: "Overview", href: "/author/analytics", bookScoped: true },
+      {
+        key: "reading-behavior",
+        label: "Reading behavior",
+        href: "/author/analytics?section=reading-behavior",
+        bookScoped: true,
+      },
+      {
+        key: "revenue",
+        label: "Revenue",
+        href: "/author/analytics?section=revenue",
+        bookScoped: true,
+      },
+    ],
+  },
+];
+
+export const AUTHOR_SIDEBAR_FOOTER: AuthorSidebarLink[] = [
+  { key: "profile", label: "Profile", href: "/author/profile", icon: "profile" },
+  { key: "settings", label: "Settings", href: "/author/settings", icon: "settings" },
+  { key: "switch-to-reader", label: "Switch to reader", href: "/reader/home", icon: "switch-to-reader" },
+];
+
 export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
   PUBLIC_AUTHOR: {
     homeHref: "/author",
@@ -43,32 +120,21 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
         children: [
           { label: "Product", href: "/product" },
           { label: "How it works", href: "/how-it-works" },
-          { label: "Case studies", href: "/case-studies" },
         ],
       },
       { label: "Pricing", href: "/pricing" },
       { label: "FAQ", href: "/faq" },
     ],
     actions: {
-      secondary: { label: "Login", href: "/signin" },
-      primary: { label: "Start free", href: "/signup" },
+      secondary: { label: "Login", href: "/author/signin" },
+      primary: { label: "Join now", href: "/author/signup" },
     },
   },
   PUBLIC_READER: {
     homeHref: "/reader",
     links: [
       { label: "Discover", href: "/reader" },
-      { label: "Membership", href: "/reader/membership" },
-      {
-        label: "App",
-        href: "/reader/app",
-        hasDropdown: true,
-        children: [
-          { label: "App overview", href: "/reader/app" },
-          { label: "How it works", href: "/reader/how-it-works" },
-        ],
-      },
-      { label: "FAQ", href: "/reader/faq" },
+      { label: "Support", href: "/support" },
     ],
     actions: {
       secondary: { label: "Login", href: "/reader/signin" },
@@ -77,45 +143,14 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
   },
   APP_AUTHOR: {
     homeHref: "/author/home",
-    links: [
-      {
-        label: "My World",
-        href: "/author/home",
-        hasDropdown: true,
-        children: [
-          { label: "Overview", href: "/author/home" },
-          { label: "Stats", href: "/author/stats" },
-          { label: "Profile preview", href: "/author/profile" },
-        ],
-      },
-      {
-        label: "Books",
-        href: "/author/books",
-        hasDropdown: true,
-        children: [
-          { label: "All books", href: "/author/books" },
-          { label: "Shelves", href: "/author/books" },
-          { label: "Drafts", href: "/author/books" },
-          { label: "Published", href: "/author/books" },
-        ],
-      },
-      {
-        label: "Marketing Tools",
-        href: "/author/marketing",
-        hasDropdown: true,
-        children: [
-          { label: "Overview", href: "/author/marketing" },
-          { label: "AI tools", href: "/author/marketing" },
-          { label: "Automations", href: "/author/marketing" },
-          { label: "Distribution", href: "/author/marketing" },
-        ],
-      },
-      { label: "Community", href: "/author/community" },
-    ],
+    links: AUTHOR_WORKFLOW_NAV.map((item) => ({
+      label: item.label,
+      href: item.href,
+    })),
     actions: {
-      primary: { label: "Publish", href: "/author/books" },
-      showSearch: true,
-      searchPlaceholder: "Search books, authors...",
+      primary: { label: "Library", href: "/author/library" },
+      showSearch: false,
+      searchPlaceholder: "Search books...",
       searchHref: "/author/home",
       showProfileMenu: true,
     },
@@ -123,43 +158,15 @@ export const NAV_CONFIG: Record<NavVariant, NavConfig> = {
   APP_READER: {
     homeHref: "/reader/home",
     links: [
-      { label: "Feed", href: "/reader/feed" },
-      {
-        label: "Discover",
-        href: "/reader/discover",
-        hasDropdown: true,
-        children: [
-          { label: "Discover", href: "/reader/discover" },
-          { label: "Explore books", href: "/reader/library" },
-          { label: "Genres", href: "/reader/discover" },
-          { label: "Authors", href: "/reader/discover" },
-        ],
-      },
-      {
-        label: "Library",
-        href: "/reader/library",
-        hasDropdown: true,
-        children: [
-          { label: "My library", href: "/reader/library" },
-          { label: "Bookmarks", href: "/reader/bookmarks" },
-          { label: "Continue reading", href: "/reader/home" },
-        ],
-      },
-      { label: "Community", href: "/reader/community" },
-      {
-        label: "Profile",
-        href: "/reader/profile",
-        hasDropdown: false,
-        children: [
-          { label: "Profile", href: "/reader/profile" },
-          { label: "Settings", href: "/reader/settings" },
-        ],
-      },
+      { label: "Home", href: "/reader/home" },
+      { label: "Discover", href: "/reader/discover" },
+      { label: "Library", href: "/reader/library" },
+      { label: "Support", href: "/support" },
     ],
     actions: {
       showSearch: true,
       searchPlaceholder: "Search books, authors...",
-      searchHref: "/reader/home",
+      searchHref: "/reader/discover",
       showProfileMenu: true,
     },
   },

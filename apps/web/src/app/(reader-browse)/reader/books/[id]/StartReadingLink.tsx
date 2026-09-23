@@ -1,0 +1,60 @@
+"use client";
+
+import Link from "next/link";
+import { useSyncExternalStore } from "react";
+
+const STORAGE_KEY_PREFIX = "verkli_reading_";
+
+type Props = {
+  bookId: string;
+  firstChapterId: string | null;
+  serverChapterId: string | null;
+};
+
+function getLocalChapterId(bookId: string): string | null {
+  try {
+    const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${bookId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.chapterId) return parsed.chapterId as string;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+// Noop subscribe – localStorage value is only read once at mount
+const subscribeNoop = () => () => {};
+
+export default function StartReadingLink({
+  bookId,
+  firstChapterId,
+  serverChapterId,
+}: Props) {
+  // Read localStorage-persisted chapter without useEffect + setState,
+  // avoiding "setState synchronously within an effect" warnings.
+  const localChapterId = useSyncExternalStore(
+    subscribeNoop,
+    () => (serverChapterId ? null : getLocalChapterId(bookId)),
+    () => null,
+  );
+  const chapterId = serverChapterId ?? localChapterId ?? firstChapterId;
+
+  const targetChapterId = chapterId ?? firstChapterId;
+  const isContinue = chapterId && chapterId !== firstChapterId;
+
+  if (!targetChapterId) {
+    return (
+      <span className="rounded-full bg-muted px-6 py-3 text-[14px] font-semibold text-muted-foreground dark:bg-card">
+        No chapters yet
+      </span>
+    );
+  }
+
+  return (
+    <Link href={`/reader/read/${targetChapterId}`} className="btn-primary">
+      {isContinue ? "Continue reading" : "Start reading"}
+    </Link>
+  );
+}

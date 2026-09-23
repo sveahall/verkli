@@ -1,0 +1,829 @@
+"use client";
+
+import Placeholder from "@tiptap/extension-placeholder";
+import CharacterCount from "@tiptap/extension-character-count";
+import { chapterSchemaExtensions } from "@/lib/tiptap-schema";
+import {
+  EditorContent,
+  EditorContext,
+  TiptapBubbleMenu as BubbleMenu,
+  TiptapFloatingMenu as FloatingMenu,
+  useEditor,
+} from "@tiptap/react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  createAutosaveScheduler,
+  type EditorSnapshot,
+} from "./autosaveScheduler";
+import { createPortal } from "react-dom";
+import type { InlineAiAction } from "@/features/book-workspace/types";
+import { uploadChapterMedia } from "@/lib/supabase/storage";
+import { toTiptapContent, countWords } from "@/lib/tiptap-content";
+import { FONT_FAMILY_MAP, WRITING_PRESETS } from "./types";
+
+type PresetId = "novel" | "essay" | "screenplay";
+
+type TiptapEditorProps = {
+  content: string | Record<string, unknown> | null;
+  onUpdate: (json: Record<string, unknown>) => void;
+  placeholder?: string;
+  bookId?: string;
+  chapterId?: string;
+  preset?: string;
+  onWordCount?: (count: number) => void;
+  onDirty?: () => void;
+  onFocusModeToggle?: () => void;
+  focusMode?: boolean;
+  onInlineAction?: (action: InlineAiAction, selectedText: string) => void;
+  /** When set, toolbar is portaled into this element (for sticky header integration) */
+  toolbarPortalTarget?: HTMLElement | null;
+  /** Called when the Tiptap editor instance is ready */
+  onEditorReady?: (editor: NonNullable<ReturnType<typeof useEditor>>) => void;
+};
+
+type SlashMenuState = {
+  from: number;
+  to: number;
+  query: string;
+};
+
+type SlashCommandId = "scene" | "dialogue" | "summary" | "audio";
+
+type SlashCommand = {
+  id: SlashCommandId;
+  label: string;
+  description: string;
+  keywords: string[];
+};
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  {
+    id: "scene",
+    label: "/scene",
+    description: "Insert a scene break.",
+    keywords: ["divider", "break", "chapter"],
+  },
+  {
+    id: "dialogue",
+    label: "/dialogue",
+    description: "Start a dialogue beat.",
+    keywords: ["character", "quote", "speech"],
+  },
+  {
+    id: "summary",
+    label: "/summary",
+    description: "Add a summary prompt.",
+    keywords: ["outline", "recap", "note"],
+  },
+  {
+    id: "audio",
+    label: "/audio",
+    description: "Open audiobook generation.",
+    keywords: ["voice", "preview", "production"],
+  },
+];
+
+function readAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string) ?? "");
+    reader.readAsDataURL(file);
+  });
+}
+
+function getSelectionText(editor: NonNullable<ReturnType<typeof useEditor>>): string {
+  const { from, to } = editor.state.selection;
+  return editor.state.doc.textBetween(from, to, " ").trim();
+}
+
+const emptySubscribe = () => () => {};
+
+export default function TiptapEditor({
+  content,
+  onUpdate,
+  placeholder = "Start writing...",
+  bookId,
+  chapterId,
+  preset = "novel",
+  onWordCount,
+  onDirty,
+  onInlineAction,
+  toolbarPortalTarget,
+  onEditorReady,
+}: TiptapEditorProps) {
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+  const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null);
+
+  // The scheduler owns the debounce, its ceiling, and the pending value, and
+  // must outlive prop changes to keep them. The commit target is installed from
+  // an effect so it always sees the current props without reading a ref during
+  // render.
+  const autosave = useMemo(() => createAutosaveScheduler<EditorSnapshot>(), []);
+
+  useEffect(() => {
+    autosave.setCommit((snapshot) => {
+      onUpdate(snapshot.doc);
+      onWordCount?.(countWords(snapshot.text));
+    });
+  }, [autosave, onUpdate, onWordCount]);
+
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [
+      // The document half of this list lives in lib/tiptap-schema so the server
+      // can build the same schema; Placeholder and CharacterCount are UI-only
+      // and stay here.
+      ...chapterSchemaExtensions(),
+      CharacterCount,
+      Placeholder.configure({ placeholder }),
+    ],
+    content: toTiptapContent(content),
+    onUpdate: ({ editor }) => {
+      onDirty?.();
+      // Snapshot now, not at commit time. The commit can run from the unmount
+      // cleanup below, and @tiptap/react destroys the editor in its own
+      // cleanup — registered first, so it tears down first — which would make
+      // editor.getJSON() there either throw or return nothing.
+      autosave.push({ doc: editor.getJSON(), text: editor.getText() });
+    },
+  });
+
+  const typography = (
+    preset && preset in WRITING_PRESETS ? WRITING_PRESETS[preset as PresetId] : null
+  ) ?? WRITING_PRESETS.novel;
+
+  const typographyVars = {
+    "--verkli-font": FONT_FAMILY_MAP[typography.fontFamily],
+    "--verkli-font-size": `${typography.fontSize}px`,
+    "--verkli-line-height": String(typography.lineHeight),
+    "--verkli-para-spacing": `${typography.paragraphSpacing}rem`,
+    "--verkli-content-width": `${typography.contentWidth}ch`,
+  } as React.CSSProperties;
+
+  useEffect(() => {
+    if (editor) {
+      onWordCount?.(countWords(editor.getText()));
+      onEditorReady?.(editor);
+    }
+  }, [editor, onWordCount, onEditorReady]);
+
+  useEffect(() => {
+    return () => {
+      // Flush, do not merely cancel. Clearing the timer was silently discarding
+      // everything typed since the last pause — on every chapter switch and
+      // every route change away from the editor.
+      autosave.flush();
+    };
+  }, [autosave]);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const updateSlashMenu = () => {
+      const { selection } = editor.state;
+      if (!selection.empty) {
+        setSlashMenu(null);
+        return;
+      }
+
+      const { $from } = selection;
+      const textBefore = $from.parent.textBetween(0, $from.parentOffset, undefined, "\ufffc");
+      const match = textBefore.match(/(?:^|\s)\/([a-z]*)$/i);
+
+      if (!match) {
+        setSlashMenu(null);
+        return;
+      }
+
+      const query = (match[1] ?? "").toLowerCase();
+      const from = selection.from - query.length - 1;
+
+      setSlashMenu({
+        from,
+        to: selection.from,
+        query,
+      });
+    };
+
+    updateSlashMenu();
+    editor.on("selectionUpdate", updateSlashMenu);
+    editor.on("transaction", updateSlashMenu);
+
+    return () => {
+      editor.off("selectionUpdate", updateSlashMenu);
+      editor.off("transaction", updateSlashMenu);
+    };
+  }, [editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const element = editor.view.dom;
+
+    const insertImage = async (file: File) => {
+      // Uploading through storage keeps the chapter JSON small. Falling back
+      // to a base64 data URL here used to silently inline megabytes of image
+      // bytes into the chapter `content` column, which then bloated every
+      // subsequent save/read. Now we either get a storage URL or we tell
+      // the user the upload failed — no silent bloat.
+      if (bookId && chapterId) {
+        const { url, error } = await uploadChapterMedia(file, bookId, chapterId);
+        if (!error && url) {
+          editor.chain().focus().setImage({ src: url }).run();
+          return;
+        }
+        console.warn("[TiptapEditor] image upload failed", {
+          message: error ?? "unknown",
+        });
+        // Surface the failure via the browser alert for now — the editor
+        // doesn't have its own toast handle wired in at this layer.
+        if (typeof window !== "undefined") {
+          window.alert("Couldn't upload that image. Check your connection and try again.");
+        }
+        return;
+      }
+
+      // No bookId/chapterId context — this only happens in the scratchpad
+      // editor where nothing is ever persisted. Inline is fine there.
+      const src = (await readAsDataURL(file)) ?? "";
+      if (src) {
+        editor.chain().focus().setImage({ src }).run();
+      }
+    };
+
+    const handlePaste = (event: ClipboardEvent) => {
+      const file = Array.from(event.clipboardData?.items ?? [])
+        .find((item) => item.type.startsWith("image/"))
+        ?.getAsFile();
+
+      if (!file) return;
+      event.preventDefault();
+      void insertImage(file);
+    };
+
+    const handleDrop = (event: DragEvent) => {
+      const file = event.dataTransfer?.files?.[0];
+      if (!file?.type.startsWith("image/")) return;
+      event.preventDefault();
+      void insertImage(file);
+    };
+
+    element.addEventListener("paste", handlePaste as EventListener);
+    element.addEventListener("drop", handleDrop);
+
+    return () => {
+      element.removeEventListener("paste", handlePaste as EventListener);
+      element.removeEventListener("drop", handleDrop);
+    };
+  }, [bookId, chapterId, editor]);
+
+  const filteredSlashCommands = useMemo(() => {
+    if (!slashMenu) return [];
+
+    const query = slashMenu.query.trim();
+    if (!query) return SLASH_COMMANDS;
+
+    return SLASH_COMMANDS.filter((command) => {
+      const haystack = [command.id, command.label, ...command.keywords].join(" ").toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [slashMenu]);
+
+  const runInlineAction = (action: InlineAiAction) => {
+    if (!editor) return;
+    const selectedText = getSelectionText(editor);
+    if (!selectedText) return;
+    onInlineAction?.(action, selectedText);
+  };
+
+  const runSlashCommand = (commandId: SlashCommandId) => {
+    if (!editor || !slashMenu) return;
+
+    const chain = editor.chain().focus().deleteRange({
+      from: slashMenu.from,
+      to: slashMenu.to,
+    });
+
+    switch (commandId) {
+      case "scene":
+        chain.setHorizontalRule().run();
+        break;
+      case "dialogue":
+        chain.insertContent('Character: ""').run();
+        break;
+      case "summary":
+        chain.insertContent("Summary: ").run();
+        break;
+      case "audio":
+        chain.run();
+        onInlineAction?.("audiobook", "Chapter audio");
+        break;
+      default:
+        chain.run();
+    }
+
+    setSlashMenu(null);
+  };
+
+  if (!mounted || !editor) {
+    return (
+      <div className="verkli-editor" style={typographyVars}>
+        <div className="verkli-editor-loading" />
+        <style jsx>{`
+          .verkli-editor {
+            min-height: 100%;
+          }
+
+          .verkli-editor-loading {
+            min-height: 680px;
+            border-radius: 28px;
+            background: rgba(226, 232, 240, 0.6);
+          }
+
+          @media (prefers-color-scheme: dark) {
+            .verkli-editor-loading {
+              background: rgba(255, 255, 255, 0.05);
+            }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  return (
+    <EditorContext.Provider value={{ editor }}>
+    <div className="verkli-editor" style={typographyVars}>
+      <BubbleMenu
+        shouldShow={({ editor, from, to }) => editor.state.doc.textBetween(from, to, " ").trim().length > 0}
+        className="verkli-bubble-menu"
+        options={{ placement: "top-start" }}
+      >
+        <MenuButton
+          label="Bold"
+          active={editor.isActive("bold")}
+          onClick={() => editor.chain().focus().toggleBold().run()}
+        >
+          <BoldIcon />
+        </MenuButton>
+        <MenuButton
+          label="Italic"
+          active={editor.isActive("italic")}
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+        >
+          <ItalicIcon />
+        </MenuButton>
+        <MenuButton
+          label="Heading 1"
+          active={editor.isActive("heading", { level: 1 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        >
+          H1
+        </MenuButton>
+        <MenuButton
+          label="Heading 2"
+          active={editor.isActive("heading", { level: 2 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        >
+          H2
+        </MenuButton>
+        <MenuButton
+          label="Heading 3"
+          active={editor.isActive("heading", { level: 3 })}
+          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        >
+          H3
+        </MenuButton>
+        <MenuDivider />
+        <select
+          value={(editor.getAttributes("textStyle") as Record<string, string>).fontFamily ?? ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val) {
+              editor.chain().focus().setFontFamily(val).run();
+            } else {
+              editor.chain().focus().unsetFontFamily().run();
+            }
+          }}
+          className="h-7 rounded border border-black/10 bg-transparent px-1.5 text-[11px] font-medium text-muted-foreground outline-none dark:border-border dark:text-muted-foreground"
+          title="Font family"
+        >
+          <option value="">Font</option>
+          <option value="Georgia, serif">Georgia</option>
+          <option value="'Times New Roman', serif">Times</option>
+          <option value="'Merriweather', serif">Merriweather</option>
+          <option value="'Inter', sans-serif">Inter</option>
+          <option value="'Lora', serif">Lora</option>
+          <option value="monospace">Monospace</option>
+        </select>
+        <MenuDivider />
+        <MenuButton label="Rewrite" onClick={() => runInlineAction("rewrite")}>
+          Rewrite
+        </MenuButton>
+        <MenuButton label="Improve pacing" onClick={() => runInlineAction("pacing")}>
+          Pace
+        </MenuButton>
+        <MenuButton label="Expand" onClick={() => runInlineAction("expand")}>
+          Expand
+        </MenuButton>
+        <MenuButton label="Generate audio" onClick={() => runInlineAction("audiobook")}>
+          Audio
+        </MenuButton>
+      </BubbleMenu>
+
+      <FloatingMenu
+        shouldShow={() => Boolean(slashMenu)}
+        className="verkli-slash-menu"
+        options={{ placement: "bottom-start" }}
+      >
+        <div className="verkli-slash-panel">
+          <p className="verkli-slash-label">Slash commands</p>
+          <div className="verkli-slash-items">
+            {(filteredSlashCommands.length > 0 ? filteredSlashCommands : SLASH_COMMANDS).map((command) => (
+              <button
+                key={command.id}
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  runSlashCommand(command.id);
+                }}
+                className="verkli-slash-item"
+              >
+                <span className="verkli-slash-title">{command.label}</span>
+                <span className="verkli-slash-description">{command.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </FloatingMenu>
+
+      {/* Toolbar buttons (portaled into sticky header when target provided) */}
+      {(() => {
+        const toolbarButtons = (
+          <div className="flex max-w-full items-center gap-0.5 overflow-x-auto px-1 py-1.5 sm:px-4">
+            <ToolbarButton label="Undo" onClick={() => editor.chain().focus().undo().run()}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+            </ToolbarButton>
+            <ToolbarButton label="Redo" onClick={() => editor.chain().focus().redo().run()}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
+            </ToolbarButton>
+            <ToolbarDivider />
+            <ToolbarButton label="Bold" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
+              <strong>B</strong>
+            </ToolbarButton>
+            <ToolbarButton label="Italic" active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}>
+              <em>I</em>
+            </ToolbarButton>
+            <ToolbarButton label="Underline" active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()}>
+              <span className="underline">U</span>
+            </ToolbarButton>
+            <ToolbarButton label="Strikethrough" active={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()}>
+              <span className="line-through">S</span>
+            </ToolbarButton>
+            <ToolbarDivider />
+            <ToolbarButton label="Heading 1" active={editor.isActive("heading", { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
+              H1
+            </ToolbarButton>
+            <ToolbarButton label="Heading 2" active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+              H2
+            </ToolbarButton>
+            <ToolbarButton label="Heading 3" active={editor.isActive("heading", { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+              H3
+            </ToolbarButton>
+            <ToolbarDivider />
+            <ToolbarButton label="Bullet list" active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </ToolbarButton>
+            <ToolbarButton label="Ordered list" active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="10" y1="6" x2="21" y2="6"/><line x1="10" y1="12" x2="21" y2="12"/><line x1="10" y1="18" x2="21" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>
+            </ToolbarButton>
+            <ToolbarDivider />
+            <ToolbarButton label="Align left" active={editor.isActive({ textAlign: "left" })} onClick={() => editor.chain().focus().setTextAlign("left").run()}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+            </ToolbarButton>
+            <ToolbarButton label="Align center" active={editor.isActive({ textAlign: "center" })} onClick={() => editor.chain().focus().setTextAlign("center").run()}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="10" x2="6" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="18" y1="18" x2="6" y2="18"/></svg>
+            </ToolbarButton>
+            <ToolbarButton label="Align right" active={editor.isActive({ textAlign: "right" })} onClick={() => editor.chain().focus().setTextAlign("right").run()}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="21" y1="10" x2="7" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="18" x2="7" y2="18"/></svg>
+            </ToolbarButton>
+          </div>
+        );
+
+        return toolbarPortalTarget
+          ? createPortal(toolbarButtons, toolbarPortalTarget)
+          : <div className="verkli-toolbar sticky top-0 z-10 border-b border-border bg-white/95 backdrop-blur-sm dark:border-border dark:bg-card/95">{toolbarButtons}</div>;
+      })()}
+
+      <EditorContent editor={editor} className="verkli-content" />
+
+      <style jsx global>{`
+        .verkli-editor {
+          height: 100%;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .verkli-content {
+          flex: 1 1 auto;
+          min-height: 0;
+          overflow-y: auto;
+        }
+
+        .verkli-content .ProseMirror {
+          min-height: 680px;
+          max-width: 100%;
+          width: 100%;
+          min-width: 100%;
+          padding: 18px 18px 50px;
+          font-family: var(--verkli-font, Georgia, serif);
+          font-size: var(--verkli-font-size, 17px);
+          line-height: var(--verkli-line-height, 1.7);
+          color: var(--foreground);
+          outline: none;
+          max-width: min(var(--verkli-content-width, 72ch), 100%);
+          margin: 0 auto;
+        }
+
+        .dark .verkli-content .ProseMirror {
+          color: rgba(255, 255, 255, 0.86);
+        }
+
+        .verkli-content .ProseMirror p {
+          margin-bottom: var(--verkli-para-spacing, 0.75em);
+        }
+
+        .verkli-content .ProseMirror p.is-editor-empty:first-child::before {
+          content: attr(data-placeholder);
+          float: left;
+          color: var(--muted-foreground);
+          pointer-events: none;
+          height: 0;
+        }
+
+        .dark .verkli-content .ProseMirror p.is-editor-empty:first-child::before {
+          color: rgba(255, 255, 255, 0.25);
+        }
+
+        .verkli-content .ProseMirror h1 {
+          font-size: 2.2rem;
+          font-weight: 700;
+          margin: 1.75rem 0 0.9rem;
+          letter-spacing: -0.03em;
+        }
+
+        .verkli-content .ProseMirror h2 {
+          font-size: 1.6rem;
+          font-weight: 650;
+          margin: 1.4rem 0 0.7rem;
+          letter-spacing: -0.025em;
+        }
+
+        .verkli-content .ProseMirror h3 {
+          font-size: 1.3rem;
+          font-weight: 600;
+          margin: 1.15rem 0 0.55rem;
+        }
+
+        .verkli-content .ProseMirror ul,
+        .verkli-content .ProseMirror ol {
+          padding-left: 1.5rem;
+          margin-bottom: 0.75rem;
+        }
+
+        .verkli-content .ProseMirror ul {
+          list-style-type: disc;
+        }
+
+        .verkli-content .ProseMirror ol {
+          list-style-type: decimal;
+        }
+
+        .verkli-content .ProseMirror blockquote {
+          border-left: 3px solid rgba(148, 163, 184, 0.85);
+          padding-left: 1rem;
+          margin: 1rem 0;
+          color: var(--muted-foreground);
+        }
+
+        .dark .verkli-content .ProseMirror blockquote {
+          border-color: rgba(255, 255, 255, 0.22);
+          color: rgba(255, 255, 255, 0.7);
+        }
+
+        .verkli-content .ProseMirror img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 18px;
+          margin: 1.5rem 0;
+        }
+
+        .verkli-content .ProseMirror img.ProseMirror-selectednode {
+          outline: 2px solid #907aff;
+          outline-offset: 3px;
+        }
+
+        .verkli-content .ProseMirror hr {
+          border: none;
+          border-top: 2px solid rgba(148, 163, 184, 0.22);
+          margin: 2.25rem 0;
+        }
+
+        .dark .verkli-content .ProseMirror hr {
+          border-color: rgba(255, 255, 255, 0.16);
+        }
+
+        .verkli-bubble-menu {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 6px;
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          background: var(--card);
+          box-shadow: 0 12px 40px rgba(25, 23, 28, 0.12);
+          backdrop-filter: blur(16px);
+          z-index: 50;
+        }
+
+        .dark .verkli-bubble-menu {
+          border-color: var(--border);
+          background: var(--card);
+        }
+
+        .verkli-slash-menu {
+          width: min(320px, calc(100vw - 48px));
+        }
+
+        .verkli-slash-panel {
+          border: 1px solid var(--border);
+          border-radius: 18px;
+          background: var(--card);
+          box-shadow: 0 16px 48px rgba(25, 23, 28, 0.14);
+          backdrop-filter: blur(16px);
+          overflow: hidden;
+        }
+
+        .dark .verkli-slash-panel {
+          border-color: var(--border);
+          background: var(--card);
+        }
+
+        .verkli-slash-label {
+          padding: 12px 14px 8px;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+          color: var(--muted-foreground);
+        }
+
+        .verkli-slash-items {
+          display: grid;
+          gap: 2px;
+          padding: 0 8px 8px;
+        }
+
+        .verkli-slash-item {
+          display: flex;
+          width: 100%;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 2px;
+          border: 0;
+          border-radius: 12px;
+          background: transparent;
+          padding: 10px 12px;
+          text-align: left;
+          transition: background 120ms ease, color 120ms ease;
+        }
+
+        .verkli-slash-item:hover {
+          background: var(--accent);
+        }
+
+        .dark .verkli-slash-item:hover {
+          background: var(--accent);
+        }
+
+        .verkli-slash-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--foreground);
+        }
+
+        .dark .verkli-slash-title {
+          color: rgba(255, 255, 255, 0.92);
+        }
+
+        .verkli-slash-description {
+          font-size: 12px;
+          color: var(--muted-foreground);
+        }
+
+        .dark .verkli-slash-description {
+          color: rgba(255, 255, 255, 0.5);
+        }
+
+        @media (max-width: 1024px) {
+          .verkli-content .ProseMirror {
+            min-height: 560px;
+            padding: 26px 18px 72px;
+          }
+        }
+      `}</style>
+    </div>
+    </EditorContext.Provider>
+  );
+}
+
+function MenuButton({
+  label,
+  onClick,
+  active,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      onMouseDown={(event) => {
+        event.preventDefault();
+        onClick();
+      }}
+      onClick={(event) => { if (event.detail === 0) onClick(); }}
+      className={`inline-flex h-11 min-w-11 shrink-0 items-center justify-center rounded-xl px-2.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+        active
+          ? "bg-accent text-accent-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function MenuDivider() {
+  return <span className="mx-1 h-5 w-px bg-muted dark:bg-card" aria-hidden />;
+}
+
+function BoldIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6V4zM6 12h9a4 4 0 014 4 4 4 0 01-4 4H6v-8z" />
+    </svg>
+  );
+}
+
+function ItalicIcon() {
+  return (
+    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 4h4m-2 0l-4 16m0 0h4" />
+    </svg>
+  );
+}
+
+function ToolbarButton({
+  label,
+  onClick,
+  active,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      onMouseDown={(event) => {
+        event.preventDefault();
+        onClick();
+      }}
+      onClick={(event) => { if (event.detail === 0) onClick(); }}
+      className={`inline-flex h-11 min-w-11 shrink-0 items-center justify-center rounded-lg px-2 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+        active
+          ? "bg-accent text-accent-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ToolbarDivider() {
+  return <span className="mx-1 h-5 w-px bg-muted dark:bg-card" aria-hidden />;
+}

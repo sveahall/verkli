@@ -1,0 +1,417 @@
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import Link from "next/link";
+import { Dialog, DialogTitle } from "@/components/ui/dialog";
+import RightsAttestationFields, {
+  useRightsAttestation,
+  appendAttestation,
+} from "@/components/import/RightsAttestationFields";
+import { resolveErrorMessage } from "@/lib/error-messages";
+import { isJobActiveStatus, normalizeJobStatus, type JobStatus } from "@/lib/job-status";
+import { useDocumentVisible } from "@/hooks/useDocumentVisible";
+
+const ALLOWED_EXT = [".epub", ".docx", ".html", ".htm", ".txt"];
+const POLL_INTERVAL_MS = 2500;
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: "Queued",
+  running: "Running",
+  completed: "Succeeded",
+  failed: "Failed",
+};
+
+export type ImportItem = {
+  id: string;
+  file_name: string;
+  status: JobStatus;
+  progress: number;
+  error: string | null;
+  book_id: string | null;
+  book_version_id?: string | null;
+  created_at: string;
+};
+
+type ImportBookModalProps = {
+  open: boolean;
+  onClose: () => void;
+  onImportComplete?: (bookId: string, versionId?: string | null) => void;
+};
+
+function toImportStatus(raw: unknown): JobStatus {
+  return normalizeJobStatus(typeof raw === "string" ? raw : null);
+}
+
+export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookModalProps) {
+  const isVisible = useDocumentVisible();
+  const [importsList, setImportsList] = useState<ImportItem[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const uploadInFlightRef = useRef(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [statusLoaded, setStatusLoaded] = useState(false);
+  const attestation = useRightsAttestation();
+  const [dragOver, setDragOver] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [redisHint, setRedisHint] = useState(false);
+  const [pendingImportIds, setPendingImportIds] = useState<string[]>([]);
+  const [unseenImportIds, setUnseenImportIds] = useState<string[]>([]);
+  const [openedAtMs, setOpenedAtMs] = useState<number | null>(null);
+  const fetchAbortRef = useRef<AbortController | null>(null);
+
+  const parseTimestamp = (value: string | null | undefined): number => {
+    if (!value) return 0;
+    const ts = Date.parse(value);
+    return Number.isFinite(ts) ? ts : 0;
+  };
+
+  const fetchImports = useCallback(async () => {
+    fetchAbortRef.current?.abort();
+    const controller = new AbortController();
+    fetchAbortRef.current = controller;
+    try {
+      const res = await fetch("/api/books/imports?limit=20", {
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error("Import status request failed");
+      const data = await res.json();
+      if (!Array.isArray(data.imports)) throw new Error("Invalid import status response");
+      const normalized = (data.imports as ImportItem[]).map((item) => ({
+        ...item,
+        status: toImportStatus(item.status),
+      }));
+      // Aborted requests can still finish parsing; only the current read may win.
+      if (controller.signal.aborted || fetchAbortRef.current !== controller) return;
+      setImportsList(normalized);
+      setUnseenImportIds((ids) => ids.filter((id) => !normalized.some((item) => item.id === id)));
+      setStatusLoaded(true);
+      setStatusError(null);
+    } catch {
+      if (controller.signal.aborted || fetchAbortRef.current !== controller) return;
+      setStatusError("Could not refresh import status. We will try again, or you can retry now.");
+    } finally {
+      if (fetchAbortRef.current === controller) {
+        fetchAbortRef.current = null;
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      fetchAbortRef.current?.abort();
+      fetchAbortRef.current = null;
+      setPendingImportIds([]);
+      setUnseenImportIds([]);
+      setOpenedAtMs(null);
+      setImportsList([]);
+      setStatusLoaded(false);
+      setStatusError(null);
+      return;
+    }
+
+    setError(null);
+    setSuccessMessage(null);
+    setRedisHint(false);
+    setPendingImportIds([]);
+    setUnseenImportIds([]);
+    setOpenedAtMs(Date.now());
+    fetchImports();
+    return () => {
+      fetchAbortRef.current?.abort();
+      fetchAbortRef.current = null;
+    };
+  }, [open, fetchImports]);
+
+  // Once observed, an old job falling outside the newest-20 window is not pending.
+  const shouldPoll = !statusLoaded || Boolean(statusError) || unseenImportIds.length > 0 || importsList.some((i) => isJobActiveStatus(i.status));
+  useEffect(() => {
+    if (!open || !isVisible || !shouldPoll) return;
+    const t = setInterval(() => {
+      // Do not continually abort a slow but healthy response.
+      if (!fetchAbortRef.current) void fetchImports();
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(t);
+  }, [open, shouldPoll, fetchImports, isVisible]);
+
+  useEffect(() => {
+    if (!open || !onImportComplete) return;
+    if (pendingImportIds.length === 0) return;
+    if (!openedAtMs) return;
+
+    const completed = importsList.find(
+      (item) =>
+        pendingImportIds.includes(item.id) &&
+        item.status === "completed" &&
+        parseTimestamp(item.created_at) >= openedAtMs - 1_000 &&
+        item.book_id
+    );
+    if (!completed) return;
+
+    setPendingImportIds((prev) => prev.filter((id) => id !== completed.id));
+    onImportComplete(completed.book_id!, completed.book_version_id ?? null);
+  }, [open, importsList, onImportComplete, pendingImportIds, openedAtMs]);
+
+  const handleFile = async (file: File) => {
+    // A ref also blocks two drops before React commits the disabled input.
+    if (uploadInFlightRef.current) return;
+    // This modal uploads the moment a file lands, so the attestation has to
+    // gate the drop itself rather than a submit button. The dropzone is also
+    // disabled until it is complete; this is the belt for that brace.
+    if (!attestation.complete) {
+      setError("Confirm the rights statements above before uploading.");
+      return;
+    }
+    const ext = "." + (file.name.split(".").pop() ?? "").toLowerCase();
+    if (!ALLOWED_EXT.includes(ext)) {
+      setError("File type is not supported. Use EPUB, DOCX, HTML, or TXT.");
+      return;
+    }
+    // Client-side size check so a user on a slow connection doesn't upload
+    // 200 MB before the server rejects it. The UI already promises "max
+    // 50 MB" — enforce it before we start the upload.
+    const MAX_BYTES = 50 * 1024 * 1024;
+    if (file.size > MAX_BYTES) {
+      setError("File is too large. Maximum size is 50 MB.");
+      return;
+    }
+    uploadInFlightRef.current = true;
+    setError(null);
+    setSuccessMessage(null);
+    setRedisHint(false);
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      appendAttestation(form, attestation.state);
+      const res = await fetch("/api/books/import", { method: "POST", body: form });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setError(resolveErrorMessage(data?.error));
+        return;
+      }
+
+      // Reset the affirmation with the file. The modal stays usable while the
+      // import processes, so without this a second manuscript would be
+      // submitted under the previous one's boxes — a legal record for answers
+      // the author never gave about that file.
+      attestation.reset();
+      setSuccessMessage("Import started. Your file will be processed shortly.");
+      const importId = data.id;
+      if (importId) {
+        // An older status snapshot must not erase the just-accepted upload.
+        fetchAbortRef.current?.abort();
+        fetchAbortRef.current = null;
+        setPendingImportIds((prev) => [...prev, importId]);
+        setUnseenImportIds((prev) => [...prev, importId]);
+        setImportsList((prev) => [
+          {
+            id: importId,
+            file_name: file.name,
+            status: toImportStatus(data.status ?? "pending"),
+            progress: data.progress ?? 0,
+            error: null,
+            book_id: null,
+            book_version_id: null,
+            created_at: new Date().toISOString(),
+          },
+          ...prev,
+        ]);
+      }
+
+      const msg = (data.message ?? "").toLowerCase();
+      if (
+        msg.includes("redis") ||
+        msg.includes("worker") ||
+        msg.includes("start redis")
+      ) {
+        setRedisHint(true);
+      }
+    } catch (err) {
+      // Previously a network failure reset `uploading` in `finally` but
+      // left `error` null, so the spinner disappeared with no feedback.
+      setError(
+        err instanceof Error ? err.message : "Upload failed. Try again."
+      );
+    } finally {
+      uploadInFlightRef.current = false;
+      setUploading(false);
+    }
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) handleFile(f);
+  };
+
+  const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) handleFile(f);
+    e.target.value = "";
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }} className="w-[min(92vw,560px)] rounded-3xl">
+        <button
+          type="button"
+          onClick={onClose}
+          className="ui-icon-control absolute right-4 top-4 z-10"
+          aria-label="Close"
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        <div className="border-b border-border p-6 pr-16">
+          <DialogTitle>Import book</DialogTitle>
+          <p className="mt-1 text-[14px] text-muted-foreground">
+            Upload an existing book file to import chapters automatically.
+          </p>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">
+            Allowed formats: .epub, .docx, .html, .txt - max 50 MB
+          </p>
+        </div>
+
+        {error && (
+          <div role="alert" className="mx-6 mt-4 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-[14px] text-red-700 dark:text-red-300">
+            {error}
+          </div>
+        )}
+
+        {successMessage && (
+          <div role="status" className="mx-6 mt-4 rounded-xl border border-green-200 dark:border-green-900/50 bg-green-50 dark:bg-green-950/30 px-4 py-3 text-[14px] text-green-700 dark:text-green-300">
+            {successMessage}
+          </div>
+        )}
+
+        {redisHint && (
+          <div className="mx-6 mt-4 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-[14px] text-amber-800 dark:text-amber-200">
+            Your file is queued. Processing may take a while. If nothing happens, try again later.
+          </div>
+        )}
+
+        <div className="mx-6 mt-4">
+          <RightsAttestationFields
+            state={attestation.state}
+            onChange={attestation.setState}
+            disabled={uploading}
+          />
+        </div>
+
+        <div
+          className={`mx-6 mt-4 rounded-2xl border-2 border-dashed p-6 text-center transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-card ${
+            dragOver ? "border-[#907AFF]/50 bg-[#907AFF]/5" : "border-border bg-muted/30"
+          }`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+        >
+          <input
+            type="file"
+            accept=".epub,.docx,.html,.htm,.txt"
+            className="sr-only"
+            aria-label="Choose a book file"
+            id="import-file-input"
+            onChange={onFileInputChange}
+            disabled={uploading || !attestation.complete}
+          />
+          <label htmlFor="import-file-input" className="cursor-pointer">
+            {uploading ? (
+              <span className="flex items-center justify-center gap-2 text-[14px] text-muted-foreground">
+                <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Uploading...
+              </span>
+            ) : (
+              <>
+                <svg
+                  className="mx-auto h-10 w-10 text-muted-foreground"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                  />
+                </svg>
+                <p className="mt-2 text-[14px] font-medium text-foreground">
+                  Drag and drop a file here, or click to upload
+                </p>
+              </>
+            )}
+          </label>
+        </div>
+
+        <div className="p-6">
+          <h3 className="mb-3 text-[14px] font-semibold text-foreground">Import status</h3>
+          {statusError && (
+            <div className="mb-3 space-y-2">
+              <p role="alert" className="text-sm text-red-700 dark:text-red-300">{statusError}</p>
+              <button type="button" className="btn-secondary" onClick={() => void fetchImports()}>Retry status</button>
+            </div>
+          )}
+          {!statusLoaded && !statusError && importsList.length === 0 && <p role="status" className="text-sm text-muted-foreground">Loading import status…</p>}
+          {importsList.length === 0 && statusLoaded && !statusError ? (
+            <p className="text-[13px] text-muted-foreground">No imports yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {importsList.map((imp, i) => (
+                <li
+                  key={`${imp.id}-${i}`}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-medium text-foreground">
+                      {imp.file_name}
+                    </p>
+                    <p className="mt-0.5 text-[12px] text-muted-foreground">
+                      <span className="block break-all text-xs text-muted-foreground">Support reference: <code>{imp.id}</code></span>
+                      {imp.status === "completed" && imp.book_id ? (
+                        <Link
+                          href={`/author/books/${imp.book_id}`}
+                          className="text-[#907AFF] hover:underline"
+                        >
+                          Open book
+                        </Link>
+                      ) : imp.status === "failed" && imp.error ? (
+                        <span className="text-red-500">{imp.error}</span>
+                      ) : imp.status === "running" || imp.status === "pending" ? (
+                        <span>
+                          {STATUS_LABELS[imp.status] ?? imp.status}
+                          {imp.progress > 0 ? ` ${imp.progress}%` : ""}
+                        </span>
+                      ) : (
+                        STATUS_LABELS[imp.status] ?? imp.status
+                      )}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                      imp.status === "completed"
+                        ? "bg-green-500/20 text-green-700 dark:text-green-400"
+                        : imp.status === "failed"
+                          ? "bg-red-500/20 text-red-700 dark:text-red-400"
+                          : "bg-slate-200/80 dark:bg-white/10 text-slate-600 dark:text-white/60"
+                    }`}
+                  >
+                    {STATUS_LABELS[imp.status] ?? imp.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+    </Dialog>
+  );
+}

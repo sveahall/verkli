@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import AuroraBackground from "@/components/AuroraBackground";
 import {
   APPLY_QUESTIONS,
   visibleFields,
@@ -195,7 +194,7 @@ export default function ApplyPage() {
       `}</style>
 
       <main className="relative flex min-h-screen min-h-dvh flex-col" role="main">
-        <AuroraBackground />
+        <div className="pointer-events-none absolute inset-0 bg-[#07060b]" aria-hidden="true" />
 
         <section className="dark relative flex min-h-screen min-h-dvh flex-col items-center justify-center px-4 py-14">
           <div className="apply-in mb-8 flex justify-center">

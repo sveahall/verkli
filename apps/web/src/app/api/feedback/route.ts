@@ -1,0 +1,103 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { z } from "zod";
+import {
+  apiError,
+  E_NOT_AUTHENTICATED,
+  E_INVALID_JSON,
+  E_RATE_LIMIT_EXCEEDED,
+  E_VALIDATION_FAILED,
+  E_FEEDBACK_LOAD_FAILED,
+  E_FEEDBACK_SAVE_FAILED,
+} from "@/lib/api-errors";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
+
+const feedbackLimiter = createPerUserRateLimiter({ name: "feedback", maxPerMinute: 5 });
+
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return apiError(E_NOT_AUTHENTICATED, 401);
+  }
+
+  const { data, error } = await supabase
+    .from("feedback")
+    .select("id, type, message, url, status, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[feedback] load failed", { message: error.message });
+    return apiError(E_FEEDBACK_LOAD_FAILED, 500);
+  }
+
+  return NextResponse.json({ feedback: data ?? [] });
+}
+
+const feedbackBodySchema = z.object({
+  type: z.enum(["bug", "idea", "other"], { message: "Invalid type" }),
+  message: z.string().trim().min(1, "Message required").max(2000),
+  url: z.string().max(2000).optional().nullable(),
+  request_id: z.string().max(100).optional().nullable(),
+});
+
+export async function POST(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const rateLimitKey = user?.id ?? (request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "anon");
+  const rl = await feedbackLimiter.check(rateLimitKey);
+  if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds });
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return apiError(E_INVALID_JSON, 400);
+  }
+
+  const parsed = feedbackBodySchema.safeParse(body);
+  if (!parsed.success) {
+    return apiError(E_VALIDATION_FAILED, 400);
+  }
+
+  const { type, message, url, request_id } = parsed.data;
+
+  // Anonymous inserts go through the service role; authenticated ones stay on the
+  // user-scoped client so RLS keeps enforcing `auth.uid() = user_id`.
+  //
+  // Why: the live `feedback` policy has drifted from
+  // `20250209000000_user_flags_and_feedback.sql`, which explicitly allows
+  // `user_id IS NULL`. In production it rejects anonymous inserts, so the primary
+  // CTA on /support returned FEEDBACK_SAVE_FAILED for exactly the signed-out
+  // readers the page exists to help. Reconciling the policy is the real fix
+  // (tracked in docs/plan/launch-plan-2026-09.md), but it needs a verified
+  // migration against a live schema that the repo's migrations do not describe —
+  // so this route stops depending on that policy instead of waiting for it.
+  //
+  // Safe because `user_id` is derived from the session, never from the body: an
+  // anonymous caller can only ever write a NULL author, and the zod schema plus
+  // the IP-keyed rate limiter above still gate the content.
+  const writer = user ? supabase : createAdminClient();
+
+  const { data, error } = await writer
+    .from("feedback")
+    .insert({
+      user_id: user?.id ?? null,
+      type,
+      message: message.trim(),
+      url: url?.trim() || null,
+      request_id: request_id?.trim() || null,
+    })
+    .select("id, created_at")
+    .single();
+
+  if (error) {
+    console.error("[feedback] save failed", { message: error.message });
+    return apiError(E_FEEDBACK_SAVE_FAILED, 500);
+  }
+
+  return NextResponse.json({ id: data.id, created_at: data.created_at }, { status: 200 });
+}

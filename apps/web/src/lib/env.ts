@@ -182,6 +182,18 @@ export function getRedisUrl(): string | undefined {
 export type RedisConnectionOptions = {
   host: string;
   port: number;
+  /**
+   * DNS address family for the ioredis/BullMQ connection. `0` means "accept
+   * either IPv4 or IPv6", which is required on Railway: its private-networking
+   * hostnames (`redis.railway.internal`) resolve to IPv6 on legacy environments
+   * and dual-stack on newer ones, and ioredis will not reach them on the default
+   * lookup. Railway's own BullMQ example sets exactly `family: 0`.
+   *
+   * Harmless everywhere else — `localhost` and public Redis hosts resolve the
+   * same — so we set it unconditionally rather than branching on the host, which
+   * keeps the workers portable to Fly/Hetzner without a code change.
+   */
+  family?: number;
   username?: string;
   password?: string;
   db?: number;
@@ -195,6 +207,15 @@ export type RedisClientOptions = RedisConnectionOptions & {
   enableReadyCheck?: boolean;
   keepAlive?: number;
   retryStrategy?: (times: number) => number | null;
+  /**
+   * ioredis queues commands issued before a connection exists and replays them
+   * once it does. For a caller that has a fallback, that is the wrong
+   * behaviour: an unreachable host turns every command into an indefinite wait
+   * instead of an error the fallback can catch. Pass false there.
+   */
+  enableOfflineQueue?: boolean;
+  /** Guards a host that accepts the connection and then never answers. */
+  commandTimeout?: number;
 };
 
 const DEFAULT_REDIS_CONNECT_TIMEOUT_MS = 5_000;
@@ -246,6 +267,9 @@ export function getRedisConnectionOptions(): RedisConnectionOptions | undefined 
     return {
       host: u.hostname,
       port,
+      // See the `family` doc comment on RedisConnectionOptions — required for
+      // Railway private networking, inert elsewhere.
+      family: 0,
       username,
       password,
       ...(db !== undefined ? { db } : {}),
@@ -273,6 +297,12 @@ export function getRedisClientOptions(
     ...connection,
     connectTimeout,
     maxRetriesPerRequest,
+    ...(overrides.enableOfflineQueue === undefined
+      ? {}
+      : { enableOfflineQueue: overrides.enableOfflineQueue }),
+    ...(overrides.commandTimeout === undefined
+      ? {}
+      : { commandTimeout: overrides.commandTimeout }),
     enableReadyCheck: overrides.enableReadyCheck ?? true,
     keepAlive: overrides.keepAlive ?? DEFAULT_REDIS_KEEP_ALIVE_MS,
     retryStrategy:

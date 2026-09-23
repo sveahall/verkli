@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useId } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
+import { useToastHelpers } from "@/components/ui/toast";
+import { setActiveRoleCookieClient } from "@/lib/active-role";
+import { getMarketingEnabled } from "@/lib/flags";
 
 const USER_MENU_WIDTH = 280;
 
@@ -12,6 +15,8 @@ interface UserMenuProps {
   user: User;
   onSignOut: () => void;
   currentRole?: "author" | "reader";
+  /** Original signup role - readers can never switch to author */
+  originalRole?: "author" | "reader";
 }
 
 /**
@@ -23,46 +28,100 @@ interface UserMenuProps {
  * - Undvika duplicerad kod mellan sidor
  * - Centralisera design och funktionalitet
  */
-export default function UserMenu({ user, onSignOut, currentRole = "author" }: UserMenuProps) {
+export default function UserMenu({ user, onSignOut, currentRole = "author", originalRole }: UserMenuProps) {
+  // SECURITY: Only users whose DB profile role is "author" may switch views.
+  // Never rely on currentRole (which defaults to "author" before profile loads).
+  const canSwitchRole = originalRole === "author";
   const router = useRouter();
+  const toast = useToastHelpers();
   const [isOpen, setIsOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuPanelRef = useRef<HTMLDivElement>(null);
+  const focusOnOpen = useRef<"first" | "last" | null>(null);
+  const panelId = useId();
 
-  const closeMenu = () => {
+  const closeMenu = useCallback(() => {
     setIsOpen(false);
     setMenuPosition(null);
+  }, []);
+
+  const openMenu = (focus: "first" | "last" | null = null) => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(USER_MENU_WIDTH, window.innerWidth - 32);
+    setMenuPosition({
+      top: Math.max(12, Math.min(rect.bottom + 8, window.innerHeight - 96)),
+      left: Math.max(16, Math.min(rect.right - width, window.innerWidth - width - 16)),
+    });
+    focusOnOpen.current = focus;
+    setIsOpen(true);
   };
 
   const displayName =
     user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
 
-  // Handle click outside to close menu
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleClickOutside = (event: MouseEvent) => {
+    const controls = menuPanelRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])');
+    if (focusOnOpen.current && controls?.length) {
+      controls[focusOnOpen.current === "last" ? controls.length - 1 : 0].focus();
+      focusOnOpen.current = null;
+    }
+
+    const handleOutside = (event: Event) => {
       const target = event.target as Node;
-      // Don't close if clicking on trigger or inside the menu panel
-      if (triggerRef.current?.contains(target) || menuPanelRef.current?.contains(target)) {
-        return;
-      }
-      closeMenu();
+      if (!triggerRef.current?.contains(target) && !menuPanelRef.current?.contains(target)) closeMenu();
     };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeMenu();
+      triggerRef.current?.focus();
+    };
+    const handleScroll = (event: Event) => {
+      if (!(event.target instanceof Node) || !menuPanelRef.current?.contains(event.target)) closeMenu();
+    };
+    document.addEventListener("pointerdown", handleOutside);
+    document.addEventListener("focusin", handleOutside);
+    document.addEventListener("keydown", handleEscape);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutside);
+      document.removeEventListener("focusin", handleOutside);
+      document.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [isOpen, closeMenu]);
 
-    // Use mousedown instead of click to avoid closing before onClick handlers run
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!toastMessage) return;
-    const timeoutId = window.setTimeout(() => setToastMessage(null), 3000);
-    return () => window.clearTimeout(timeoutId);
-  }, [toastMessage]);
+  const handlePanelKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const controls = Array.from(menuPanelRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') ?? []);
+    const index = controls.indexOf(document.activeElement as HTMLElement);
+    let nextIndex: number | undefined;
+    if (event.key === "ArrowDown") nextIndex = (index + 1) % controls.length;
+    if (event.key === "ArrowUp") nextIndex = (index - 1 + controls.length) % controls.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = controls.length - 1;
+    if (nextIndex !== undefined) {
+      event.preventDefault();
+      controls[nextIndex]?.focus();
+    }
+    if (event.key === "Tab" && event.shiftKey && index === 0) {
+      event.preventDefault();
+      closeMenu();
+      triggerRef.current?.focus();
+    } else if (event.key === "Tab" && !event.shiftKey && index === controls.length - 1) {
+      event.preventDefault();
+      const pageControls = Array.from(document.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+        .filter((element) => !menuPanelRef.current?.contains(element) && element.getClientRects().length > 0 && !element.closest("[inert]"));
+      const triggerIndex = pageControls.indexOf(triggerRef.current!);
+      closeMenu();
+      (pageControls[triggerIndex + 1] ?? triggerRef.current)?.focus();
+    }
+  };
 
   const handleSwitchRole = async () => {
     closeMenu();
@@ -79,16 +138,16 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         console.error("Error updating role:", payload);
-        setToastMessage("Could not switch role. Try again.");
+        toast.error("Could not switch view. Please try again.");
         return;
       }
 
-      // Refresh router to clear cache and redirect
+      setActiveRoleCookieClient(nextRole);
       router.refresh();
       router.push(currentRole === "author" ? "/reader/home" : "/author/home");
     } catch (error) {
       console.error("Error switching role:", error);
-      setToastMessage("Could not switch role. Try again.");
+      toast.error("Could not switch role. Please try again.");
     }
   };
 
@@ -99,8 +158,8 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
       await onSignOut();
       // Refresh router to clear server cache
       router.refresh();
-      // Redirect to landing page
-      router.push("/");
+      // Route users directly to the sign-in flow they used last.
+      router.push(currentRole === "author" ? "/author/signin" : "/reader/signin");
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -108,15 +167,6 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
 
   return (
     <div className="relative">
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed right-6 top-6 z-[1100] rounded-lg bg-slate-900 px-4 py-2 text-[13px] font-medium text-white dark:bg-white dark:text-slate-900"
-        >
-          {toastMessage}
-        </div>
-      )}
       <button
         ref={triggerRef}
         onClick={(e) => {
@@ -126,19 +176,29 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
             closeMenu();
             return;
           }
-          const rect = triggerRef.current?.getBoundingClientRect();
-          if (rect) {
-            setMenuPosition({ top: rect.bottom + 8, left: rect.right - USER_MENU_WIDTH });
+          openMenu(e.detail === 0 ? "first" : null);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            if (!isOpen) openMenu(event.key === "ArrowDown" ? "first" : "last");
+            else {
+              const controls = menuPanelRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])');
+              controls?.[event.key === "ArrowDown" ? 0 : controls.length - 1]?.focus();
+            }
+          } else if (event.key === "Tab" && isOpen) {
+            if (event.shiftKey) closeMenu();
+            else {
+              event.preventDefault();
+              menuPanelRef.current?.querySelector<HTMLElement>('a[href], button:not([disabled])')?.focus();
+            }
           }
-          setIsOpen(true);
         }}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        className="touch-target flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-transparent text-slate-700 transition-all hover:bg-slate-100 dark:border-white/[0.4] dark:text-white dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
+        type="button"
+        className="flex h-11 min-h-[44px] min-w-[44px] w-11 shrink-0 items-center justify-center rounded-full border border-ring/50 bg-transparent text-foreground transition-all hover:bg-accent focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 focus:ring-offset-2 focus:ring-offset-background"
         aria-label="Account menu"
         aria-expanded={isOpen}
+        aria-controls={isOpen ? panelId : undefined}
       >
         <span className="flex h-4 w-4 items-center justify-center">
           <svg
@@ -164,22 +224,27 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
         createPortal(
           <div
             ref={menuPanelRef}
-            className="w-[min(280px,calc(100vw-2rem))] max-w-[280px] overflow-hidden rounded-2xl border border-black/10 dark:border-white/10 bg-white/[0.98] dark:bg-[#0a0a0f]/[0.98] p-1 backdrop-blur-xl"
+            id={panelId}
+            role="region"
+            aria-label="Account navigation"
+            onKeyDown={handlePanelKeys}
+            className="ui-popover-surface w-[min(280px,calc(100vw-2rem))] max-w-[280px] overflow-y-auto overscroll-contain p-1"
             style={{
               position: "fixed",
               top: menuPosition.top,
               left: menuPosition.left,
+              maxHeight: `calc(100dvh - ${menuPosition.top + 12}px)`,
               zIndex: 10000,
             }}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
           {/* Header with user info */}
-          <div className="px-4 py-3 border-b border-black/[0.05] dark:border-white/[0.06]">
-            <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
+          <div className="px-4 py-3 border-b border-border">
+            <p className="truncate text-[15px] font-semibold text-foreground ">
               {displayName}
             </p>
-            <p className="mt-0.5 text-[13px] text-slate-500 dark:text-white/50 truncate">
+            <p className="mt-0.5 text-[13px] text-muted-foreground truncate">
               {user?.email}
             </p>
           </div>
@@ -190,9 +255,9 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
               href={currentRole === 'author' ? "/author/profile" : "/reader/profile"}
               onClick={(e) => {
                 e.stopPropagation();
-                setIsOpen(false);
+                closeMenu();
               }}
-              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"
@@ -214,9 +279,9 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
               href={currentRole === 'author' ? "/author/settings" : "/reader/settings"}
               onClick={(e) => {
                 e.stopPropagation();
-                setIsOpen(false);
+                closeMenu();
               }}
-              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"
@@ -239,9 +304,66 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
               <span>Settings</span>
             </Link>
 
-            <button
-              onClick={handleSwitchRole}
-              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-slate-700 dark:text-white/80 transition-all hover:bg-slate-50 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+            {currentRole === "author" && getMarketingEnabled() && (
+              <Link
+                href="/author/marketing"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeMenu();
+                }}
+                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+              >
+                <svg
+                  className="h-5 w-5 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4.5 16.5v-9A2.25 2.25 0 016.75 5.25h10.5A2.25 2.25 0 0119.5 7.5v9A2.25 2.25 0 0117.25 18.75H6.75A2.25 2.25 0 014.5 16.5z"
+                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 9.75h7.5M8.25 13.5h5.25" />
+                </svg>
+                <span>Marketing</span>
+              </Link>
+            )}
+
+            {currentRole === "author" && (
+              <Link
+                href="/account/feedback"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeMenu();
+                }}
+                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+              >
+                <svg
+                  className="h-5 w-5 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+                <span>Feedback</span>
+              </Link>
+            )}
+
+            <Link
+              href={currentRole === "author" ? "/author/billing" : "/reader/billing"}
+              onClick={(e) => {
+                e.stopPropagation();
+                closeMenu();
+              }}
+              className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
             >
               <svg
                 className="h-5 w-5 flex-shrink-0"
@@ -253,15 +375,38 @@ export default function UserMenu({ user, onSignOut, currentRole = "author" }: Us
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                  d="M3 8.25h18M6.75 3.75h10.5A2.25 2.25 0 0119.5 6v12a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 18V6a2.25 2.25 0 012.25-2.25z"
                 />
               </svg>
-              <span>Switch to {currentRole === 'author' ? 'Reader' : 'Author'}</span>
-            </button>
+              <span>Billing</span>
+            </Link>
+
+            {/* SECURITY: Only show role switch for authors - readers can NEVER access author mode */}
+            {canSwitchRole && (
+              <button
+                onClick={handleSwitchRole}
+                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] font-medium text-foreground transition-all hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#907AFF]/30"
+              >
+                <svg
+                  className="h-5 w-5 flex-shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                  />
+                </svg>
+                <span>Switch to {currentRole === "author" ? "Reader" : "Author"}</span>
+              </button>
+            )}
           </div>
 
           {/* Divider */}
-          <div className="my-1 border-t border-black/[0.05] dark:border-white/[0.06]" />
+          <div className="my-1 border-t border-border" />
 
           {/* Destructive action */}
           <div className="py-1.5">

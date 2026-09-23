@@ -1,0 +1,555 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight, Check, ChevronDown } from "lucide-react";
+import type { Tool } from "../BookEditorView.types";
+import styles from "./PublishPanel.module.css";
+import { useId, useMemo, useRef, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { getLanguageLabel } from "@/lib/languages";
+import { useToastHelpers } from "@/components/ui/toast";
+import { createClient } from "@/lib/supabase/client";
+import { hasReadableContent } from "@/app/(app-author)/author/books/[id]/editor/BookEditorView.helpers";
+import { requiresUnoptimizedImage } from "@/lib/images/optimizable";
+
+type PublishVisibility = "public" | "followers" | "private";
+
+type Chapter = {
+  id: string;
+  title: string;
+  content: string | null;
+  order: number;
+  book_version_id: string;
+};
+
+type BookVersion = {
+  id: string;
+  language_code: string;
+  published_at?: string | null;
+  published_chapter_count?: number | null;
+};
+
+const VISIBILITY_OPTIONS: Array<{
+  value: PublishVisibility;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+}> = [
+  {
+    value: "public",
+    label: "Public",
+    description: "Visible to everyone. Shown in Discover and on your profile.",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5a17.92 17.92 0 0 1-8.716-2.247m0 0A8.966 8.966 0 0 1 3 12c0-1.264.26-2.468.73-3.563" />
+      </svg>
+    ),
+  },
+  {
+    value: "followers",
+    label: "Followers only",
+    description: "Visible only to readers who follow you.",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+      </svg>
+    ),
+  },
+  {
+    value: "private",
+    label: "Private",
+    description: "Only you can see this version.",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+      </svg>
+    ),
+  },
+];
+
+export type PublishPanelProps = {
+  bookId: string;
+  bookTitle: string;
+  bookDescription: string | null;
+  authorDisplayName: string;
+  coverImageUrl: string | null;
+  chapters: Chapter[];
+  selectedChapterId: string | null;
+  bookVersions: BookVersion[];
+  isPublished: boolean;
+  publishVisibility: PublishVisibility;
+  publishedChapterCount: number | null;
+  missingPublishRequirements: string[];
+  publishDisabled: boolean;
+  chapterPublishDisabled: boolean;
+  selectedChapterAlreadyPublished: boolean;
+  visibilityChanged: boolean;
+  isPublishing: boolean;
+  publishError: string | null;
+  confirmPublishAction: "publish" | "update" | "unpublish" | null;
+  confirmCopy: string | null;
+  onVisibilityChange: (v: PublishVisibility) => void;
+  onPublishFull: () => void;
+  onPublishChapter: () => void;
+  onUpdateSettings: () => void;
+  onUnpublish: () => void;
+  onConfirm: () => void;
+  onCancelConfirm: () => void;
+  onChapterPublishToggle: (chapter: Chapter, shouldPublish: boolean) => void;
+  onSelectChapter: (id: string) => void;
+  onOpenCover: () => void;
+  genreSelector?: React.ReactNode;
+  onNavigate?: (panel: Tool) => void;
+  priceAmountMinor?: number;
+  priceCurrency?: string;
+  pricingModel?: string;
+  onSaveDescription?: (description: string | null) => Promise<void>;
+};
+
+
+export default function PublishPanel({
+  bookId,
+  bookTitle,
+  bookDescription,
+  authorDisplayName,
+  coverImageUrl,
+  chapters,
+  selectedChapterId,
+  bookVersions,
+  isPublished,
+  publishVisibility,
+  publishedChapterCount,
+  missingPublishRequirements,
+  publishDisabled,
+  chapterPublishDisabled,
+  selectedChapterAlreadyPublished,
+  visibilityChanged,
+  isPublishing,
+  publishError,
+  confirmPublishAction,
+  confirmCopy,
+  onVisibilityChange,
+  onPublishFull,
+  onPublishChapter,
+  onUpdateSettings,
+  onUnpublish,
+  onConfirm,
+  onCancelConfirm,
+  onChapterPublishToggle,
+  onSelectChapter,
+  onOpenCover,
+  genreSelector,
+  onNavigate,
+  priceAmountMinor,
+  priceCurrency,
+  pricingModel,
+  onSaveDescription,
+}: PublishPanelProps) {
+  const router = useRouter();
+  const toast = useToastHelpers();
+  const requirementsRef = useRef<HTMLDivElement>(null);
+  const descriptionId = useId();
+  const liveCount = publishedChapterCount ?? (isPublished ? chapters.length : 0);
+  const totalCount = chapters.length;
+  const livePercent = totalCount > 0 ? Math.round((liveCount / totalCount) * 100) : 0;
+
+  const versionLanguages = useMemo(
+    () => bookVersions.map((v) => getLanguageLabel(v.language_code)),
+    [bookVersions],
+  );
+
+  // ── Description inline editor ──────────────────────────────────────────────
+  const [descDraft, setDescDraft] = useState(bookDescription ?? "");
+  const [descSaving, setDescSaving] = useState(false);
+  const [descError, setDescError] = useState<string | null>(null);
+  const [savedDescription, setSavedDescription] = useState<string | null>(null);
+  const descriptionSavingRef = useRef(false);
+
+  const handleSaveDescription = useCallback(async () => {
+    const trimmed = descDraft.trim() || null;
+    const current = (bookDescription ?? "").trim() || null;
+    if (trimmed === current || descriptionSavingRef.current) return;
+    descriptionSavingRef.current = true;
+    setDescSaving(true);
+    setDescError(null);
+    setSavedDescription(null);
+    try {
+      if (onSaveDescription) {
+        await onSaveDescription(trimmed);
+      } else {
+        const supabase = createClient();
+        const { error } = await supabase.from("books").update({ description: trimmed }).eq("id", bookId);
+        if (error) throw error;
+      }
+      setSavedDescription(trimmed ?? "");
+      router.refresh();
+    } catch {
+      setDescError("Could not save the description. Your text is still here. Try saving again.");
+      toast.error("Could not save description. Try again.");
+    } finally {
+      descriptionSavingRef.current = false;
+      setDescSaving(false);
+    }
+  }, [descDraft, bookDescription, bookId, router, toast, onSaveDescription]);
+
+  const handleDisabledPublishClick = () => {
+    if (missingPublishRequirements.length > 0) {
+      toast.error(missingPublishRequirements[0]);
+      requirementsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  };
+
+  return (
+    <div className={`mx-auto max-w-4xl space-y-6 ${styles.panel}`}>
+      <header className={styles.heading}>
+        <h2 className="font-display text-[clamp(24px,3vw,32px)] font-medium tracking-tight">{isPublished ? "Your story, in readers’ hands." : "One last look before release."}</h2>
+        <p>{isPublished ? "Manage your audience and choose when each chapter goes live." : "Review your book details, choose your audience, and decide what to release."}</p>
+      </header>
+      {/* ── Hero card: book info + status ── */}
+      <div className="grid items-start gap-6 rounded-2xl border border-border bg-card p-6 dark:border-border dark:bg-card @min-[600px]/book-panel:grid-cols-[120px_1fr]">
+        {/* Cover thumbnail */}
+        <div className="relative mx-auto aspect-[3/4] w-[120px] overflow-hidden rounded-xl border border-black/[0.06] bg-background shadow-sm dark:border-border dark:bg-card sm:mx-0">
+          {coverImageUrl ? (
+            <Image
+              src={coverImageUrl}
+              alt="Book cover"
+              fill
+              sizes="120px"
+              className="object-cover"
+              unoptimized={requiresUnoptimizedImage(coverImageUrl)}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={onOpenCover}
+              className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-muted-foreground transition hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-muted-foreground"
+            >
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+              </svg>
+              <span className="text-[10px] font-medium">Add cover</span>
+            </button>
+          )}
+        </div>
+
+        {/* Book info */}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                isPublished
+                  ? "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-400"
+                  : "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground"
+              }`}
+            >
+              {isPublished ? "Published" : "Draft"}
+            </span>
+            {isPublished && (
+              <span className="text-[11px] text-muted-foreground dark:text-muted-foreground">
+                {publishVisibility === "public" ? "Visible to everyone" : publishVisibility === "followers" ? "Followers only" : "Private"}
+              </span>
+            )}
+          </div>
+          <h2 className="author-section-title mt-2 text-lg font-medium tracking-tight text-foreground dark:text-foreground">{bookTitle}</h2>
+          <p className="text-sm text-muted-foreground dark:text-muted-foreground">{authorDisplayName}</p>
+          {/* Description */}
+          <div className="mt-3">
+            <label htmlFor={descriptionId} className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
+              Description
+            </label>
+            <div className="relative">
+              <textarea
+                id={descriptionId}
+                value={descDraft}
+                onChange={(e) => {
+                  if (descriptionSavingRef.current) return;
+                  setDescDraft(e.target.value);
+                  setSavedDescription(null);
+                }}
+                onBlur={() => void handleSaveDescription()}
+                readOnly={descSaving}
+                placeholder="A short description shown to readers…"
+                rows={3}
+                aria-describedby={`${descriptionId}-status`}
+                aria-invalid={Boolean(descError)}
+                className="w-full resize-none rounded-xl border border-black/[0.07] bg-background/60 px-3 py-2.5 text-[16px] sm:text-[13px] leading-relaxed text-foreground placeholder-muted-foreground outline-none transition-all focus:border-[#907AFF]/40 focus:bg-card dark:border-border dark:bg-card dark:text-foreground dark:placeholder-muted-foreground dark:focus:border-[#907AFF]/30 dark:focus:bg-card"
+              />
+              {descSaving && (
+                <span className="absolute bottom-2.5 right-3 text-[11px] text-muted-foreground dark:text-muted-foreground">
+                  Saving…
+                </span>
+              )}
+            </div>
+            <div className={styles.descriptionStatus} id={`${descriptionId}-status`}>
+              <p role={descError ? "alert" : "status"} className={descError ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>{descError ?? (descSaving ? "Saving description…" : savedDescription !== null && savedDescription === descDraft.trim() ? "Description saved." : "Saves when you leave the field.")}</p>
+              {descError && <button type="button" onClick={() => void handleSaveDescription()} disabled={descSaving}>Retry save</button>}
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground dark:text-muted-foreground">
+            <span>{totalCount} {totalCount === 1 ? "chapter" : "chapters"}</span>
+            {isPublished && <span>{liveCount}/{totalCount} live</span>}
+            {versionLanguages.length > 0 && <span>{versionLanguages.join(", ")}</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Publish progress (when published) ── */}
+      {isPublished && totalCount > 0 && (
+        <div className="rounded-2xl border border-border bg-card p-5 dark:border-border dark:bg-card">
+          <div className="mb-2 flex items-center justify-between text-xs">
+            <span className="font-semibold text-foreground dark:text-foreground">Chapters live</span>
+            <span className="tabular-nums text-muted-foreground dark:text-muted-foreground">{liveCount} of {totalCount} ({livePercent}%)</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-muted dark:bg-card">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all duration-500 dark:bg-emerald-400"
+              style={{ width: `${livePercent}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      <section ref={requirementsRef} className={styles.readiness} aria-labelledby="publish-readiness-heading">
+        <div className={styles.sectionHeading}>
+          <h3 id="publish-readiness-heading">{missingPublishRequirements.length ? "A few things to finish" : "Ready for your release decision"}</h3>
+          <span>{missingPublishRequirements.length ? `${missingPublishRequirements.length} to finish` : <><Check size={15} aria-hidden /> Required details complete</>}</span>
+        </div>
+        {missingPublishRequirements.length ? <ul className={styles.requirements}>
+          {missingPublishRequirements.map((item) => {
+            const coverMissing = /cover|omslag/i.test(item);
+            const profileMissing = /profile|display name/i.test(item);
+            const label = coverMissing ? "Add a cover image" : item;
+            const action = coverMissing ? "Open cover" : profileMissing ? "Open profile" : "Open manuscript";
+            return <li key={item}>
+              <span>{label}</span>
+              {profileMissing ? <Link href="/author/profile">{action}<ArrowRight size={15} aria-hidden /></Link>
+                : coverMissing ? <button type="button" onClick={onOpenCover}>{action}<ArrowRight size={15} aria-hidden /></button>
+                : onNavigate ? <button type="button" onClick={() => onNavigate("edit")}>{action}<ArrowRight size={15} aria-hidden /></button>
+                : <Link href={`/author/books/${bookId}?panel=edit`}>{action}<ArrowRight size={15} aria-hidden /></Link>}
+            </li>;
+          })}
+        </ul> : <p className="mt-2 text-sm text-muted-foreground">Your title, cover, author profile and manuscript meet the publishing requirements.</p>}
+      </section>
+
+      {/* ── Visibility selector ── */}
+      <div className="rounded-2xl border border-border bg-card p-5 dark:border-border dark:bg-card">
+        <h3 className="mb-1 text-sm font-semibold">Who can discover this book?</h3>
+        <p className="mb-4 text-sm text-muted-foreground">Visibility controls your audience. Your saved price controls access.</p>
+        <div className="grid gap-3 @min-[600px]/book-panel:grid-cols-3">
+          {VISIBILITY_OPTIONS.map((option) => {
+            const selected = publishVisibility === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => onVisibilityChange(option.value)}
+                aria-pressed={selected}
+                className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition ${
+                  selected
+                    ? "border-[#907AFF] bg-[#907AFF]/[0.06] dark:bg-[#907AFF]/10"
+                    : "border-transparent bg-background/50 hover:bg-background dark:bg-card dark:hover:bg-accent"
+                }`}
+              >
+                <div className={`${selected ? "text-accent-foreground" : "text-muted-foreground dark:text-muted-foreground"}`}>
+                  {option.icon}
+                </div>
+                <span className={`text-sm font-medium ${selected ? "text-accent-foreground" : "text-foreground dark:text-foreground"}`}>
+                  {option.label}
+                </span>
+                <span className="text-[11px] leading-tight text-muted-foreground dark:text-muted-foreground">
+                  {option.description}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Genre selector (if enabled) ── */}
+      {genreSelector && (
+        <div className="rounded-2xl border border-border bg-card p-5 dark:border-border dark:bg-card">
+          {genreSelector}
+        </div>
+      )}
+
+      {/* ── Chapter release control ── */}
+      {isPublished && (
+        <details className={styles.chapterRelease} open>
+          <summary>Chapter release <span>{liveCount} of {totalCount} live</span><ChevronDown size={17} aria-hidden /></summary>
+          <div className="max-h-[360px] overflow-y-auto">
+            {chapters.map((chapter, idx) => {
+              const chapterOrder = typeof chapter.order === "number" ? chapter.order : -1;
+              const isChapterPublished =
+                publishedChapterCount === null || chapterOrder < (publishedChapterCount ?? 0);
+              const isNextToPublish =
+                publishedChapterCount !== null && chapterOrder === publishedChapterCount;
+              const canToggle =
+                !isPublishing &&
+                (isChapterPublished
+                  ? publishedChapterCount === null || chapterOrder === (publishedChapterCount ?? 0) - 1
+                  : isNextToPublish);
+              const isSelected = chapter.id === selectedChapterId;
+              const hasContent = hasReadableContent(chapter.content);
+
+              return (
+                <div
+                  key={chapter.id}
+                  className={`flex items-center gap-3 border-b border-black/[0.03] px-5 py-2.5 last:border-b-0 dark:border-border ${
+                    isSelected ? "bg-[#907AFF]/[0.04] dark:bg-[#907AFF]/[0.06]" : ""
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSelectChapter(chapter.id)}
+                    className="min-w-0 flex-1 truncate text-left"
+                  >
+                    <span className="mr-2 inline-block w-5 text-right text-xs tabular-nums text-muted-foreground dark:text-muted-foreground">
+                      {idx + 1}
+                    </span>
+                    <span className={`text-[13px] ${isSelected ? "font-semibold text-foreground dark:text-foreground" : "text-foreground dark:text-foreground"}`}>
+                      {chapter.title}
+                    </span>
+                  </button>
+                  {!hasContent && (
+                    <span className="shrink-0 text-[10px] text-amber-500">empty</span>
+                  )}
+                  <button
+                    type="button"
+                    disabled={!canToggle || isPublishing}
+                    onClick={() => onChapterPublishToggle(chapter, !isChapterPublished)}
+                    className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition ${
+                      isChapterPublished
+                        ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                        : canToggle
+                          ? "bg-muted text-muted-foreground hover:bg-muted dark:bg-card dark:text-muted-foreground dark:hover:bg-accent"
+                          : "bg-background text-muted-foreground dark:bg-card dark:text-muted-foreground"
+                    } disabled:cursor-not-allowed disabled:opacity-60`}
+                    title={
+                      isChapterPublished
+                        ? canToggle ? "Unpublish" : "Unpublish later chapters first"
+                        : canToggle ? "Publish" : "Publish earlier chapters first"
+                    }
+                  >
+                    {isChapterPublished ? "Live" : "Draft"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      )}
+
+      <section className={styles.releaseSummary} aria-labelledby="release-summary-heading">
+        <h3 id="release-summary-heading">Release overview</h3>
+        <dl>
+          <div><dt>Audience</dt><dd>{VISIBILITY_OPTIONS.find((option) => option.value === publishVisibility)?.label}</dd></div>
+          <div><dt>Manuscript</dt><dd>{totalCount} {totalCount === 1 ? "chapter" : "chapters"}</dd></div>
+          {typeof priceAmountMinor === "number" && <div><dt>Saved price</dt><dd>{priceAmountMinor <= 0 ? "Free to read" : `${(priceAmountMinor / 100).toFixed(2)} ${priceCurrency ?? ""}${pricingModel === "per_chapter" ? " per chapter" : " for the full book"}`}</dd></div>}
+        </dl>
+        <div className={styles.summaryActions}>
+          {onNavigate && <button type="button" onClick={() => onNavigate("pricing")}>Review pricing <ArrowRight size={15} aria-hidden /></button>}
+          {isPublished && <Link href={`/reader/books/${bookId}`} target="_blank" rel="noopener noreferrer">Open reader page <ArrowRight size={15} aria-hidden /></Link>}
+        </div>
+        {!isPublished && <p>You can publish the complete book or begin with the selected chapter.</p>}
+      </section>
+
+      {/* ── Error ── */}
+      {publishError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200" role="alert">
+          {publishError}
+        </div>
+      )}
+
+      {/* ── Confirm dialog ── */}
+      {confirmPublishAction && confirmCopy && (
+        <div className="rounded-2xl border border-black/[0.06] bg-card p-5 shadow-lg dark:border-border dark:bg-card">
+          <h3 className="mb-1 text-sm font-semibold text-foreground dark:text-foreground">{confirmPublishAction === "unpublish" ? "Unpublish this book?" : confirmPublishAction === "update" ? "Update your audience?" : "Ready to publish?"}</h3>
+          <p className="mb-4 text-sm text-muted-foreground dark:text-muted-foreground">{confirmCopy}</p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={isPublishing}
+              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+            >
+              {isPublishing ? "Working…" : confirmPublishAction === "unpublish" ? "Confirm unpublish" : confirmPublishAction === "update" ? "Confirm update" : "Confirm publication"}
+            </button>
+            <button
+              type="button"
+              onClick={onCancelConfirm}
+              disabled={isPublishing}
+              className="rounded-xl border border-black/[0.08] px-5 py-2.5 text-sm font-medium text-foreground transition hover:bg-background dark:border-border dark:text-foreground dark:hover:bg-accent"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Action buttons ── */}
+      {!confirmPublishAction && (
+        <div className="flex flex-wrap items-center gap-3">
+          {!isPublished ? (
+            <>
+              <button
+                type="button"
+                onClick={publishDisabled ? handleDisabledPublishClick : onPublishFull}
+                aria-disabled={publishDisabled}
+                disabled={isPublishing}
+                className={`rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-primary/90 hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] ${publishDisabled ? "cursor-not-allowed opacity-50" : ""}`}
+              >
+                {isPublishing ? "Publishing..." : "Publish book"}
+              </button>
+              <button
+                type="button"
+                onClick={onPublishChapter}
+                disabled={chapterPublishDisabled}
+                className="rounded-xl border border-black/[0.08] bg-card px-5 py-3 text-sm font-medium text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
+              >
+                {isPublishing
+                  ? "Publishing..."
+                  : selectedChapterAlreadyPublished
+                    ? "Selected chapter already live"
+                    : "Publish selected chapter only"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onPublishChapter}
+                disabled={chapterPublishDisabled}
+                className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-primary/90 hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isPublishing
+                  ? "Publishing..."
+                  : selectedChapterAlreadyPublished
+                    ? "Selected chapter already live"
+                    : "Release next chapter"}
+              </button>
+              {visibilityChanged && (
+                <button
+                  type="button"
+                  onClick={onUpdateSettings}
+                  disabled={isPublishing}
+                  className="rounded-xl border border-black/[0.08] bg-card px-5 py-3 text-sm font-medium text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
+                >
+                  Update visibility
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onUnpublish}
+                disabled={isPublishing}
+                className="rounded-xl border border-red-200/60 bg-card px-5 py-3 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/30 dark:bg-card dark:text-red-400 dark:hover:bg-red-950/20"
+              >
+                Unpublish
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

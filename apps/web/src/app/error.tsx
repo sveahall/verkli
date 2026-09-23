@@ -1,0 +1,40 @@
+"use client";
+
+import * as Sentry from "@sentry/nextjs";
+import { useEffect } from "react";
+import { ErrorState } from "@/components/ui/states";
+
+export default function GlobalError({
+  error,
+  reset,
+}: {
+  error: Error;
+  reset: () => void;
+}) {
+  useEffect(() => {
+    // console.error alone means the crash exists only in the viewer's own
+    // devtools. Sentry.captureException is a no-op until a DSN is configured,
+    // so this is safe to ship ahead of one — and without it, setting the DSN
+    // later would still report nothing from any error boundary.
+    Sentry.captureException(error);
+    console.error(error);
+  }, [error]);
+
+  return (
+    <main className="flex flex-1 flex-col items-center justify-center px-6 py-20">
+      <ErrorState
+        title="Something went wrong"
+        description="An unexpected error occurred. Please try again."
+        action={
+          <button
+            type="button"
+            onClick={reset}
+            className="btn-primary"
+          >
+            Try again
+          </button>
+        }
+      />
+    </main>
+  );
+}

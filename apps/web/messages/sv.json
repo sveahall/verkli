@@ -1,0 +1,58 @@
+{
+  "author": {
+    "billing": {
+      "payouts": {
+        "title": "Utbetalningar",
+        "subtitle": "Se saldo och bankutbetalningar för ditt anslutna Stripe-konto.",
+        "setupTitle": "Sätt upp utbetalningar",
+        "setupBody": "Anslut ditt utbetalningskonto och verifiera din identitet hos Stripe.",
+        "schedule": "Utbetalningstiden beror på dina kontoinställningar hos Stripe och bankens hantering.",
+        "startOnboarding": "Starta onboarding",
+        "continueOnboarding": "Fortsätt onboarding",
+        "kycRequired": "KYC krävs",
+        "kycSubmitted": "KYC inskickad",
+        "payoutsOk": "Utbetalningar OK",
+        "payoutsPending": "Utbetalningar väntar",
+        "salesOk": "Försäljning OK",
+        "salesPending": "Försäljning väntar",
+        "pending": "Väntande",
+        "available": "Tillgängligt",
+        "payouts_enabled": "Stripe-onboarding klar — utbetalningar aktiverade.",
+        "kyc_submitted": "KYC-uppgifter inskickade. Stripe granskar — vanligtvis klart inom några minuter.",
+        "kyc_incomplete": "Onboarding påbörjad men inte slutförd. Klicka \"Fortsätt onboarding\" för att slutföra.",
+        "needs_onboarding": "Sätt upp utbetalningar för att kunna sälja böcker.",
+        "onboarding_failed": "Något gick fel i onboardingen. Försök igen.",
+        "balanceScope": "Beloppen är pengar som redan finns på ditt anslutna Stripe-konto. Royalty som ännu inte har fördelats och överförts till kontot ingår inte.",
+        "noBalance": "Inget saldo rapporterat",
+        "historyTitle": "Utbetalningshistorik till bank",
+        "historyScope": "De senaste 100 bankutbetalningarna från ditt anslutna Stripe-konto, inklusive väntande och misslyckade utbetalningar. Datum visas i UTC. CSV-filen omfattar samma senaste 100 utbetalningar.",
+        "historyEmpty": "Inga bankutbetalningar har registrerats för det här kontot ännu.",
+        "reportPreparing": "Förbereder CSV…",
+        "reportError": "Det gick inte att ladda ner din utbetalningsrapport. Försök igen.",
+        "reportSignedOut": "Logga in igen för att ladda ner din utbetalningsrapport.",
+        "reportStarted": "Nedladdningen av dina utbetalningar har startat.",
+        "downloadReport": "Ladda ner utbetalningar (CSV)",
+        "created": "Skapad (UTC)",
+        "amount": "Belopp",
+        "status": "Status",
+        "arrival": "Beräknad ankomst (UTC)",
+        "moreHistory": "Det finns äldre utbetalningar. Vyn och CSV-filen omfattar endast de senaste 100; äldre historik finns hos Stripe.",
+        "testMode": "Stripe testläge — saldon och utbetalningar är testdata.",
+        "loadError": "Det gick inte att hämta dina utbetalningsuppgifter. Försök igen.",
+        "retry": "Försök igen",
+        "payoutStatus_unknown": "Okänd status",
+        "payoutStatus_paid": "Utbetald",
+        "payoutStatus_pending": "Väntande",
+        "payoutStatus_in_transit": "På väg",
+        "payoutStatus_canceled": "Avbruten",
+        "payoutStatus_failed": "Misslyckad"
+      }
+    },
+    "library": {
+      "title": "Bibliotek",
+      "subtitle": "Alla dina böcker på ett ställe",
+      "emptyTitle": "Skapa din första bok",
+      "emptyBody": "Börja med att skapa en bok för att öppna din skrivarbetsyta."
+    }
+  }
+}

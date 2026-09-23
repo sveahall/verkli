@@ -1,0 +1,59 @@
+# What NOT to upload when deploying from the Vercel CLI.
+#
+# The CLI does not read .gitignore, so without this file it tries to upload the
+# entire working tree — 13 GB here, most of it agent worktrees — and the upload
+# aborts with a bare "Upload aborted" that says nothing about size.
+#
+# Vercel installs dependencies and builds on its own machines, so none of this
+# needs to travel. Git-linked deploys ignore this file entirely; it only matters
+# for `vercel deploy` from a laptop.
+
+node_modules
+.next
+out
+dist
+
+# Agent worktrees: 9 GB of full repo copies, each with its own node_modules.
+.claude/worktrees
+
+.git
+*.log
+coverage
+playwright-report
+test-results
+
+# Never upload local environment files. Vercel holds its own copies, and a
+# .env.local landing in a build would override them.
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Local import staging. LOCAL_IMPORTS_DIR defaults here, so this fills up with
+# real manuscripts as authors import them. They belong in Supabase storage, not
+# in a build upload.
+.uploads
+
+# Python virtualenvs. scripts/autoresearch/.venv alone was 47 MB of installed
+# packages; Vercel builds Node, not Python, so none of it is used.
+.venv
+
+# Local agent/tooling state, not application code.
+.gstack
+.swarm
+.claude-flow
+.ds-sync
+.design-sync
+
+# Opus MT weights. `model.bin` is a 283 MB local download that is deliberately
+# not in the repo — the code says so in three places, it is untracked in git,
+# translation runs through Anthropic and the Railway worker instead, and a file
+# this size could not be bundled into a serverless function anyway.
+#
+# Left in, it was the whole of a 292 MB upload, which is why `vercel deploy`
+# kept dying with a bare "fetch failed" partway through on a laptop connection.
+# Without it the upload is a few MB. Found 2026-09-02, after three failed
+# deploys.
+model.bin
+
+.DS_Store

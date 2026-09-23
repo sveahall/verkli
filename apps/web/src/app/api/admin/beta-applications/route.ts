@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdminRoleForApi } from "@/lib/admin-auth";
 import {
   apiError,
-  E_FORBIDDEN,
   E_INVALID_REQUEST_BODY,
   E_VALIDATION_FAILED,
   E_SERVER_CONFIG_ERROR,
@@ -15,32 +15,9 @@ const UUID_REGEX =
 const STATUSES = ["pending", "accepted", "rejected"] as const;
 type Status = (typeof STATUSES)[number];
 
-/**
- * The admin area is behind HTTP Basic auth, which browsers attach to
- * cross-site requests automatically once cached. A same-origin check is
- * therefore what actually stops a third-party page from driving this endpoint.
- */
-function isSameOrigin(request: Request): boolean {
-  const secFetchSite = request.headers.get("sec-fetch-site");
-  if (secFetchSite) return secFetchSite === "same-origin";
-
-  const origin = request.headers.get("origin");
-  if (!origin) return false;
-
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (!siteUrl) return false;
-
-  try {
-    return new URL(origin).origin === new URL(siteUrl).origin;
-  } catch {
-    return false;
-  }
-}
-
 export async function PATCH(request: Request) {
-  if (!isSameOrigin(request)) {
-    return apiError(E_FORBIDDEN, 403);
-  }
+  const { response } = await requireAdminRoleForApi();
+  if (response) return response;
 
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") {
@@ -66,12 +43,12 @@ export async function PATCH(request: Request) {
     return apiError(E_SERVER_CONFIG_ERROR, 500);
   }
 
-  const update: Record<string, unknown> = {
+  const update = {
     status,
     reviewed_at: status === "pending" ? null : new Date().toISOString(),
     updated_at: new Date().toISOString(),
+    ...(typeof note === "string" ? { review_note: note.trim() || null } : {}),
   };
-  if (typeof note === "string") update.review_note = note.trim() || null;
 
   const { error } = await supabase
     .from("beta_applications")

@@ -26,21 +26,6 @@
     "paths": {
       "@/*": [
         "./src/*"
-      ],
-      "@verkli/db": [
-        "../../packages/db/src/client"
-      ],
-      "@verkli/shared": [
-        "../../packages/shared/src"
-      ],
-      "@verkli/shared/*": [
-        "../../packages/shared/src/*"
-      ],
-      "@verkli/ui": [
-        "../../packages/ui/src"
-      ],
-      "@verkli/ui/*": [
-        "../../packages/ui/src/*"
       ]
     }
   },
@@ -54,6 +39,8 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".next/types/validator.ts",
+    ".next/dev"
   ]
 }

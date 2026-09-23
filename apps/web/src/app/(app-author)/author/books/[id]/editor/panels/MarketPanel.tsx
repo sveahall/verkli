@@ -1,0 +1,649 @@
+"use client";
+
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import Link from "next/link";
+import { LANGUAGE_OPTIONS, type SupportedLanguage } from "@/lib/languages";
+import type { TrailerGenre, TrailerTone } from "@/lib/ai/trailer-generation/schemas";
+
+type MarketingChannel = "generic" | "tiktok" | "instagram" | "x";
+
+const CHANNELS: { value: MarketingChannel; label: string; icon: React.ReactNode }[] = [
+  {
+    value: "generic",
+    label: "General",
+    icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" /></svg>,
+  },
+  {
+    value: "tiktok",
+    label: "TikTok",
+    icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15a6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.34-6.34V8.7a8.16 8.16 0 0 0 4.76 1.52v-3.4a4.85 4.85 0 0 1-1-.13Z" /></svg>,
+  },
+  {
+    value: "instagram",
+    label: "Instagram",
+    icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069ZM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0Zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324ZM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881Z" /></svg>,
+  },
+  {
+    value: "x",
+    label: "X",
+    icon: <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>,
+  },
+];
+
+type MarketingCampaignRow = {
+  id: string;
+  book_id: string;
+  language: string;
+  channel: string;
+  status: string;
+  headline: string | null;
+  caption: string | null;
+  cta: string | null;
+  hashtags: string | null;
+  share_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MarketPanelProps = {
+  bookId: string;
+  isPublished: boolean;
+  marketingCampaigns: MarketingCampaignRow[];
+  isProLocked: boolean;
+  proLockMessage: string;
+  billingLoading: boolean;
+  onGenerateCopy: (channel: MarketingChannel, language: string) => Promise<void>;
+  isGenerating: boolean;
+  trailerStatus?: string | null;
+  trailerUrl?: string | null;
+  coverImage?: string | null;
+  bookTitle?: string;
+  bookDescription?: string;
+};
+
+const TRAILER_GENRES: { value: TrailerGenre; label: string }[] = [
+  { value: "romance", label: "Romance" },
+  { value: "fantasy", label: "Fantasy" },
+  { value: "thriller", label: "Thriller" },
+  { value: "ya", label: "Young Adult" },
+  { value: "literary", label: "Literary Fiction" },
+  { value: "biography", label: "Biography" },
+];
+
+const TRAILER_TONES: { value: TrailerTone; label: string }[] = [
+  { value: "dark", label: "Dark" },
+  { value: "dreamy", label: "Dreamy" },
+  { value: "intense", label: "Intense" },
+  { value: "whimsical", label: "Whimsical" },
+  { value: "melancholic", label: "Melancholic" },
+  { value: "suspenseful", label: "Suspenseful" },
+  { value: "passionate", label: "Passionate" },
+  { value: "epic", label: "Epic" },
+];
+
+function TrailerCard({
+  bookId,
+  trailerStatus: initialStatus,
+  trailerUrl: initialUrl,
+  coverImage,
+  isProLocked,
+  bookTitle,
+  bookDescription,
+}: {
+  bookId: string;
+  trailerStatus: string | null;
+  trailerUrl: string | null;
+  coverImage: string | null;
+  isProLocked: boolean;
+  bookTitle: string;
+  bookDescription: string;
+}) {
+  const [status, setStatus] = useState(initialStatus);
+  const [url, setUrl] = useState(initialUrl);
+  const [genre, setGenre] = useState<TrailerGenre>("literary");
+  const [tone, setTone] = useState<TrailerTone>("dreamy");
+  const [error, setError] = useState<string | null>(null);
+  const [isBuilding, setIsBuilding] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Poll for status while generating
+  useEffect(() => {
+    if (status !== "generating") {
+      if (pollRef.current) clearInterval(pollRef.current);
+      return;
+    }
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/books/${bookId}/trailer/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.status === "ready" && data.url) {
+          setStatus("ready");
+          setUrl(data.url);
+        } else if (data.status === "failed") {
+          setStatus("failed");
+          setError("Trailer generation failed. Try again.");
+        }
+      } catch {
+        // Ignore polling errors
+      }
+    }, 10_000);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [status, bookId]);
+
+  const handleGenerate = async () => {
+    if (isProLocked || !coverImage) return;
+    setIsBuilding(true);
+    setError(null);
+    setStatus("generating");
+
+    try {
+      const res = await fetch(`/api/books/${bookId}/trailer/build`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: bookTitle || "Untitled",
+          genre,
+          description: bookDescription || bookTitle || "A new book",
+          keywords: [genre, tone],
+          tone,
+          audio: true,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.message ?? `Request failed (${res.status})`);
+      }
+
+      const data = await res.json();
+      if (data.url) {
+        setStatus("ready");
+        setUrl(data.url);
+      }
+      // Otherwise status stays "generating" and polling handles it
+    } catch (err) {
+      setStatus("failed");
+      setError(err instanceof Error ? err.message : "Trailer generation failed.");
+    } finally {
+      setIsBuilding(false);
+    }
+  };
+
+  // Ready state — show video
+  if (status === "ready" && url) {
+    return (
+      <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-gradient-to-br from-[#907AFF] to-[#7c6ae6] p-2.5 text-white shadow-sm">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Book Trailer</h3>
+            <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">Your trailer is live for readers</p>
+          </div>
+        </div>
+        <video
+          src={url}
+          controls
+          playsInline
+          preload="metadata"
+          poster={coverImage ?? undefined}
+          className="w-full rounded-xl"
+          controlsList="nodownload"
+          onContextMenu={(e) => e.preventDefault()}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setStatus(null);
+            setUrl(null);
+          }}
+          className="rounded-xl border border-black/[0.08] bg-card px-4 py-2 text-[13px] font-medium text-muted-foreground transition hover:bg-background dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
+        >
+          Regenerate trailer
+        </button>
+      </div>
+    );
+  }
+
+  // Generating state
+  if (status === "generating") {
+    return (
+      <div className="flex flex-col items-center gap-4 rounded-2xl border border-black/[0.05] bg-white/60 p-5 text-center backdrop-blur-sm dark:border-border dark:bg-card">
+        <div className="rounded-xl bg-gradient-to-br from-[#907AFF] to-[#7c6ae6] p-2.5 text-white shadow-sm">
+          <svg className="h-5 w-5 animate-pulse" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Creating your trailer...</h3>
+          <p className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground">
+            This usually takes a few minutes. You can leave this page — we&apos;ll finish in the background.
+          </p>
+        </div>
+        <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-muted dark:bg-card">
+          <div className="h-full animate-pulse rounded-full bg-gradient-to-r from-[#907AFF] to-[#E29ED5]" />
+        </div>
+      </div>
+    );
+  }
+
+  // Default / failed — show generate form
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
+      <div className="flex items-center gap-3">
+        <div className="rounded-xl bg-gradient-to-br from-[#907AFF] to-[#7c6ae6] p-2.5 text-white shadow-sm">
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+          </svg>
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground dark:text-foreground">AI Book Trailer</h3>
+          <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">Generate a cinematic trailer from your cover</p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-red-200/60 bg-red-50/60 px-3 py-2 text-xs text-red-700 dark:border-red-900/30 dark:bg-red-950/10 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
+      {!coverImage && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          Upload a cover image first to generate a trailer.
+        </p>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
+            Genre
+          </label>
+          <select
+            value={genre}
+            onChange={(e) => setGenre(e.target.value as TrailerGenre)}
+            className="w-full rounded-lg border border-black/[0.08] bg-card px-2.5 py-2 text-xs text-foreground dark:border-border dark:bg-card dark:text-foreground"
+          >
+            {TRAILER_GENRES.map((g) => (
+              <option key={g.value} value={g.value}>{g.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
+            Tone
+          </label>
+          <select
+            value={tone}
+            onChange={(e) => setTone(e.target.value as TrailerTone)}
+            className="w-full rounded-lg border border-black/[0.08] bg-card px-2.5 py-2 text-xs text-foreground dark:border-border dark:bg-card dark:text-foreground"
+          >
+            {TRAILER_TONES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => void handleGenerate()}
+        disabled={isBuilding || isProLocked || !coverImage}
+        className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-primary/90 hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {isBuilding ? "Starting..." : "Generate trailer"}
+      </button>
+    </div>
+  );
+}
+
+function statusLabel(status: string): string {
+  if (status === "generated" || status === "published") return "Ready";
+  if (status === "failed") return "Failed";
+  if (status === "pending" || status === "generating") return "Generating...";
+  return "Draft";
+}
+
+function statusColor(status: string): string {
+  if (status === "generated" || status === "published")
+    return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
+  if (status === "failed")
+    return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300";
+  if (status === "pending" || status === "generating")
+    return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300";
+  return "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground";
+}
+
+export default function MarketPanel({
+  bookId,
+  isPublished,
+  marketingCampaigns,
+  isProLocked,
+  proLockMessage,
+  billingLoading,
+  onGenerateCopy,
+  isGenerating,
+  trailerStatus,
+  trailerUrl,
+  coverImage,
+  bookTitle,
+  bookDescription,
+}: MarketPanelProps) {
+  const [selectedChannel, setSelectedChannel] = useState<MarketingChannel>("generic");
+  const [language, setLanguage] = useState<SupportedLanguage>("en");
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+
+  // Find campaign for current channel + language
+  const currentCampaign = useMemo(
+    () => marketingCampaigns.find((c) => c.channel === selectedChannel && c.language === language) ?? null,
+    [marketingCampaigns, selectedChannel, language],
+  );
+
+  // Group all campaigns by channel
+  const campaignsByChannel = useMemo(() => {
+    const map = new Map<string, MarketingCampaignRow[]>();
+    for (const c of marketingCampaigns) {
+      const arr = map.get(c.channel) ?? [];
+      arr.push(c);
+      map.set(c.channel, arr);
+    }
+    return map;
+  }, [marketingCampaigns]);
+
+  const handleCopy = useCallback(async () => {
+    if (!currentCampaign) return;
+    const parts: string[] = [];
+    if (currentCampaign.caption) parts.push(currentCampaign.caption);
+    if (currentCampaign.hashtags) parts.push(currentCampaign.hashtags);
+    if (currentCampaign.share_url) {
+      const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+      parts.push(`${baseUrl}${currentCampaign.share_url}`);
+    }
+    const text = parts.join("\n\n");
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyFeedback("Copied!");
+      setTimeout(() => setCopyFeedback(null), 2000);
+    } catch {
+      setCopyFeedback(null);
+    }
+  }, [currentCampaign]);
+
+  const readerUrl = `/reader/books/${bookId}`;
+
+  // Not published gate
+  if (!isPublished) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-black/[0.05] bg-white/60 p-10 text-center backdrop-blur-sm dark:border-border dark:bg-card">
+          <div className="rounded-full bg-muted p-4 dark:bg-card">
+            <svg className="h-8 w-8 text-muted-foreground dark:text-muted-foreground" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
+            </svg>
+          </div>
+          <h2 className="author-section-title text-lg font-medium text-foreground dark:text-foreground">Publish first to start marketing</h2>
+          <p className="max-w-md text-sm text-muted-foreground dark:text-muted-foreground">
+            Your book needs to be published before you can generate marketing copy or create trailers. Go to the Publish tab to get started.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-6">
+      {/* ── Two paths: Quick copy + Trailer studio ── */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Trailer section */}
+        <TrailerCard
+          bookId={bookId}
+          trailerStatus={trailerStatus ?? null}
+          trailerUrl={trailerUrl ?? null}
+          coverImage={coverImage ?? null}
+          isProLocked={isProLocked}
+          bookTitle={bookTitle ?? ""}
+          bookDescription={bookDescription ?? ""}
+        />
+
+        {/* Reader link card */}
+        <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-primary p-2.5 text-primary-foreground shadow-sm">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Share link</h3>
+              <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">Direct reader link</p>
+            </div>
+          </div>
+          <a
+            href={readerUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="truncate rounded-lg border border-black/[0.06] bg-background px-3 py-2 text-xs font-mono text-accent-foreground transition hover:bg-muted dark:border-border dark:bg-card dark:text-accent-foreground dark:hover:bg-accent"
+          >
+            {typeof window !== "undefined" ? window.location.origin : ""}{readerUrl}
+          </a>
+          <button
+            type="button"
+            onClick={async () => {
+              const url = `${typeof window !== "undefined" ? window.location.origin : ""}${readerUrl}`;
+              await navigator.clipboard.writeText(url);
+              setCopyFeedback("Link copied!");
+              setTimeout(() => setCopyFeedback(null), 2000);
+            }}
+            className="mt-auto rounded-lg border border-black/[0.08] bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-background dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
+          >
+            {copyFeedback === "Link copied!" ? "Copied!" : "Copy link"}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Channel selector ── */}
+      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
+            Launch copy
+          </h3>
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as SupportedLanguage)}
+            className="rounded-lg border border-black/[0.08] bg-card px-2.5 py-1.5 text-xs text-foreground dark:border-border dark:bg-card dark:text-foreground"
+          >
+            {LANGUAGE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Channel tabs */}
+        <div className="mb-5 flex gap-2">
+          {CHANNELS.map((ch) => {
+            const isActive = selectedChannel === ch.value;
+            const hasCampaign = campaignsByChannel.has(ch.value);
+            return (
+              <button
+                key={ch.value}
+                type="button"
+                onClick={() => setSelectedChannel(ch.value)}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-medium transition ${
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-background text-muted-foreground hover:bg-muted dark:bg-card dark:text-muted-foreground dark:hover:bg-accent"
+                }`}
+              >
+                <span className={isActive ? "text-primary-foreground" : "text-muted-foreground"}>
+                  {ch.icon}
+                </span>
+                {ch.label}
+                {hasCampaign && !isActive && (
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Campaign content */}
+        {currentCampaign ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusColor(currentCampaign.status)}`}>
+                {statusLabel(currentCampaign.status)}
+              </span>
+              <span className="text-[11px] text-muted-foreground dark:text-muted-foreground">
+                Updated {new Date(currentCampaign.updated_at).toLocaleDateString("en", { month: "short", day: "numeric" })}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {currentCampaign.headline && (
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">Headline</p>
+                  <p className="whitespace-pre-wrap rounded-lg border border-black/[0.06] bg-background px-3 py-2.5 text-sm text-foreground dark:border-border dark:bg-card dark:text-foreground">
+                    {currentCampaign.headline}
+                  </p>
+                </div>
+              )}
+              {currentCampaign.caption && (
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">Caption</p>
+                  <p className="whitespace-pre-wrap rounded-lg border border-black/[0.06] bg-background px-3 py-2.5 text-sm leading-relaxed text-foreground dark:border-border dark:bg-card dark:text-foreground">
+                    {currentCampaign.caption}
+                  </p>
+                </div>
+              )}
+              {currentCampaign.cta && (
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">Call to action</p>
+                  <p className="rounded-lg border border-black/[0.06] bg-background px-3 py-2.5 text-sm font-medium text-foreground dark:border-border dark:bg-card dark:text-foreground">
+                    {currentCampaign.cta}
+                  </p>
+                </div>
+              )}
+              {currentCampaign.hashtags && (
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">Hashtags</p>
+                  <p className="rounded-lg border border-black/[0.06] bg-background px-3 py-2.5 text-sm text-accent-foreground dark:border-border dark:bg-card dark:text-accent-foreground">
+                    {currentCampaign.hashtags}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
+              >
+                {copyFeedback === "Copied!" ? "Copied!" : "Copy all to clipboard"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void onGenerateCopy(selectedChannel, language)}
+                disabled={isGenerating || isProLocked}
+                className="rounded-xl border border-black/[0.08] bg-card px-4 py-2.5 text-[13px] font-medium text-muted-foreground transition hover:bg-background disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
+              >
+                {isGenerating ? "Regenerating..." : "Regenerate"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-black/[0.08] bg-background/50 py-8 dark:border-border dark:bg-card">
+              <svg className="h-8 w-8 text-muted-foreground dark:text-muted-foreground" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+              </svg>
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
+                No copy generated yet for <span className="font-medium">{CHANNELS.find((c) => c.value === selectedChannel)?.label}</span>.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void onGenerateCopy(selectedChannel, language)}
+              disabled={isGenerating || isProLocked}
+              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-primary/90 hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isGenerating
+                ? "Generating..."
+                : isProLocked
+                  ? billingLoading ? "Checking subscription..." : "Generate copy (Pro)"
+                  : "Generate AI draft"}
+            </button>
+          </div>
+        )}
+
+        <p className="mt-3 text-xs text-muted-foreground">
+          New drafts use AI and your book description. Review the facts and wording before sharing. Nothing is posted automatically.
+        </p>
+        {isProLocked && (
+          <div className="mt-4 rounded-xl border border-amber-200/60 bg-amber-50/60 px-4 py-3 dark:border-amber-500/20 dark:bg-amber-500/5">
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              {proLockMessage}{" "}
+              {!billingLoading && (
+                <Link href="/author/billing" className="font-medium underline">
+                  Manage subscription
+                </Link>
+              )}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Existing campaigns overview ── */}
+      {marketingCampaigns.length > 0 && (
+        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
+            Generated campaigns
+          </h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {marketingCampaigns.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  setSelectedChannel(c.channel as MarketingChannel);
+                  setLanguage(c.language as SupportedLanguage);
+                }}
+                className={`flex items-center justify-between rounded-xl border px-3.5 py-2.5 text-left transition ${
+                  c.channel === selectedChannel && c.language === language
+                    ? "border-[#907AFF]/40 bg-[#907AFF]/[0.06] dark:border-[#907AFF]/30 dark:bg-[#907AFF]/10"
+                    : "border-black/[0.06] bg-card hover:border-black/[0.12] dark:border-border dark:bg-card dark:hover:border-border"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground dark:text-muted-foreground">
+                    {CHANNELS.find((ch) => ch.value === c.channel)?.icon}
+                  </span>
+                  <div>
+                    <span className="text-[13px] font-medium text-foreground dark:text-foreground">
+                      {CHANNELS.find((ch) => ch.value === c.channel)?.label ?? c.channel}
+                    </span>
+                    <span className="ml-2 text-[11px] text-muted-foreground dark:text-muted-foreground">
+                      {LANGUAGE_OPTIONS.find((l) => l.value === c.language)?.label ?? c.language}
+                    </span>
+                  </div>
+                </div>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor(c.status)}`}>
+                  {statusLabel(c.status)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

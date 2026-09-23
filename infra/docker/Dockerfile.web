@@ -1,0 +1,272 @@
+# Next.js web app — the Vercel replacement.
+# Build from repo root:  docker build -f infra/docker/Dockerfile.web .
+#
+# Node 22 matches the worker images and the root package.json requirement
+# `engines: { node: ">=22.12.0" }`. Supabase requires native WebSocket support.
+#
+# THE ONE THING THAT WILL BITE YOU: every NEXT_PUBLIC_* value is inlined into
+# the client bundle at BUILD time, not read at runtime. Setting them only as
+# runtime variables leaves them `undefined` in the browser and silently
+# switches off every feature flag. They are therefore declared as ARG below and
+# must be present in the build environment. Railway exposes a service's
+# variables to its Docker build, so setting them on the service is enough —
+# but they must exist BEFORE the first build, not after.
+#
+# NEXT_PUBLIC_WAITLIST_ONLY especially: if it is unset or "true", middleware
+# 307s every path to /waitlist and the site looks dead. It must be "false".
+
+# ── deps ─────────────────────────────────────────────────────────────────────
+FROM node:22-alpine AS deps
+WORKDIR /app
+
+# All six workspace manifests, so `npm ci` can resolve the workspace graph and
+# this layer caches on dependency changes alone. Omitting any of them makes npm
+# reject the lockfile as out of sync.
+COPY package.json package-lock.json* ./
+COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
+COPY packages/config/package.json packages/config/
+COPY packages/db/package.json packages/db/
+COPY packages/shared/package.json packages/shared/
+COPY packages/ui/package.json packages/ui/
+
+# --ignore-scripts is required, not an optimisation: the root `prepare` script
+# runs husky, which has no .git in a build context and fails the install.
+# sharp 0.35 ships its platform binaries as optionalDependencies rather than a
+# postinstall download, so it survives this flag intact.
+RUN npm ci --ignore-scripts
+
+# Prune the agent tooling, or Turbopack panics on it.
+#
+# `--ignore-scripts` above is required (husky), but it leaves native packages
+# half-configured: their install script never runs, so the metadata Turbopack
+# expects is missing. Building with Turbopack then dies with
+#
+#     TurbopackInternalError: missing field `napi_versions` at line 46 column 3
+#
+# which names no file and no package. The packages carrying that field are all
+# reachable only from the ROOT devDependency `agentic-flow` (agent/CLI tooling):
+# agentdb, @xenova/transformers, onnxruntime-node, argon2, bcrypt,
+# better-sqlite3, hnswlib-node. Verified none of them is imported anywhere in
+# apps/web/src or apps/web/scripts, and none is declared in apps/web's own
+# package.json — so the app build has no use for any of it.
+#
+# Pruned here in `deps` rather than in `builder`, so the builder copies an
+# already-clean tree. `npm ci --omit=dev` is not an option: it would also drop
+# apps/web's own devDependencies, which the build does need.
+# zipfile FIRST — this is the one that actually breaks the build.
+#
+# It is an OPTIONAL dependency of `epub` and it panics Turbopack:
+#   <NodePreGypConfigReference as ModuleReference>::resolve_reference failed
+#   missing field `napi_versions` ... host: mapbox-node-binary.s3.amazonaws.com
+# It predates node-api, so its node-pre-gyp manifest lacks the field Turbopack's
+# parser requires.
+#
+# `outputFileTracingExcludes` does NOT help — that filters which files get
+# copied, while resolve_reference runs earlier, when module references are
+# resolved. Tried and failed; the package has to be absent.
+#
+# Safe: `epub` declares zipfile under optionalDependencies and uses adm-zip as
+# its real zip implementation. Verified by requiring epub on a machine that has
+# never had zipfile (macOS skips the optional install) — it loads fine. EPUB
+# parsing also runs in worker-import, built from a different Dockerfile.
+RUN rm -rf \
+      node_modules/zipfile \
+      node_modules/agentic-flow \
+      node_modules/agentdb \
+      node_modules/@xenova \
+      node_modules/onnxruntime-node \
+      node_modules/argon2 \
+      node_modules/bcrypt \
+      node_modules/better-sqlite3 \
+      node_modules/hnswlib-node
+
+# ── builder ──────────────────────────────────────────────────────────────────
+FROM node:22-alpine AS builder
+WORKDIR /app
+
+# The WHOLE /app tree from deps, not just /app/node_modules.
+#
+# npm hoists most dependencies to the root, but not all: a version conflict
+# leaves the package in the workspace's own node_modules instead. Today that is
+# 10 packages under apps/web/node_modules (@supabase/ssr, @vercel/analytics,
+# @vercel/speed-insights, @anthropic-ai/sdk, zod, sharp, ...) and 1 under
+# packages/shared/node_modules. Copying only the root node_modules built an
+# image whose `next build` died on "Can't resolve '@supabase/ssr'".
+#
+# Enumerating the workspace node_modules individually would work today and
+# break the next time npm decides to un-hoist something, with the same
+# module-not-found failure. Copying the tree is indifferent to how npm chose
+# to lay it out. The subsequent source COPYs merge into these directories
+# rather than replacing them.
+COPY --from=deps /app ./
+COPY apps/web apps/web
+COPY packages packages
+
+# Turns on `output: "standalone"` in next.config.ts. Gated on this variable so
+# a Vercel build stays byte-for-byte what it was before this file existed.
+ENV DOCKER_BUILD=1
+ENV NODE_ENV=production
+# No SENTRY_AUTH_TOKEN is configured anywhere in this repo, so withSentryConfig
+# skips source-map upload on its own and only warns. Nothing to set here — if
+# source maps are wanted later, add SENTRY_AUTH_TOKEN as a build arg.
+
+# No server-side secrets are passed to the build, deliberately.
+#
+# The first container build DID fail on them: `next build` prerenders static
+# routes, /sitemap.xml queried the database while prerendering, and
+# assertServerEnv() threw on SUPABASE_SERVICE_ROLE_KEY / RESEND_API_KEY /
+# RESEND_FROM_EMAIL. Vercel had hidden that by exposing every project variable
+# to its builds.
+#
+# The fix belonged in the route, not here — /sitemap.xml is now force-dynamic
+# (it was also silently frozen at deploy time, so newly published books never
+# reached the sitemap). Verified by running `build:ci` locally with those three
+# variables blanked: exit 0, no prerender errors, nothing else needs them.
+#
+# Passing them as ARG would work too, but ARG values are recorded in the image
+# history — a service-role key readable by anyone who can pull the image — and
+# the build demonstrably does not need them. If a future prerendered route
+# reintroduces the dependency, make that route dynamic rather than adding the
+# secret here.
+
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_WAITLIST_ONLY
+ARG NEXT_PUBLIC_AUDIOBOOK_ENABLED
+ARG NEXT_PUBLIC_DISCOVERY_ENABLED
+ARG NEXT_PUBLIC_TRANSLATIONS_ENABLED
+ARG NEXT_PUBLIC_AI_CHAT_ENABLED
+# Browser error reporting. NEXT_PUBLIC_* values are BAKED AT BUILD TIME, so
+# setting this on the Railway service alone can never switch it on — without an
+# ARG here the compiled bundle resolves the lookup against a browserify shim
+# whose env is an empty object, and `enabled: Boolean(dsn)` is permanently
+# false. The variable then reads as "set" in the Railway UI while the browser
+# reports nothing, which looks like a broken Sentry rather than an unbuilt one.
+# Must be a Railway BUILD variable, not just a runtime one.
+ARG NEXT_PUBLIC_SENTRY_DSN
+ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
+    NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY \
+    NEXT_PUBLIC_WAITLIST_ONLY=$NEXT_PUBLIC_WAITLIST_ONLY \
+    NEXT_PUBLIC_AUDIOBOOK_ENABLED=$NEXT_PUBLIC_AUDIOBOOK_ENABLED \
+    NEXT_PUBLIC_DISCOVERY_ENABLED=$NEXT_PUBLIC_DISCOVERY_ENABLED \
+    NEXT_PUBLIC_TRANSLATIONS_ENABLED=$NEXT_PUBLIC_TRANSLATIONS_ENABLED \
+    NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
+    NEXT_PUBLIC_SENTRY_ENVIRONMENT=$NEXT_PUBLIC_SENTRY_ENVIRONMENT \
+    NEXT_PUBLIC_AI_CHAT_ENABLED=$NEXT_PUBLIC_AI_CHAT_ENABLED
+
+# `npm run build` (Turbopack), NOT `build:ci` (which pins --webpack).
+#
+# In Next 16 the webpack builder DOES NOT EMIT MIDDLEWARE. Measured 2026-09-07,
+# same commit, same env, only the flag differing:
+#
+#   next build --webpack   -> no .next/server/edge/chunks, middleware-manifest
+#                             "middleware": {}, no mention in the build output
+#   next build (turbopack) -> edge chunks present, manifest "middleware": {"/"},
+#                             build output lists `ƒ Proxy (Middleware)`
+#
+# So every image built with build:ci shipped WITHOUT middleware.ts — all 19 kB
+# of it. The waitlist gate, the beta lock and the middleware half of route
+# protection were silently absent, which is why BETA_LOCK=true changed nothing
+# no matter how many times the container was restarted.
+#
+# Verified after switching: the standalone server from a Turbopack build, with
+# BETA_LOCK=true in its environment, answers `/` with 307 -> /waitlist while
+# /waitlist and /reader/signin stay 200. BETA_LOCK needs no build-time plumbing
+# at all — middleware reads the real process.env once it actually exists.
+RUN npm run build
+
+# ── runner ───────────────────────────────────────────────────────────────────
+FROM node:22-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+# Railway assigns the port; Next's standalone server reads PORT and HOSTNAME.
+# HOSTNAME must be 0.0.0.0 — the default binds localhost only and every health
+# check from outside the container times out.
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
+
+# standalone already contains a pruned node_modules and the server entrypoint.
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+# Next does not copy these two into standalone; without them you get a running
+# server with no CSS, no JS chunks and no favicon.
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+
+# sharp — installed in ISOLATION, then copied into place, then verified.
+#
+# Two earlier attempts, both wrong, both worth recording:
+#
+# 1. COPY from a dedicated `sharpdep` stage. The container then logged
+#    "⨯ Error: Module `sharp` not found", so next/image could not optimise.
+# 2. Plain `npm install sharp` with /app as the cwd. That "fixed" the error and
+#    broke something worse: npm reconciles node_modules against the package.json
+#    it finds, and standalone's package.json does not list the traced
+#    dependencies — so it reported
+#        added 2 packages, removed 103 packages
+#    and silently deleted 103 modules from the runtime tree. The server still
+#    booted, which is exactly what makes it dangerous: any route that lazily
+#    requires one of those would 500 in production.
+#
+# So: install into /tmp with its own package.json, where npm can prune all it
+# likes, then copy what it produced into /app/node_modules. The standalone tree
+# is never handed to npm.
+#
+# ALL nine packages npm installs, not just sharp and @img. Copying only those
+# two failed the verification below with
+#     Cannot find module '/app/node_modules/sharp/node_modules/semver/index.js'
+# because sharp requires semver and detect-libc at load time; leaving seven
+# behind produces a sharp that cannot be required at all.
+#
+# Copied only where the name does not already exist, so a module the standalone
+# tree already ships at its own version is never clobbered by sharp's copy.
+#
+# --ignore-scripts is safe for sharp 0.35 — platform binaries arrive as
+# optionalDependencies (@img/sharp-linuxmusl-x64 on alpine), not a postinstall
+# download.
+RUN mkdir -p /tmp/sharp-install \
+ && cd /tmp/sharp-install \
+ && npm init -y > /dev/null 2>&1 \
+ && npm install --no-audit --no-fund --ignore-scripts sharp@0.35.4 \
+ && mkdir -p /app/node_modules \
+ && for d in /tmp/sharp-install/node_modules/*; do \
+      n=$(basename "$d"); \
+      if [ "$n" != ".package-lock.json" ] && [ ! -e "/app/node_modules/$n" ]; then \
+        cp -R "$d" /app/node_modules/; \
+      fi; \
+    done \
+ && rm -rf /tmp/sharp-install \
+ && chown -R nextjs:nodejs /app/node_modules
+
+# Turbopack's sharp-<hash> alias targets the workspace package location.
+# Tracing excludes sharp there, so preserve that location using the isolated
+# runtime install. A root-only install leaves the emitted route import broken.
+RUN mkdir -p /app/apps/web/node_modules \
+ && if [ ! -e /app/apps/web/node_modules/sharp ]; then \
+      ln -s ../../../node_modules/sharp /app/apps/web/node_modules/sharp; \
+    fi
+
+# Fail the BUILD if sharp cannot actually load.
+#
+# Without this the failure mode is silent: next/image catches the missing module
+# and serves the unoptimised original, so a 631 kB PNG ships where a 60 kB WebP
+# should. Pages stay 200 and nothing in tests, tsc or lint notices. The only
+# symptom is a slow page and a bandwidth bill.
+RUN node -e "const s=require('/app/node_modules/sharp'); if(typeof s!=='function'&&typeof s!=='object'){process.exit(1)} console.log('sharp loads: ok')"
+
+USER nextjs
+# Exercise the assembled image, not the builder's full node_modules tree.
+# A missing metadata dependency can break every page while /api/health is 200.
+COPY apps/web/scripts/check-web-image.mjs /tmp/check-web-image.mjs
+RUN node /tmp/check-web-image.mjs
+
+EXPOSE 3000
+CMD ["node", "apps/web/server.js"]

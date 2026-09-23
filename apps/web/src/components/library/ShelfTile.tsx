@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import type { Shelf } from "@/lib/supabase/types";
+import type { Tables } from "@/lib/supabase/types";
+import { BRAND_GRADIENTS } from "@/lib/design/brand";
+
+type Shelf = Tables<"shelves">;
 
 interface ShelfTileProps {
   shelf: Shelf;
@@ -14,7 +17,7 @@ export default function ShelfTile({ shelf, onClick, bookCount }: ShelfTileProps)
     ? { background: shelf.cover_gradient }
     : shelf.cover_url
     ? { backgroundImage: `url(${shelf.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-    : { background: 'linear-gradient(135deg, #907AFF 0%, #E29ED5 100%)' };
+    : { background: BRAND_GRADIENTS.violetToRose };
 
   const typography = shelf.typography as {
     fontFamily?: string;
@@ -26,7 +29,7 @@ export default function ShelfTile({ shelf, onClick, bookCount }: ShelfTileProps)
 
   return (
     <Link href={`/author/library/${shelf.id}`} onClick={onClick}>
-      <div className="group relative aspect-[220/320] min-w-0 w-full max-w-[220px] cursor-pointer overflow-hidden rounded-2xl border border-black/5 dark:border-white/5 bg-gradient-to-br from-slate-50 to-slate-100 transition-all duration-500 hover:scale-[1.02] dark:from-slate-900 dark:to-slate-800">
+      <div className="group relative aspect-[220/320] min-w-0 w-full cursor-pointer overflow-hidden rounded-2xl border border-black/5 dark:border-border bg-gradient-to-br from-muted to-muted transition-all duration-500 hover:scale-[1.02] dark:from-primary dark:to-primary">
         {/* Cover Background */}
         <div className="absolute inset-0" style={coverStyle} />
         

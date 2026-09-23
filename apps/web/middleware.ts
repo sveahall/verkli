@@ -1,66 +1,148 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isBetaUser, BetaCheckTransientError } from '@/lib/auth/beta'
+import { getAuthorApplicationStatus } from '@/lib/auth/author-approval'
+import { ACTIVE_ROLE_COOKIE } from '@/lib/active-role'
+import { TA_FOR_ER_ORDER } from '@/lib/orders/ta-for-er'
+import { sanitizeNextPath } from '@/lib/auth/next-path'
 
-/** Path prefixes that make up the internal admin area. */
-function isAdminPath(p: string): boolean {
-  return p === '/admin' || p.startsWith('/admin/') || p.startsWith('/api/admin/')
+function redirectToSignIn(request: NextRequest, role: 'author' | 'reader', sessionResponse: NextResponse) {
+  const url = request.nextUrl.clone()
+  const next = sanitizeNextPath(`${url.pathname}${url.search}`)
+  url.pathname = `/${role}/signin`
+  url.search = ''
+  if (next) url.searchParams.set('next', next)
+  const response = NextResponse.redirect(url, 307)
+  for (const cookie of sessionResponse.cookies.getAll()) response.cookies.set(cookie)
+  return response
 }
 
+// ---------------------------------------------------------------------------
+// In-memory cache of `profiles.role` keyed by user id. Middleware otherwise
+// fires a Supabase profile lookup on *every* request matched by the config
+// (and `/author/*` triggers the fetch unconditionally). TTL is short enough
+// that a role change propagates within a minute, long enough to absorb the
+// prefetch storms a navigation produces.
+// ---------------------------------------------------------------------------
 /**
- * Constant-time string comparison. `crypto.timingSafeEqual` is Node-only and
- * middleware runs on the Edge runtime, so this is done by hand. The loop always
- * runs over the longer of the two strings so its length leaks nothing about
- * where the first mismatch is.
- */
-function safeEqual(a: string, b: string): boolean {
-  const len = Math.max(a.length, b.length)
-  let diff = a.length ^ b.length
-  for (let i = 0; i < len; i++) {
-    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0)
-  }
-  return diff === 0
-}
-
-/**
- * HTTP Basic auth for the admin review area. Returns a response when the
- * request should be blocked, or null when it may continue.
+ * Sign-in has to stay reachable under BETA_LOCK, or the lock is a dead end: a
+ * beta tester who is not already carrying a session gets bounced to /waitlist,
+ * and every page that could log them in sits behind the same bounce. The `/auth`
+ * prefix the lock already allows covers only the OAuth callback and the
+ * reset-password screen — the actual forms live at these nine paths.
  *
- * Fails closed: with no credentials configured the area is unreachable rather
- * than open. Credentials must be ASCII — atob decodes latin1.
+ * Sign-up is open here on purpose. An account on its own grants nothing; the
+ * `beta_enabled` flag in user_flags does. So people can register and be let in
+ * afterwards, which is how you run a beta without handing out a shared password.
+ *
+ * Exact matches rather than a prefix test, so this cannot widen by accident.
  */
-function guardAdmin(request: NextRequest): NextResponse | null {
-  const expectedUser = process.env.ADMIN_BASIC_AUTH_USER
-  const expectedPassword = process.env.ADMIN_BASIC_AUTH_PASSWORD
+const BETA_LOCK_AUTH_PATHS: ReadonlySet<string> = new Set([
+  '/signin',
+  '/signup',
+  '/forgot-password',
+  '/reader/signin',
+  '/reader/signup',
+  '/reader/forgot-password',
+  '/author/signin',
+  '/author/signup',
+  '/author/forgot-password',
+])
 
-  if (!expectedUser || !expectedPassword) {
-    return new NextResponse('Admin access is not configured.', { status: 503 })
+// These GET handlers enforce admin/ops access themselves. Site-access gates
+// must not prevent monitoring (or Stripe's own signature verifier) from running.
+const HEALTH_READ_PATHS: ReadonlySet<string> = new Set([
+  '/api/health',
+  '/api/health/workers',
+  '/api/health/workers/crashes',
+  '/api/health/queue',
+  '/api/health/metrics/queue',
+])
+const PUBLIC_BUYER_PATHS: ReadonlySet<string> = new Set(['/privacy', '/terms', '/support'])
+
+/**
+ * Products whose order routes are public by design and must survive BOTH site
+ * locks. The book sale is the point of the waitlist page and is deliberately
+ * open to anyone with the link — beta cohort or not.
+ *
+ * Read by both locks so they cannot drift apart. They already did once: the
+ * waitlist lock was taught about `/order` on a side branch that never reached
+ * `platform`, the beta lock was never taught at all, and the result was a page
+ * that rendered fine with a buy button that silently failed.
+ *
+ * Membership is per *product*, not per path, so a new sub-page of an approved
+ * product just works while an unregistered product stays locked. Registering
+ * one is a deliberate act — see the `slug` field on the order constant.
+ *
+ * The cost of that convenience is a standing promise: registering a slug makes
+ * the WHOLE of `/order/<slug>/**` and `/api/order/<slug>/**` publicly reachable
+ * under both locks, now and for anything added there later, with no further
+ * review. Only register a product whose entire route subtree carries its own
+ * authorization. The two routes here need none — the API takes no authorization
+ * decision at all, and the success page is gated by possession of an unguessable
+ * Stripe `cs_...` id. That is a fact about those two files, not about the prefix.
+ *
+ * Keep membership a Set lookup. It is what makes the match exact, and loosening
+ * it to a pattern like `^/order/[^/]+` would admit every product the day someone
+ * adds `app/order/[slug]/page.tsx`.
+ */
+const PUBLIC_ORDER_SLUGS: ReadonlySet<string> = new Set([TA_FOR_ER_ORDER.slug])
+
+const ORDER_PATH_PATTERN = /^\/(?:api\/)?order\/([^/]+)/
+
+function isPublicOrderPath(pathname: string): boolean {
+  const slug = ORDER_PATH_PATTERN.exec(pathname)?.[1]
+  return slug !== undefined && PUBLIC_ORDER_SLUGS.has(slug)
+}
+
+/** `www.verkli.com` and `verkli.com` are the same site for authors. */
+function hostsEquivalent(left: string, right: string): boolean {
+  const normalize = (host: string) => host.trim().toLowerCase().replace(/\.$/, "").replace(/^www\./, "")
+  return normalize(left) === normalize(right)
+}
+
+function headerHost(value: string | null): string | null {
+  const host = value?.split(",")[0]?.trim()
+  return host || null
+}
+
+function isTrustedBrowserOrigin(origin: string, expectedOrigin: string | null, requestHost: string | null): boolean {
+  let originHost: string
+  try {
+    originHost = new URL(origin).host
+  } catch {
+    return false
   }
-
-  const header = request.headers.get('authorization') ?? ''
-  const [scheme, encoded] = header.split(' ')
-
-  if (scheme === 'Basic' && encoded) {
-    try {
-      const decoded = atob(encoded)
-      const separator = decoded.indexOf(':')
-      if (separator !== -1) {
-        const user = decoded.slice(0, separator)
-        const password = decoded.slice(separator + 1)
-        if (safeEqual(user, expectedUser) && safeEqual(password, expectedPassword)) {
-          return null
-        }
-      }
-    } catch {
-      // Malformed credentials fall through to the challenge below.
-    }
+  if (requestHost && hostsEquivalent(originHost, requestHost)) return true
+  if (!expectedOrigin) return false
+  try {
+    return hostsEquivalent(originHost, new URL(expectedOrigin).host)
+  } catch {
+    return false
   }
+}
 
-  return new NextResponse('Authentication required.', {
-    status: 401,
-    headers: {
-      'WWW-Authenticate': 'Basic realm="Verkli admin", charset="UTF-8"',
-    },
-  })
+const AUTHOR_ROLE_CACHE_TTL_MS = 60_000
+const AUTHOR_ROLE_CACHE_MAX = 512
+type CachedRoleEntry = { role: string; expiresAt: number }
+const authorRoleCache = new Map<string, CachedRoleEntry>()
+
+function readCachedAuthorRole(userId: string): string | null {
+  const entry = authorRoleCache.get(userId)
+  if (!entry) return null
+  if (entry.expiresAt <= Date.now()) {
+    authorRoleCache.delete(userId)
+    return null
+  }
+  return entry.role
+}
+
+function writeCachedAuthorRole(userId: string, role: string): void {
+  if (authorRoleCache.size >= AUTHOR_ROLE_CACHE_MAX) {
+    const first = authorRoleCache.keys().next().value
+    if (first) authorRoleCache.delete(first)
+  }
+  authorRoleCache.set(userId, { role, expiresAt: Date.now() + AUTHOR_ROLE_CACHE_TTL_MS })
 }
 
 /**
@@ -71,41 +153,172 @@ function guardAdmin(request: NextRequest): NextResponse | null {
  * därefter (endast när låset är av) Supabase.
  */
 export async function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname
+  // -------------------------------------------------------------------------
+  // CSRF protection: verify Origin / Sec-Fetch-Site on state-changing requests.
+  //
+  // Layered checks (any one of these must hold):
+  //   (a) Sec-Fetch-Site is present and equals "same-origin" or "none"
+  //       — this is browser-vouched and not forgeable from a cross-site form.
+  //   (b) Origin header is present and matches NEXT_PUBLIC_SITE_URL.
+  //
+  // Fail-closed semantics: in production we require NEXT_PUBLIC_SITE_URL to be
+  // set; if it isn't we reject with 500 rather than silently disabling CSRF.
+  // -------------------------------------------------------------------------
+  const method = request.method
+  const isStateChanging = method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE'
+  if (isStateChanging) {
+    const pathname = request.nextUrl.pathname
+    // Stripe webhook has its own HMAC signature verification.
+    const isStripeWebhook = pathname === '/api/stripe/webhook'
+    if (!isStripeWebhook) {
+      const secFetchSite = request.headers.get('sec-fetch-site')?.trim().toLowerCase() ?? null
+      const origin = request.headers.get('origin')
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+      const isProduction = process.env.NODE_ENV === 'production'
 
-  // Admin-området skyddas oavsett om waitlist-låset är på eller av.
-  if (isAdminPath(path)) {
-    const blocked = guardAdmin(request)
-    if (blocked) return blocked
+      if (!siteUrl) {
+        if (isProduction) {
+          console.error('[csrf] NEXT_PUBLIC_SITE_URL is unset in production — refusing state-changing request')
+          return new NextResponse(JSON.stringify({ error: 'ServerMisconfiguration' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+        // In dev / test we allow the request through to keep local DX painless,
+        // but Sec-Fetch-Site still gives us a layer of protection if present.
+      }
+
+      let expectedOrigin: string | null = null
+      if (siteUrl) {
+        try {
+          expectedOrigin = new URL(siteUrl).origin
+        } catch {
+          if (isProduction) {
+            console.error('[csrf] NEXT_PUBLIC_SITE_URL is malformed — refusing state-changing request')
+            return new NextResponse(JSON.stringify({ error: 'ServerMisconfiguration' }), {
+              status: 500,
+              headers: { 'Content-Type': 'application/json' },
+            })
+          }
+        }
+      }
+
+      // Sec-Fetch-Site is the strongest signal because the browser sets it
+      // and it isn't sent on cross-site form submissions. Trust it when present.
+      const requestHost =
+        headerHost(request.headers.get('x-forwarded-host')) ||
+        headerHost(request.headers.get('host')) ||
+        request.nextUrl.host ||
+        null
+      const sameOriginByFetchMetadata =
+        secFetchSite === 'same-origin' || secFetchSite === 'none'
+      const sameOriginByOrigin =
+        !!(origin && isTrustedBrowserOrigin(origin, expectedOrigin, requestHost))
+
+      // If neither signal vouches for same-origin, reject. We only allow the
+      // "no signal at all" case (no Sec-Fetch-Site, no Origin) when a non-browser
+      // client is plausibly hitting the API outside production.
+      const noBrowserSignals = !secFetchSite && !origin
+      const allowed =
+        sameOriginByFetchMetadata ||
+        sameOriginByOrigin ||
+        (!isProduction && noBrowserSignals)
+
+      if (!allowed) {
+        console.warn('[csrf] rejected state-changing request', {
+          path: pathname,
+          secFetchSite,
+          requestHost,
+          expectedOrigin,
+        })
+        return new NextResponse(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+    }
+  }
+
+  // Stripe has no browser session. Only the exact POST route is exempt, and
+  // it still rejects missing/invalid HMAC signatures in its route handler.
+  if (
+    (method === 'POST' && request.nextUrl.pathname === '/api/stripe/webhook') ||
+    // The public support form needs to work for visitors awaiting an invite.
+    // CSRF has already run; the handler validates and rate-limits submissions.
+    (method === 'POST' && request.nextUrl.pathname === '/api/feedback') ||
+    (method === 'GET' && HEALTH_READ_PATHS.has(request.nextUrl.pathname))
+  ) {
+    return NextResponse.next()
   }
 
   const waitlistOnly = process.env.NEXT_PUBLIC_WAITLIST_ONLY === 'true'
 
   if (waitlistOnly) {
-    const p = path
+    // CAUTION: this allowlist is the ONLY gate for whatever it admits. An allowed
+    // path returns NextResponse.next() at the bottom of this block without ever
+    // initialising Supabase, so it never reaches the /author role check or the
+    // /reader auth check further down the file. Three rules for any new entry:
+    //
+    //   1. Anchor it, and scope it to its own literal first segment.
+    //      isPublicOrderPath is safe here only because ORDER_PATH_PATTERN is
+    //      anchored at ^/ and requires `order/` or `api/order/` first, so it
+    //      cannot match an /author or /reader path. An `includes()`, an
+    //      unanchored regex, or a non-literal first segment (`^/[^/]+/order/`)
+    //      would serve those unauthenticated.
+    //   2. Match `request.nextUrl.pathname` and nothing else. It is the only
+    //      string guaranteed to equal what the router will resolve. Reading
+    //      request.url, a header, a search param or the referer reintroduces a
+    //      middleware/router divergence that does not exist today.
+    //   3. Never decodeURIComponent the path, and never lowercase the path or
+    //      the slug, before matching. Both look like hardening and both are the
+    //      bypass. Decoding turns %2f into a separator in the *allow* string
+    //      while the router keeps it encoded, so a path is cleared as one route
+    //      and resolved as another. Lowercasing admits /api/order/TA-FOR-ER,
+    //      which the case-sensitive router resolves to nothing here.
+    //      Note where the exactness actually lives: it is PUBLIC_ORDER_SLUGS.has()
+    //      being a Set lookup, NOT the regex. Adding /i to ORDER_PATH_PATTERN on
+    //      its own changes nothing — verified by mutation. Both tripwires are in
+    //      middleware.test.ts; keep them.
+    const p = request.nextUrl.pathname
     const isWaitlist = p === '/waitlist' || p.startsWith('/waitlist/')
     const isApiWaitlist = p === '/api/waitlist' || p.startsWith('/api/waitlist/')
-    // Book pre-order ("Ta för er!") lives on the waitlist page: allow its API
-    // and the Stripe success-return page through the waitlist lock.
-    const isOrder = p.startsWith('/api/order/') || p.startsWith('/order/')
-    // Round-one beta application: the invitation email links straight here, so
-    // it must survive the lock or every recipient lands back on the waitlist.
-    const isApply = p === '/apply' || p.startsWith('/apply/')
-    const isApiApply = p === '/api/apply' || p.startsWith('/api/apply/')
+    // The book pre-order form lives ON the waitlist page, so its API and Stripe
+    // return page have to come through the lock or the buy button dies silently.
+    const isOrder = isPublicOrderPath(p)
     const isNext = p.startsWith('/_next/')
-    const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt'].includes(p)
+    const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt', '/opengraph-image'].includes(p)
     const isRootAssetWithExt = /^\/[^/]+\.[a-z0-9]+$/i.test(p)
+    // Static files in SUBDIRECTORIES of /public, which the check above misses.
+    //
+    // `isRootAssetWithExt` only matches a file at the root (`/favi.svg`), so
+    // everything under /public/images, /public/audiobooks, /public/demo-assets
+    // was being 307'd to /waitlist. Every image on the site was broken for
+    // anonymous visitors — including the product shot on the waitlist page
+    // itself, which is what surfaced it.
+    //
+    // Extension-allowlisted rather than prefix-allowlisted so adding a folder
+    // to /public does not require touching middleware again. Route handlers do
+    // not end in these extensions, and /robots.txt and /sitemap.xml are already
+    // covered by isKnownRoot.
+    const isStaticAsset =
+      /\.(png|jpe?g|gif|webp|avif|svg|ico|mp3|mp4|wav|m4a|woff2?|ttf|otf|pdf|epub|txt|xml|webmanifest)$/i.test(p)
+    // A health endpoint behind an access gate cannot report health.
+    //
+    // Both locks used to 403 `/api/health`, which breaks three things at once:
+    // uptime monitoring, any Railway healthcheck pointed at it (every deploy
+    // would fail its own check and never go live), and the one cheap way to
+    // confirm which commit is actually serving traffic.
+    //
+    // Safe to leave open: the unauthenticated branch returns only
+    // { ok, timestamp, version } — the database and Redis probes are behind
+    // hasAdminOrOpsAccess. See api/health/route.ts.
+    const isHealth = p === '/api/health'
+    // The invitation form is account-less and linked from the waitlist email.
+    // Exact paths only: /apply-admin or /api/apply/extra must stay locked.
+    const isApply = p === '/apply' || p === '/api/apply'
 
     const allowed =
-      isWaitlist ||
-      isApiWaitlist ||
-      isOrder ||
-      isApply ||
-      isApiApply ||
-      isAdminPath(p) ||
-      isNext ||
-      isKnownRoot ||
-      isRootAssetWithExt
+      isWaitlist || isApiWaitlist || isApply || isOrder || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth || PUBLIC_BUYER_PATHS.has(p)
     if (!allowed) {
       const url = request.nextUrl.clone()
       url.pathname = '/waitlist'
@@ -143,7 +356,198 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // -------------------------------------------------------------------------
+  // Beta lock: public marketing, auth and order paths remain reachable;
+  // platform access requires beta_enabled in user_flags.
+  // -------------------------------------------------------------------------
+  const betaLock = process.env.BETA_LOCK === 'true'
+  if (betaLock) {
+    const p = request.nextUrl.pathname
+    const isWaitlist = p === '/waitlist' || p.startsWith('/waitlist/')
+    const isAuth = p === '/auth' || p.startsWith('/auth/')
+    const isApiWaitlist = p === '/api/waitlist' || p.startsWith('/api/waitlist/')
+    const isApiAuth = p === '/api/auth' || p.startsWith('/api/auth/')
+    const isNext = p.startsWith('/_next/')
+    const isKnownRoot = ['/favicon.ico', '/favicon.svg', '/robots.txt', '/opengraph-image'].includes(p)
+    const isRootAssetWithExt = /^\/[^/]+\.[a-z0-9]+$/i.test(p)
+    // Static files in SUBDIRECTORIES of /public, which the check above misses.
+    //
+    // `isRootAssetWithExt` only matches a file at the root (`/favi.svg`), so
+    // everything under /public/images, /public/audiobooks, /public/demo-assets
+    // was being 307'd to /waitlist. Every image on the site was broken for
+    // anonymous visitors — including the product shot on the waitlist page
+    // itself, which is what surfaced it.
+    //
+    // Extension-allowlisted rather than prefix-allowlisted so adding a folder
+    // to /public does not require touching middleware again. Route handlers do
+    // not end in these extensions, and /robots.txt and /sitemap.xml are already
+    // covered by isKnownRoot.
+    const isStaticAsset =
+      /\.(png|jpe?g|gif|webp|avif|svg|ico|mp3|mp4|wav|m4a|woff2?|ttf|otf|pdf|epub|txt|xml|webmanifest)$/i.test(p)
+    // A health endpoint behind an access gate cannot report health.
+    //
+    // Both locks used to 403 `/api/health`, which breaks three things at once:
+    // uptime monitoring, any Railway healthcheck pointed at it (every deploy
+    // would fail its own check and never go live), and the one cheap way to
+    // confirm which commit is actually serving traffic.
+    //
+    // Safe to leave open: the unauthenticated branch returns only
+    // { ok, timestamp, version } — the database and Redis probes are behind
+    // hasAdminOrOpsAccess. See api/health/route.ts.
+    const isHealth = p === '/api/health'
+    const isApply = p === '/apply' || p === '/api/apply'
+
+    const isAuthEntry = BETA_LOCK_AUTH_PATHS.has(p)
+    // Publish the author landing page and its explanation CTA during beta.
+    // Exact matches keep /author/home and all other workspace routes gated.
+    const isPublicMarketing = ['/author', '/how-it-works', '/product', '/pricing', '/faq'].includes(p) || PUBLIC_BUYER_PATHS.has(p)
+
+    // BETA_LOCK restricts the *platform* to invited users; the book sale is not
+    // part of the platform. Without this an order POST 403s the moment the lock
+    // goes on for the cohort — see PUBLIC_ORDER_SLUGS.
+    const isOrderPath = isPublicOrderPath(p)
+
+    const allowedPath = isWaitlist || isAuth || isAuthEntry || isPublicMarketing || isApiWaitlist || isApiAuth || isApply || isOrderPath || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth
+    // Only look up cohort membership when it can change the outcome. `isBeta` is
+    // read once, in `!allowedPath && !isBeta` below, so on an allowed path the
+    // result is discarded — and a transient failure of that lookup would 503 a
+    // path we just decided is public, before `allowedPath` is ever consulted.
+    // That would take the buy button down on a beta-locked site for any buyer
+    // carrying a session, and dead-end the sign-in pages the auth allowlist
+    // exists to keep reachable.
+    let isBeta = false
+    if (user && !allowedPath) {
+      try {
+        isBeta = await isBetaUser(supabase, user.id)
+      } catch (err) {
+        if (err instanceof BetaCheckTransientError) {
+          console.error('[middleware] beta check transient error', {
+            path: p,
+            userId: user.id,
+            error: err.message,
+            cause: err.cause,
+          })
+          if (p.startsWith('/api/')) {
+            return new NextResponse(
+              JSON.stringify({ error: 'ServiceTemporarilyUnavailable' }),
+              {
+                status: 503,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Retry-After': '15',
+                },
+              },
+            )
+          }
+          return new NextResponse(
+            'Service temporarily unavailable. Please try again in a moment.',
+            {
+              status: 503,
+              headers: {
+                'Content-Type': 'text/plain; charset=utf-8',
+                'Retry-After': '15',
+              },
+            },
+          )
+        }
+        throw err
+      }
+    }
+
+    if (!allowedPath && !isBeta) {
+      if (p.startsWith('/api/')) {
+        return new NextResponse(JSON.stringify({ error: 'Beta access required' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      // An expired session cannot prove beta membership yet. Let workspace
+      // visitors sign in, then check membership again on the original route.
+      if (!user && (p.startsWith('/author/') || p.startsWith('/reader/'))) {
+        return redirectToSignIn(request, p.startsWith('/author/') ? 'author' : 'reader', supabaseResponse)
+      }
+      const url = request.nextUrl.clone()
+      url.pathname = '/waitlist'
+      if (user) url.searchParams.set('access', 'pending')
+      return NextResponse.redirect(url, 307)
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Route protection: /author/* and /reader/* require authentication
+  // Author routes additionally require author role
+  // -------------------------------------------------------------------------
+  const pathname = request.nextUrl.pathname
+
+  // author routes that don't require auth
+  const isAuthorPublic = pathname === '/author' || // public landing page
+                         pathname.startsWith('/author/signin') ||
+                         pathname.startsWith('/author/signup') ||
+                         pathname.startsWith('/author/forgot-password')
+
+  // Reader routes that don't require auth (MVP: anon browsing for public content)
+  const isReaderBrowse = pathname.startsWith('/reader/books/') ||
+                         pathname.startsWith('/reader/read/') ||
+                         pathname === '/reader/discover' ||
+                         pathname.startsWith('/reader/discover') ||
+                         pathname.startsWith('/reader/authors/')
+  const isReaderPublic = pathname === '/reader' || // public landing page
+                         pathname === '/reader/app' ||
+                         pathname === '/reader/faq' ||
+                         pathname === '/reader/how-it-works' ||
+                         pathname === '/reader/membership' ||
+                         pathname.startsWith('/reader/signin') ||
+                         pathname.startsWith('/reader/signup') ||
+                         pathname.startsWith('/reader/forgot-password') ||
+                         isReaderBrowse
+
+  // Protect all /author/* routes except public ones
+  if (pathname.startsWith('/author') && !isAuthorPublic) {
+    if (!user) {
+      return redirectToSignIn(request, 'author', supabaseResponse)
+    }
+
+    // SECURITY: Only trust profiles.role from DB — user_metadata is client-writable.
+    // Use a short-lived process-local cache to avoid a DB round-trip on every
+    // request (prefetches, RSC payloads, API calls under /author). TTL is tight
+    // enough that flipping a role propagates within a minute.
+    let profileRole = readCachedAuthorRole(user.id)
+    if (profileRole == null) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      profileRole = String(profile?.role ?? '').trim().toLowerCase()
+      writeCachedAuthorRole(user.id, profileRole)
+    }
+    const isAuthorOrAdmin = profileRole === 'author' || profileRole === 'admin'
+
+    if (!isAuthorOrAdmin) {
+      const status = await getAuthorApplicationStatus(supabase, user.id)
+      const shouldRedirect = status !== 'approved'
+      if (shouldRedirect) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/reader/home'
+        url.searchParams.set('error', 'author_required')
+        const response = NextResponse.redirect(url)
+        response.cookies.set(ACTIVE_ROLE_COOKIE, 'reader', {
+          path: '/',
+          sameSite: 'lax',
+          maxAge: 31536000,
+          secure: process.env.NODE_ENV === 'production',
+        })
+        return response
+      }
+    }
+  }
+
+  // Protect all /reader/* routes except public ones
+  if (pathname.startsWith('/reader') && !isReaderPublic && !user) {
+    return redirectToSignIn(request, 'reader', supabaseResponse)
+  }
 
   return supabaseResponse
 }

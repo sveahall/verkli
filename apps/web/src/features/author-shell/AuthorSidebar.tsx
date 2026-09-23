@@ -1,0 +1,405 @@
+"use client";
+
+import Image from "next/image";
+
+import { getMarketingEnabled } from "@/lib/flags";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  BarChart3,
+  BookOpen,
+  Gift,
+  Headphones,
+  Home,
+  ImageIcon,
+  Globe,
+  Languages,
+  Pen,
+  PenLine,
+  Repeat,
+  Settings,
+  Sparkles,
+  Tag,
+  UserCircle,
+  Wand2,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  AUTHOR_SIDEBAR_FOOTER,
+  AUTHOR_WORKFLOW_NAV,
+  type AuthorSidebarLink,
+} from "@/nav/navConfig";
+import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
+import { getToolHref } from "@/app/(app-author)/author/books/[id]/editor/bookEditor.shared";
+import { setActiveRoleCookieClient } from "@/lib/active-role";
+
+const ICONS: Record<string, LucideIcon> = {
+  home: Home,
+  library: BookOpen,
+  production: Pen,
+  audience: Gift,
+  analytics: BarChart3,
+  profile: UserCircle,
+  settings: Settings,
+  "switch-to-reader": Repeat,
+};
+
+/*
+ * Book workflow tabs — shown as nested items under Production
+ * when the user is working on a specific book.
+ */
+/** Legacy demo navigation; the author studio uses the grouped page rail. */
+const BOOK_WORKFLOW_TABS: ReadonlyArray<{
+  key: string;
+  label: string;
+  panel: string | null; // null = default (edit/write)
+  icon: LucideIcon;
+  group: number;
+}> = [
+  { key: "edit", label: "Write", panel: null, icon: PenLine, group: 0 },
+  { key: "ai", label: "AI Assistant", panel: "ai", icon: Wand2, group: 0 },
+  { key: "cover", label: "Cover", panel: "cover", icon: ImageIcon, group: 0 },
+  { key: "audiobook", label: "Audio", panel: "audiobook", icon: Headphones, group: 0 },
+  { key: "translate", label: "Translate", panel: "translate", icon: Languages, group: 0 },
+  { key: "pricing", label: "Pricing", panel: "pricing", icon: Tag, group: 0 },
+  { key: "publish", label: "Publish", panel: "publish", icon: Globe, group: 0 },
+  { key: "review", label: "Review", panel: "review", icon: Sparkles, group: 0 },
+];
+
+/**
+ * Demo-only tabs inserted between Cover and Audio when demoModeActive=true.
+ * Production = Day 3 (audiobook + translation paraply-step), Distribute =
+ * Day 4 (cross-channel social launch). Both reuse the Sparkles icon to
+ * signal "one-click magic" affordances.
+ */
+const DEMO_PRODUCTION_TAB = {
+  key: "production",
+  label: "Production",
+  panel: "production" as const,
+  icon: Sparkles,
+  group: 0,
+} as const;
+
+const DEMO_DISTRIBUTE_TAB = {
+  key: "distribute",
+  label: "Distribute",
+  panel: "distribute" as const,
+  icon: Globe,
+  group: 0,
+} as const;
+
+function resolveHref(
+  href: string,
+  bookScoped: boolean | undefined,
+  currentBookId: string | null
+) {
+  if (!bookScoped || !currentBookId) return href;
+
+  const [pathname, query = ""] = href.split("?");
+  const params = new URLSearchParams(query);
+  params.set("bookId", currentBookId);
+  const nextQuery = params.toString();
+  return nextQuery ? `${pathname}?${nextQuery}` : pathname;
+}
+
+function isLeafActive(item: AuthorSidebarLink, pathname: string) {
+  if (item.key === "home") return pathname.startsWith("/author/home");
+  if (item.key === "library") {
+    return (
+      pathname.startsWith("/author/library") ||
+      pathname.startsWith("/author/books") ||
+      pathname.startsWith("/author/write") ||
+      pathname.startsWith("/author/production")
+    );
+  }
+  if (item.key === "profile") return pathname.startsWith("/author/profile");
+  if (item.key === "settings") return pathname.startsWith("/author/settings");
+  if (item.key === "switch-to-reader") return false;
+  return pathname.startsWith(item.href);
+}
+
+function SidebarNavLink({
+  item,
+  href,
+  active,
+}: {
+  item: AuthorSidebarLink;
+  href: string;
+  active: boolean;
+}) {
+  const router = useRouter();
+  const Icon = ICONS[item.icon] ?? Home;
+
+  const handleClick =
+    item.key === "switch-to-reader"
+      ? () => setActiveRoleCookieClient("reader")
+      : undefined;
+
+  return (
+    <Link
+      href={href}
+      onClick={handleClick}
+      onMouseEnter={() => router.prefetch(href)}
+      aria-current={active ? "page" : undefined}
+      className={`group/nav relative flex w-full min-h-[44px] items-center gap-3 rounded-xl px-4 py-2.5 text-[13px] font-medium transition-colors duration-150 ${
+        active
+          ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_0_0_0_1px_rgba(226,158,213,0.12)]"
+          : "text-sidebar-foreground/65 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+      }`}
+    >
+      {active && (
+        <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-[#E29ED5]" />
+      )}
+      <Icon className={`h-[18px] w-[18px] flex-shrink-0 transition-colors duration-150 ${active ? "text-[#E29ED5]" : ""}`} />
+      <span className="truncate">{item.label}</span>
+    </Link>
+  );
+}
+
+/**
+ * Hard-navigates to /reader/home after setting the active_role cookie.
+ * Must NOT use Next.js <Link> — soft navigation may serve a stale prefetch
+ * that was cached while active_role=author, causing an immediate redirect back.
+ */
+function SwitchToReaderButton() {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setActiveRoleCookieClient("reader");
+        window.location.href = "/reader/home";
+      }}
+      className="group/nav relative flex w-full min-h-[44px] items-center gap-3 rounded-xl px-4 py-2.5 text-[13px] font-medium text-sidebar-foreground/65 transition-colors duration-150 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+    >
+      <Repeat className="h-[18px] w-[18px] flex-shrink-0 transition-colors duration-150" />
+      <span className="truncate">Open reader app</span>
+    </button>
+  );
+}
+
+function BookWorkflowNav({
+  bookId,
+  isOnBookPage,
+  demoModeActive,
+}: {
+  bookId: string;
+  isOnBookPage: boolean;
+  demoModeActive: boolean;
+}) {
+  const searchParams = useSearchParams();
+  const rawPanel = searchParams.get("panel")?.trim() || null;
+  // Only highlight a tab when actually on the book editor page
+  const activePanel = isOnBookPage ? (rawPanel ?? "edit") : null;
+
+  // In demo mode the book sidebar is reduced to the three steps the
+  // pitch actually walks through — Cover, Production, Distribute — so
+  // the investor never has the option to click into the real
+  // Write/Audio/Translate/Publish/Review panels. Real users see the
+  // unmodified 6-step sidebar.
+  const tabs = demoModeActive
+    ? [
+        BOOK_WORKFLOW_TABS.find((t) => t.key === "cover")!,
+        DEMO_PRODUCTION_TAB,
+        DEMO_DISTRIBUTE_TAB,
+      ]
+    : BOOK_WORKFLOW_TABS;
+
+  return (
+    <div className="ml-6 flex flex-col gap-1 border-l border-sidebar-border py-2 pl-3">
+      {tabs.map((tab, i) => {
+        const isActive =
+          tab.panel === null
+            ? activePanel === "edit"
+            : activePanel === tab.panel;
+        const href =
+          tab.panel === null
+            ? `/author/books/${bookId}`
+            : `/author/books/${bookId}?panel=${tab.panel}`;
+        const Icon = tab.icon;
+        const prevTab = i > 0 ? tabs[i - 1] : null;
+        const showDivider = prevTab !== null && prevTab.group !== tab.group;
+
+        return (
+          <div key={tab.key}>
+            {showDivider && (
+              <div
+                className="my-1 ml-3 mr-2 h-px bg-sidebar-border"
+                aria-hidden
+              />
+            )}
+            <Link
+              href={href}
+              aria-current={isActive ? "page" : undefined}
+              className={`flex min-h-[40px] items-center gap-2.5 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors ${
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/60 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+              }`}
+            >
+              <Icon
+                className={`h-[14px] w-[14px] flex-shrink-0 ${
+                  isActive
+                    ? "text-[#E29ED5]"
+                    : "text-sidebar-foreground/45"
+                }`}
+              />
+              <span className="truncate">{tab.label}</span>
+            </Link>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function AuthorSidebar({
+  demoModeActive = false,
+}: {
+  demoModeActive?: boolean;
+}) {
+  const { state, activeBook } = useAuthorWorkspace();
+  const pathname = usePathname();
+  const language = useSearchParams().get("lang") ?? undefined;
+  const currentBookId = activeBook?.id ?? state.currentBookId;
+  const isOnBookPage = pathname.startsWith("/author/books/");
+  const bookIdFromPath = isOnBookPage
+    ? pathname.match(/^\/author\/books\/([^/?]+)/)?.[1] ?? null
+    : null;
+
+  /* Mobile bottom nav items — subset of main nav for one-hand reach */
+  const mobileNavItems = AUTHOR_WORKFLOW_NAV.filter(
+    (item) =>
+      ["home", "library", "audience", "analytics"].includes(item.key) &&
+      // Same gate as the desktop nav — see the filter below.
+      !(item.key === "audience" && !getMarketingEnabled())
+  );
+
+  return (
+    <>
+      {/* ── Desktop sidebar ── */}
+      <aside data-author-sidebar className="hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
+        <div className="px-7 pb-8 pt-8">
+          <Link href="/author/home" className="inline-flex min-h-11 items-center">
+            <Image
+              src="/favicon.svg?v=20260916"
+              alt="Verkli"
+              width={1429}
+              height={265}
+              className="h-auto w-28"
+              priority
+            />
+          </Link>
+          <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.2em] text-sidebar-foreground/45">Author studio</p>
+        </div>
+
+        <nav aria-label="Author workspace" className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3">
+          {AUTHOR_WORKFLOW_NAV.filter((item) => {
+            // The Marketing entry leads to a page that offers to build a
+            // campaign, while the API answers MARKETING_FEATURE_DISABLED. Gate
+            // the door on the same flag as the room so the two cannot disagree.
+            if (item.key === "audience" && !getMarketingEnabled()) return false;
+
+            // Demo nav guardrail: hide entries that pull the investor away
+            // from the demo flow. Marketing, Analytics, Settings each have
+            // a façade equivalent (Distribute, Production, … or none) so
+            // surfacing them just creates dead-end clicks during the pitch.
+            if (!demoModeActive) return true;
+            return !["audience", "analytics", "settings"].includes(item.key);
+          }).map((item) => {
+            const active = isLeafActive(item, pathname);
+            const workflowBookId = bookIdFromPath ?? currentBookId;
+            const showWorkflowChildren =
+              item.key === "library" && isOnBookPage && !!workflowBookId;
+
+            return (
+              <div key={item.key}>
+                <SidebarNavLink
+                  item={item}
+                  href={resolveHref(item.href, item.bookScoped, currentBookId)}
+                  active={active}
+                />
+                {showWorkflowChildren && (
+                  <div className="mx-3 mb-3 mt-3 rounded-xl border border-sidebar-border bg-sidebar-accent/30 p-3">
+                    <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-sidebar-foreground/50">Current book</p>
+                    <Link href={getToolHref(workflowBookId, "edit", language)} className="mt-1 flex min-h-11 items-center text-sm leading-relaxed text-sidebar-foreground" title={activeBook?.id === workflowBookId ? activeBook.title ?? "Open manuscript" : "Open manuscript"}>
+                      <span className="line-clamp-2">{activeBook?.id === workflowBookId ? activeBook.title ?? "Open manuscript" : "Open manuscript"}</span>
+                    </Link>
+                    {demoModeActive ? <BookWorkflowNav bookId={workflowBookId} isOnBookPage={isOnBookPage} demoModeActive /> : <p className="mt-1 text-xs leading-relaxed text-sidebar-foreground/55">Your manuscript, editions and release tools are above the page.</p>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+
+        <div className="mx-3 border-t border-sidebar-border py-4">
+          <div className="flex flex-col gap-1.5">
+            {AUTHOR_SIDEBAR_FOOTER.map((item) =>
+              item.key === "switch-to-reader" ? (
+                <SwitchToReaderButton key={item.key} />
+              ) : (
+                <SidebarNavLink
+                  key={item.key}
+                  item={item}
+                  href={item.href}
+                  active={isLeafActive(item, pathname)}
+                />
+              )
+            )}
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Mobile bottom nav ── */}
+      <nav
+        data-author-sidebar
+        aria-label="Author navigation"
+        className="fixed bottom-0 left-0 right-0 z-[9990] border-t border-sidebar-border bg-sidebar/95 text-sidebar-foreground shadow-[0_-8px_24px_rgba(23,19,29,0.12)] backdrop-blur-xl lg:hidden"
+      >
+        <div className="mx-auto flex max-w-md items-center justify-around px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] pt-2">
+          {mobileNavItems.map((item) => {
+            const active = isLeafActive(item, pathname);
+            const Icon = ICONS[item.icon] ?? Home;
+            return (
+              <Link
+                key={item.key}
+                href={resolveHref(item.href, item.bookScoped, currentBookId)}
+                aria-current={active ? "page" : undefined}
+                className="group flex flex-col items-center gap-1 px-3 py-1.5"
+              >
+                <span
+                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-200 ${
+                    active
+                      ? "bg-sidebar-accent text-[#E29ED5]"
+                      : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground"
+                  }`}
+                >
+                  <Icon className="h-[18px] w-[18px]" />
+                </span>
+                <span
+                  className={`text-[10px] font-medium transition-colors ${
+                    active
+                      ? "text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/60"
+                  }`}
+                >
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
+          <details className="relative" onKeyDown={(event) => {
+            if (event.key === "Escape") { event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); }
+          }}>
+            <summary className="flex min-h-14 min-w-14 cursor-pointer list-none flex-col items-center justify-center gap-1 rounded-xl text-sidebar-foreground/80 [&::-webkit-details-marker]:hidden" aria-label="Account menu">
+              <UserCircle className="h-5 w-5" aria-hidden /><span className="text-[10px] font-medium">Account</span>
+            </summary>
+            <div className="absolute bottom-full right-0 mb-4 w-56 rounded-2xl border border-sidebar-border bg-sidebar p-2 shadow-xl" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); }}>
+              {AUTHOR_SIDEBAR_FOOTER.map((item) => item.key === "switch-to-reader" ? <SwitchToReaderButton key={item.key} /> : <SidebarNavLink key={item.key} item={item} href={item.href} active={isLeafActive(item, pathname)} />)}
+            </div>
+          </details>
+        </div>
+      </nav>
+    </>
+  );
+}

@@ -1,54 +1,263 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import GlassCard, { glassCardProps } from "@/components/GlassCard";
-import GlassSurface from "@/components/GlassSurface";
-import ThemeToggle from "@/components/ThemeToggle";
+import { useRouter } from "next/navigation";
+import AuthShell from "@/components/auth/AuthShell";
+import AuthCard from "@/components/auth/AuthCard";
+import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { createClient } from "@/lib/supabase/client";
+import { resolveErrorMessage } from "@/lib/error-messages";
 import { signUp, signInWithGoogle } from "@/lib/supabase/auth";
-import { ERROR_COPY } from "@/lib/copy-rules";
+
+type AuthorApplicationStatus = "none" | "pending" | "approved" | "rejected";
+
+const parseApplicationStatus = (value: unknown): AuthorApplicationStatus => {
+  const normalized = String(value ?? "").toLowerCase();
+  if (normalized === "pending" || normalized === "approved" || normalized === "rejected") {
+    return normalized;
+  }
+  return "none";
+};
+
+const isExistingSupabaseUser = (
+  data: { user?: { identities?: unknown[] | null } | null } | null | undefined
+): boolean => {
+  const identities = data?.user?.identities;
+  return Array.isArray(identities) && identities.length === 0;
+};
+
+type ApplicationStep = "info" | "background" | "published" | "link" | "submitted";
 
 export default function AuthorSignUp() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [applicationError, setApplicationError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({});
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
-  const mainRef = useRef<HTMLElement>(null);
+  const [loadingApplication, setLoadingApplication] = useState(true);
+  const [applicationLoading, setApplicationLoading] = useState(false);
+  const [loggedInEmail, setLoggedInEmail] = useState<string | null>(null);
+  const [applicationStatus, setApplicationStatus] = useState<AuthorApplicationStatus>("none");
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
-    if (!mainRef.current) return;
-    const rect = mainRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-    setMousePos({ x, y });
+  // Questionnaire state
+  const [step, setStep] = useState<ApplicationStep>("info");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [hasPublishedBefore, setHasPublishedBefore] = useState<boolean | null>(null);
+  const [publishedBooksUrl, setPublishedBooksUrl] = useState("");
+  const [motivation, setMotivation] = useState("");
+  const [writingBackground, setWritingBackground] = useState("");
+  const [workSamples, setWorkSamples] = useState("");
+  const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let mounted = true;
+    const supabase = createClient();
+
+    const loadSignedInUser = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!mounted) return;
+
+        if (!user) {
+          setLoggedInEmail(null);
+          setApplicationStatus("none");
+          setLoadingApplication(false);
+          return;
+        }
+
+        setLoggedInEmail(user.email ?? null);
+        if (user.email) setContactEmail(user.email);
+
+        try {
+          const response = await fetch("/api/author-applications");
+          const payload = await response.json().catch(() => null);
+          if (!response.ok) {
+            setApplicationError(
+              resolveErrorMessage(
+                null,
+                "Could not load your author application status. Please refresh and try again."
+              )
+            );
+            setApplicationStatus("none");
+            return;
+          }
+          setApplicationStatus(parseApplicationStatus(payload?.status));
+        } finally {
+          if (mounted) {
+            setLoadingApplication(false);
+          }
+        }
+      } catch {
+        if (mounted) {
+          setLoggedInEmail(null);
+          setApplicationStatus("none");
+          setLoadingApplication(false);
+        }
+      }
+    };
+
+    void loadSignedInUser();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const validate = () => {
+    const nextErrors: { email?: string; password?: string; confirmPassword?: string } = {};
+    if (!email.trim()) nextErrors.email = "Email is required.";
+    if (!password.trim()) {
+      nextErrors.password = "Password is required.";
+    } else if (password.length < 8) {
+      nextErrors.password = "Password must be at least 8 characters.";
+    }
+    if (!confirmPassword.trim()) {
+      nextErrors.confirmPassword = "Confirm your password.";
+    } else if (password !== confirmPassword) {
+      nextErrors.confirmPassword = "Passwords do not match.";
+    }
+    setFieldErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
-      return;
-    }
+    if (!validate()) return;
 
     setLoading(true);
 
-    const { error } = await signUp(email, password, "author");
+    const { data, error } = await signUp(email, password, "author");
 
     if (error) {
-      setError(ERROR_COPY.INVALID_LOGIN);
+      setError(resolveErrorMessage(null, "Could not create your account. Please try again."));
       setLoading(false);
+      return;
+    }
+
+    if (isExistingSupabaseUser(data)) {
+      setError("This email already has an account. Sign in first, then apply for author access.");
+      setLoading(false);
+      return;
+    }
+
+    setSuccess(true);
+  };
+
+  const switchToAuthorMode = async () => {
+    const response = await fetch("/api/auth/active-role", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ role: "author" }),
+    });
+
+    if (!response.ok) {
+      setApplicationError(
+        "Your author access is approved, but we could not switch your role automatically. Try again."
+      );
+      return;
+    }
+
+    router.push("/author/home");
+    router.refresh();
+  };
+
+  const submitApplication = async () => {
+    setApplicationError("");
+    setApplicationLoading(true);
+
+    try {
+      const response = await fetch("/api/author-applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email: contactEmail,
+          hasPublishedBefore: hasPublishedBefore ?? false,
+          publishedBooksUrl: hasPublishedBefore ? publishedBooksUrl : null,
+          motivation,
+          writingBackground,
+          workSamples,
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setApplicationError(
+          resolveErrorMessage(null, "Could not submit your author application. Please try again.")
+        );
+        return;
+      }
+
+      const nextStatus = parseApplicationStatus(payload?.status);
+      setApplicationStatus(nextStatus === "none" ? "pending" : nextStatus);
+      setStep("submitted");
+
+      if (nextStatus === "approved") {
+        await switchToAuthorMode();
+      }
+    } catch {
+      setApplicationError(
+        resolveErrorMessage(null, "Could not submit your author application. Please try again.")
+      );
+    } finally {
+      setApplicationLoading(false);
+    }
+  };
+
+  const handleNextFromInfo = () => {
+    const errors: Record<string, string> = {};
+    if (!firstName.trim()) errors.firstName = "First name is required.";
+    if (!lastName.trim()) errors.lastName = "Last name is required.";
+    if (!contactEmail.trim()) errors.contactEmail = "Email is required.";
+    setStepErrors(errors);
+    if (Object.keys(errors).length === 0) {
+      setStep("background");
+    }
+  };
+
+  const handleNextFromBackground = () => {
+    const errors: Record<string, string> = {};
+    if (!motivation.trim()) errors.motivation = "Tell us a little about why you want to publish.";
+    if (!writingBackground.trim()) errors.writingBackground = "Share a bit about your writing background.";
+    setStepErrors(errors);
+    if (Object.keys(errors).length === 0) {
+      setStep("published");
+    }
+  };
+
+  const handlePublishedAnswer = (answer: boolean) => {
+    setHasPublishedBefore(answer);
+    if (answer) {
+      setStep("link");
     } else {
-      setSuccess(true);
+      void submitApplication();
+    }
+  };
+
+  const handleSubmitWithLink = () => {
+    const errors: Record<string, string> = {};
+    if (!publishedBooksUrl.trim()) errors.publishedBooksUrl = "Please add a link to your published books.";
+    setStepErrors(errors);
+    if (Object.keys(errors).length === 0) {
+      void submitApplication();
     }
   };
 
@@ -56,221 +265,302 @@ export default function AuthorSignUp() {
     setError("");
     const { error } = await signInWithGoogle();
     if (error) {
-      setError(ERROR_COPY.INVALID_LOGIN);
+      setError(error.message);
     }
   };
 
+  if (loadingApplication) {
+    return (
+      <AuthShell backHref="/author" backLabel="Back to Verkli">
+        <AuthCard title="Preparing author access" subtitle="One moment">
+          <p className="text-center text-[14px] leading-relaxed text-muted-foreground">
+            Checking your account status...
+          </p>
+        </AuthCard>
+      </AuthShell>
+    );
+  }
+
+  if (loggedInEmail) {
+    const isApproved = applicationStatus === "approved";
+    const isPending = applicationStatus === "pending" || step === "submitted";
+
+    if (isApproved) {
+      return (
+        <AuthShell audience="author" backHref="/reader/home" backLabel="Back to reader home">
+          <AuthCard title="Author access approved" subtitle="You're ready to publish">
+            {applicationError && (
+              <div role="alert" className="mb-5 rounded-xl border border-red-200/80 bg-red-50/60 px-4 py-3 text-[14px] text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
+                {applicationError}
+              </div>
+            )}
+            <div className="flex flex-col gap-4">
+              <p className="text-[14px] leading-relaxed text-muted-foreground">
+                Signed in as <span className="font-medium text-foreground">{loggedInEmail}</span>. Your author access is already approved.
+              </p>
+              <Button fullWidth isLoading={applicationLoading} loadingText="Opening author home..." onClick={async () => { setApplicationLoading(true); await switchToAuthorMode(); setApplicationLoading(false); }}>
+                Open author home
+              </Button>
+            </div>
+          </AuthCard>
+        </AuthShell>
+      );
+    }
+
+    if (isPending) {
+      return (
+        <AuthShell audience="author" backHref="/reader/home" backLabel="Back to reader home">
+          <AuthCard title="Thank you for your application!" subtitle="We'll be in touch">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50/60 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <p className="text-[14px] leading-relaxed text-muted-foreground">
+                {hasPublishedBefore
+                  ? "Thank you for your application! We'll review your information and get back to you soon."
+                  : "Thank you for your application! We'll get back to you shortly about whether you can join."}
+              </p>
+              <Link href="/reader/home" className="mt-2 w-full">
+                <Button variant="secondary" fullWidth>Back to reader home</Button>
+              </Link>
+            </div>
+          </AuthCard>
+        </AuthShell>
+      );
+    }
+
+    // Multi-step questionnaire
+    return (
+      <AuthShell audience="author" backHref="/reader/home" backLabel="Back to reader home">
+        <AuthCard
+          title={
+            step === "info" ? "Apply to become an author"
+              : step === "background" ? "About your writing"
+                : step === "published" ? "Your publishing experience"
+                  : "Your published books"
+          }
+          subtitle={
+            step === "info" ? "Tell us about yourself"
+              : step === "background" ? "Step 2 of 4"
+                : step === "published" ? "Step 3 of 4"
+                  : "Step 4 of 4"
+          }
+        >
+          {applicationError && (
+            <div role="alert" className="mb-5 rounded-xl border border-red-200/80 bg-red-50/60 px-4 py-3 text-[14px] text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
+              {applicationError}
+            </div>
+          )}
+
+          {step === "info" && (
+            <div className="flex flex-col gap-4">
+              <p className="text-[14px] leading-relaxed text-muted-foreground">
+                Signed in as <span className="font-medium text-foreground">{loggedInEmail}</span>
+              </p>
+
+              <FormField label="First name" error={stepErrors.firstName}>
+                <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Your first name" autoComplete="given-name" fullWidth />
+              </FormField>
+
+              <FormField label="Last name" error={stepErrors.lastName}>
+                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Your last name" autoComplete="family-name" fullWidth />
+              </FormField>
+
+              <FormField label="Email address" error={stepErrors.contactEmail}>
+                <Input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" fullWidth />
+              </FormField>
+
+              <Button fullWidth onClick={handleNextFromInfo} className="mt-1">
+                Continue
+              </Button>
+            </div>
+          )}
+
+          {step === "background" && (
+            <div className="flex flex-col gap-4">
+              <p className="text-[14px] leading-relaxed text-muted-foreground">
+                Help us get to know you as a writer. A few sentences for each is plenty.
+              </p>
+
+              <FormField label="Why do you want to publish with us?" error={stepErrors.motivation}>
+                <Textarea
+                  value={motivation}
+                  onChange={(e) => setMotivation(e.target.value)}
+                  placeholder="What draws you to publishing, and what you hope to share…"
+                />
+              </FormField>
+
+              <FormField label="Tell us about your writing background" error={stepErrors.writingBackground}>
+                <Textarea
+                  value={writingBackground}
+                  onChange={(e) => setWritingBackground(e.target.value)}
+                  placeholder="Your experience writing — genres, how long you’ve written, any training…"
+                />
+              </FormField>
+
+              <FormField
+                label="Work samples or links"
+                helper="Optional — paste links to your work, a portfolio, or a short sample."
+                error={stepErrors.workSamples}
+              >
+                <Textarea
+                  value={workSamples}
+                  onChange={(e) => setWorkSamples(e.target.value)}
+                  placeholder="https://… or a short excerpt of your writing"
+                />
+              </FormField>
+
+              <Button fullWidth onClick={handleNextFromBackground} className="mt-1">
+                Continue
+              </Button>
+
+              <button type="button" onClick={() => setStep("info")} className="mt-1 min-h-11 text-[13px] text-slate-400 transition hover:text-muted-foreground dark:hover:text-white/60">
+                Go back
+              </button>
+            </div>
+          )}
+
+          {step === "published" && (
+            <div className="flex flex-col gap-4">
+              <p className="text-[14px] leading-relaxed text-muted-foreground">
+                Have you published books before?
+              </p>
+
+              <div className="flex flex-col gap-3">
+                <Button fullWidth isLoading={applicationLoading && hasPublishedBefore === false} loadingText="Submitting..." onClick={() => handlePublishedAnswer(true)}>
+                  Yes, I have published books
+                </Button>
+                <Button variant="secondary" fullWidth isLoading={applicationLoading && hasPublishedBefore === false} loadingText="Submitting..." onClick={() => handlePublishedAnswer(false)}>
+                  No, not yet
+                </Button>
+              </div>
+
+              <button type="button" onClick={() => setStep("background")} className="mt-1 min-h-11 text-[13px] text-slate-400 transition hover:text-muted-foreground dark:hover:text-white/60">
+                Go back
+              </button>
+            </div>
+          )}
+
+          {step === "link" && (
+            <div className="flex flex-col gap-4">
+              <p className="text-[14px] leading-relaxed text-muted-foreground">
+                Where can we find your published books? Add a link so we can check them out.
+              </p>
+
+              <FormField label="Link to your published books" error={stepErrors.publishedBooksUrl}>
+                <Input type="url" value={publishedBooksUrl} onChange={(e) => setPublishedBooksUrl(e.target.value)} placeholder="https://..." fullWidth />
+              </FormField>
+
+              <Button fullWidth isLoading={applicationLoading} loadingText="Submitting..." onClick={handleSubmitWithLink} className="mt-1">
+                Submit application
+              </Button>
+
+              <button type="button" onClick={() => setStep("published")} className="mt-1 min-h-11 text-[13px] text-slate-400 transition hover:text-muted-foreground dark:hover:text-white/60">
+                Go back
+              </button>
+            </div>
+          )}
+        </AuthCard>
+      </AuthShell>
+    );
+  }
+
   if (success) {
     return (
-      <main
-        ref={mainRef}
-        onMouseMove={handleMouseMove}
-        className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground transition-colors duration-300"
-      >
-        <div className="fixed inset-0 z-0 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#907AFF]/10 via-[#E29ED5]/8 to-[#FCC997]/10 dark:from-slate-900/95 dark:via-purple-950/90 dark:to-slate-900/95" />
-          <div
-            className="absolute h-[700px] w-[700px] rounded-full blur-[100px] pointer-events-none"
-            style={{
-              background: "radial-gradient(circle, rgba(144, 122, 255, 0.4) 0%, rgba(226, 158, 213, 0.3) 30%, rgba(252, 201, 151, 0.25) 50%, transparent 70%)",
-              left: `${mousePos.x * 100}%`,
-              top: `${mousePos.y * 100}%`,
-              transform: "translate(-50%, -50%)",
-              willChange: "left, top",
-            }}
-          />
-        </div>
-        <GlassSurface
-          {...glassCardProps}
-          width="480px"
-          height="auto"
-          borderRadius={40}
-          className="glass-card relative z-20 border border-black/[0.1] dark:border-white/[0.1]"
-        >
-          <div className="flex w-full flex-col items-center px-12 py-14 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
-              <svg className="h-8 w-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+      <AuthShell backHref="/author" backLabel="Back to Verkli">
+        <AuthCard title="Check your email" subtitle="Almost there">
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50/60 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            
-            <h1 className="mt-6 text-[28px] font-semibold text-slate-900 dark:text-white">
-              Check your email
-            </h1>
-            
-            <p className="mt-4 max-w-[320px] text-base leading-relaxed text-slate-600 dark:text-white/50">
-              We&apos;ve sent a confirmation link to <span className="text-slate-700 dark:text-white/70">{email}</span>. Click the link to activate your account.
+            <p className="text-[14px] leading-relaxed text-muted-foreground">
+              We sent a confirmation link to <span className="font-medium text-foreground">{email}</span>.
+              Open it to activate your account.
             </p>
-
-            <Link href="/author/signin" className="btn-secondary mt-8">
-              Back to sign in
+            <Link href="/author/signin" className="mt-2 w-full">
+              <Button variant="secondary" fullWidth>Back to sign in</Button>
             </Link>
           </div>
-        </GlassSurface>
-      </main>
+        </AuthCard>
+      </AuthShell>
     );
   }
 
   return (
-    <main
-      ref={mainRef}
-      onMouseMove={handleMouseMove}
-      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-background text-foreground transition-colors duration-300"
-    >
-      {/* Same background as sign in - base gradient + mouse-tracked circle */}
-      <div className="fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#907AFF]/10 via-[#E29ED5]/8 to-[#FCC997]/10 dark:from-slate-900/95 dark:via-purple-950/90 dark:to-slate-900/95" />
-        <div
-          className="absolute h-[700px] w-[700px] rounded-full blur-[100px] pointer-events-none"
-          style={{
-            background: "radial-gradient(circle, rgba(144, 122, 255, 0.4) 0%, rgba(226, 158, 213, 0.3) 30%, rgba(252, 201, 151, 0.25) 50%, transparent 70%)",
-            left: `${mousePos.x * 100}%`,
-            top: `${mousePos.y * 100}%`,
-            transform: "translate(-50%, -50%)",
-            willChange: "left, top",
-          }}
-        />
-      </div>
-
-      {/* Logo + Back */}
-      <header className="absolute left-6 top-6 z-30 flex items-center gap-3 sm:left-8 sm:top-8">
-        <Link href="/author" className="flex min-h-[44px] min-w-[44px] items-center" aria-label="verkli">
-          <img src="/logo-dark.svg" alt="verkli" className="h-8 w-auto dark:hidden" loading="eager" />
-          <img src="/favicon.svg" alt="verkli" className="hidden h-8 w-auto dark:block" loading="eager" />
-        </Link>
-        <Link
-          href="/author"
-          className="btn-secondary text-[13px] gap-2 px-4 py-2.5"
-        >
-          <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
-          </svg>
-          Back to verkli
-        </Link>
-      </header>
-
-      {/* Theme Toggle - bottom right */}
-      <div className="absolute bottom-8 right-8 z-30">
-        <ThemeToggle glassProps={glassCardProps} />
-      </div>
-
-      {/* Sign up card – solid i light, glass i dark */}
-      <GlassCard className="card-auth">
-        <div className="flex w-full flex-col items-center px-6 py-10 text-center sm:px-10 sm:py-12 md:px-12 md:py-14">
-          <p className="text-sm font-medium tracking-wide text-slate-600 dark:text-white/50 sm:text-base">
-            Start your journey
-          </p>
-          
-          <h1 className="mt-3 text-2xl font-semibold leading-[1.15] tracking-tight text-slate-900 dark:text-white sm:mt-4 sm:text-3xl md:text-[36px]">
-            Create your
-            <br />
-            author account
-          </h1>
-
-          {error && (
-            <div className="mt-4 w-full rounded-xl border border-red-200 bg-red-50/80 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="mt-8 flex w-full flex-col gap-5">
-            <div className="flex flex-col gap-2 text-left">
-              <label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-white/60">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                className="input-base"
-              />
-            </div>
-
-            <div className="flex flex-col gap-2 text-left">
-              <label htmlFor="password" className="text-sm font-medium text-slate-700 dark:text-white/60">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="input-base"
-              />
-            </div>
-
-            <div className="flex flex-col gap-2 text-left">
-              <label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700 dark:text-white/60">
-                Confirm password
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="input-base"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary mt-4 w-full"
-            >
-              {loading ? "Creating account..." : "Create account"}
-            </button>
-          </form>
-
-          <div className="mt-6 flex w-full items-center gap-4">
-            <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
-            <span className="text-sm text-slate-500 dark:text-white/30">or</span>
-            <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
-          </div>
-
-          <button
-            type="button"
-            onClick={handleGoogleSignIn}
-            className="btn-secondary mt-6 w-full"
+    <AuthShell backHref="/author" backLabel="Back to Verkli">
+      <AuthCard title="Create your author account" subtitle="Start your journey">
+        {error && (
+          <div
+            role="alert"
+            className="mb-5 rounded-xl border border-red-200/80 bg-red-50/60 px-4 py-3 text-[14px] text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
           >
-            <svg className="h-5 w-5" viewBox="0 0 24 24">
-              <path
-                fill="currentColor"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="currentColor"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="currentColor"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-              />
-              <path
-                fill="currentColor"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-              />
-            </svg>
-            Continue with Google
-          </button>
+            {error}
+          </div>
+        )}
 
-          <p className="mt-8 text-sm text-slate-600 dark:text-white/40">
-            Already have an account?{" "}
-            <Link
-              href="/author/signin"
-              className="text-slate-900 transition hover:text-slate-700 dark:text-white/70 dark:hover:text-white"
-            >
-              Sign in
-            </Link>
-          </p>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <FormField label="Email" error={fieldErrors.email}>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+              required
+              fullWidth
+            />
+          </FormField>
+
+          <FormField label="Password" error={fieldErrors.password}>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              required
+              fullWidth
+            />
+          </FormField>
+
+          <FormField label="Confirm password" error={fieldErrors.confirmPassword}>
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              required
+              fullWidth
+            />
+          </FormField>
+
+          <Button type="submit" fullWidth isLoading={loading} loadingText="Creating account..." className="mt-1">
+            Create account
+          </Button>
+        </form>
+
+        <div className="my-6 flex items-center gap-4">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-[13px] text-muted-foreground">or</span>
+          <div className="h-px flex-1 bg-border" />
         </div>
-      </GlassCard>
-    </main>
+
+        <Button type="button" variant="secondary" fullWidth onClick={handleGoogleSignIn}>
+          Continue with Google
+        </Button>
+
+        <p className="mt-8 text-center text-[14px] text-muted-foreground">
+          Already have an account?{" "}
+          <Link href="/author/signin" className="font-medium text-foreground hover:underline">
+            Sign in
+          </Link>
+        </p>
+      </AuthCard>
+    </AuthShell>
   );
 }

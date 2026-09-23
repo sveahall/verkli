@@ -1,0 +1,532 @@
+"use client";
+
+import Link from "next/link";
+import Image from "next/image";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useToastHelpers } from "@/components/ui/toast";
+import { resolveErrorMessage } from "@/lib/error-messages";
+
+type ChapterOption = {
+  id: string;
+  title: string;
+  order: number;
+};
+
+type CommentAuthor = {
+  id: string;
+  name: string;
+  username: string | null;
+  avatarUrl: string | null;
+};
+
+type ReplyComment = {
+  id: string;
+  chapterId: string | null;
+  chapterTitle: string | null;
+  parentCommentId: string | null;
+  body: string;
+  authorId: string;
+  createdAt: string;
+  author: CommentAuthor;
+};
+
+type BookComment = {
+  id: string;
+  chapterId: string | null;
+  chapterTitle: string | null;
+  parentCommentId: string | null;
+  body: string;
+  authorId: string;
+  createdAt: string;
+  author: CommentAuthor;
+  replies: ReplyComment[];
+};
+
+type CommentsData = {
+  comments?: BookComment[];
+  viewerId?: string | null;
+  nextCursor?: string | null;
+};
+
+type CommentsResponse = {
+  // The GET route wraps its payload in `{ ok, data: {...} }`. Reading the
+  // envelope (not a flat `payload.comments`) is required — the flat read left
+  // the list permanently empty.
+  data?: CommentsData;
+  error?: string;
+};
+
+type CommentsSectionProps = {
+  bookId: string;
+  bookAuthorId: string;
+  currentUserId: string | null;
+  isSignedIn: boolean;
+  signInHref: string;
+  chapterOptions: ChapterOption[];
+  fixedChapterId?: string | null;
+  title?: string;
+};
+
+const formatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+function formatTimestamp(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return formatter.format(date);
+}
+
+function AuthorAvatar({ author }: { author: CommentAuthor }) {
+  const initials = author.name
+    .split(" ")
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  return (
+    <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-black/[0.06] bg-muted text-xs font-semibold text-muted-foreground dark:border-border dark:bg-card">
+      {author.avatarUrl ? (
+        <Image src={author.avatarUrl} alt={author.name} fill sizes="36px" className="object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center">{initials}</div>
+      )}
+    </div>
+  );
+}
+
+export default function CommentsSection({
+  bookId,
+  bookAuthorId,
+  currentUserId,
+  isSignedIn,
+  signInHref,
+  chapterOptions,
+  fixedChapterId = null,
+  title = "Comments",
+}: CommentsSectionProps) {
+  const toast = useToastHelpers();
+  const [comments, setComments] = useState<BookComment[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [body, setBody] = useState("");
+  const [selectedChapterId, setSelectedChapterId] = useState<string>(fixedChapterId ?? "");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyBody, setReplyBody] = useState("");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const totalComments = useMemo(
+    () =>
+      comments.reduce((sum, comment) => {
+        return sum + 1 + comment.replies.length;
+      }, 0),
+    [comments]
+  );
+
+  const canDeleteComment = useCallback(
+    (authorId: string) => {
+      if (!currentUserId) return false;
+      return currentUserId === authorId || currentUserId === bookAuthorId;
+    },
+    [bookAuthorId, currentUserId]
+  );
+
+  const commentsUrl = useCallback(
+    (cursor?: string | null) => {
+      const params = new URLSearchParams();
+      if (fixedChapterId) params.set("chapterId", fixedChapterId);
+      if (cursor) params.set("cursor", cursor);
+      const qs = params.toString();
+      return `/api/books/${encodeURIComponent(bookId)}/comments${qs ? `?${qs}` : ""}`;
+    },
+    [bookId, fixedChapterId]
+  );
+
+  // Load (or reset to) the first page.
+  const loadComments = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const response = await fetch(commentsUrl(), { cache: "no-store" });
+      const payload = (await response.json().catch(() => ({}))) as CommentsResponse;
+
+      if (!response.ok) {
+        const message = resolveErrorMessage(payload.error, "Could not load comments.");
+        setLoadError(message);
+        return;
+      }
+
+      const data = payload.data ?? {};
+      setComments(Array.isArray(data.comments) ? data.comments : []);
+      setNextCursor(data.nextCursor ?? null);
+    } catch {
+      setLoadError("Could not load comments.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [commentsUrl]);
+
+  // Append the next (older) page of top-level threads. Dedupe by id so a
+  // created_at tie at the page boundary can never duplicate a thread.
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const response = await fetch(commentsUrl(nextCursor), { cache: "no-store" });
+      const payload = (await response.json().catch(() => ({}))) as CommentsResponse;
+
+      if (!response.ok) {
+        toast.error(resolveErrorMessage(payload.error, "Could not load more comments."));
+        return;
+      }
+
+      const data = payload.data ?? {};
+      const more = Array.isArray(data.comments) ? data.comments : [];
+      setComments((prev) => {
+        const seen = new Set(prev.map((c) => c.id));
+        return [...prev, ...more.filter((c) => !seen.has(c.id))];
+      });
+      setNextCursor(data.nextCursor ?? null);
+    } catch {
+      toast.error("Could not load more comments.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [commentsUrl, nextCursor, isLoadingMore, toast]);
+
+  useEffect(() => {
+    void loadComments();
+  }, [loadComments]);
+
+  useEffect(() => {
+    setSelectedChapterId(fixedChapterId ?? "");
+  }, [fixedChapterId]);
+
+  const submitComment = useCallback(
+    async (input: { text: string; parentCommentId?: string | null; chapterId?: string | null }) => {
+      const trimmed = input.text.trim();
+      if (!trimmed) return;
+
+      setIsSubmitting(true);
+      try {
+        const response = await fetch(`/api/books/${encodeURIComponent(bookId)}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            body: trimmed,
+            chapterId: input.chapterId ?? null,
+            parentCommentId: input.parentCommentId ?? null,
+          }),
+        });
+
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        if (!response.ok) {
+          toast.error(resolveErrorMessage(payload.error, "Could not publish comment."));
+          return;
+        }
+
+        if (input.parentCommentId) {
+          toast.success("Reply published.");
+          setReplyBody("");
+          setReplyingToId(null);
+        } else {
+          toast.success("Comment published.");
+          setBody("");
+          setSelectedChapterId(fixedChapterId ?? "");
+        }
+
+        await loadComments();
+      } catch {
+        toast.error("Could not publish comment.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [bookId, fixedChapterId, loadComments, toast]
+  );
+
+  const deleteComment = useCallback(
+    async (commentId: string) => {
+      if (!commentId) return;
+
+      setPendingDeleteId(commentId);
+      try {
+        const response = await fetch(`/api/comments/${encodeURIComponent(commentId)}`, {
+          method: "DELETE",
+        });
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+
+        if (!response.ok) {
+          toast.error(resolveErrorMessage(payload.error, "Could not delete comment."));
+          return;
+        }
+
+        toast.success("Comment deleted.");
+        await loadComments();
+      } catch {
+        toast.error("Could not delete comment.");
+      } finally {
+        setPendingDeleteId(null);
+      }
+    },
+    [loadComments, toast]
+  );
+
+  return (
+    <section>
+      <div className="rounded-2xl border border-black/[0.06] bg-card p-6 shadow-sm dark:border-border">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xl font-medium text-foreground font-display">{title}</h2>
+          <span className="text-xs text-muted-foreground">
+            {nextCursor ? `${totalComments} shown` : `${totalComments} total`}
+          </span>
+        </div>
+
+        {!isSignedIn ? (
+          <div className="mt-4 rounded-xl border border-black/[0.06] bg-muted p-4 text-sm text-muted-foreground dark:border-border dark:bg-card">
+            <p>Sign in to comment.</p>
+            <Link
+              href={signInHref}
+              className="mt-3 inline-flex items-center rounded-xl border border-black/[0.06] bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-black/[0.02] dark:border-border dark:hover:bg-card"
+            >
+              Sign in
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-xl border border-black/[0.06] bg-muted p-4 dark:border-border dark:bg-card">
+            <label htmlFor="comment-body" className="text-sm font-medium text-muted-foreground">
+              New comment
+            </label>
+            <Textarea
+              id="comment-body"
+              className="mt-2 min-h-[110px]"
+              placeholder="Write your comment..."
+              value={body}
+              onChange={(event) => setBody(event.target.value)}
+              maxLength={2000}
+            />
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              {!fixedChapterId ? (
+                <div className="flex items-center gap-2">
+                  <label htmlFor="comment-chapter" className="text-xs text-muted-foreground">
+                    Chapter
+                  </label>
+                  <select
+                    id="comment-chapter"
+                    className="min-h-11 rounded-xl border border-black/[0.06] bg-card px-3 py-1.5 text-[16px] sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#907AFF]/15 dark:border-border"
+                    value={selectedChapterId}
+                    onChange={(event) => setSelectedChapterId(event.target.value)}
+                  >
+                    <option value="">Entire book</option>
+                    {/* Position, not `order` — see the chapter list on the book
+                        page: `order` is a sort key that starts at 0 in some
+                        books and 1 in others. */}
+                    {chapterOptions.map((chapter, index) => (
+                      <option key={chapter.id} value={chapter.id}>
+                        {index + 1}. {chapter.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  This thread is linked to this chapter.
+                </p>
+              )}
+
+              <Button
+                type="button"
+                onClick={() =>
+                  submitComment({
+                    text: body,
+                    chapterId: fixedChapterId ?? (selectedChapterId || null),
+                  })
+                }
+                isLoading={isSubmitting}
+                loadingText="Publishing"
+              >
+                Publish
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 space-y-4">
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading comments...</p>
+          ) : loadError ? (
+            <p className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-500">
+              {loadError}
+            </p>
+          ) : comments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No comments yet. Start the thread.</p>
+          ) : (
+            comments.map((comment) => (
+              <article
+                key={comment.id}
+                className="rounded-xl border border-black/[0.06] bg-card p-4 shadow-sm dark:border-border"
+              >
+                <div className="flex items-start gap-3">
+                  <AuthorAvatar author={comment.author} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">
+                        {comment.author.name}
+                      </p>
+                      {comment.author.username && (
+                        <span className="text-xs text-muted-foreground">
+                          @{comment.author.username}
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {formatTimestamp(comment.createdAt)}
+                      </span>
+                      {comment.chapterTitle && (
+                        <span className="rounded-xl border border-green-500/20 bg-green-500/5 px-2 py-0.5 text-xs font-medium text-green-500">
+                          {comment.chapterTitle}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-foreground/80 dark:text-muted-foreground">
+                      {comment.body}
+                    </p>
+
+                    <div className="mt-2 flex items-center gap-4 text-xs">
+                      {isSignedIn && (
+                        <button
+                          type="button"
+                          className="text-muted-foreground transition-colors hover:text-accent-foreground dark:hover:text-accent-foreground"
+                          onClick={() => {
+                            setReplyingToId((current) =>
+                              current === comment.id ? null : comment.id
+                            );
+                            setReplyBody("");
+                          }}
+                        >
+                          Reply
+                        </button>
+                      )}
+                      {canDeleteComment(comment.authorId) && (
+                        <button
+                          type="button"
+                          className="text-red-500 transition-colors hover:text-red-600"
+                          disabled={pendingDeleteId === comment.id}
+                          onClick={() => deleteComment(comment.id)}
+                        >
+                          {pendingDeleteId === comment.id ? "Deleting..." : "Delete"}
+                        </button>
+                      )}
+                    </div>
+
+                    {isSignedIn && replyingToId === comment.id && (
+                      <div className="mt-3 rounded-xl border border-black/[0.06] bg-muted p-3 dark:border-border dark:bg-card">
+                        <Textarea
+                          className="min-h-[90px]"
+                          placeholder="Write your reply..."
+                          value={replyBody}
+                          onChange={(event) => setReplyBody(event.target.value)}
+                          maxLength={2000}
+                        />
+                        <div className="mt-3 flex items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setReplyingToId(null);
+                              setReplyBody("");
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            isLoading={isSubmitting}
+                            loadingText="Publishing"
+                            onClick={() =>
+                              submitComment({
+                                text: replyBody,
+                                parentCommentId: comment.id,
+                                chapterId: comment.chapterId,
+                              })
+                            }
+                          >
+                            Publish reply
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {comment.replies.length > 0 && (
+                      <div className="mt-3 space-y-2 border-l-2 border-black/[0.06] pl-4 dark:border-border">
+                        {comment.replies.map((reply) => (
+                          <div
+                            key={reply.id}
+                            className="rounded-xl bg-muted p-3 dark:bg-card"
+                          >
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold text-foreground">
+                                {reply.author.name}
+                              </p>
+                              {reply.author.username && (
+                                <span className="text-xs text-muted-foreground">
+                                  @{reply.author.username}
+                                </span>
+                              )}
+                              <span className="text-xs text-muted-foreground">
+                                {formatTimestamp(reply.createdAt)}
+                              </span>
+                            </div>
+                            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground/80 dark:text-muted-foreground">
+                              {reply.body}
+                            </p>
+                            {canDeleteComment(reply.authorId) && (
+                              <button
+                                type="button"
+                                className="mt-1 text-xs text-red-500 transition-colors hover:text-red-600"
+                                disabled={pendingDeleteId === reply.id}
+                                onClick={() => deleteComment(reply.id)}
+                              >
+                                {pendingDeleteId === reply.id ? "Deleting..." : "Delete"}
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            ))
+          )}
+
+          {nextCursor && !isLoading && !loadError && (
+            <div className="pt-1">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => void loadMore()}
+                isLoading={isLoadingMore}
+                loadingText="Loading"
+              >
+                Load more comments
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}

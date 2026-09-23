@@ -1,0 +1,108 @@
+"use client";
+
+import type { ReactNode } from "react";
+
+type StatsOverviewCardsProps = {
+  views: number;
+  reads: number;
+  revenue: number | null;
+  publishedBooks: number;
+  currency: string | null;
+  byCurrency?: Record<string, number> | null;
+};
+
+function StatCard({
+  icon,
+  label,
+  value,
+  stackIcon = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: ReactNode;
+  stackIcon?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm dark:border-border dark:bg-card">
+      <div className={stackIcon ? "flex flex-col gap-3" : "flex items-center gap-3"}>
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#907AFF]/10 text-accent-foreground">
+          {icon}
+        </div>
+        <div>
+          <p className="text-[12px] font-medium text-muted-foreground dark:text-muted-foreground">
+            {label}
+          </p>
+          <p className="text-xl font-bold text-foreground dark:text-foreground">
+            {value}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function StatsOverviewCards({
+  views,
+  reads,
+  revenue,
+  publishedBooks,
+  currency,
+  byCurrency,
+}: StatsOverviewCardsProps) {
+  const formatNumber = (n: number) =>
+    n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+
+  const amounts = byCurrency === undefined
+    ? revenue === null ? null : { [currency ?? "SEK"]: revenue }
+    : byCurrency;
+  const salesValue = amounts === null ? "Unavailable" : Object.keys(amounts).length === 0
+    ? "No paid orders"
+    : Object.entries(amounts).map(([code, amount]) => (
+        <span key={code} className="block break-words tabular-nums">{amount.toLocaleString("en-US")} {code}</span>
+      ));
+
+  return (
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <StatCard
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z" />
+          </svg>
+        }
+        label="Views"
+        value={formatNumber(views)}
+      />
+      <StatCard
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 5.5h11a3 3 0 013 3v10H8a3 3 0 00-3 3v-16z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 18.5h11" />
+          </svg>
+        }
+        label="Reads"
+        value={formatNumber(reads)}
+      />
+      <StatCard
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v20M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6" />
+          </svg>
+        }
+        stackIcon
+        label="Book sales"
+        value={salesValue}
+      />
+      <StatCard
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 5.5h11a3 3 0 013 3v10H8a3 3 0 00-3 3v-16z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 18.5h11" />
+          </svg>
+        }
+        label="Published books"
+        value={String(publishedBooks)}
+      />
+    </div>
+  );
+}

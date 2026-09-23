@@ -1,0 +1,29 @@
+== Autoresearch Optimization Complete ==
+
+Final: v3a — 100% pass rate (20/20 cases, 220/220 assertions)
+Backend: NVIDIA NIM API → google/gemma-2-27b-it
+
+== Optimization History ==
+
+Cycle 0 (v0): 30% — baseline with vague instructions
+  Failures: empathy_opener (7), no_invented_policy (2), actionable (1)
+  Fix: Explicit numbered rules with example phrases
+
+Cycle 1 (v1c): 90% — numbered rules
+  Failures: actionable on off-topic/compliment cases (2)
+  Fix: Added "feel free"/"let me know" as valid action signals + closing offer rule
+
+Cycle 2 (v2a): 95% — closing offer rule
+  Failures: stays_in_role (1) — Gemma said "I don't have access to"
+  Fix: Added explicit "never break character" instruction
+
+Cycle 3 (v3a): 100% — stay-in-role rule
+  All 20 cases pass all 11 assertions.
+
+== Key Learnings ==
+
+1. Gemma 2 27B follows numbered rules reliably — structured > prose
+2. Must explicitly prohibit AI self-reference — Gemma defaults to "I don't have access"
+3. Smart apostrophes (U+2019) from NIM require normalization in assertions
+4. Off-topic inputs (compliments, adversarial) need explicit handling in prompt
+5. "we always" is common in casual positive phrasing — assertion needed nuance

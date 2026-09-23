@@ -1,0 +1,550 @@
+"use client";
+
+import Link from "next/link";
+import {
+  ArrowLeft,
+  Coins,
+  MessageSquareText,
+  ThumbsUp,
+  UserRoundPlus,
+  Users,
+} from "lucide-react";
+import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
+import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
+
+type Metric = "sales" | "readers" | "subscribers" | "comments" | "reviews";
+
+type MetricDetailWorkspaceProps = {
+  metric: Metric;
+  /**
+   * Exact, database-side aggregates. The `rows` below are a display slice
+   * (100-200 rows), so any card derived from them is capped at that slice and
+   * disagrees with the home dashboard. Prefer these when present.
+   */
+  summary: {
+    total: number;
+    change: number;
+    currency?: string;
+    activeCount?: number;
+    totalCount?: number;
+    avgRating?: number;
+  };
+  rows: Array<Record<string, unknown>>;
+  books: Array<{ id: string; title: string }>;
+};
+
+const METRIC_CONFIG: Record<
+  Metric,
+  {
+    title: string;
+    icon: typeof Coins;
+    toneClassName: string;
+    unit?: string;
+  }
+> = {
+  sales: {
+    title: "Sales",
+    icon: Coins,
+    toneClassName: "bg-[#EEF4FF] text-[#4F74E7]",
+    unit: "SEK",
+  },
+  readers: {
+    title: "Readers",
+    icon: Users,
+    toneClassName: "bg-[#F2EDFF] text-[#8A72FF]",
+  },
+  subscribers: {
+    title: "Subscribers",
+    icon: UserRoundPlus,
+    toneClassName: "bg-[#FCEFFF] text-[#E17AD5]",
+  },
+  comments: {
+    title: "Comments",
+    icon: MessageSquareText,
+    toneClassName: "bg-[#FFF3E8] text-[#F0A75B]",
+  },
+  reviews: {
+    title: "Reviews",
+    icon: ThumbsUp,
+    toneClassName: "bg-[#FFF8DB] text-[#D8B53D]",
+  },
+};
+
+function formatDate(dateStr: unknown): string {
+  if (typeof dateStr !== "string") return "—";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("sv-SE", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatDateTime(dateStr: unknown): string {
+  if (typeof dateStr !== "string") return "—";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("sv-SE", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    completed:
+      "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
+    paid: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
+    active:
+      "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
+    pending:
+      "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
+    unsubscribed:
+      "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground",
+    cancelled:
+      "bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400",
+  };
+
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+        styles[status] ?? "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground"
+      }`}
+    >
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  );
+}
+
+function RatingStars({ rating }: { rating: number }) {
+  const full = Math.floor(rating);
+  const half = rating - full >= 0.5;
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[#D8B53D]">
+      {Array.from({ length: 5 }, (_, i) => (
+        <span key={i} className={i < full ? "opacity-100" : half && i === full ? "opacity-60" : "opacity-20"}>
+          ★
+        </span>
+      ))}
+      <span className="ml-1 text-[12px] text-muted-foreground dark:text-muted-foreground">
+        {rating.toFixed(1)}
+      </span>
+    </span>
+  );
+}
+
+function SalesTable({ rows }: { rows: Array<Record<string, unknown>> }) {
+  if (rows.length === 0) {
+    return <EmptyState message="No orders yet." />;
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border/80 dark:border-border">
+            <Th>Order</Th>
+            <Th>Date</Th>
+            <Th>Book</Th>
+            <Th>Country</Th>
+            <Th>Amount</Th>
+            <Th>Payment status</Th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border dark:divide-border">
+          {rows.map((row, i) => (
+            <tr key={String(row.id ?? i)} className="transition hover:bg-background/50 dark:hover:bg-accent">
+              <Td className="font-medium text-foreground dark:text-foreground">
+                #{String(row.id ?? "").slice(0, 8)}
+              </Td>
+              <Td>{formatDateTime(row.date)}</Td>
+              <Td>{String(row.bookTitle ?? "")}</Td>
+              <Td>{String(row.country ?? "—")}</Td>
+              <Td className="font-medium">
+                {Number(row.amount ?? 0).toLocaleString("sv-SE")} {String(row.currency ?? "SEK")}
+              </Td>
+              <Td>
+                <StatusBadge status={String(row.status ?? "pending")} />
+              </Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ReadersTable({ rows }: { rows: Array<Record<string, unknown>> }) {
+  if (rows.length === 0) {
+    return <EmptyState message="No readers yet." />;
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border/80 dark:border-border">
+            <Th>Book</Th>
+            <Th>Readers</Th>
+            <Th>Latest activity</Th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border dark:divide-border">
+          {rows.map((row, i) => (
+            <tr key={String(row.id ?? i)} className="transition hover:bg-background/50 dark:hover:bg-accent">
+              <Td className="font-medium text-foreground dark:text-foreground">
+                {String(row.bookTitle ?? "")}
+              </Td>
+              <Td>{Number(row.readerCount ?? 0).toLocaleString("sv-SE")}</Td>
+              <Td>{formatDate(row.latestRead)}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SubscribersTable({ rows }: { rows: Array<Record<string, unknown>> }) {
+  if (rows.length === 0) {
+    return <EmptyState message="No subscribers yet." />;
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border/80 dark:border-border">
+            <Th>Email</Th>
+            <Th>Status</Th>
+            <Th>Subscribed</Th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border dark:divide-border">
+          {rows.map((row, i) => (
+            <tr key={String(row.id ?? i)} className="transition hover:bg-background/50 dark:hover:bg-accent">
+              <Td className="font-medium text-foreground dark:text-foreground">
+                {String(row.email ?? "")}
+              </Td>
+              <Td>
+                <StatusBadge status={String(row.status ?? "")} />
+              </Td>
+              <Td>{formatDate(row.date)}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CommentsTable({ rows }: { rows: Array<Record<string, unknown>> }) {
+  if (rows.length === 0) {
+    return <EmptyState message="No comments yet." />;
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border/80 dark:border-border">
+            <Th>Book</Th>
+            <Th>Comment</Th>
+            <Th>Date</Th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border dark:divide-border">
+          {rows.map((row, i) => (
+            <tr key={String(row.id ?? i)} className="transition hover:bg-background/50 dark:hover:bg-accent">
+              <Td className="font-medium text-foreground dark:text-foreground">
+                {String(row.bookTitle ?? "")}
+              </Td>
+              <Td className="max-w-[400px] truncate">
+                {String(row.content ?? "")}
+              </Td>
+              <Td>{formatDateTime(row.date)}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ReviewsTable({ rows }: { rows: Array<Record<string, unknown>> }) {
+  if (rows.length === 0) {
+    return <EmptyState message="No reviews yet." />;
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border/80 dark:border-border">
+            <Th>Book</Th>
+            <Th>Rating</Th>
+            <Th>Review</Th>
+            <Th>Date</Th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border dark:divide-border">
+          {rows.map((row, i) => (
+            <tr key={String(row.id ?? i)} className="transition hover:bg-background/50 dark:hover:bg-accent">
+              <Td className="font-medium text-foreground dark:text-foreground">
+                {String(row.bookTitle ?? "")}
+              </Td>
+              <Td>
+                <RatingStars rating={Number(row.rating ?? 0)} />
+              </Td>
+              <Td className="max-w-[400px] truncate">
+                {String(row.text ?? "—")}
+              </Td>
+              <Td>{formatDate(row.date)}</Td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Th({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <th
+      className={`px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground dark:text-muted-foreground ${className ?? ""}`}
+    >
+      {children}
+    </th>
+  );
+}
+
+function Td({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <td
+      className={`px-4 py-3.5 text-[13px] text-muted-foreground dark:text-muted-foreground ${className ?? ""}`}
+    >
+      {children}
+    </td>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="py-12 text-center">
+      <p className="text-sm text-muted-foreground dark:text-muted-foreground">{message}</p>
+    </div>
+  );
+}
+
+const TABLE_COMPONENT: Record<Metric, (props: { rows: Array<Record<string, unknown>> }) => React.ReactNode> = {
+  sales: SalesTable,
+  readers: ReadersTable,
+  subscribers: SubscribersTable,
+  comments: CommentsTable,
+  reviews: ReviewsTable,
+};
+
+export default function MetricDetailWorkspace({
+  metric,
+  summary,
+  rows,
+}: MetricDetailWorkspaceProps) {
+  const config = METRIC_CONFIG[metric];
+  const Icon = config.icon;
+  const TableComponent = TABLE_COMPONENT[metric];
+
+  const summaryCards = getSummaryCards(metric, summary, rows);
+
+  return (
+    <WorkspaceLayout
+      header={
+        <header className="flex items-center gap-3">
+          <Link
+            href="/author/home"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-muted-foreground dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
+            aria-label="Back to dashboard"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <h1 className="author-page-title">
+            {config.title}
+          </h1>
+        </header>
+      }
+      headerRight={<WorkspaceHeaderActions />}
+      main={
+        <div className="space-y-5">
+          {/* Summary cards row */}
+          <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {summaryCards.map((card) => (
+              <div
+                key={card.label}
+                className="rounded-2xl border border-border bg-card px-5 py-4 dark:bg-card"
+              >
+                <div className="flex items-center gap-2">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground dark:text-muted-foreground">
+                    {card.label}
+                  </p>
+                  {card.sparkline ? (
+                    <span className="text-[10px] text-muted-foreground dark:text-muted-foreground">
+                      {card.sparkline}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1.5 text-xl font-semibold text-foreground dark:text-foreground">
+                  {card.value}
+                </p>
+                {card.change ? (
+                  <p className={`mt-0.5 text-[11px] font-medium ${card.change.startsWith("-") ? "text-red-500" : "text-[#1FA971]"}`}>
+                    {card.change}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </section>
+
+          {/* Main data table */}
+          <section className="rounded-2xl border border-border bg-card dark:bg-card">
+            <div className="flex items-center justify-between border-b border-border/80 px-5 py-4 dark:border-border">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`flex h-9 w-9 items-center justify-center rounded-full ${config.toneClassName}`}
+                >
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div>
+                  <h2 className="author-section-title text-[15px] font-medium text-foreground dark:text-foreground">
+                    {config.title}
+                  </h2>
+                  <p className="text-[12px] text-muted-foreground dark:text-muted-foreground">
+                    {rows.length} {rows.length === 1 ? "entry" : "entries"}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <TableComponent rows={rows} />
+          </section>
+        </div>
+      }
+    />
+  );
+}
+
+function getSummaryCards(
+  metric: Metric,
+  summary: {
+    total: number;
+    change: number;
+    currency?: string;
+    activeCount?: number;
+    totalCount?: number;
+    avgRating?: number;
+  },
+  rows: Array<Record<string, unknown>>
+): Array<{ label: string; value: string; change?: string; sparkline?: string }> {
+  switch (metric) {
+    case "sales": {
+      const paid = rows.filter(
+        (r) => r.status === "paid" || r.status === "completed"
+      ).length;
+      const pending = rows.filter((r) => r.status === "pending").length;
+      const countries = new Set(rows.map((r) => String(r.country ?? "")).filter((c) => c !== "—"));
+      return [
+        {
+          label: "Total",
+          value: `${summary.total.toLocaleString("sv-SE")} ${summary.currency ?? "SEK"}`,
+        },
+        { label: "Orders", value: rows.length.toLocaleString("sv-SE") },
+        {
+          label: "Paid",
+          value: paid.toLocaleString("sv-SE"),
+          sparkline: `▕ ${pending} pending`,
+        },
+        { label: "Countries", value: countries.size.toLocaleString("sv-SE") },
+      ];
+    }
+    case "readers": {
+      const totalReaders = rows.reduce(
+        (s, r) => s + (Number(r.readerCount) || 0),
+        0
+      );
+      // summary.total is distinct readers across the catalogue; summing the
+      // per-book column counts a reader once per book and would disagree with
+      // the home card that links here. Prefer the summary when it is present.
+      const uniqueReaders = summary.total > 0 ? summary.total : totalReaders;
+      return [
+        { label: "Unique readers", value: uniqueReaders.toLocaleString("sv-SE") },
+        { label: "Books", value: rows.length.toLocaleString("sv-SE") },
+        {
+          label: "Avg. per book",
+          value:
+            rows.length > 0
+              ? Math.round(totalReaders / rows.length).toLocaleString("sv-SE")
+              : "0",
+        },
+        { label: "Period", value: "All" },
+      ];
+    }
+    case "subscribers": {
+      const active = summary.activeCount ?? rows.filter((r) => r.status === "active").length;
+      const unsubscribed = rows.filter(
+        (r) => r.status === "unsubscribed"
+      ).length;
+      return [
+        { label: "Active", value: active.toLocaleString("sv-SE") },
+        {
+          label: "Total",
+          value: (summary.totalCount ?? rows.length).toLocaleString("sv-SE"),
+        },
+        {
+          label: "Unsubscribed",
+          value: unsubscribed.toLocaleString("sv-SE"),
+        },
+        {
+          label: "Retention",
+          value: (() => {
+            const total = summary.totalCount ?? rows.length;
+            return total > 0 ? `${Math.round((active / total) * 100)}%` : "—";
+          })(),
+        },
+      ];
+    }
+    case "comments":
+      return [
+        { label: "Total", value: summary.total.toLocaleString("sv-SE") },
+        {
+          label: "Books",
+          value: new Set(rows.map((r) => String(r.bookTitle ?? "")))
+            .size.toLocaleString("sv-SE"),
+        },
+        { label: "Period", value: "All" },
+        { label: "Latest", value: rows[0] ? formatDate(rows[0].date) : "—" },
+      ];
+    case "reviews": {
+      // The page computes this across every review; recomputing from the
+      // 200-row display slice would skew it for anyone with older ratings.
+      const avgRating =
+        summary.avgRating ??
+        (rows.length > 0
+          ? rows.reduce((s, r) => s + (Number(r.rating) || 0), 0) / rows.length
+          : 0);
+      return [
+        { label: "Total", value: summary.total.toLocaleString("sv-SE") },
+        {
+          label: "Avg. rating",
+          value: avgRating > 0 ? `${avgRating.toFixed(1)} ★` : "—",
+        },
+        {
+          label: "Books",
+          value: new Set(rows.map((r) => String(r.bookTitle ?? "")))
+            .size.toLocaleString("sv-SE"),
+        },
+        { label: "Latest", value: rows[0] ? formatDate(rows[0].date) : "—" },
+      ];
+    }
+    default:
+      return [];
+  }
+}

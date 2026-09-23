@@ -1,0 +1,226 @@
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizeLanguage, normalizeLanguageOrNull } from "@/lib/languages";
+import { isStripeConfigured } from "@/lib/payments/stripe";
+import { getAudiobookStorageBucket } from "@/lib/tts/storage";
+import { validateAudiobookStoragePath } from "@/lib/tts/validate-storage-path";
+
+function normalizeDefaultPublishVisibility(
+  value: unknown
+): "public" | "followers" | "private" {
+  if (value === "public" || value === "followers" || value === "private") {
+    return value;
+  }
+  return "public";
+}
+
+function isMissingPublishedChapterCountColumn(
+  error: { code?: string | null; message?: string | null } | null | undefined
+): boolean {
+  if (!error) return false;
+  return (
+    error.code === "42703" &&
+    typeof error.message === "string" &&
+    error.message.includes("published_chapter_count")
+  );
+}
+
+/**
+ * Loads all data needed by BookEditor. Shared across workspace pages.
+ * Returns null if the book doesn't exist or doesn't belong to the user.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function loadBookWorkspaceData(bookId: string, langParam: string | null = null) {
+  if (!bookId || !UUID_RE.test(bookId)) return null;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const { data: book, error: bookError } = await supabase
+    .from("books")
+    .select("*")
+    .eq("id", bookId)
+    .maybeSingle();
+
+  if (bookError) {
+    console.error("Failed to load book", bookError);
+  }
+
+  if (!book || book.author_id !== user.id) return null;
+
+  const versionSelectBase =
+    "id, book_id, language_code, status, published_at, visibility, created_at, updated_at, error_message";
+
+  const withPublishedChapterCount = await supabase
+    .from("book_versions")
+    .select(`${versionSelectBase}, published_chapter_count`)
+    .eq("book_id", book.id)
+    .order("created_at", { ascending: true });
+
+  const fallback = isMissingPublishedChapterCountColumn(withPublishedChapterCount.error)
+    ? await supabase
+        .from("book_versions")
+        .select(versionSelectBase)
+        .eq("book_id", book.id)
+        .order("created_at", { ascending: true })
+    : null;
+
+  const bookVersions =
+    fallback?.data != null
+      ? fallback.data.map((v) => ({ ...v, published_chapter_count: null }))
+      : withPublishedChapterCount.data;
+  const bookVersionsError = fallback?.error ?? withPublishedChapterCount.error;
+
+  let versions = bookVersions ?? [];
+  if (bookVersionsError) {
+    console.error("Failed to load book versions", bookVersionsError);
+  }
+
+  if (!bookVersionsError && versions.length === 0) {
+    const fallbackLanguage =
+      normalizeLanguageOrNull(
+        (book as { original_language?: string | null; language?: string | null }).original_language ??
+          book.language
+      ) ?? "und";
+    const { data: createdVersion, error: createVersionError } = await supabase
+      .from("book_versions")
+      .insert({ book_id: book.id, language_code: fallbackLanguage, status: "draft" })
+      .select("*")
+      .single();
+    if (createVersionError) {
+      console.error("Failed to auto-create book version", createVersionError);
+    } else if (createdVersion) {
+      versions = [
+        {
+          ...createdVersion,
+          published_chapter_count:
+            "published_chapter_count" in createdVersion
+              ? (createdVersion as { published_chapter_count?: number | null })
+                  .published_chapter_count ?? null
+              : null,
+        },
+      ];
+      await supabase
+        .from("chapters")
+        .update({ book_version_id: createdVersion.id })
+        .eq("book_id", book.id)
+        .is("book_version_id", null);
+    }
+  }
+
+  const originalLang = normalizeLanguage(
+    (book as { original_language?: string | null }).original_language
+  );
+  // book_versions.visibility is a plain text column, so the row type is
+  // `string` while the editor's BookVersion wants the
+  // "public" | "followers" | "private" union. Reuse the same normaliser the
+  // default visibility already goes through, rather than asserting the union —
+  // an unexpected value in the column should fall back to "public", not be
+  // smuggled into a typed field.
+  //
+  // Placed before activeVersion is derived, so the active one carries the same
+  // normalisation as the list it came from.
+  const normalizedVersions = versions.map((version) => ({
+    ...version,
+    visibility: normalizeDefaultPublishVisibility(version.visibility),
+  }));
+
+  const activeVersion =
+    (langParam
+      ? normalizedVersions.find((v) => normalizeLanguage(v.language_code) === langParam)
+      : null) ??
+    normalizedVersions.find((v) => normalizeLanguage(v.language_code) === originalLang) ??
+    normalizedVersions[0];
+
+  const [
+    { data: latestAudiobookAsset },
+    { data: chapters },
+    { data: marketingCampaigns },
+    { data: authorProfile },
+  ] = await Promise.all([
+    supabase
+      .from("audiobook_assets")
+      .select("id, audio_path, audio_bucket, status, created_at")
+      .eq("book_id", book.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("chapters")
+      .select("id, title, content, order, book_version_id")
+      .eq("book_version_id", activeVersion?.id ?? "")
+      .order("order", { ascending: true }),
+    supabase
+      .from("marketing_campaigns")
+      .select(
+        "id, book_id, language, channel, status, headline, caption, cta, hashtags, share_url, created_at, updated_at"
+      )
+      .eq("book_id", book.id),
+    supabase
+      .from("profiles")
+      .select("display_name, username, preferences, demo_mode")
+      .eq("user_id", book.author_id)
+      .maybeSingle(),
+  ]);
+
+  const latestAudioPath = validateAudiobookStoragePath(
+    latestAudiobookAsset?.audio_path,
+    latestAudiobookAsset?.audio_bucket,
+    book.id,
+    "[book workspace]"
+  );
+
+  let latestAudiobookSignedUrl: string | null = null;
+  if (latestAudioPath) {
+    const bucket = getAudiobookStorageBucket();
+    const admin = createAdminClient();
+    const { data: signed, error: signedError } = await admin.storage
+      .from(bucket)
+      .createSignedUrl(latestAudioPath, 60 * 15);
+    if (signedError || !signed?.signedUrl) {
+      console.error("[book workspace] audiobook signing failed", {
+        bookId: book.id,
+        message: signedError ? "Storage signing failed" : "Storage response missing signed URL",
+      });
+    } else {
+      latestAudiobookSignedUrl = signed.signedUrl;
+    }
+  }
+
+  const trimmedDisplayName = authorProfile?.display_name?.trim() ?? "";
+  const trimmedUsername = authorProfile?.username?.trim() ?? "";
+  const authorDisplayNameSet = Boolean(trimmedDisplayName || trimmedUsername);
+  const authorDisplayName =
+    trimmedDisplayName || trimmedUsername || "Author";
+  const defaultPublishVisibility = normalizeDefaultPublishVisibility(
+    (authorProfile?.preferences as { visibility?: { books?: unknown } } | null)?.visibility?.books
+  );
+
+  return {
+    book,
+    chapters: chapters ?? [],
+    versions: normalizedVersions,
+    activeVersion: activeVersion ?? null,
+    authorDisplayName,
+    authorDisplayNameSet,
+    defaultPublishVisibility,
+    latestAudiobookAsset: latestAudiobookAsset
+      ? {
+          id: latestAudiobookAsset.id,
+          audioSignedUrl: latestAudiobookSignedUrl,
+          status: latestAudiobookAsset.status,
+          created_at: latestAudiobookAsset.created_at,
+        }
+      : null,
+    marketingCampaigns: marketingCampaigns ?? [],
+    stripeConfigured: isStripeConfigured(),
+    authorDemoMode: Boolean(
+      (authorProfile as { demo_mode?: boolean | null } | null)?.demo_mode
+    ),
+  };
+}

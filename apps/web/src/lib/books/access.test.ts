@@ -1,0 +1,180 @@
+import { describe, expect, it, vi } from "vitest";
+import { canUserReadBook, type SupabaseLikeClient } from "./access";
+
+vi.mock("@/lib/billing/server", () => ({
+  getBillingStateForUser: vi.fn().mockResolvedValue({ ok: false }),
+}));
+
+type Row = Record<string, unknown>;
+
+function makeSupabase(rows: {
+  books?: Row;
+  entitlement?: Row | null;
+  authorSubscription?: Row | null;
+}): SupabaseLikeClient {
+  return {
+    from(table: string) {
+      if (table === "books") {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  maybeSingle: async () => ({ data: rows.books ?? null, error: null }),
+                };
+              },
+            };
+          },
+        };
+      }
+      if (table === "entitlements") {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  eq() {
+                    return {
+                      eq() {
+                        return {
+                          is() {
+                            return {
+                              maybeSingle: async () => ({ data: rows.entitlement ?? null, error: null }),
+                            };
+                          },
+                        };
+                      },
+                    };
+                  },
+                };
+              },
+            };
+          },
+        };
+      }
+      if (table === "author_subscriptions") {
+        return {
+          select() { return this; },
+          eq() { return this; },
+          maybeSingle: async () => ({ data: rows.authorSubscription ?? null, error: null }),
+        };
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    },
+  } as unknown as SupabaseLikeClient;
+}
+
+describe("canUserReadBook", () => {
+  it("returns true when book is free", async () => {
+    const supabase = makeSupabase({ books: { author_id: "author-1", price_amount: 0 } });
+
+    const result = await canUserReadBook({
+      supabase,
+      userId: null,
+      bookId: "book-1",
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("returns true when user is author", async () => {
+    const supabase = makeSupabase({ books: { author_id: "author-1", price_amount: 999 } });
+
+    const result = await canUserReadBook({
+      supabase,
+      userId: "author-1",
+      bookId: "book-1",
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("returns true when purchase entitlement exists", async () => {
+    const supabase = makeSupabase({
+      books: { author_id: "author-1", price_amount: 999 },
+      entitlement: { id: "ent-1" },
+    });
+
+    const result = await canUserReadBook({
+      supabase,
+      userId: "reader-1",
+      bookId: "book-1",
+    });
+
+    expect(result).toBe(true);
+  });
+
+  it("returns false when paid and no entitlement", async () => {
+    const supabase = makeSupabase({
+      books: { author_id: "author-1", price_amount: 999 },
+      entitlement: null,
+    });
+
+    const result = await canUserReadBook({
+      supabase,
+      userId: "reader-1",
+      bookId: "book-1",
+    });
+
+    expect(result).toBe(false);
+  });
+
+  it("blocks anonymous reader for paid book when pricing is already provided", async () => {
+    const supabase: SupabaseLikeClient = {
+      from(table: string) {
+        if (table === "entitlements") {
+          return {
+            select() {
+              return {
+                eq() {
+                  return {
+                    eq() {
+                      return {
+                        eq() {
+                          return {
+                            maybeSingle: async () => ({ data: null, error: null }),
+                          };
+                        },
+                      };
+                    },
+                  };
+                },
+              };
+            },
+          };
+        }
+        throw new Error(`Unexpected table: ${table}`);
+      },
+    } as unknown as SupabaseLikeClient;
+
+    const result = await canUserReadBook({
+      supabase,
+      userId: null,
+      bookId: "book-1",
+      bookAuthorId: "author-1",
+      bookPriceAmount: 199,
+      bookPricingModel: "book_only",
+    });
+
+    expect(result).toBe(false);
+  });
+
+  it("fails closed when pricing model is invalid", async () => {
+    const supabase: SupabaseLikeClient = {
+      from() {
+        throw new Error("Should not query DB when pricing context is provided");
+      },
+    } as unknown as SupabaseLikeClient;
+
+    const result = await canUserReadBook({
+      supabase,
+      userId: "reader-1",
+      bookId: "book-1",
+      bookAuthorId: "author-1",
+      bookPriceAmount: 199,
+      bookPricingModel: "chapter_bundle",
+    });
+
+    expect(result).toBe(false);
+  });
+});

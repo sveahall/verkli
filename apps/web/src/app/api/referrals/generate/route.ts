@@ -1,0 +1,72 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { apiError, E_UNAUTHORIZED, E_REFERRAL_GENERATE_FAILED } from "@/lib/api-errors";
+
+export const runtime = "nodejs";
+
+function generateCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  let code = "";
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(bytes[i] % chars.length);
+  }
+  return code;
+}
+
+export async function POST() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return apiError(E_UNAUTHORIZED, 401);
+  }
+
+  // RLS policies on `referral_codes` already gate SELECT/INSERT to
+  // `auth.uid() = user_id`. Using the user-bound client means a bug here
+  // (e.g. forgetting `.eq('user_id', user.id)` on a write) cannot affect
+  // another user's row.
+  const { data: existing } = await supabase
+    .from("referral_codes")
+    .select("code")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const existingRow = existing as { code: string } | null;
+  if (existingRow?.code) {
+    return NextResponse.json({ code: existingRow.code });
+  }
+
+  let code = generateCode();
+  let attempts = 0;
+  const maxAttempts = 10;
+
+  while (attempts < maxAttempts) {
+    const { error } = await supabase.from("referral_codes").insert({
+      user_id: user.id,
+      code,
+    });
+
+    if (!error) {
+      return NextResponse.json({ code });
+    }
+
+    if (error.code === "23505") {
+      code = generateCode();
+      attempts++;
+      continue;
+    }
+
+    console.error("[referrals.generate] insert failed", {
+      userId: user.id,
+      code: error.code,
+      message: error.message,
+    });
+    return apiError(E_REFERRAL_GENERATE_FAILED, 500);
+  }
+
+  return apiError(E_REFERRAL_GENERATE_FAILED, 500);
+}

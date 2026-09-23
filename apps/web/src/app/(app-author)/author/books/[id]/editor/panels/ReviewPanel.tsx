@@ -1,0 +1,530 @@
+"use client";
+
+import Image from "next/image";
+import { ArrowRight, ChevronDown } from "lucide-react";
+import styles from "./ReviewPanel.module.css";
+import WholeBookAnalysisPanel from "./WholeBookAnalysisPanel";
+import EditorialReviewPanel, { type ApplyReview } from "./EditorialReviewPanel";
+import { useMemo, useState } from "react";
+import { getLanguageLabel } from "@/lib/languages";
+import { getAudiobookStatusLabel } from "../bookEditor.shared";
+import { countWordsInContent } from "@/lib/tiptap-content";
+import type { Tool } from "../BookEditorView.types";
+import { requiresUnoptimizedImage } from "@/lib/images/optimizable";
+import { getMarketingEnabled } from "@/lib/flags";
+
+type Chapter = {
+  id: string;
+  title: string;
+  content: string | null;
+  order: number;
+  book_version_id: string;
+};
+
+type BookVersion = {
+  id: string;
+  language_code: string;
+  status: string;
+  published_at?: string | null;
+  published_chapter_count?: number | null;
+  error_message?: string | null;
+};
+
+type PrintOnDemandSettings = {
+  enabled: boolean;
+  formats: string[];
+  editionLimit: "unlimited" | "limited";
+  limitCount: number | null;
+};
+
+type MarketingCampaignRow = {
+  id: string;
+  channel: string;
+  status: string;
+  language: string;
+};
+
+export type ReviewPanelProps = {
+  bookId: string;
+  bookTitle: string;
+  chapters: Chapter[];
+  bookVersions: BookVersion[];
+  activeVersion: BookVersion | null;
+  coverImageUrl: string | null;
+  audiobookStatus: string | null;
+  isPublished: boolean;
+  printOnDemandSettings: PrintOnDemandSettings | null;
+  pricingModel: string;
+  priceAmountMinor: number;
+  priceCurrency: string;
+  marketingCampaigns: MarketingCampaignRow[];
+  onNavigate: (panel: Tool) => void;
+  onPublish?: () => void;
+  onApplyReview: ApplyReview;
+  saveBlocked: boolean;
+};
+
+/* ── Copy-to-clipboard helper ── */
+
+function CopyLinkButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(url);
+          setCopied(true);
+          setCopyError(false);
+          setTimeout(() => setCopied(false), 2000);
+        } catch {
+          setCopied(false);
+          setCopyError(true);
+        }
+      }}
+      aria-live="polite"
+      className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors duration-150 ease-out hover:bg-background active:scale-[0.97] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
+    >
+      {copied ? (
+        <>
+          <svg className="h-4 w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+          Copied!
+        </>
+      ) : (
+        <>
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+          </svg>
+          {copyError ? "Could not copy · try again" : "Copy link"}
+        </>
+      )}
+    </button>
+  );
+}
+
+/* ── Helpers ── */
+
+const countWords = countWordsInContent;
+
+function formatPrice(minor: number, currency: string): string {
+  if (minor === 0) return "Free";
+  return `${(minor / 100).toFixed(2)} ${currency.toUpperCase()}`;
+}
+
+/* ── Section card ── */
+
+function Section({
+  title,
+  children,
+  status,
+  action,
+}: {
+  title: string;
+  children: React.ReactNode;
+  status?: "ok" | "warning" | "missing";
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card dark:border-border dark:bg-card">
+      <div className="flex items-center justify-between border-b border-black/[0.05] px-5 py-3 dark:border-border">
+        <div className="flex items-center gap-2.5">
+          {status && (
+            <span
+              className={`h-2 w-2 rounded-full ${
+                status === "ok"
+                  ? "bg-emerald-500"
+                  : status === "warning"
+                    ? "bg-amber-400"
+                    : "bg-muted dark:bg-card"
+              }`}
+            />
+          )}
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
+            {title}
+          </h3>
+        </div>
+        {action && (
+          <button
+            type="button"
+            onClick={action.onClick}
+            className="rounded-lg px-2.5 py-1 text-[11px] font-semibold text-accent-foreground transition hover:bg-[#907AFF]/10"
+          >
+            {action.label}
+          </button>
+        )}
+      </div>
+      <div className="px-5 py-4">{children}</div>
+    </div>
+  );
+}
+
+/* ── Issue row ── */
+
+function Issue({ text, onFix }: { text: string; onFix: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200/60 bg-amber-50/50 px-4 py-2.5 dark:border-amber-500/15 dark:bg-amber-500/5">
+      <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300">
+        <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+        </svg>
+        <span>{text}</span>
+      </div>
+      <button
+        type="button"
+        onClick={onFix}
+        className="shrink-0 rounded-lg px-3 py-1 text-[11px] font-semibold text-accent-foreground transition hover:bg-[#907AFF]/10"
+      >
+        Fix
+      </button>
+    </div>
+  );
+}
+
+/* ── Main ── */
+
+export default function ReviewPanel({
+  bookId,
+  bookTitle,
+  chapters,
+  bookVersions,
+  activeVersion,
+  coverImageUrl,
+  audiobookStatus,
+  isPublished,
+  printOnDemandSettings,
+  pricingModel,
+  priceAmountMinor,
+  priceCurrency,
+  marketingCampaigns,
+  onNavigate,
+  onPublish,
+  onApplyReview,
+  saveBlocked,
+}: ReviewPanelProps) {
+  const totalWords = useMemo(
+    () => chapters.reduce((sum, ch) => sum + countWords(ch.content), 0),
+    [chapters],
+  );
+
+  const emptyChapters = useMemo(
+    () => chapters.filter((ch) => countWords(ch.content) === 0),
+    [chapters],
+  );
+
+  const languages = useMemo(
+    () => bookVersions.map((v) => getLanguageLabel(v.language_code)),
+    [bookVersions],
+  );
+
+  const publishedVersions = useMemo(
+    () => bookVersions.filter((v) => v.published_at),
+    [bookVersions],
+  );
+
+  const podSettings = printOnDemandSettings ?? { enabled: false, formats: [] as string[], editionLimit: "unlimited" as const, limitCount: 0 };
+  const audioLabel = audiobookStatus ? getAudiobookStatusLabel(audiobookStatus) : "Not started";
+  const audioReady = audiobookStatus === "generated" || audiobookStatus === "completed" || audiobookStatus === "published";
+  const hasCover = Boolean(coverImageUrl);
+  const hasContent = totalWords > 0 && chapters.length > 0;
+  const campaignCount = marketingCampaigns.filter((c) => c.status === "generated" || c.status === "published").length;
+  const marketingEnabled = getMarketingEnabled();
+
+  /* ── Issues ── */
+  const issues: Array<{ text: string; panel: Tool }> = [];
+  if (!hasContent) issues.push({ text: "No chapter content yet", panel: "edit" });
+  if (emptyChapters.length > 0 && hasContent)
+    issues.push({ text: `${emptyChapters.length} empty chapter${emptyChapters.length > 1 ? "s" : ""}`, panel: "edit" });
+  if (!hasCover) issues.push({ text: "No cover image", panel: "cover" });
+
+  return (
+    <div className={`mx-auto max-w-4xl space-y-6 ${styles.panel}`}>
+      <header className={styles.heading}>
+        <h2 className="font-display text-[clamp(24px,3vw,32px)] font-medium tracking-tight">Give your manuscript a fresh eye.</h2>
+        <p>Review your writing, consider each suggestion, and keep your own voice. You decide when the story is ready.</p>
+      </header>
+      <WholeBookAnalysisPanel key={`whole-${activeVersion?.id ?? bookId}`} bookId={bookId} versionId={activeVersion?.id ?? null} chapters={chapters} saveBlocked={saveBlocked} />
+      <EditorialReviewPanel key={activeVersion?.id ?? bookId} bookId={bookId} chapters={chapters} activeVersionId={activeVersion?.id ?? null} bookVersions={bookVersions} onApplyReview={onApplyReview} saveBlocked={saveBlocked} />
+      {!hasContent && <button type="button" className={styles.continueButton} onClick={() => onNavigate("edit")}>Return to your manuscript <ArrowRight size={16} aria-hidden /></button>}
+      <details className={styles.overview}>
+        <summary><span><strong>Book overview</strong><span>Manuscript, formats and release preparation</span></span><ChevronDown size={18} aria-hidden /></summary>
+        <div className="space-y-5 pt-5">
+      {/* ── Hero: Book identity ── */}
+      <div className="grid items-start gap-6 rounded-2xl border border-border bg-card p-6 dark:border-border dark:bg-card @min-[600px]/book-panel:grid-cols-[140px_1fr]">
+        <div className="relative mx-auto aspect-[3/4] w-[140px] overflow-hidden rounded-xl border border-black/[0.06] bg-background shadow-sm dark:border-border dark:bg-card sm:mx-0">
+          {coverImageUrl ? (
+            <Image src={coverImageUrl} alt="Book cover" fill sizes="140px" className="object-cover" unoptimized={requiresUnoptimizedImage(coverImageUrl)} />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-muted-foreground dark:text-muted-foreground">
+              <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+              </svg>
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span
+              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                isPublished
+                  ? "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-400"
+                  : "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground"
+              }`}
+            >
+              {isPublished ? "Published" : "Draft"}
+            </span>
+          </div>
+          <h2 className="author-section-title mt-2 text-xl font-medium tracking-tight text-foreground dark:text-foreground">
+            {bookTitle}
+          </h2>
+          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-xs @min-[600px]/book-panel:grid-cols-3">
+            <div>
+              <span className="text-muted-foreground dark:text-muted-foreground">Chapters</span>
+              <p className="font-semibold text-foreground dark:text-foreground">{chapters.length}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground dark:text-muted-foreground">Words</span>
+              <p className="font-semibold tabular-nums text-foreground dark:text-foreground">{totalWords.toLocaleString()}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground dark:text-muted-foreground">Languages</span>
+              <p className="font-semibold text-foreground dark:text-foreground">{languages.length > 0 ? languages.join(", ") : "\u2014"}</p>
+            </div>
+            <div>
+              <span className="text-muted-foreground dark:text-muted-foreground">Price</span>
+              <button type="button" onClick={() => onNavigate("pricing")} className="text-left font-semibold text-accent-foreground">{formatPrice(priceAmountMinor, priceCurrency)}{priceAmountMinor > 0 && pricingModel === "per_chapter" ? " / chapter" : ""}</button>
+            </div>
+            <div>
+              <span className="text-muted-foreground dark:text-muted-foreground">Audio</span>
+              <p className={`font-semibold ${audioReady ? "text-emerald-600 dark:text-emerald-400" : "text-foreground dark:text-foreground"}`}>
+                {audioLabel}
+              </p>
+            </div>
+            <div>
+              <span className="text-muted-foreground dark:text-muted-foreground">Print</span>
+              <p className="font-semibold text-foreground dark:text-foreground">
+                {podSettings.enabled ? "Settings saved" : "Not configured"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Quick actions ── */}
+      {isPublished && (
+        <div className="flex flex-wrap gap-3">
+          <a
+            href={`/reader/books/${bookId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-primary/90 hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] active:scale-[0.97]"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+            Preview as reader
+          </a>
+          <CopyLinkButton url={`${typeof window !== "undefined" ? window.location.origin : ""}/reader/books/${bookId}`} />
+          {marketingEnabled && <button
+            type="button"
+            onClick={() => onNavigate("market")}
+            className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors duration-150 ease-out hover:bg-background active:scale-[0.97] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 0 8.835-2.535m0 0A23.74 23.74 0 0 0 18.795 3m.38 1.125a23.91 23.91 0 0 1 1.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 0 0 1.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 0 1 0 3.46" />
+            </svg>
+            Promote
+          </button>}
+        </div>
+      )}
+
+      {/* ── Issues ── */}
+      {issues.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold">Things to check before release</h3>
+          {issues.map((issue) => (
+            <Issue key={issue.text} text={issue.text} onFix={() => onNavigate(issue.panel)} />
+          ))}
+        </div>
+      )}
+
+      {/* ── Content preview ── */}
+      <Section
+        title="Content"
+        status={hasContent ? (emptyChapters.length > 0 ? "warning" : "ok") : "missing"}
+        action={{ label: "Edit", onClick: () => onNavigate("edit") }}
+      >
+        <div className="max-h-[260px] overflow-y-auto">
+          {chapters.length === 0 && <p className="text-sm text-muted-foreground">Your chapter list will appear here. Start in Write to add your first chapter.</p>}
+          {chapters.map((ch, i) => {
+            const words = countWords(ch.content);
+            return (
+              <div
+                key={ch.id}
+                className="flex items-center justify-between border-b border-black/[0.03] py-2 last:border-b-0 dark:border-border"
+              >
+                <div className="flex items-center gap-2 text-[13px]">
+                  <span className="w-5 text-right tabular-nums text-muted-foreground dark:text-muted-foreground">{i + 1}</span>
+                  <span className="text-foreground dark:text-foreground">{ch.title}</span>
+                </div>
+                <span className={`text-[11px] tabular-nums ${words > 0 ? "text-muted-foreground dark:text-muted-foreground" : "text-amber-500"}`}>
+                  {words > 0 ? `${words.toLocaleString()} words` : "empty"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+
+      {/* ── Translations ── */}
+      {bookVersions.length > 1 && (
+        <Section
+          title="Translations"
+          status={publishedVersions.length > 0 ? "ok" : "warning"}
+          action={{ label: "Manage", onClick: () => onNavigate("translate") }}
+        >
+          <div className="space-y-2">
+            {bookVersions.map((v) => {
+              const isActive = v.id === activeVersion?.id;
+              return (
+                <div key={v.id} className="flex items-center justify-between text-[13px]">
+                  <span className={isActive ? "font-semibold text-accent-foreground" : "text-foreground dark:text-foreground"}>
+                    {getLanguageLabel(v.language_code)}
+                    {isActive && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground dark:text-muted-foreground">(current edition)</span>}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {v.error_message && !v.error_message.startsWith("translation-claim:") && (
+                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:bg-rose-500/20 dark:text-rose-400">Error</span>
+                    )}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                        v.published_at
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
+                          : "bg-muted text-muted-foreground dark:bg-card dark:text-muted-foreground"
+                      }`}
+                    >
+                      {v.published_at ? "Published" : "Draft"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
+
+      {/* ── Assets ── */}
+      <Section title="Assets">
+        <div className="grid gap-3 @min-[600px]/book-panel:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => onNavigate("cover")}
+            className="flex items-center gap-3 rounded-xl border border-black/[0.04] bg-background/50 px-3 py-3 text-left transition-[border-color,transform] duration-150 ease-out hover:border-black/[0.08] active:scale-[0.97] dark:border-border dark:bg-card dark:hover:border-border"
+          >
+            {coverImageUrl ? (
+              <div className="relative h-10 w-7 overflow-hidden rounded">
+                <Image src={coverImageUrl} alt="" fill sizes="28px" className="object-cover" unoptimized={requiresUnoptimizedImage(coverImageUrl)} />
+              </div>
+            ) : (
+              <div className="flex h-10 w-7 items-center justify-center rounded bg-muted/50 dark:bg-card">
+                <svg className="h-3.5 w-3.5 text-muted-foreground dark:text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159" />
+                </svg>
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground dark:text-foreground">Cover</p>
+              <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">{hasCover ? "Ready" : "Missing"}</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigate("audiobook")}
+            className="flex items-center gap-3 rounded-xl border border-black/[0.04] bg-background/50 px-3 py-3 text-left transition-[border-color,transform] duration-150 ease-out hover:border-black/[0.08] active:scale-[0.97] dark:border-border dark:bg-card dark:hover:border-border"
+          >
+            <div className={`flex h-10 w-7 items-center justify-center rounded ${audioReady ? "bg-emerald-100/50 dark:bg-emerald-900/20" : "bg-muted/50 dark:bg-card"}`}>
+              <svg className={`h-3.5 w-3.5 ${audioReady ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground dark:text-muted-foreground"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground dark:text-foreground">Audiobook</p>
+              <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">{audioLabel}</p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigate("print")}
+            className="flex items-center gap-3 rounded-xl border border-black/[0.04] bg-background/50 px-3 py-3 text-left transition-[border-color,transform] duration-150 ease-out hover:border-black/[0.08] active:scale-[0.97] dark:border-border dark:bg-card dark:hover:border-border"
+          >
+            <div className={`flex h-10 w-7 items-center justify-center rounded ${podSettings.enabled ? "bg-accent" : "bg-muted/50 dark:bg-card"}`}>
+              <svg className={`h-3.5 w-3.5 ${podSettings.enabled ? "text-accent-foreground" : "text-muted-foreground dark:text-muted-foreground"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground dark:text-foreground">Print</p>
+              <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">
+                {podSettings.enabled ? `${podSettings.formats.join(", ")} settings saved` : "Not configured"}
+              </p>
+            </div>
+          </button>
+        </div>
+      </Section>
+
+      {/* ── Marketing ── */}
+      {marketingEnabled && <Section
+        title="Marketing · optional"
+        status={campaignCount > 0 ? "ok" : undefined}
+        action={{ label: campaignCount > 0 ? "Manage" : "Create", onClick: () => onNavigate("market") }}
+      >
+        {campaignCount > 0 ? (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+              {campaignCount} campaign{campaignCount > 1 ? "s" : ""} generated and ready.
+            </p>
+            <button
+              type="button"
+              onClick={() => onNavigate("market")}
+              className="flex items-center gap-2 text-xs font-semibold text-accent-foreground transition hover:text-accent-foreground"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Generate more campaigns
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
+              No marketing campaigns yet. Generate social media posts, email copy, and more.
+            </p>
+            <button
+              type="button"
+              onClick={() => onNavigate("market")}
+              className="rounded-xl bg-[#907AFF]/10 px-4 py-2 text-xs font-semibold text-accent-foreground transition-[background-color,transform] duration-150 ease-out hover:bg-[#907AFF]/20 active:scale-[0.97]"
+            >
+              Create first campaign
+            </button>
+          </div>
+        )}
+      </Section>}
+
+        </div>
+      </details>
+
+      <div className={styles.nextStep}>
+        <div><p className="text-sm font-semibold">Ready to shape the book?</p><p className="mt-1 text-sm text-muted-foreground">Move to your cover when you’re ready. You can return to review at any time.</p></div>
+        <button type="button" className={styles.continueButton} onClick={() => onNavigate("cover")}>Continue to cover <ArrowRight size={16} aria-hidden /></button>
+      </div>
+      {!isPublished && <button type="button" className="min-h-11 text-sm font-medium text-accent-foreground" onClick={() => { onPublish?.(); onNavigate("publish"); }}>Review publication options <ArrowRight size={15} className="ml-2 inline" aria-hidden /></button>}
+    </div>
+  );
+}

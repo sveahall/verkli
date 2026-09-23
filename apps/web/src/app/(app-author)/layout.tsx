@@ -1,13 +1,28 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
-import { updateActiveRole } from "@/features/auth/roles";
-import NavbarShell from "@/nav/NavbarShell";
+import { getActiveRoleFromCookieValue } from "@/lib/active-role";
+import {
+  getAuthorApplicationStatus,
+  isLegacyAuthorRole,
+} from "@/lib/auth/author-approval";
+import AuthorAppShell from "@/features/author-shell/AuthorAppShell";
+import { isDemoModeActive } from "@/lib/flags";
+import { AiAvailabilityProvider } from "@/features/ai-team/settings/availability";
+import { getAiSettings } from "@/features/ai-team/settings/server";
 
 export default async function AppAuthorLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = await cookies();
+  const activeRole = getActiveRoleFromCookieValue(
+    cookieStore.get("active_role")?.value
+  );
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -17,42 +32,51 @@ export default async function AppAuthorLayout({
     redirect("/author/signin");
   }
 
-  let role: "author" | "reader" | null = null;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, demo_mode")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const profileRole = String(profile?.role ?? "").trim().toLowerCase();
+  const demoModeActive = isDemoModeActive({
+    demo_mode: (profile as { demo_mode?: boolean | null } | null)?.demo_mode,
+  });
+  const isAdmin = profileRole === "admin";
+  const isLegacyAuthor = isLegacyAuthorRole(profileRole);
+  const approvalStatus = !isAdmin && !isLegacyAuthor
+    ? await getAuthorApplicationStatus(supabase, user.id)
+    : null;
+  const canAccessAuthor = isAdmin || isLegacyAuthor || approvalStatus === "approved";
 
-  const metaRole = user.user_metadata?.active_role ?? user.user_metadata?.role;
-  if (metaRole === "author" || metaRole === "reader") {
-    role = metaRole;
+  if (!canAccessAuthor) {
+    redirect("/reader/home");
   }
 
-  if (!role) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, preferences")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    const preferenceRole = (profile?.preferences as { active_role?: string } | null)?.active_role;
-    if (preferenceRole === "author" || preferenceRole === "reader") {
-      role = preferenceRole;
-    } else if (profile?.role === "author" || profile?.role === "reader") {
-      role = profile.role;
-    }
+  if (!activeRole && !isAdmin) {
+    redirect("/api/auth/sync-role?redirect=/author/home");
   }
 
-  if (!role) {
-    redirect("/author/signin");
-  }
-
-  if (role === "reader") {
-    await updateActiveRole("author");
-  }
-
-  const variant = "APP_AUTHOR";
+  // Phase 0.4: hand the (app-author) tree a NextIntlClientProvider so client
+  // components can call `useTranslations()`. Locale and messages come from
+  // `lib/i18n/request.ts`, which resolves the NEXT_LOCALE cookie → default (en).
+  // Reader and public stay outside this boundary so they remain English by
+  // `check:english-default`.
+  const locale = await getLocale();
+  const messages = await getMessages();
+  // Presentation only: which AI surfaces render. If the row cannot be read we
+  // keep the surfaces visible rather than blanking the workspace — the server
+  // guard still refuses the request, so nothing runs behind a stale button.
+  const aiEnabled = await getAiSettings(supabase, user.id)
+    .then((settings) => settings.aiEnabled)
+    .catch(() => true);
 
   return (
-    <>
-      <NavbarShell variant={variant} />
-      {children}
-    </>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <AiAvailabilityProvider enabled={aiEnabled}>
+        <AuthorAppShell demoModeActive={demoModeActive}>
+          {children}
+        </AuthorAppShell>
+      </AiAvailabilityProvider>
+    </NextIntlClientProvider>
   );
 }

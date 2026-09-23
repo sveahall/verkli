@@ -1,4 +1,50 @@
+/**
+ * Stripe Checkout Session creation.
+ *
+ * ## Payment methods are configured in the Stripe Dashboard, not here
+ *
+ * None of the session builders below set `payment_method_types`. Per the Stripe
+ * API reference for that parameter: *"You can omit this attribute to manage your
+ * payment methods from the Stripe Dashboard"* — which enables dynamic payment
+ * methods, so Stripe picks the eligible set per customer, device and currency.
+ * Apple Pay and Google Pay then appear automatically on eligible devices, and
+ * Swish / Klarna can be switched on for the Swedish market from the Dashboard
+ * **without a code change or a redeploy**.
+ *
+ * Do not reintroduce a hardcoded `payment_method_types[0]=card`. To restrict
+ * methods, use the Dashboard, or `excluded_payment_method_types` /
+ * `payment_method_configuration` on a specific session.
+ *
+ * Note that `automatic_payment_methods` is a PaymentIntents parameter and is
+ * **not** valid on a Checkout Session — omission is the correct mechanism here.
+ *
+ * ## Consequence: do not assume every payment is instant
+ *
+ * Dynamic payment methods mean delayed-notification methods can reach this
+ * integration. Those sessions arrive as `checkout.session.completed` with
+ * `payment_status: "unpaid"` and settle later via
+ * `checkout.session.async_payment_succeeded`, or fail via
+ * `checkout.session.async_payment_failed` / `checkout.session.expired`.
+ * All four events are handled in `../../app/api/stripe/webhook/stripeWebhook.handlers.ts`.
+ * Entitlement is granted only on a paid session, never on session creation.
+ */
 const STRIPE_API_BASE = "https://api.stripe.com/v1";
+
+/**
+ * Pinned Stripe API version. Every call in this repo sends it.
+ *
+ * Unpinned, the two `new Stripe(key)` clients ride the SDK's compiled-in
+ * default (so an `npm update stripe` silently changes the wire format), and the
+ * raw `fetch` callers here and in `stripe-billing.ts` ride the ACCOUNT's default
+ * — which Stripe can move without a deploy on our side. Both failure modes look
+ * identical from here: payments that worked yesterday start returning a shape
+ * the parsers do not expect.
+ *
+ * This value matches what stripe@17.7.0 already sends, so pinning it changes no
+ * behaviour today. It only removes the ways it can change without us choosing.
+ * Bumping it is a deliberate act: read Stripe's changelog, then move this line.
+ */
+export const STRIPE_API_VERSION = "2025-02-24.acacia";
 
 type StripeCheckoutSessionMetadata = {
   orderId: string;
@@ -26,6 +72,9 @@ export type StripeCheckoutSession = {
   currency?: string;
   amount_total?: number;
   metadata?: Record<string, string>;
+  payment_intent?: string | {
+    latest_charge?: string | { paid?: boolean; refunded?: boolean; disputed?: boolean } | null;
+  } | null;
 };
 
 function getStripeSecretKey(): string {
@@ -67,6 +116,7 @@ async function stripeRequest(path: string, init: RequestInit): Promise<unknown> 
     ...init,
     headers: {
       Authorization: `Bearer ${key}`,
+      "Stripe-Version": STRIPE_API_VERSION,
       ...(init.body ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
       ...(init.headers ?? {}),
     },
@@ -103,7 +153,6 @@ export async function createStripeCheckoutSession(
   params.set("mode", "payment");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));
@@ -134,8 +183,12 @@ export async function createStripeCheckoutSession(
   return payload;
 }
 
-export async function getStripeCheckoutSession(sessionId: string): Promise<StripeCheckoutSession> {
-  const payload = await stripeRequest(`/checkout/sessions/${encodeURIComponent(sessionId)}`, {
+export async function getStripeCheckoutSession(
+  sessionId: string,
+  options?: { expandPayment?: boolean },
+): Promise<StripeCheckoutSession> {
+  const query = options?.expandPayment ? "?expand[]=payment_intent.latest_charge" : "";
+  const payload = await stripeRequest(`/checkout/sessions/${encodeURIComponent(sessionId)}${query}`, {
     method: "GET",
   });
   assertSessionShape(payload);
@@ -177,7 +230,6 @@ export async function createDonationCheckoutSession(
   params.set("mode", "payment");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));
@@ -233,7 +285,6 @@ export async function createAudiobookCheckoutSession(
   params.set("mode", "payment");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));
@@ -293,7 +344,6 @@ export async function createTranslationCheckoutSession(
   params.set("mode", "payment");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));
@@ -356,7 +406,6 @@ export async function createPodCheckoutSession(
   params.set("mode", "payment");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));
@@ -402,7 +451,12 @@ export type CreateBookOrderCheckoutInput = {
   currency: string;
   productName: string;
   customerEmail: string;
-  shipping: {
+  /**
+   * Omitted for a download. A digital order has nothing to ship, and writing
+   * empty ship_* metadata would put a blank address on the Stripe dashboard
+   * next to real ones that need posting.
+   */
+  shipping?: {
     name: string;
     line1: string;
     line2?: string;
@@ -411,6 +465,12 @@ export type CreateBookOrderCheckoutInput = {
     country: string;
     phone?: string;
   };
+  /**
+   * Distinguishes what was bought. Read back by the success page and the
+   * download route: a print session must never unlock a file, and an ebook
+   * session must never claim something is in the post.
+   */
+  orderVariant?: "print" | "ebook";
   successUrl: string;
   cancelUrl: string;
 };
@@ -435,7 +495,6 @@ export async function createBookOrderCheckoutSession(
   params.set("mode", "payment");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));
@@ -444,13 +503,16 @@ export async function createBookOrderCheckoutSession(
   params.set("metadata[payment_kind]", "book_order");
   params.set("metadata[payment_type]", "book_order");
   params.set("metadata[amount_minor]", String(amount));
-  params.set("metadata[ship_name]", input.shipping.name);
-  params.set("metadata[ship_line1]", input.shipping.line1);
-  if (input.shipping.line2) params.set("metadata[ship_line2]", input.shipping.line2);
-  params.set("metadata[ship_postal_code]", input.shipping.postalCode);
-  params.set("metadata[ship_city]", input.shipping.city);
-  params.set("metadata[ship_country]", input.shipping.country);
-  if (input.shipping.phone) params.set("metadata[ship_phone]", input.shipping.phone);
+  params.set("metadata[order_variant]", input.orderVariant ?? "print");
+  if (input.shipping) {
+    params.set("metadata[ship_name]", input.shipping.name);
+    params.set("metadata[ship_line1]", input.shipping.line1);
+    if (input.shipping.line2) params.set("metadata[ship_line2]", input.shipping.line2);
+    params.set("metadata[ship_postal_code]", input.shipping.postalCode);
+    params.set("metadata[ship_city]", input.shipping.city);
+    params.set("metadata[ship_country]", input.shipping.country);
+    if (input.shipping.phone) params.set("metadata[ship_phone]", input.shipping.phone);
+  }
 
   const payload = await stripeRequest("/checkout/sessions", {
     method: "POST",
@@ -489,7 +551,6 @@ export async function createAuthorSubscriptionCheckoutSession(
   params.set("mode", "subscription");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));
@@ -543,7 +604,6 @@ export async function createCreditTopUpCheckoutSession(
   params.set("mode", "payment");
   params.set("success_url", input.successUrl);
   params.set("cancel_url", input.cancelUrl);
-  params.set("payment_method_types[0]", "card");
   params.set("line_items[0][quantity]", "1");
   params.set("line_items[0][price_data][currency]", toStripeCurrency(input.currency));
   params.set("line_items[0][price_data][unit_amount]", String(amount));

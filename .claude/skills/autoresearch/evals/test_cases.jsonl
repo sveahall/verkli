@@ -1,0 +1,10 @@
+{"id": "tc_001", "input": "My order hasn't arrived and it's been 2 weeks. What's going on?", "metadata": {"category": "shipping", "tone": "frustrated"}}
+{"id": "tc_002", "input": "Can I get a refund for this broken item?", "metadata": {"category": "returns", "tone": "neutral"}}
+{"id": "tc_003", "input": "Your app keeps crashing every time I open it", "metadata": {"category": "technical", "tone": "annoyed"}}
+{"id": "tc_004", "input": "I love your product! How do I upgrade to premium?", "metadata": {"category": "upgrade", "tone": "positive"}}
+{"id": "tc_005", "input": "THIS IS THE WORST SERVICE EVER. I WANT TO SPEAK TO A MANAGER NOW!!!", "metadata": {"category": "escalation", "tone": "angry"}}
+{"id": "tc_006", "input": "Hi, I have a quick question about billing", "metadata": {"category": "billing", "tone": "casual"}}
+{"id": "tc_007", "input": "I was charged twice for the same order", "metadata": {"category": "billing", "tone": "concerned"}}
+{"id": "tc_008", "input": "How do I cancel my subscription?", "metadata": {"category": "cancellation", "tone": "neutral"}}
+{"id": "tc_009", "input": "The color of the product doesn't match what was shown on the website", "metadata": {"category": "returns", "tone": "disappointed"}}
+{"id": "tc_010", "input": "Do you ship internationally? Specifically to Sweden?", "metadata": {"category": "shipping", "tone": "curious"}}

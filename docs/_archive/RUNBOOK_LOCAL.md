@@ -1,0 +1,229 @@
+# RUNBOOK_LOCAL
+
+## TLDR
+1. Primär lokalkörning idag: `apps/web` + Redis lokalt + Supabase (oftast remote projekt).
+2. Startordning: env -> Redis -> Next -> workers.
+3. Web kör på `http://localhost:3000`.
+4. Redis kör på `redis://localhost:6379` via `docker compose up -d`.
+5. Import/translation/audiobook har npm-scripts.
+6. Social publish och recommendations workers saknar npm-scripts och startas med `npx tsx ...`.
+7. `/api/health` och `/api/health/queue` är snabbaste sanity check.
+8. Kvalitetsstatus i nuvarande repo: build passerar, test/lint failar.
+
+## Förutsättningar
+- [ ] Node.js 20+
+- [ ] npm 10+
+- [ ] Docker (för Redis)
+- [ ] Supabase credentials (minst URL + anon key + service role key)
+
+Kontroll:
+```bash
+node -v
+npm -v
+docker --version
+```
+
+## Portkarta
+| Tjänst | Port | Kommentar |
+|---|---:|---|
+| Next.js app | `3000` | `npm run dev` |
+| Redis | `6379` | `docker-compose.yml` |
+| Supabase API (lokal, optional) | `54321` | `apps/web/supabase/config.toml` |
+| Supabase DB (lokal, optional) | `54322` | `apps/web/supabase/config.toml` |
+| Supabase Studio (lokal, optional) | `54323` | `apps/web/supabase/config.toml` |
+| Supabase Inbucket (lokal, optional) | `54324` | `apps/web/supabase/config.toml` |
+
+## 1) Miljöfil
+Skapa lokal env:
+```bash
+cp apps/web/.env.example apps/web/.env.local
+```
+
+Minsta bas för app + workers:
+```env
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
+REDIS_URL=redis://localhost:6379
+```
+
+## 2) Starta Redis
+```bash
+docker compose up -d
+```
+
+Verifiera:
+```bash
+# variant A
+docker compose ps
+
+# variant B (om redis-cli finns lokalt)
+redis-cli -u redis://localhost:6379 ping
+```
+Förväntat: `PONG`.
+
+## 3) Starta Web App
+```bash
+npm run dev
+```
+Öppna: `http://localhost:3000`
+
+## 4) Starta Workers
+Primär väg är att starta alla workers i en process. Kör separata workers bara
+om du felsöker en specifik kö.
+
+### 4.0 Kanonisk runtime
+```bash
+npm run start-workers
+```
+
+### 4.0b Fokuserad felsökning
+Kör en worker i egen terminal.
+
+### 4.1 Import worker
+```bash
+npm run import-worker
+```
+
+### 4.2 Translation worker
+Kräver extra env:
+```env
+OPUSMT_PYTHON=/abs/path/to/python
+OPUSMT_MODELS_DIR=/abs/path/to/apps/web/models
+```
+Start:
+```bash
+npm run translate-worker
+```
+
+### 4.3 Audiobook worker
+Minsta extra env:
+```env
+AUDIOBOOK_ENABLED=true
+AUDIOBOOK_STORAGE_BUCKET=audiobooks
+AI_NARRATOR_MODEL=qwen3-placeholder
+```
+Start:
+```bash
+npm run audiobook-worker
+```
+
+### 4.5 Social publish worker
+```bash
+npm run social-publish-worker
+```
+För non-mock:
+```env
+SOCIAL_TOKEN_KEY=<base64-nyckel>
+SOCIAL_OAUTH_STATE_SECRET=<hemlighet>
+X_CLIENT_ID=...
+X_CLIENT_SECRET=...
+TIKTOK_CLIENT_KEY=...
+TIKTOK_CLIENT_SECRET=...
+INSTAGRAM_CLIENT_ID=...
+INSTAGRAM_CLIENT_SECRET=...
+```
+
+### 4.6 Recommendations worker (saknar npm-script)
+```bash
+cd apps/web
+npx tsx scripts/recommendations-worker.ts
+```
+Worker kör intern schemaläggning var 6:e timme.
+
+### 4.7 TTS Preview worker (TTS Lab)
+Ingen Redis – pollar `tts_preview_jobs` i DB.
+```bash
+npm run tts-preview-worker
+```
+Kräver Qwen TTS Python-miljö. Se [docs/tts-lab.md](./tts-lab.md).
+
+## 5) Snabb Hälsokontroll
+```bash
+curl -s http://localhost:3000/api/health
+curl -s -H "x-ops-health-token: $OPS_HEALTH_TOKEN" http://localhost:3000/api/health/queue
+```
+
+Notera:
+- `/api/health` är publik men returnerar bara en minimal safe liveness-payload utan DB/Redis-detaljer för icke-admin.
+- `/api/health/queue` verifierar Redis + translation queue reachability, inte full queue-metrics per worker.
+
+## 6) Flödes-Smoketests
+
+### Import
+- Kör UI-flöde via `/author/books/[id]` eller import-endpoint.
+- Kontrollera att `book_imports.status` går `pending -> extracting -> completed`.
+
+### Translation
+- Anropa `POST /api/books/[id]/translate`.
+- Kontrollera `book_versions.status` (`translating -> done|failed`).
+
+### Audiobook
+- Anropa `POST /api/books/[id]/audiobook/generate`.
+- Kontrollera `ai_jobs` + `audiobook_assets` + `GET /api/books/[id]/audiobook/status`.
+
+### TTS Lab
+- Öppna `/author/tts-lab`, skriv text, välj röst, klicka Generate.
+- Kör `npm run tts-preview-worker` i separat terminal.
+- Worker pollar queued jobs, kör Qwen TTS, sparar i `tts_previews` bucket.
+
+## 7) Stripe/Resend/Social (endast om du testar dessa features)
+
+### Billing
+```env
+STRIPE_SECRET_KEY=...
+STRIPE_WEBHOOK_SECRET=...
+PRICE_PLUS=...
+PRICE_PRO=...
+STRIPE_CUSTOMER_PORTAL_RETURN_URL=http://localhost:3000/account/billing
+STRIPE_CHECKOUT_SUCCESS_URL=http://localhost:3000/account/billing?checkout=success
+STRIPE_CHECKOUT_CANCEL_URL=http://localhost:3000/account/billing?checkout=cancel
+```
+
+### Email (waitlist/newsletters)
+```env
+RESEND_API_KEY=...
+RESEND_FROM_EMAIL=...
+```
+
+## 8) Kvalitetskommandon
+```bash
+npm run -w @verkli/web test
+npm run -w @verkli/web lint
+npm run -w @verkli/web build:ci
+```
+
+Nuvarande observerad status i detta repo:
+- `test`: fail (17 tester)
+- `lint`: fail (6 errors)
+- `build:ci`: pass (med varningar från `epub`-beroenden)
+
+## 9) Lokal Supabase (optional, experimentellt med nuvarande repo)
+Det finns en lokal Supabase-konfig i `apps/web/supabase/config.toml`.
+
+Startförsök:
+```bash
+cd apps/web
+npx supabase start
+```
+
+Viktigt:
+- `config.toml` refererar `./seed.sql` som saknas i repo.
+- Schema är splittrat över två migrationsspår (`apps/web` och `packages/db`), så lokal bootstrap kan avvika från driftad miljö.
+
+## 10) Vanliga Problem
+| Symptom | Trolig orsak | Åtgärd |
+|---|---|---|
+| Worker dör direkt med env-fel | saknad `SUPABASE_SERVICE_ROLE_KEY`/`REDIS_URL` | uppdatera `apps/web/.env.local` |
+| Translation failar direkt | saknad `OPUSMT_PYTHON`/`OPUSMT_MODELS_DIR` | sätt båda + verifiera modellfiler |
+| Audiobook failar | narrator-provider saknas i legacy-flödet | migrera till Qwen3 TTS |
+| Social worker failar | saknad `SOCIAL_TOKEN_KEY` | sätt env eller använd mock mode i dev |
+| `npm run runway:text-to-video` failar | script pekar på saknad fil | använd API-route istället tills script fixas |
+
+## 11) Stoppa Allt
+```bash
+# stoppa app/workers via Ctrl+C i respektive terminal
+docker compose down
+```

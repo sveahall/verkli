@@ -1,0 +1,561 @@
+import AudioTextSync from "./AudioTextSync";
+import { getChapterText } from "@/lib/audiobook/chapter-text";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { getReadAccess } from "@/lib/books/access";
+import FreemiumGate from "@/components/reader/FreemiumGate";
+import { logAnalyticsEvent } from "@/lib/analytics/events";
+import PurchaseBookButton from "../../books/[id]/PurchaseBookButton";
+import PurchaseChapterButton from "../../books/[id]/PurchaseChapterButton";
+import CommentsSection from "../../books/[id]/CommentsSection";
+import ReadingProgress from "./ReadingProgress";
+import ReaderChapterClient, { type ReaderHighlight, type ReaderSettings } from "./ReaderChapterClient";
+import ChapterTopNavigator from "./ChapterTopNavigator";
+import ChapterAudiobookPlayer from "./ChapterAudiobookPlayer";
+import ReadingView from "@/features/reader/reader-reading/ReadingView";
+import { extractTextFromTiptapNode } from "@/lib/tiptap-content";
+import LanguageSwitcher, { type LanguageOption } from "./LanguageSwitcher";
+import { getLanguageLabel, normalizeLanguage } from "@/lib/languages";
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function parseReaderSettings(preferences: Record<string, unknown> | null): ReaderSettings {
+  const defaults: ReaderSettings = {
+    fontSize: 16,
+    lineHeight: 1.7,
+    fontFamily: "serif" as const,
+    textAlign: "left" as const,
+    marginSize: "normal" as const,
+    theme: "light" as const,
+  };
+
+  if (!preferences) return defaults;
+
+  const reader = asRecord(preferences.reader);
+  const settings = asRecord(reader?.settings);
+  const fontSize = typeof settings?.fontSize === "number" ? settings.fontSize : defaults.fontSize;
+  const lineHeight = typeof settings?.lineHeight === "number" ? settings.lineHeight : defaults.lineHeight;
+  const fontFamily = settings?.fontFamily === "serif" || settings?.fontFamily === "sans" || settings?.fontFamily === "mono" ? settings.fontFamily : defaults.fontFamily;
+  const textAlign = settings?.textAlign === "left" || settings?.textAlign === "justify" ? settings.textAlign : defaults.textAlign;
+  const marginSize = settings?.marginSize === "narrow" || settings?.marginSize === "normal" || settings?.marginSize === "wide" ? settings.marginSize : defaults.marginSize;
+  const theme =
+    settings?.theme === "light" || settings?.theme === "sepia" || settings?.theme === "dark"
+      ? settings.theme
+      : defaults.theme;
+
+  return {
+    fontSize: Math.min(24, Math.max(13, fontSize)),
+    lineHeight: Math.min(2.1, Math.max(1.4, lineHeight)),
+    fontFamily,
+    textAlign,
+    marginSize,
+    theme,
+  };
+}
+
+function normalizeHighlightColor(value: unknown): "yellow" | "green" | "blue" | "rose" {
+  if (value === "yellow" || value === "green" || value === "blue" || value === "rose") {
+    return value;
+  }
+  return "yellow";
+}
+
+/**
+ * The reading card renders the chapter title as its own centered heading
+ * (see ReaderChapterBody). Most stored chapters *also* begin with a heading
+ * node repeating that same title, which rendered the title twice. Strip the
+ * leading heading when its text matches the chapter title so it shows once.
+ */
+function stripLeadingTitleHeading(content: unknown, title: string): unknown {
+  const wanted = title.replace(/\s+/g, " ").trim().toLowerCase();
+  if (!wanted) return content;
+
+  const process = (doc: unknown): unknown => {
+    if (!doc || typeof doc !== "object") return doc;
+    const d = doc as { content?: unknown[] };
+    if (!Array.isArray(d.content) || d.content.length === 0) return doc;
+    const first = d.content[0] as { type?: string } | undefined;
+    if (first?.type !== "heading") return doc;
+    const headingText = extractTextFromTiptapNode(first).replace(/\s+/g, " ").trim().toLowerCase();
+    if (headingText && headingText === wanted) {
+      return { ...d, content: d.content.slice(1) };
+    }
+    return doc;
+  };
+
+  if (typeof content === "string") {
+    try {
+      const parsed: unknown = JSON.parse(content.trim());
+      const stripped = process(parsed);
+      return stripped === parsed ? content : JSON.stringify(stripped);
+    } catch {
+      return content;
+    }
+  }
+  return process(content);
+}
+
+function hasReadableChapterContent(content: unknown): boolean {
+  if (typeof content === "string") {
+    const trimmed = content.trim();
+    if (!trimmed) return false;
+    try {
+      const parsed: unknown = JSON.parse(trimmed);
+      return extractTextFromTiptapNode(parsed).replace(/\s+/g, " ").trim().length > 0;
+    } catch {
+      return trimmed.length > 0;
+    }
+  }
+  if (content && typeof content === "object") {
+    return extractTextFromTiptapNode(content).replace(/\s+/g, " ").trim().length > 0;
+  }
+  return false;
+}
+
+export default async function ReaderReadPage({
+  params,
+}: {
+  params: Promise<{ chapterId: string }>;
+}) {
+  const { chapterId } = await params;
+
+  const supabase = await createClient();
+
+  const { data: chapter } = await supabase
+    .from("chapters")
+    .select("id, title, order, book_id, book_version_id, content, source_text")
+    .eq("id", chapterId)
+    .maybeSingle();
+
+  if (!chapter) notFound();
+
+  const [
+    { data: book },
+    {
+      data: { user },
+    },
+  ] = await Promise.all([
+    supabase
+      .from("books")
+      .select("id, title, status, audiobook_status, author_id, price_amount, price_currency, pricing_model")
+      .eq("id", chapter.book_id)
+      .maybeSingle(),
+    supabase.auth.getUser(),
+  ]);
+
+  if (!book) {
+    notFound();
+  }
+
+  const isAuthorView = Boolean(user?.id && (book as { author_id?: string | null }).author_id === user.id);
+
+  const priceAmount = Math.max(0, Math.trunc(Number((book as { price_amount?: number | null }).price_amount ?? 0)));
+  const priceCurrency = String((book as { price_currency?: string | null }).price_currency ?? "USD").trim().toUpperCase() || "USD";
+  const bookPricingModel = String((book as { pricing_model?: string | null }).pricing_model ?? "book_only");
+  const isPerChapter = bookPricingModel === "per_chapter";
+
+  // Resolved BEFORE the publication gate below, not after. Ordered the other way
+  // round, a reader who bought a book the author later unpublished got a 404 from
+  // this route no matter what they were entitled to — the purchase silently stopped
+  // being readable, which is the one outcome a paid entitlement must never have.
+  const readAccess = await getReadAccess({
+    supabase,
+    userId: user?.id ?? null,
+    bookId: book.id,
+    chapterId: chapter.id,
+    bookVersionId: chapter.book_version_id,
+    bookAuthorId: String((book as { author_id?: string | null }).author_id ?? ""),
+    bookPriceAmount: priceAmount,
+    bookPricingModel,
+  });
+
+  // An unpublished book stays readable for the author and for anyone who paid for
+  // it (a purchase or an active Plus entitlement). It must NOT stay browsable via
+  // a free or preview grant: unpublishing has to remove it from public reach, and
+  // "free"/"first_chapter" are exactly the public-reach cases.
+  const hasPaidEntitlement =
+    readAccess.access === "full" && (readAccess.reason === "purchased" || readAccess.reason === "plus");
+  if (book.status !== "PUBLISHED" && !isAuthorView && !hasPaidEntitlement) {
+    notFound();
+  }
+
+  if (readAccess.access === "locked") {
+    const gateSignInHref = `/reader/signin?next=${encodeURIComponent(`/reader/books/${book.id}`)}`;
+    return (
+      <main className="min-h-screen bg-muted text-foreground dark:bg-background dark:text-foreground">
+        <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+          <div className="mx-auto max-w-[720px]">
+            <header className="mb-8 flex items-center justify-between">
+              <Link href={`/reader/books/${book.id}`} className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground">
+                <span aria-hidden>←</span> Back to book
+              </Link>
+              <span className="text-xs text-muted-foreground dark:text-muted-foreground">Locked</span>
+            </header>
+            <div className="rounded-2xl border border-[#907AFF]/15 bg-[#907AFF]/[0.04] p-6">
+              <h1 className="text-2xl font-medium text-foreground dark:text-foreground font-display">Chapter locked</h1>
+              <p className="mt-2 text-sm text-muted-foreground dark:text-muted-foreground">
+                {isPerChapter
+                  ? "Purchase this chapter or upgrade to Verkli Plus to read it."
+                  : "Purchase the book or upgrade to Verkli Plus to read all chapters."}
+              </p>
+              <div className="mt-6 flex flex-wrap items-center gap-4">
+                {user ? (
+                  isPerChapter ? (
+                    <PurchaseChapterButton bookId={book.id} chapterId={chapterId} amount={priceAmount} currency={priceCurrency} />
+                  ) : (
+                    <PurchaseBookButton bookId={book.id} amount={priceAmount} currency={priceCurrency} />
+                  )
+                ) : (
+                  <Link
+                    href={gateSignInHref}
+                    className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-6 text-sm font-medium text-primary-foreground shadow-sm transition-[background-color,border-color,color,box-shadow] duration-200 hover:bg-primary/90 active:scale-[0.97]"
+                  >
+                    Sign in to purchase
+                  </Link>
+                )}
+                <Link
+                  href="/reader/billing"
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-[#907AFF]/25 px-6 text-sm font-semibold text-accent-foreground transition-colors hover:bg-[#907AFF]/10 dark:text-[#B8A9FF]"
+                >
+                  Upgrade to Verkli Plus
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  let profilePreferences: Record<string, unknown> | null = null;
+  let initialHighlights: ReaderHighlight[] = [];
+
+  // Fold the `existingReading` lookup into the same parallel batch as the
+  // chapter list, profile preferences, and highlights — they have no
+  // ordering dependency and were previously serialised behind it.
+  const [
+    { data: chapters },
+    profileResult,
+    chapterHighlightsResult,
+    existingReadingResult,
+  ] = await Promise.all([
+    supabase
+      .from("chapters")
+      .select("id, title, order")
+      .eq("book_version_id", chapter.book_version_id)
+      .order("order", { ascending: true }),
+    user
+      ? supabase
+          .from("profiles")
+          .select("preferences")
+          .eq("user_id", user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    user
+      ? supabase
+          .from("highlights")
+          .select("id, start_offset, end_offset, snippet, color, note, created_at, updated_at")
+          .eq("user_id", user.id)
+          .eq("chapter_id", chapter.id)
+          .order("start_offset", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    user
+      ? supabase
+          .from("readings")
+          .select("chapter_id")
+          .eq("user_id", user.id)
+          .eq("book_id", book.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const shouldLogStartReading = user
+    ? !existingReadingResult?.data
+    : Number(chapter.order ?? 0) === 1;
+
+  if (shouldLogStartReading) {
+    logAnalyticsEvent(supabase, {
+      eventType: "start_reading",
+      userId: user?.id ?? null,
+      bookId: book.id,
+      path: `/reader/read/${chapter.id}`,
+      props: {
+        chapterId: chapter.id,
+        chapterOrder: chapter.order,
+      },
+    }).catch(() => {});
+  }
+
+  if (user) {
+    profilePreferences = asRecord(profileResult?.data?.preferences);
+
+    const rows = (Array.isArray(chapterHighlightsResult?.data) ? chapterHighlightsResult.data : []) as Array<Record<string, unknown>>;
+    initialHighlights = rows
+      .map((row) => {
+        const id = String(row.id ?? "").trim();
+        const snippet = String(row.snippet ?? "").trim();
+        const startOffset = Number(row.start_offset ?? NaN);
+        const endOffset = Number(row.end_offset ?? NaN);
+        if (!id || !snippet || !Number.isFinite(startOffset) || !Number.isFinite(endOffset) || endOffset <= startOffset) {
+          return null;
+        }
+
+        return {
+          id,
+          startOffset,
+          endOffset,
+          snippet,
+          color: normalizeHighlightColor(row.color),
+          note: row.note == null ? null : String(row.note),
+          createdAt: String(row.created_at ?? ""),
+          updatedAt: String(row.updated_at ?? ""),
+        } satisfies ReaderHighlight;
+      })
+      .filter((row): row is ReaderHighlight => row !== null);
+  }
+
+  const initialReaderSettings = parseReaderSettings(profilePreferences);
+  const rawChapterContent = hasReadableChapterContent(chapter.content)
+    ? chapter.content
+    : ((chapter as { source_text?: string | null }).source_text ?? null);
+  const chapterContent = stripLeadingTitleHeading(rawChapterContent, chapter.title) as
+    | string
+    | Record<string, unknown>
+    | null;
+
+  // Multi-language switcher data (Week 1 / ROADMAP Phase 0.2). Resolves
+  // sibling chapter ids across published language versions of the same book,
+  // matched by `order`. Languages without a sibling at this order are
+  // omitted (translation in progress / not yet ready).
+  const chapterOrder = typeof chapter.order === "number" ? chapter.order : null;
+  let languageOptions: LanguageOption[] = [];
+  let currentLanguageCode = "en";
+  if (chapterOrder !== null) {
+    const { data: versionRows } = await supabase
+      .from("book_versions")
+      .select("id, language_code, published_at")
+      .eq("book_id", book.id)
+      .not("published_at", "is", null);
+
+    const versions = (versionRows ?? []) as Array<{
+      id: string;
+      language_code: string;
+      published_at: string | null;
+    }>;
+    const versionIds = versions.map((v) => v.id);
+
+    if (versionIds.length > 0) {
+      const [{ data: siblingChapterRows }, { data: audiobookAssetRows }] =
+        await Promise.all([
+          supabase
+            .from("chapters")
+            .select("id, book_version_id, order")
+            .in("book_version_id", versionIds)
+            .eq("order", chapterOrder),
+          supabase
+            .from("audiobook_assets")
+            .select("book_id, language, status")
+            .eq("book_id", book.id),
+        ]);
+
+      const siblingByVersionId = new Map<string, string>(
+        ((siblingChapterRows ?? []) as Array<{ id: string; book_version_id: string }>).map(
+          (row) => [row.book_version_id, row.id] as const
+        )
+      );
+      const audiobookByLang = new Set(
+        ((audiobookAssetRows ?? []) as Array<{ language: string | null; status: string | null }>)
+          .filter((row) => (row.status ?? "").toLowerCase() === "generated")
+          .map((row) => normalizeLanguage(row.language ?? ""))
+          .filter(Boolean)
+      );
+
+      languageOptions = versions
+        .map((v): LanguageOption | null => {
+          const siblingId = siblingByVersionId.get(v.id);
+          if (!siblingId) return null;
+          const code = normalizeLanguage(v.language_code) || v.language_code;
+          return {
+            code,
+            label: getLanguageLabel(code),
+            chapterId: siblingId,
+            hasAudio: audiobookByLang.has(code),
+          };
+        })
+        .filter((x): x is LanguageOption => x !== null)
+        .sort((a, b) => a.label.localeCompare(b.label));
+
+      const currentVersion = versions.find((v) => v.id === chapter.book_version_id);
+      if (currentVersion) {
+        currentLanguageCode =
+          normalizeLanguage(currentVersion.language_code) || currentVersion.language_code;
+      }
+    }
+  }
+
+  const chapterIndex = chapters?.findIndex((c) => c.id === chapterId) ?? 0;
+  const totalChapters = chapters?.length ?? 1;
+  const progressPercent = totalChapters > 0 ? Math.round(((chapterIndex + 1) / totalChapters) * 100) : 0;
+  const bookAuthorId = String((book as { author_id?: string | null }).author_id ?? "");
+  const signInHref = `/reader/signin?next=${encodeURIComponent(`/reader/read/${chapter.id}`)}`;
+  const chapterOptions = (chapters ?? []).map((item) => ({
+    id: item.id,
+    title: item.title,
+    order: item.order,
+  }));
+  const navChapters = chapterOptions.map((item, index) => ({
+    id: item.id,
+    title: item.title,
+    order: typeof item.order === "number" && Number.isFinite(item.order) ? item.order : index + 1,
+  }));
+  const previousChapterNav = chapterIndex > 0 ? navChapters[chapterIndex - 1] : null;
+  const nextChapterNav =
+    chapterIndex >= 0 && chapterIndex < navChapters.length - 1
+      ? navChapters[chapterIndex + 1]
+      : null;
+  // The navigator directly below already shows "N of M" beside its prev/next
+  // arrows, where position is actionable. Repeating it in the header put
+  // "Chapter 1" on screen four times before the first sentence, so the
+  // header keeps only what the navigator does not say: the access state.
+  const progressLabel = readAccess.access === "preview" ? "Preview" : "";
+  // For a single-chapter book there's no prev/next and no preview gate — the
+  // "Start of book / End of book" placeholders would just read as empty. Skip.
+  const showFooterNavigation =
+    Boolean(previousChapterNav) ||
+    Boolean(nextChapterNav) ||
+    (readAccess.access === "preview" && readAccess.isLastPreview);
+  const footerNavigation = !showFooterNavigation ? null : (
+    <section className="grid gap-4 sm:grid-cols-2">
+      {previousChapterNav ? (
+        <Link
+          href={`/reader/read/${previousChapterNav.id}`}
+          className="group rounded-xl border border-black/[0.06] bg-card p-4 text-left shadow-sm transition-[background-color,border-color,color,box-shadow] duration-200 hover:shadow-md dark:border-border dark:bg-card"
+        >
+          <p className="text-xs text-muted-foreground dark:text-muted-foreground">Previous chapter</p>
+          <p className="mt-1 text-sm font-medium text-foreground transition-colors group-hover:text-accent-foreground dark:text-foreground">
+            {previousChapterNav.title}
+          </p>
+        </Link>
+      ) : (
+        <div className="rounded-xl border border-dashed border-black/[0.06] p-4 text-xs text-muted-foreground dark:border-border dark:text-muted-foreground">
+          Start of book
+        </div>
+      )}
+
+      {readAccess.access === "preview" && readAccess.isLastPreview ? (
+        <div className="rounded-xl border border-dashed border-[#907AFF]/20 bg-[#907AFF]/5 p-4 text-right text-xs text-accent-foreground">
+          Purchase or upgrade to unlock the next chapter
+        </div>
+      ) : nextChapterNav ? (
+        <Link
+          href={`/reader/read/${nextChapterNav.id}`}
+          className="group rounded-xl border border-black/[0.06] bg-card p-4 text-right shadow-sm transition-[background-color,border-color,color,box-shadow] duration-200 hover:shadow-md dark:border-border dark:bg-card"
+        >
+          <p className="text-xs text-muted-foreground dark:text-muted-foreground">Next chapter</p>
+          <p className="mt-1 text-sm font-medium text-foreground transition-colors group-hover:text-accent-foreground dark:text-foreground">
+            {nextChapterNav.title}
+          </p>
+        </Link>
+      ) : (
+        <div className="rounded-xl border border-dashed border-black/[0.06] p-4 text-right text-xs text-muted-foreground dark:border-border dark:text-muted-foreground">
+          End of book
+        </div>
+      )}
+    </section>
+  );
+  const commentsSection = (
+    <CommentsSection
+      bookId={book.id}
+      bookAuthorId={bookAuthorId}
+      currentUserId={user?.id ?? null}
+      isSignedIn={Boolean(user)}
+      signInHref={signInHref}
+      chapterOptions={chapterOptions}
+      fixedChapterId={chapter.id}
+      title={`Comments: ${chapter.title}`}
+    />
+  );
+
+  return (
+    <>
+      <ReadingProgress
+        bookId={book.id}
+        chapterId={chapter.id}
+        progressPercent={progressPercent}
+        currentChapter={chapterIndex + 1}
+        userId={user?.id ?? null}
+      />
+      <AudioTextSync key={chapter.id} textOffset={Math.max(0,
+        getChapterText(typeof rawChapterContent === "string" ? rawChapterContent : JSON.stringify(rawChapterContent)).length -
+        getChapterText(typeof chapterContent === "string" ? chapterContent : JSON.stringify(chapterContent)).length
+      )}>
+      <ReadingView
+        backHref={`/reader/books/${book.id}`}
+        backLabel="Back to book"
+        bookTitle={book.title}
+        chapterLabel={chapter.title}
+        progressLabel={progressLabel}
+        chapterNavigator={
+          <ChapterTopNavigator
+            chapters={navChapters}
+            currentChapterId={chapter.id}
+            disableNext={readAccess.access === "preview" && readAccess.isLastPreview}
+          />
+        }
+        chapterContent={
+          <div>
+            {languageOptions.length > 1 ? (
+              <div className="mb-4">
+                <LanguageSwitcher
+                  bookId={book.id}
+                  currentLanguage={currentLanguageCode}
+                  options={languageOptions}
+                />
+              </div>
+            ) : null}
+            <ReaderChapterClient
+              key={chapter.id}
+              userId={user?.id ?? null}
+              bookId={book.id}
+              bookVersionId={chapter.book_version_id}
+              chapterId={chapter.id}
+              chapterTitle={chapter.title}
+              chapterContent={chapterContent}
+              initialHighlights={initialHighlights}
+              initialPreferences={profilePreferences}
+              initialSettings={initialReaderSettings}
+            />
+          </div>
+        }
+        audioPlayer={
+          <ChapterAudiobookPlayer
+            bookId={book.id}
+            chapterId={chapter.id}
+            audiobookStatus={typeof (book as { audiobook_status?: string | null }).audiobook_status === "string"
+              ? (book as { audiobook_status?: string | null }).audiobook_status
+              : null}
+            isAuthorView={isAuthorView}
+          />
+        }
+        gate={
+          readAccess.access === "preview" && readAccess.isLastPreview ? (
+            <FreemiumGate
+              bookId={book.id}
+              priceAmount={priceAmount}
+              priceCurrency={priceCurrency}
+              isSignedIn={Boolean(user)}
+              signInHref={signInHref}
+            />
+          ) : undefined
+        }
+        footerNavigation={footerNavigation}
+        commentsSection={commentsSection}
+      />
+      </AudioTextSync>
+    </>
+  );
+}
