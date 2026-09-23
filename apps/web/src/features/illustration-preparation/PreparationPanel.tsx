@@ -39,17 +39,17 @@ export default function PreparationPanel() {
     } catch (failure) { if (request === sequence.current.id) setError(message(failure)); }
     finally { if (request === sequence.current.id) setLoading(false); }
   }
-  let crop = null; let cropError = "";
+  let crop: ReturnType<typeof calculateCrop> | null = null; let cropError = "";
   if (source) { try { crop = calculateCrop(source.width, source.height, settings); } catch (failure) { cropError = message(failure); } }
   async function download() {
     if (!source || !crop || loading || exporting) return;
-    const request = sequence.current.id; setExporting(true); setError(""); setNotice("");
+    const output = crop; const request = sequence.current.id; setExporting(true); setError(""); setNotice("");
     try {
       const blob = await exportCrop(source, settings, format);
       if (request !== sequence.current.id) return;
       const url = URL.createObjectURL(blob); const link = document.createElement("a");
       const timer = setTimeout(() => { URL.revokeObjectURL(url); downloads.current.delete(url); }, 60_000); downloads.current.set(url, timer);
-      link.href = url; link.download = `illustration-${settings.aspect}-${crop.width}x${crop.height}.${format === "jpeg" ? "jpg" : "png"}`;
+      link.href = url; link.download = `illustration-${settings.aspect}-${output.width}x${output.height}.${format === "jpeg" ? "jpg" : "png"}`;
       document.body.appendChild(link); try { link.click(); } finally { link.remove(); }
       setNotice("Download started. This file has not been saved as an illustration in your book.");
     } catch (failure) { if (request === sequence.current.id) setError(message(failure)); }
