@@ -128,7 +128,25 @@ describe("PlanBuilder", () => {
     expect(() => planner().builder.record("replace_in_book", { matchIds: ["m99"], replacement: "Jonas", reason: "x" }))
       .toThrow(PlanRejection);
     expect(() => planner().builder.record("replace_in_book", { matchIds: ["m1", "m1"], replacement: "Jonas", reason: "x" }))
-      .toThrow(/more than once/);
+      .toThrow(/already part of this plan/);
+  });
+
+  it("will not let a second step claim a match the first already took", () => {
+    // The card keys its checkboxes by matchId, so two rows for one match move
+    // together — the author cannot keep one and drop the other, and step order,
+    // not the author, decides which replacement lands.
+    const { builder } = planner();
+    builder.record("replace_in_book", { matchIds: ["m1", "m2"], replacement: "Jonas", reason: "Rename." });
+    expect(() => builder.record("replace_in_book", { matchIds: ["m2"], replacement: "Jens", reason: "Again." }))
+      .toThrow(/already part of this plan/);
+  });
+
+  it("refuses a replacement that would fake a paragraph break", () => {
+    // The splice writes one text node, so the break would not exist — and the
+    // next run could not tell the embedded newline from a real boundary.
+    const { builder } = planner();
+    expect(() => builder.record("replace_in_book", { matchIds: ["m1"], replacement: "Jonas\n\nSvensson", reason: "x" }))
+      .toThrow();
   });
 
   it("checks a rewrite against the chapter while the model can still fix it", () => {

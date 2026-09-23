@@ -162,6 +162,30 @@ describe("applyPlan", () => {
     expect(outcomes[0]).toMatchObject({ status: "skipped", changed: 0 });
   });
 
+  it("reports every way a step failed, not whichever came last", async () => {
+    // A step can span chapters and fail differently in each. Overwriting one
+    // reason with another meant the author heard about the formatting seam and
+    // never learned that a whole chapter's passages had been skipped too.
+    const text = (value: string, marks?: { type: string }[]) => ({ type: "text", text: value, ...(marks ? { marks } : {}) });
+    const stale = richChapter(ONE, 1, "Hamnen", [[text("Johansson kom.")]]);
+    const seam = richChapter(TWO, 2, "Färjan", [[text("Jo"), text("han", [{ type: "bold" }]), text("sson gick.")]]);
+    const target: AgentBook = { bookId: BOOK, versionId: VERSION, bookTitle: "Inget kan stoppa", chapters: [stale, seam] };
+    const matches = [...plannedFor(stale, "Johansson", "Karlsson"), ...plannedFor(seam, "Johansson", "Karlsson")];
+    expect(matches).toHaveLength(2);
+
+    // The author typed in the first chapter after the plan was made.
+    stale.hash = "the-author-typed-something";
+
+    const outcomes = await applyPlan(fakeSupabase().client, target, {
+      versionId: VERSION,
+      steps: [{ id: "s1", tool: "replace_in_book", reason: "Rename.", replacement: "Karlsson", matches }],
+    });
+
+    // Both reasons, in one detail: the chapter the author edited, and the seam.
+    expect(outcomes[0].detail).toMatch(/edited since/);
+    expect(outcomes[0].detail).toMatch(/formatting/);
+  });
+
   it("does not blame the author when the database is what failed", async () => {
     // The CAS branch and the error branch were one condition, so a statement
     // timeout was reported as "you edited this chapter after the plan was

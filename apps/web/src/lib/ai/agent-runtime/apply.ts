@@ -162,16 +162,29 @@ function dropOverlaps(edits: (TextEdit & { stepId: string })[]): { kept: typeof 
  */
 async function applyChapter(
   supabase: SupabaseClient, bookId: string, { chapter, edits }: ChapterWork,
-): Promise<{ applied: Map<string, number>; failures: Map<string, string> }> {
+): Promise<{ applied: Map<string, number>; failures: Map<string, Set<string>> }> {
   const appliedByStep = new Map<string, number>();
-  const failures = new Map<string, string>();
+  /**
+   * A set per step, not one string. A step can span several chapters and fail
+   * differently in each — one stale, one on a formatting seam — and overwriting
+   * meant the author heard about whichever came last and never learned the
+   * other passages had been skipped at all.
+   */
+  const failures = new Map<string, Set<string>>();
+  const note = (stepId: string, reason: string) => {
+    const reasons = failures.get(stepId) ?? new Set<string>();
+    reasons.add(reason);
+    failures.set(stepId, reasons);
+  };
   const { kept, dropped } = dropOverlaps(edits);
-  for (const edit of dropped) failures.set(edit.stepId, "Two changes covered the same words; the later one was left out.");
+  // Not "the later one": dropOverlaps keeps the edit that starts earliest in the
+  // chapter, which need not be the earlier step.
+  for (const edit of dropped) note(edit.stepId, "Another change in this chapter already covered these words, so this one was left out.");
 
   const state = EditorState.create({ schema: chapterSchema, doc: chapter.doc! });
   const { transaction, applied, skipped } = replaceTextRanges(state, kept, { skipInvalid: true });
   const skippedEdits = new Set(skipped.map((entry) => entry.index));
-  for (const entry of skipped) failures.set(kept[entry.index].stepId, entry.reason);
+  for (const entry of skipped) note(kept[entry.index].stepId, entry.reason);
   if (!applied) return { applied: appliedByStep, failures };
 
   const serialized = JSON.stringify(state.apply(transaction).doc.toJSON());
@@ -187,11 +200,11 @@ async function applyChapter(
 
   if (error) {
     console.error("[agent.apply] chapter write failed", { chapterId: chapter.id, code: error.code });
-    for (const edit of kept) failures.set(edit.stepId, WRITE_UNAVAILABLE);
+    for (const edit of kept) note(edit.stepId, WRITE_UNAVAILABLE);
     return { applied: appliedByStep, failures };
   }
   if (!data?.some((row) => row.id === chapter.id)) {
-    for (const edit of kept) failures.set(edit.stepId, STALE_CHAPTER);
+    for (const edit of kept) note(edit.stepId, STALE_CHAPTER);
     return { applied: appliedByStep, failures };
   }
 
@@ -259,12 +272,18 @@ export async function applyPlan(
   const { work, outcomes, notes } = collectChapterWork(steps, book, selection);
 
   const changedByStep = new Map<string, number>();
-  const failedByStep = new Map<string, string>(notes);
+  const failedByStep = new Map<string, Set<string>>();
+  for (const [stepId, reason] of notes) failedByStep.set(stepId, new Set([reason]));
+  const noteStep = (stepId: string, reason: string) => {
+    const reasons = failedByStep.get(stepId) ?? new Set<string>();
+    reasons.add(reason);
+    failedByStep.set(stepId, reasons);
+  };
   // A step's edits can span several chapters, and a chapter's edits can come
   // from several steps, so both maps accumulate across the whole plan.
   for (const entry of work.values()) {
     const { applied, failures } = await applyChapter(supabase, book.bookId, entry);
-    for (const [stepId, reason] of failures) failedByStep.set(stepId, reason);
+    for (const [stepId, reasons] of failures) for (const reason of reasons) noteStep(stepId, reason);
     for (const [stepId, count] of applied) changedByStep.set(stepId, (changedByStep.get(stepId) ?? 0) + count);
   }
 
@@ -272,7 +291,8 @@ export async function applyPlan(
     if (step.tool !== "replace_in_book" && step.tool !== "rewrite_passage") continue;
     if (outcomes.some((outcome) => outcome.stepId === step.id)) continue;
     const changed = changedByStep.get(step.id) ?? 0;
-    const failure = failedByStep.get(step.id);
+    // Every distinct reason, so a step that failed two ways says both.
+    const failure = [...(failedByStep.get(step.id) ?? [])].join(" ") || undefined;
     outcomes.push(
       changed
         // Partly applied is the common case, not an edge one: say both halves.

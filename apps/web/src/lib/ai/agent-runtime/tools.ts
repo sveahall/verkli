@@ -50,8 +50,14 @@ export const toolInputSchemas = {
     matchIds: z.array(matchId).max(MAX_REPLACEMENTS_PER_RUN),
     /** Offered unticked, for matches the author should decide on. */
     optionalMatchIds: z.array(matchId).max(MAX_REPLACEMENTS_PER_RUN).optional(),
-    /** May be empty, which deletes the matched text. */
-    replacement: z.string().max(4000),
+    /**
+     * May be empty, which deletes the matched text. A line break is refused for
+     * the same reason rewrite_passage refuses one: the splice writes a single
+     * text node, so the paragraph break the author approved does not exist, and
+     * the next run cannot tell the embedded newline from a real boundary.
+     */
+    replacement: z.string().max(4000).refine((value) => !/[\r\n]/.test(value),
+      "Replacements stay within one paragraph; ask for a rewrite to change the chapter's structure."),
     reason,
   }).strict().refine(
     (value) => value.matchIds.length + (value.optionalMatchIds?.length ?? 0) > 0,

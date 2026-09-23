@@ -86,6 +86,13 @@ export class PlanRejection extends Error {}
 export class PlanBuilder {
   private readonly steps: PlanStep[] = [];
   private replacements = 0;
+  /**
+   * Across the whole plan, not one call. Scoped per call, two steps could name
+   * the same match: the card keys its checkboxes by matchId, so both rows moved
+   * together and the author could not keep one and drop the other — and which
+   * replacement actually landed was decided by step order.
+   */
+  private readonly claimed = new Set<string>();
 
   constructor(private readonly book: AgentBook, private readonly registry: MatchRegistry) {}
 
@@ -162,14 +169,13 @@ export class PlanBuilder {
       };
     };
 
-    const seen = new Set<string>();
     const matches: PlannedMatch[] = [];
     for (const [ids, preselected] of [[input.matchIds, true], [input.optionalMatchIds ?? [], false]] as const) {
       for (const matchId of ids) {
         // The same match offered twice would be applied twice, at positions
         // that no longer mean what they did after the first pass.
-        if (seen.has(matchId)) throw new PlanRejection(`${matchId} appears more than once. List every match exactly once.`);
-        seen.add(matchId);
+        if (this.claimed.has(matchId)) throw new PlanRejection(`${matchId} is already part of this plan. Each match belongs to one change.`);
+        this.claimed.add(matchId);
         matches.push(resolve(matchId, preselected));
       }
     }
