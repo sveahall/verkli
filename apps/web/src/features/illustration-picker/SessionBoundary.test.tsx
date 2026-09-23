@@ -9,7 +9,7 @@ it("does not render private titles before browser session verification", () => {
 });
 it("clears owner verification on signout or another account and ignores events after cleanup", () => {
   type Listener = Parameters<SupabaseClient["auth"]["onAuthStateChange"]>[0];
-  let listener: Listener = () => {};
+  let listener: Listener = async () => {};
   const unsubscribe = vi.fn(); const update = vi.fn();
   const auth = { onAuthStateChange: (callback: Listener) => { listener = callback; return { data: { subscription: { unsubscribe } } }; } } as unknown as SupabaseClient["auth"];
   const stop = watchOwner(auth, "owner", update);
