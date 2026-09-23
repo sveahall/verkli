@@ -18,6 +18,7 @@ import {
   E_INVALID_MULTIPART_BODY,
   E_MISSING_FILE,
   E_INVALID_IMPORT_MODE,
+  E_IMPORT_OVERWRITE_UNAVAILABLE,
   E_VALIDATION_FAILED,
   E_BOOK_NOT_FOUND,
   E_DATABASE_ERROR,
@@ -65,6 +66,10 @@ export async function POST(
 
   if (!mode) {
     return apiError(E_INVALID_IMPORT_MODE, 400);
+  }
+  if (mode === "overwrite_draft") {
+    console.warn("[book-import] draft replacement blocked");
+    return apiError(E_IMPORT_OVERWRITE_UNAVAILABLE, 409);
   }
 
   const supabase = await createClient();
