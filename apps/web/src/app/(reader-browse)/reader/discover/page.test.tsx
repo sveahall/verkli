@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -55,23 +56,27 @@ const controlledBooks = [
   { id: "literal", title: "100%_true\\path", cover_image: null, author_id: "author", language: "en", status: "PUBLISHED" },
 ];
 
-function catalog(failingTable?: string, books = controlledBooks) {
+const controlledJunctions = [
+  { book_id: "dual", genre_id: "fiction" }, { book_id: "dual", genre_id: "romance" },
+  { book_id: "sv", genre_id: "fiction" }, { book_id: "draft", genre_id: "fiction" },
+  { book_id: "ebook", genre_id: "romance" },
+];
+
+function catalog(failingTable?: string, books = controlledBooks, junctions = controlledJunctions) {
   const genres = [{ id: "fiction", slug: "fiction", name_en: "Fiction" }, { id: "romance", slug: "romance", name_en: "Romance" }];
-  const junctions = [
-    { book_id: "dual", genre_id: "fiction" }, { book_id: "dual", genre_id: "romance" },
-    { book_id: "sv", genre_id: "fiction" }, { book_id: "draft", genre_id: "fiction" },
-    { book_id: "ebook", genre_id: "romance" },
-  ];
   return {
     from(table: string) {
       let rows: Record<string, unknown>[] = table === "books" ? [...books] : table === "genres" ? [...genres] : table === "book_genres" ? [...junctions] : [];
       const orders: Array<{ key: string; ascending: boolean }> = [];
+      let selection = "";
       const query = {
-        select: () => query,
+        select: (columns: string) => { selection = columns; return query; },
         eq: (key: string, value: unknown) => { rows = rows.filter((r) => r[key] === value); return query; },
         in: (key: string, values: string[]) => {
           rows = key === "book_genres.genres.slug"
-            ? rows.filter((r) => junctions.some((j) => j.book_id === r.id && values.includes(j.genre_id)))
+            ? selection.includes("book_genres!inner") && selection.includes("genres!inner")
+              ? rows.filter((r) => junctions.some((j) => j.book_id === r.id && values.includes(j.genre_id)))
+              : rows
             : rows.filter((r) => values.includes(r[key] as string));
           return query;
         },
@@ -169,5 +174,52 @@ describe("controlled discovery catalog", () => {
     const recovered = await ReaderDiscoverPage({ searchParams: Promise.resolve({}) });
     expect(recovered.props.children.props.resultCount).toBe(3);
     log.mockRestore();
+  });
+});
+
+
+describe("genre filtering before the catalog window", () => {
+  beforeEach(() => { vi.clearAllMocks(); mocks.getDiscoveryEnabled.mockReturnValue(true); });
+
+  it.each([
+    { language: "en" },
+    { title: "Unrelated title" },
+    { audiobook_status: null },
+  ])("finds the relevant book after 750 genre matches excluded by %j", async (irrelevant) => {
+    const matching = { ...controlledBooks[0], id: "late-match", title: "Relevant story", language: "sv" };
+    const books = [...Array.from({ length: 750 }, (_, i) => ({ ...matching, ...irrelevant, id: `unrelated-${i}` })), matching];
+    const junctions = books.map((book) => ({ book_id: book.id, genre_id: "fiction" }));
+    junctions.push({ book_id: matching.id, genre_id: "romance" });
+    mocks.createClient.mockResolvedValueOnce(catalog(undefined, books, junctions));
+    const result = await ReaderDiscoverPage({ searchParams: Promise.resolve({ q: "Relevant", lang: "sv", genre: "fiction,romance", format: "audiobook" }) });
+    expect(result.props.children.props.books.map((book: { id: string }) => book.id)).toEqual(["late-match"]);
+  });
+
+  it("returns empty for unknown genres without broadening to all books", async () => {
+    mocks.createClient.mockResolvedValueOnce(catalog());
+    const result = await ReaderDiscoverPage({ searchParams: Promise.resolve({ genre: "missing-genre" }) });
+    expect(result.props.children.props.books).toEqual([]);
+  });
+
+  it("sends both inner joins and all filters in one bounded SDK books request", async () => {
+    const requests: URL[] = [];
+    const fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
+      requests.push(url);
+      const data = url.pathname.endsWith("/genres") ? [{ id: "fiction", slug: "fiction", name_en: "Fiction" }] : [];
+      return new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
+    });
+    mocks.createClient.mockResolvedValueOnce(createSupabaseClient("https://fixture.invalid", "fixture-anon", {
+      global: { fetch }, auth: { persistSession: false, autoRefreshToken: false },
+    }));
+    await ReaderDiscoverPage({ searchParams: Promise.resolve({ q: "Relevant", lang: "sv", genre: "fiction,romance", format: "audiobook" }) });
+    const books = requests.filter((url) => url.pathname.endsWith("/books"));
+    expect(books).toHaveLength(1);
+    expect(books[0].searchParams.get("select")).toContain("book_genres!inner(genres!inner(slug))");
+    expect(Object.fromEntries(books[0].searchParams)).toMatchObject({
+      status: "eq.PUBLISHED", language: "eq.sv", title: "ilike.%Relevant%",
+      "book_genres.genres.slug": "in.(fiction,romance)", audiobook_status: "eq.published", limit: "24",
+    });
+    expect(requests.some((url) => url.pathname.endsWith("/book_genres"))).toBe(false);
   });
 });
