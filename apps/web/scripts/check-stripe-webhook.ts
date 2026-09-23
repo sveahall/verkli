@@ -2,8 +2,8 @@
  * Verify the live Stripe webhook endpoint is subscribed to exactly the events
  * the code handles.
  *
- *   npm run check:stripe-webhook              # report only, exit 0
- *   npm run check:stripe-webhook -- --strict  # exit 1 on any error
+ *   npm run check:stripe-webhook              # a found mismatch exits 1; a missing key skips
+ *   npm run check:stripe-webhook -- --strict  # a skip exits 1 as well
  *
  * Why this exists
  * ---------------
@@ -164,7 +164,6 @@ async function main() {
   if (errors.length > 0) {
     console.error(`❌  ${errors.length} problem${errors.length === 1 ? "" : "s"}:\n`);
     for (const e of errors) console.error(`   • ${e}\n`);
-    if (!strict) console.log("Reporting only — pass --strict to fail on these.\n");
   } else if (compared === 0) {
     // No endpoint was actually compared, so there is nothing to certify. Saying
     // "everything is subscribed" here would be the same lie the launch gate told
@@ -174,7 +173,7 @@ async function main() {
     console.log("✔  Every handled event is subscribed, and nothing arrives without a handler.\n");
   }
 
-  process.exit(strict && errors.length > 0 ? 1 : 0);
+  process.exit(errors.length > 0 ? 1 : 0);
 }
 
 main().catch((err) => {

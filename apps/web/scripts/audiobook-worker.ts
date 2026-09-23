@@ -29,6 +29,7 @@ import {
 } from "../src/lib/audiobook/chapter-text";
 import { Sentry } from "./sentry-worker-init";
 import type { AudiobookJobData } from "../src/lib/audiobook-queue";
+import { preserveAudiobookControlFlags } from "../src/lib/audiobook-control-merge";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
 import {
@@ -301,10 +302,11 @@ async function processJob(payload: AudiobookJobData) {
     // asJsonObject, not a cast: ai_jobs.output is jsonb and can legitimately
     // be a string or an array, in which case spreading it silently produced an
     // empty object and the progress numbers below all read 0.
-    const nextOutput: Record<string, Json> = {
-      ...asJsonObject(current?.output),
+    const currentOutput = asJsonObject(current?.output);
+    const nextOutput = preserveAudiobookControlFlags(currentOutput, {
+      ...currentOutput,
       ...outputUpdate,
-    };
+    });
     updates.output = nextOutput;
 
     const totalChapters = Number(nextOutput.totalChapters ?? 0);
@@ -320,7 +322,13 @@ async function processJob(payload: AudiobookJobData) {
       updates.progress = 0;
     }
 
-    await supabase.from("ai_jobs").update(updates).eq("id", jobId);
+    const { error: updateError } = await supabase.from("ai_jobs").update(updates).eq("id", jobId);
+    if (updateError) {
+      throw new Error(`Failed to update audiobook job: ${updateError.message}`);
+    }
+    if (status === "processing" && nextOutput.cancelRequested === true) {
+      throw new UnrecoverableError("AUDIOBOOK_CANCELLED");
+    }
   };
 
   const updateBookStatus = async (status: string) => {

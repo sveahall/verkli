@@ -34,7 +34,7 @@ export default async function AuthorVoicesPage() {
     .order("is_default", { ascending: false })
     .order("created_at", { ascending: false });
 
-  const voices = ((rows ?? []) as VoiceRow[]) ?? [];
+  const voices = (rows ?? []) as VoiceRow[];
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-6 py-10">

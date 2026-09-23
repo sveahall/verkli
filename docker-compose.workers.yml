@@ -38,7 +38,7 @@ services:
     env_file: apps/web/.env.local
     environment:
       REDIS_URL: redis://redis:6379
-    command: ["npx", "tsx", "scripts/import-worker.ts"]
+    command: ["/app/node_modules/.bin/tsx", "scripts/import-worker.ts"]
     depends_on:
       redis:
         condition: service_healthy
@@ -53,7 +53,7 @@ services:
     env_file: apps/web/.env.local
     environment:
       REDIS_URL: redis://redis:6379
-    command: ["npx", "tsx", "scripts/translation-worker.ts"]
+    command: ["/app/node_modules/.bin/tsx", "scripts/translation-worker.ts"]
     depends_on:
       redis:
         condition: service_healthy
@@ -68,7 +68,7 @@ services:
     env_file: apps/web/.env.local
     environment:
       REDIS_URL: redis://redis:6379
-    command: ["npx", "tsx", "scripts/audiobook-worker.ts"]
+    command: ["/app/node_modules/.bin/tsx", "scripts/audiobook-worker.ts"]
     depends_on:
       redis:
         condition: service_healthy
@@ -83,7 +83,7 @@ services:
     env_file: apps/web/.env.local
     environment:
       REDIS_URL: redis://redis:6379
-    command: ["npx", "tsx", "scripts/recommendations-worker.ts"]
+    command: ["/app/node_modules/.bin/tsx", "scripts/recommendations-worker.ts"]
     depends_on:
       redis:
         condition: service_healthy
@@ -98,7 +98,7 @@ services:
     env_file: apps/web/.env.local
     environment:
       REDIS_URL: redis://redis:6379
-    command: ["npx", "tsx", "scripts/marketing-worker.ts"]
+    command: ["/app/node_modules/.bin/tsx", "scripts/marketing-worker.ts"]
     depends_on:
       redis:
         condition: service_healthy
@@ -113,7 +113,7 @@ services:
     env_file: apps/web/.env.local
     environment:
       REDIS_URL: redis://redis:6379
-    command: ["npx", "tsx", "scripts/social-publish-worker.ts"]
+    command: ["/app/node_modules/.bin/tsx", "scripts/social-publish-worker.ts"]
     depends_on:
       redis:
         condition: service_healthy
@@ -128,7 +128,7 @@ services:
     env_file: apps/web/.env.local
     environment:
       REDIS_URL: redis://redis:6379
-    command: ["npx", "tsx", "scripts/notifications-worker.ts"]
+    command: ["/app/node_modules/.bin/tsx", "scripts/notifications-worker.ts"]
     depends_on:
       redis:
         condition: service_healthy

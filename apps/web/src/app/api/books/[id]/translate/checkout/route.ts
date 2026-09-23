@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author"
 import { isTranslationsEnabled } from "@/lib/flags"
-import { isSupportedLanguage } from "@/lib/languages"
+import { isSupportedLanguage, normalizeLanguageOrNull } from "@/lib/languages"
+import { resolveTranslationSourceContext } from "@/lib/book-translation"
 import { isTranslationPairSupported } from "@/lib/translation-pairs"
 import { createTranslationCheckoutSession } from "@/lib/payments/stripe"
 import { createPerUserRateLimiter } from "@/lib/rate-limit"
@@ -13,11 +14,12 @@ import {
   E_INVALID_REQUEST_BODY,
   E_BOOK_NOT_FOUND,
   E_FORBIDDEN,
+  E_SOURCE_LANGUAGE_MISSING,
   E_TRANSLATION_CHECKOUT_FAILED,
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors"
 
-const checkoutLimiter = createPerUserRateLimiter({ maxPerMinute: 5 })
+const checkoutLimiter = createPerUserRateLimiter({ name: "books-translate-checkout", maxPerMinute: 5 })
 
 export const runtime = "nodejs"
 
@@ -92,9 +94,26 @@ export async function POST(
     return apiError(E_FORBIDDEN, 403)
   }
 
-  const sourceLanguage = String(
-    book.original_language ?? book.language ?? ""
-  ).trim().toLowerCase()
+  let sourceLanguage =
+    normalizeLanguageOrNull(book.original_language) ?? normalizeLanguageOrNull(book.language)
+
+  if (!sourceLanguage) {
+    const sourceContext = await resolveTranslationSourceContext({
+      supabase,
+      bookId,
+      book,
+      requestedSourceVersionId: sourceVersionId,
+      requestedSourceLanguage: typeof body.sourceLanguage === "string" ? body.sourceLanguage : null,
+    })
+    // Normalised like the two assignments above. `resolveTranslationSourceContext`
+    // returns a raw string, and everything downstream — `isTranslationPairSupported`
+    // and the job payload — expects a language code from the supported set.
+    sourceLanguage = normalizeLanguageOrNull(sourceContext.sourceLanguage)
+  }
+
+  if (!sourceLanguage) {
+    return apiError(E_SOURCE_LANGUAGE_MISSING, 422)
+  }
 
   // Verify translation pairs
   for (const lang of validLanguages) {

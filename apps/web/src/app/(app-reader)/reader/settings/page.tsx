@@ -1,4 +1,5 @@
 import ReaderSettingsClient from "./ReaderSettingsClient";
+import ReadingDataExport from "@/components/reader/ReadingDataExport";
 
 export default function ReaderSettingsPage() {
   return (
@@ -16,6 +17,7 @@ export default function ReaderSettingsPage() {
       </header>
       <div className="mt-8">
         <ReaderSettingsClient />
+        <ReadingDataExport />
       </div>
     </div>
   );

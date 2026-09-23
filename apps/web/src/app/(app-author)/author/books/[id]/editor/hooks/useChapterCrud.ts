@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useToastHelpers } from "@/components/ui/toast";
-import { normalizeLanguage } from "@/lib/languages";
+import { normalizeLanguageOrNull } from "@/lib/languages";
 import type { Book, BookVersion, Chapter } from "../BookEditorView.types";
-import { drainPendingSaves, type PersistChapter } from "./useChapterCrud.autosave";
+import { autosaveRetryDelayMs, drainPendingSaves, type PersistChapter } from "./useChapterCrud.autosave";
+import { rewriteChapterOrders } from "./useChapterCrud.order";
+import { assertReviewCanApply, persistReviewedChapterContent } from "./useChapterCrud.review";
 
 interface UseChapterCrudOptions {
   book: Book;
@@ -57,6 +59,18 @@ const persistChapterContent: PersistChapter = async (chapterId, payload) => {
   return { outcome: "written", serialized };
 };
 
+async function persistChapterOrderRows(rows: Array<{ id: string; order: number }>): Promise<boolean> {
+  const supabase = createClient();
+  return rewriteChapterOrders(rows, async (id, order) => {
+    const { data, error } = await supabase
+      .from("chapters")
+      .update({ order })
+      .eq("id", id)
+      .select("id");
+    return !error && (data?.length ?? 0) > 0;
+  });
+}
+
 export function useChapterCrud({
   book,
   activeVersion,
@@ -73,6 +87,7 @@ export function useChapterCrud({
   const toast = useToastHelpers();
   // True while a drain is in flight. One writer at a time; everyone else queues.
   const savingRef = useRef(false);
+  const applyingReviewRef = useRef(false);
   // The write queue: latest unsaved content per chapter id. Every autosave call
   // enqueues here, including the one that goes on to drain it, so a payload can
   // never be written out of order with a newer one for the same chapter.
@@ -92,29 +107,36 @@ export function useChapterCrud({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [deletingChapterId, setDeletingChapterId] = useState<string | null>(null);
+  const disposedRef = useRef(false);
+  const announcedSaveErrorRef = useRef(false);
+  const retryTimerRef = useRef<number | null>(null);
+  const retryAttemptRef = useRef(0);
+  const drainQueueRef = useRef<() => Promise<void>>(async () => {});
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
 
-  const handleAutoSave = useCallback(async (chapterId: string, jsonContent: Record<string, unknown>) => {
-    // Nothing to save to a row we deleted. This is the unmount-flush case, and
-    // it is normal rather than an error, so it is dropped silently.
-    if (deletedChapterIdsRef.current.has(chapterId)) return;
+  const clearRetryTimer = useCallback(() => {
+    if (retryTimerRef.current !== null) {
+      window.clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+  }, []);
 
-    // Always enqueue, never write directly. The queue is the single source of
-    // truth for what still needs persisting, and keying by chapter id makes a
-    // later payload replace an earlier one instead of queueing behind it.
-    pendingSavesRef.current.set(chapterId, jsonContent);
-    setHasUnsavedChanges(true);
+  const scheduleRetry = useCallback((delayMs: number) => {
+    clearRetryTimer();
+    retryTimerRef.current = window.setTimeout(() => {
+      retryTimerRef.current = null;
+      void drainQueueRef.current();
+    }, delayMs);
+  }, [clearRetryTimer]);
 
-    // A drain is already running and will pick this up. Returning here is what
-    // keeps exactly one writer in flight.
-    if (savingRef.current) return;
+  const drainQueue = useCallback(async () => {
+    if (disposedRef.current || savingRef.current || pendingSavesRef.current.size === 0) return;
 
     savingRef.current = true;
     setIsSaving(true);
     setSaveError(false);
 
-    // Drains the WHOLE queue, not just this chapter's key. See the module
-    // comment in ./useChapterCrud.autosave for the ordering rules and the
-    // older-over-newer overwrite they replace.
     const { saved, transientFailures, missingChapters } = await drainPendingSaves(
       pendingSavesRef.current,
       persistChapterContent,
@@ -122,6 +144,16 @@ export function useChapterCrud({
     );
 
     savingRef.current = false;
+    if (disposedRef.current) {
+      if (pendingSavesRef.current.size > 0) {
+        void drainPendingSaves(
+          pendingSavesRef.current,
+          persistChapterContent,
+          deletedChapterIdsRef.current
+        );
+      }
+      return;
+    }
     setIsSaving(false);
 
     if (saved.size > 0) {
@@ -134,36 +166,109 @@ export function useChapterCrud({
       setLastSaved(new Date());
     }
 
-    // Missing first: it is the more serious of the two, and checking transient
-    // first meant a drain containing both showed only the reassuring message.
-    if (missingChapters.length > 0) {
+    const failed = missingChapters.length > 0 || transientFailures.length > 0;
+    if (failed) {
       setSaveError(true);
-      // A reported failure means the payload went back on the queue, so there IS
-      // unsaved content. Set this explicitly rather than relying on it still
-      // being true from enqueue time — something else may have cleared it.
       setHasUnsavedChanges(true);
-      // Deliberately does not claim the chapter is gone. Zero rows cannot tell
-      // deletion apart from lost access, so this says what is true of both and
-      // still tells the author their text is safe in the tab.
-      toast.error("Could not save. That chapter may have been deleted, or your access to it changed. Your text is still here.");
+      if (!announcedSaveErrorRef.current) {
+        announcedSaveErrorRef.current = true;
+        toastRef.current.error(
+          missingChapters.length > 0
+            ? "Could not save. That chapter may have been deleted, or your access to it changed. Your text is still here — we'll keep trying."
+            : "Could not save. Your changes are still here — we'll keep trying."
+        );
+      }
+      scheduleRetry(autosaveRetryDelayMs(retryAttemptRef.current));
+      retryAttemptRef.current += 1;
       return;
     }
 
-    if (transientFailures.length > 0) {
-      setSaveError(true);
-      setHasUnsavedChanges(true);
-      // The payload is re-queued, so the words are still in memory. Say that,
-      // rather than the old "may not have been persisted", which left an author
-      // unsure whether closing the tab would cost them the chapter.
-      toast.error("Could not save. Your changes are still here — keep this tab open and try again.");
+    announcedSaveErrorRef.current = false;
+    retryAttemptRef.current = 0;
+    if (pendingSavesRef.current.size === 0) {
+      clearRetryTimer();
+      setHasUnsavedChanges(false);
       return;
     }
+    scheduleRetry(0);
+  }, [clearRetryTimer, scheduleRetry, setChapters]);
 
-    // Only claim saved if the queue is genuinely empty. A keystroke that landed
-    // after the drain's last check is still outstanding, and clearing the flag
-    // here would show "Saved" over it.
-    if (pendingSavesRef.current.size === 0) setHasUnsavedChanges(false);
-  }, [setChapters, toast]);
+  drainQueueRef.current = drainQueue;
+
+  useEffect(() => {
+    disposedRef.current = false;
+    const warn = (event: BeforeUnloadEvent) => {
+      if (pendingSavesRef.current.size === 0) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const retryNow = () => {
+      retryAttemptRef.current = 0;
+      clearRetryTimer();
+      void drainQueueRef.current();
+    };
+    window.addEventListener("beforeunload", warn);
+    window.addEventListener("online", retryNow);
+    return () => {
+      disposedRef.current = true;
+      window.removeEventListener("beforeunload", warn);
+      window.removeEventListener("online", retryNow);
+      clearRetryTimer();
+      if (pendingSavesRef.current.size > 0 && !savingRef.current) {
+        void drainPendingSaves(
+          pendingSavesRef.current,
+          persistChapterContent,
+          deletedChapterIdsRef.current
+        );
+      }
+    };
+  }, [clearRetryTimer]);
+
+  const handleAutoSave = useCallback(async (chapterId: string, jsonContent: Record<string, unknown>) => {
+    if (deletedChapterIdsRef.current.has(chapterId)) return;
+
+    pendingSavesRef.current.set(chapterId, jsonContent);
+    setHasUnsavedChanges(true);
+    if (savingRef.current) return;
+
+    clearRetryTimer();
+    retryAttemptRef.current = 0;
+    await drainQueue();
+  }, [clearRetryTimer, drainQueue]);
+
+  const handleApplyReview = useCallback(async (
+    chapterId: string,
+    expectedContent: string | null,
+    nextContent: Record<string, unknown>,
+  ): Promise<void> => {
+    assertReviewCanApply({
+      chapter: chapters.find((chapter) => chapter.id === chapterId),
+      expectedContent,
+      hasUnsavedChanges,
+      isSaving,
+      isDraining: savingRef.current,
+      pendingCount: pendingSavesRef.current.size,
+      isApplying: applyingReviewRef.current,
+    });
+    applyingReviewRef.current = true;
+    try {
+      const content = await persistReviewedChapterContent(book.id, chapterId, expectedContent, nextContent);
+      setChapters((current) => current.map((chapter) => (
+        chapter.id === chapterId && chapter.content === expectedContent
+          ? { ...chapter, content }
+          : chapter
+      )));
+      setLastSaved(new Date());
+      // A newly mounted editor may have queued an edit while the request was in flight.
+      // Its autosave retains ownership of the pending/saved flags in that case.
+      // This operation starts with no unsaved changes, so never clear newer edits.
+      if (!savingRef.current && pendingSavesRef.current.size === 0) {
+        setSaveError(false);
+      }
+    } finally {
+      applyingReviewRef.current = false;
+    }
+  }, [book.id, chapters, hasUnsavedChanges, isSaving, setChapters]);
 
   const handleCreateChapter = useCallback(async () => {
     setIsCreating(true);
@@ -171,7 +276,7 @@ export function useChapterCrud({
     let targetVersionId = activeVersion?.id ?? null;
     let targetVersionLanguage = activeVersion?.language_code ?? null;
     if (!targetVersionId) {
-      const fallbackLanguage = normalizeLanguage(book.original_language ?? book.language);
+      const fallbackLanguage = normalizeLanguageOrNull(book.original_language ?? book.language) ?? "und";
       const { data: createdVersion, error: versionError } = await supabase
         .from("book_versions")
         .insert({
@@ -248,14 +353,19 @@ export function useChapterCrud({
       return;
     }
     setIsSaving(true);
+    const title = tempTitle.trim();
     const supabase = createClient();
-    const { error } = await supabase.from("chapters").update({ title: tempTitle.trim() }).eq("id", chapterId);
+    const { data, error } = await supabase
+      .from("chapters")
+      .update({ title })
+      .eq("id", chapterId)
+      .select("id");
     setIsSaving(false);
-    if (error) {
-      setEditingTitleId(null);
+    if (error || (data?.length ?? 0) === 0) {
+      toast.error("Could not save the chapter title. Try again.");
       return;
     }
-    setChapters(chapters.map((ch) => (ch.id === chapterId ? { ...ch, title: tempTitle.trim() } : ch)));
+    setChapters(chapters.map((ch) => (ch.id === chapterId ? { ...ch, title } : ch)));
     setEditingTitleId(null);
     router.refresh();
   };
@@ -332,15 +442,18 @@ export function useChapterCrud({
     newChapters[idx] = { ...b, order: a.order };
     newChapters[swapIdx] = { ...a, order: b.order };
     newChapters.sort((x, y) => x.order - y.order);
+    const previous = chapters;
     setChapters(newChapters);
-
-    // Two-phase swap via a negative sentinel avoids the UNIQUE(book_id, order)
-    // collision that `Promise.all` of two in-place UPDATEs would hit.
-    const supabase = createClient();
-    const sentinel = -Math.abs(a.order) - 1;
-    await supabase.from("chapters").update({ order: sentinel }).eq("id", a.id);
-    await supabase.from("chapters").update({ order: a.order }).eq("id", b.id);
-    await supabase.from("chapters").update({ order: b.order }).eq("id", a.id);
+    const persisted = await persistChapterOrderRows([
+      { id: a.id, order: b.order },
+      { id: b.id, order: a.order },
+    ]);
+    if (!persisted) {
+      await persistChapterOrderRows(previous.map((chapter) => ({ id: chapter.id, order: chapter.order })));
+      setChapters(previous);
+      toast.error("Could not reorder chapters. Try again.");
+      return;
+    }
     router.refresh();
   };
 
@@ -365,24 +478,16 @@ export function useChapterCrud({
       order: orderSlots[index] ?? index,
     }));
 
+    const previous = orderedChapters;
     setChapters(reorderedChapters);
-
-    // Two-phase rewrite to avoid transient duplicate values on the
-    // UNIQUE(book_id, order) constraint: move every row to a unique negative
-    // sentinel first, then assign the final target slots. Order matters more
-    // than speed here — `Promise.all` of overlapping values would race.
-    const supabase = createClient();
-    for (let i = 0; i < reorderedChapters.length; i++) {
-      await supabase
-        .from("chapters")
-        .update({ order: -(i + 1) })
-        .eq("id", reorderedChapters[i].id);
-    }
-    for (const chapter of reorderedChapters) {
-      await supabase
-        .from("chapters")
-        .update({ order: chapter.order })
-        .eq("id", chapter.id);
+    const persisted = await persistChapterOrderRows(
+      reorderedChapters.map((chapter) => ({ id: chapter.id, order: chapter.order })),
+    );
+    if (!persisted) {
+      await persistChapterOrderRows(previous.map((chapter) => ({ id: chapter.id, order: chapter.order })));
+      setChapters(previous);
+      toast.error("Could not reorder chapters. Try again.");
+      return;
     }
 
     router.refresh();
@@ -401,6 +506,7 @@ export function useChapterCrud({
     deletingChapterId,
     setDeletingChapterId,
     handleAutoSave,
+    handleApplyReview,
     handleCreateChapter,
     handleStartEditTitle,
     handleSaveTitle,

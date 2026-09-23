@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getAudiobookEnabled } from "@/lib/flags";
 import { useListenTracking } from "@/lib/analytics/useListenTracking";
+import NoDownloadAudioPlayer from "@/components/books/NoDownloadAudioPlayer";
 
 type Props = {
   bookId: string;
@@ -269,9 +270,7 @@ export default function ChapterAudiobookPlayer({
         needs for its own "Playing" indicator, composing rather than replacing.
         onLoadedMetadata / onTimeUpdate / onSeeked come straight from the hook.
       */}
-      <audio
-        controls
-        preload="none"
+      <NoDownloadAudioPlayer
         className="w-full"
         src={audioUrl}
         {...listenTracking}
@@ -288,9 +287,7 @@ export default function ChapterAudiobookPlayer({
           listenTracking.onEnded(event);
         }}
         onEmptied={() => setIsPlaying(false)}
-      >
-        Your browser does not support audio playback.
-      </audio>
+      />
     </div>
   );
 }

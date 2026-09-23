@@ -76,7 +76,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "Draft",
-  ready: "Ready",
+  ready: "Ready to copy",
   asset_pending: "Generating…",
   asset_failed: "Asset failed",
   posted: "Posted",
@@ -280,10 +280,14 @@ export default function CampaignDetailView({
               </Button>
             </div>
 
+            <p className="mt-3 text-[13px] text-muted-foreground">
+              Review each draft, then share it manually in your chosen channel.
+            </p>
+
             {campaign.status === "generating" ? (
               <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-[13px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
-                Generating posts… this usually takes ~10 seconds. Calendar will
-                refresh automatically.
+                Generating drafts… larger campaigns can take several minutes.
+                The calendar refreshes automatically as drafts are saved.
               </p>
             ) : null}
 
@@ -332,7 +336,7 @@ export default function CampaignDetailView({
                   label="All statuses"
                   options={[
                     { value: "all", label: "All statuses" },
-                    { value: "ready", label: "Ready" },
+                    { value: "ready", label: "Ready to copy" },
                     { value: "draft", label: "Draft" },
                     { value: "asset_pending", label: "Generating" },
                     { value: "asset_failed", label: "Asset failed" },

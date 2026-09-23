@@ -62,11 +62,11 @@ catastrophic; cause is two imports.
 Fix (no lib fork needed): `cfg.tsconfig` points at **`.design-sync/tsconfig.ds.json`**, not
 the app's tsconfig. `tsconfigPathsPlugin` builds its esbuild filter from the `paths` keys
 and fires on bare specifiers too, so `paths` entries redirect `next/link` and
-`next/navigation` to `.design-sync/shims/`. That tsconfig must keep `@/*` → `./src/*` or
-every `@/lib/utils` import breaks.
-
-Watch the `baseUrl` math: `base = resolve(dirname(tsconfig), baseUrl)` = `apps/web`, so the
-shim targets need `../../.design-sync/...` from there.
+`next/navigation` to `.design-sync/shims/`. `tsconfigPathsPlugin` defaults a missing
+`baseUrl` to `.`, and `resolve(dirname(tsconfig), '.')` is this file's directory — the
+same root TypeScript 6 uses once `baseUrl` is gone. Keep the entries relative to
+`.design-sync/tsconfig.ds.json`: `@/*` → `../apps/web/src/*`, and the `next/*` shims →
+`./shims/`. A `baseUrl` here is a TypeScript 6 error and is removed in TypeScript 7.
 
 Bundle size is the tell: **152 KB shimmed vs 398 KB unshimmed**. A sudden jump back toward
 ~400 KB means the shims stopped resolving.
@@ -78,6 +78,13 @@ Bundle size is the tell: **152 KB shimmed vs 398 KB unshimmed**. A sudden jump b
   `window.VerkliUI`. Recovered by a named re-export in `.design-sync/ds-shims.tsx`, wired
   via `cfg.extraEntries`. Unambiguous, so the bundle footer's `Object.assign` of the main
   namespace can't clobber it.
+- **`BrandGradientText` and its shim were REMOVED (2026-09-22).** The component was
+  deleted from the app, which left `ds-shims.tsx` re-exporting a path that no longer
+  exists and `previews/BrandGradientText.tsx` importing a name that no longer resolves.
+  Neither broke `build`, `lint` or `tsc`, because `apps/web/tsconfig.json` excludes
+  `.design-sync/` — so every gate stayed green over a dangling import. Both files and
+  the `cfg.extraEntries` pointer are gone; the brand ramp itself survives in
+  `conventions.md`.
 - **`Skeleton` is EXCLUDED** (`cfg.componentSrcMap: {"Skeleton": null}`) and cannot be
   recovered by any config. It is exported from **both** `ui/states.tsx` and
   `ui/Skeleton.tsx`. ESM drops ambiguous star re-exports, so the name vanishes from the

@@ -1,10 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
-const mocks = vi.hoisted(() => ({ gate: vi.fn(), db: vi.fn(), generate: vi.fn(), check: vi.fn() }));
+const mocks = vi.hoisted(() => ({ gate: vi.fn(), db: vi.fn(), generate: vi.fn(), check: vi.fn(), pro: vi.fn(), budget: vi.fn(), jobCost: vi.fn(), release: vi.fn() }));
 vi.mock("@/lib/auth/require-author", () => ({ requireAuthorRoleForApi: mocks.gate }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.db }));
 vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: mocks.check }) }));
 vi.mock("@/lib/editorial/provider", () => ({ generateEditorialReview: mocks.generate }));
+vi.mock("@/lib/billing/server", () => ({ requireProBillingForApi: mocks.pro }));
+// Partial mock on purpose: the route narrows on `instanceof BudgetExceededError`,
+// so the real error classes have to survive or the refusal branches become
+// unreachable — the same defect this suite is being extended to cover.
+vi.mock("@/lib/workers/budget", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/workers/budget")>()),
+  checkBudget: mocks.budget,
+  validateJobCost: mocks.jobCost,
+  releaseBudget: mocks.release,
+}));
+import { BudgetExceededError, JobCostExceededError } from "@/lib/workers/budget";
 import { POST } from "./route";
 const bookId = "11111111-1111-4111-8111-111111111111";
 const chapterId = "22222222-2222-4222-8222-222222222222";
@@ -23,8 +34,44 @@ function setup(rows: unknown[] = [{ id: bookId, author_id: "author" }, chapter])
   return filters;
 }
 const run = (body: Record<string, unknown> = {}) => POST(new NextRequest(`http://localhost/api/books/${bookId}/editorial/review`, { method: "POST", body: JSON.stringify({ mode: "proofread", chapterId, ...body }) }), { params: Promise.resolve({ id: bookId }) });
-beforeEach(() => { vi.clearAllMocks(); mocks.gate.mockResolvedValue({ user: { id: "author" } }); mocks.check.mockResolvedValue({ allowed: true }); mocks.generate.mockResolvedValue(report); setup(); });
+beforeEach(() => { vi.clearAllMocks(); mocks.gate.mockResolvedValue({ user: { id: "author" } }); mocks.check.mockResolvedValue({ allowed: true }); mocks.generate.mockResolvedValue(report); mocks.pro.mockResolvedValue({ ok: true, state: {} }); mocks.jobCost.mockReturnValue(undefined); mocks.budget.mockResolvedValue(undefined); mocks.release.mockResolvedValue(undefined); setup(); });
+const budgetSnapshot = { userId: "author", pipeline: "editorial" as const, day: "2026-09-22", key: "budget:editorial:author:2026-09-22", current: 1_000_000, limit: 1_000_000, jobId: "job" };
 describe("editorial review API", () => {
+  // The route's whole ceiling used to be a 20/min rate limiter, which caps
+  // requests but not cost per request: each call is an Anthropic generation
+  // plus, with the critic on, a full OpenAI re-send. These three cases exist so
+  // the refusal and refund branches cannot silently stop working.
+  it("refuses a non-Pro author before spending anything", async () => {
+    mocks.pro.mockResolvedValue({ ok: false, response: NextResponse.json({ error: "pro required" }, { status: 403 }) });
+    const response = await run();
+    expect(response.status).toBe(403);
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.budget).not.toHaveBeenCalled();
+  });
+
+  it("refuses once the daily editorial budget is exhausted, without calling the provider", async () => {
+    mocks.budget.mockRejectedValue(new BudgetExceededError(budgetSnapshot));
+    const response = await run();
+    expect(response.status).toBe(429);
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a part larger than the per-job cap, without calling the provider", async () => {
+    mocks.jobCost.mockImplementation(() => {
+      throw new JobCostExceededError({ userId: "author", pipeline: "editorial", jobSize: 99_999, cap: 30_000, unit: "chars", jobId: "job" });
+    });
+    const response = await run();
+    expect(response.status).toBe(413);
+    expect(mocks.generate).not.toHaveBeenCalled();
+  });
+
+  it("refunds the reservation when the generation fails", async () => {
+    mocks.generate.mockRejectedValue(new Error("provider down"));
+    const response = await run();
+    expect(response.status).toBe(502);
+    expect(mocks.release).toHaveBeenCalledWith(expect.objectContaining({ pipeline: "editorial" }));
+  });
+
   it("reads saved chapter text, returns exact baseline, and scopes the chapter to the owned book", async () => {
     const filters = setup(); const response = await run();
     expect(response.status).toBe(200);

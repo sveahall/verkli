@@ -13,7 +13,7 @@ import {
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 
-const feedbackLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const feedbackLimiter = createPerUserRateLimiter({ name: "feedback", maxPerMinute: 5 });
 
 export async function GET() {
   const supabase = await createClient();

@@ -13,7 +13,7 @@ import {
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 
-const redeemLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const redeemLimiter = createPerUserRateLimiter({ name: "referrals-redeem", maxPerMinute: 5 });
 
 export const runtime = "nodejs";
 

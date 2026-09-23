@@ -21,6 +21,7 @@ function normalizeStoragePath(value: unknown): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   if (/^https?:\/\//i.test(trimmed)) return null;
+  if (trimmed.startsWith("/") || trimmed.includes("\\") || trimmed.includes("..")) return null;
   return trimmed;
 }
 
@@ -362,22 +363,12 @@ export async function GET(
           const completedChapters = toSafeChapterCount(output.completedChapters);
           const controlState = typeof output.controlState === "string" ? output.controlState : null;
           const audioPath = normalizeStoragePath(output.audioPath);
-          const audioBucket =
-            typeof output.audioBucket === "string" && output.audioBucket.trim().length > 0
-              ? output.audioBucket.trim()
-              : defaultBucket;
+          const audioBucket = defaultBucket;
           const manifestPath = normalizeStoragePath(output.manifestPath);
-          const manifestBucket =
-            typeof output.manifestBucket === "string" && output.manifestBucket.trim().length > 0
-              ? output.manifestBucket.trim()
-              : defaultBucket;
+          const manifestBucket = defaultBucket;
           const generatedChapterAudioPath =
             normalizeStoragePath(output.generatedChapterAudioPath);
-          const generatedChapterAudioBucket =
-            typeof output.generatedChapterAudioBucket === "string" &&
-            output.generatedChapterAudioBucket.trim().length > 0
-              ? output.generatedChapterAudioBucket.trim()
-              : defaultBucket;
+          const generatedChapterAudioBucket = defaultBucket;
           const [audioUrl, manifestUrl, generatedChapterAudioUrl] = await Promise.all([
             signAudioPath(admin, audioPath, audioBucket),
             signAudioPath(admin, manifestPath, manifestBucket),

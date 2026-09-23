@@ -27,7 +27,9 @@ function createQueue(connection: { host: string; port: number; password?: string
   return new Queue(QUEUE_NAME, {
     connection: { ...connection },
     defaultJobOptions: {
-      attempts: 3,
+      // One attempt. A retry restarts from chapter 0 and bills the model again,
+      // and the approved translation is left in place when this run fails.
+      attempts: 1,
       backoff: { type: "exponential", delay: 5000 },
       removeOnComplete: { count: 500 },
       removeOnFail: { count: 500 },

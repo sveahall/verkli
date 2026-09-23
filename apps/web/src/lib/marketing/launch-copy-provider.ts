@@ -44,10 +44,12 @@ export async function generateLaunchCopy(input: LaunchCopyInput) {
     threads: { ...CHANNEL_CONSTRAINTS.generic, maxBody: 500, maxHashtags: 1 },
   };
   const limits = limitsByChannel[input.channel];
-  // Long book titles must still fit verbatim. The body retains the channel limit.
-  const headlineLimit = Math.max(limits.maxHeadline, input.title.length);
+  // A stored title is author content. Cap it before it sets the headline
+  // ceiling, or one long title forces the model to echo thousands of characters.
+  const title = input.title.replace(/\s+/g, " ").trim().slice(0, 200);
+  const headlineLimit = Math.max(limits.maxHeadline, title.length);
   const schema = z.object({
-    headline: z.string().trim().min(1).max(headlineLimit).refine((value) => value.includes(input.title)),
+    headline: z.string().trim().min(1).max(headlineLimit).refine((value) => value.includes(title)),
     body: z.string().trim().min(1).max(limits.maxBody),
     cta: z.string().trim().min(1).max(100),
     hashtags: z.string().trim().max(500).default("").refine((value) => {
@@ -72,7 +74,7 @@ export async function generateLaunchCopy(input: LaunchCopyInput) {
     ] : []),
   ].join("\n");
   const content = JSON.stringify({
-    title: input.title,
+    title,
     description: input.description?.slice(0, 8000) ?? null,
     ...(input.campaign ? { campaign: input.campaign } : {}),
   });
@@ -127,7 +129,10 @@ export async function generateLaunchCopy(input: LaunchCopyInput) {
         }),
       });
       if (!response.ok) throw new Error("Provider request failed");
-      const payload = await response.json();
+      const payload = (await response.json()) as {
+        usage?: { prompt_tokens?: number; completion_tokens?: number };
+        choices?: Array<{ message?: { content?: string } }>;
+      };
       // NIM speaks the OpenAI wire format, so usage arrives as prompt/completion
       // rather than input/output. Same meaning, different spelling.
       if (input.meter) {

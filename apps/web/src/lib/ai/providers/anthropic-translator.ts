@@ -1,23 +1,9 @@
 /**
  * Anthropic translator.
  *
- * Exists because the two providers that came before it cannot serve a Swedish
- * book, which is the only kind of book on the platform today:
- *
- *   - Opus MT is local CTranslate2. It needs a Python venv and a downloaded
- *     `model.bin` that is not in the repo (only the vocab and the two .spm
- *     files are), so it throws before translating anything — on a laptop and
- *     in a container alike.
- *   - NVIDIA Riva is alive and good, but its language set is
- *     en/de/es/fr/pt/ru/zh/ja/ko/ar. Swedish is not in it, which is why the
- *     routing table sends sv pairs through Opus or through a two-hop chain
- *     that still starts at Opus.
- *
- * This provider needs no models and no Python, translates sv directly rather
- * than via English, and reuses the key the writing assistant already uses.
- *
- * Riva keeps the pairs it already handles: it is cheaper per token and those
- * pairs work today. This is the provider for everything Riva cannot reach.
+ * Primary engine for book translation, every supported language pair, directly
+ * (no pivot through English). OpenAI is the standby; see translation-runtime.
+ * Reuses the key the writing assistant already uses.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -77,7 +63,9 @@ function getClient(): Anthropic {
       "anthropic"
     );
   }
-  return new Anthropic({ apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: 2 });
+  // The translation worker already retries the batch. The SDK's own retries
+  // would bill the same chunk again inside that attempt.
+  return new Anthropic({ apiKey, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
 }
 
 function buildSystemPrompt(sourceLanguage: string, targetLanguage: string): string {

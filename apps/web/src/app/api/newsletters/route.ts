@@ -13,7 +13,7 @@ import {
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 
-const newsletterRateLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const newsletterRateLimiter = createPerUserRateLimiter({ name: "newsletters", maxPerMinute: 5 });
 
 const createNewsletterBodySchema = z.object({
   subject: z.string().min(1).max(500),

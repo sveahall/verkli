@@ -1,5 +1,4 @@
-import type { createClient } from "@/lib/supabase/server";
-
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/types";
 
 type CreateNotificationOpts = {
@@ -15,10 +14,11 @@ type CreateNotificationOpts = {
   data?: Json;
 };
 
-export async function createNotification(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  opts: CreateNotificationOpts
-) {
+export async function createNotification(opts: CreateNotificationOpts) {
+  // Service role. A signed-in user must not be able to insert a notification
+  // into someone else's inbox; the old RLS policy allowed it when actor_id
+  // was the caller.
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("notifications")
     .insert({

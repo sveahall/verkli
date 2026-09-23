@@ -86,26 +86,20 @@ export async function POST(request: Request) {
     return apiError(E_VALIDATION_FAILED, 400, { detail: "end_offset must be greater than start_offset" });
   }
 
-  // Resolve book_id and book_version_id from chapter if not provided
-  let bookId = parsed.data.book_id;
-  let bookVersionId = parsed.data.book_version_id;
+  // The caller can only highlight a chapter their session can already read.
+  // Client-supplied book ids are ignored so a highlight cannot be attached to a hidden chapter.
+  const { data: chapter } = await supabase
+    .from("chapters")
+    .select("book_id, book_version_id")
+    .eq("id", chapter_id)
+    .maybeSingle();
 
-  if (!bookId || !bookVersionId) {
-    const { data: chapter } = await supabase
-      .from("chapters")
-      .select("book_id, book_version_id")
-      .eq("id", chapter_id)
-      .maybeSingle();
-
-    if (chapter) {
-      bookId = bookId ?? (chapter.book_id as string);
-      bookVersionId = bookVersionId ?? (chapter.book_version_id as string);
-    }
+  if (!chapter?.book_id || !chapter.book_version_id) {
+    return apiError(E_VALIDATION_FAILED, 400, { detail: "Chapter is not available" });
   }
 
-  if (!bookId || !bookVersionId) {
-    return apiError(E_VALIDATION_FAILED, 400, { detail: "Could not resolve book_id or book_version_id" });
-  }
+  const bookId = chapter.book_id as string;
+  const bookVersionId = chapter.book_version_id as string;
 
   const { data: row, error: insertError } = await supabase
     .from("highlights")

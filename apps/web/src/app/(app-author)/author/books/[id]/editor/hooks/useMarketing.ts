@@ -60,14 +60,14 @@ export function useMarketing({
   // Handlers
   // ---------------------------------------------------------------------------
 
-  const handleGenerateMarketingCopy = useCallback(async () => {
+  const handleGenerateMarketingCopy = useCallback(async (channel: MarketingChannel, language: SupportedLanguage) => {
     if (isGeneratingMarketing) return;
     setIsGeneratingMarketing(true);
     try {
       const res = await fetch(`/api/books/${book.id}/marketing/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language: marketingLanguage, channel: marketingChannel }),
+        body: JSON.stringify({ language, channel }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -80,7 +80,7 @@ export function useMarketing({
     } finally {
       setIsGeneratingMarketing(false);
     }
-  }, [book.id, marketingLanguage, marketingChannel, isGeneratingMarketing, router, toast]);
+  }, [book.id, isGeneratingMarketing, router, toast]);
 
   const handleCopyMarketingToClipboard = useCallback(async () => {
     if (!currentCampaign) return;

@@ -79,7 +79,7 @@ export const LAUNCH_FLAGS: readonly LaunchFlagSpec[] = [
     serverTwin: "TRANSLATIONS_ENABLED",
     value: "true",
     reason:
-      "Back in for September. Plan §3 cut translations because nothing could run them: no worker consumed the queue, and the routing sent every Swedish pair into Opus MT, whose model.bin is not in the repo. Both are now fixed — worker-translation runs on Railway and Anthropic serves the pairs Riva cannot reach — so the reason for the cut is gone.",
+      "Back in for September. Plan §3 cut translations because nothing could run them: no worker consumed the queue, and the routing sent every Swedish pair into Opus MT, whose model.bin is not in the repo. Both are now fixed — worker-translation runs on Railway, and every pair goes through Anthropic with OpenAI as standby — so the reason for the cut is gone.",
   },
   {
     key: "NEXT_PUBLIC_MARKETING_ENABLED",
@@ -153,7 +153,7 @@ export const LAUNCH_FLAGS: readonly LaunchFlagSpec[] = [
     key: "AI_CRITIC_ENABLED",
     value: "true",
     reason:
-      "ON — decided by Svea 2026-09-21 once OPENAI_API_KEY was provisioned. Runs gpt-6-astra over editorial reports, dropping findings a second reader judges wrong; false positives are a proofreader's dominant failure and the one an author notices. Costs 2 calls per chapter instead of 1. In practice this only reaches editorial review: the marketing half needs MARKETING_ENABLED, which plan §3 keeps off. Server-only with no NEXT_PUBLIC form, because no client code should branch on it. Without OPENAI_API_KEY on the service it degrades to single-model rather than failing, so verify with scripts/compare-critic.ts rather than by the flag reading true.",
+      "ON — decided by Svea 2026-09-21 once OPENAI_API_KEY was provisioned. Editorial review asks both models to flag spelling, grammar and awkward phrasing; a passage both quote is marked important. Book translation, when both keys exist, is an OpenAI draft, an Anthropic critique, then an OpenAI revision. Marketing uses that same loop when MARKETING_ENABLED is on. Server-only with no NEXT_PUBLIC form. Missing either key degrades that surface to the model that is configured.",
   },
   {
     key: "NEXT_PUBLIC_AI_CHAT_ENABLED",

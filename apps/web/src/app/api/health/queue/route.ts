@@ -11,13 +11,19 @@ export async function GET(request: Request) {
 
   if (!redis) {
     console.warn("[health queue] Redis is unavailable.");
+    // 503, not 200. An uptime monitor reads the status code, not the body, so
+    // returning 200 here reported "healthy" while Redis was down — and Redis is
+    // what backs every queue, every AI spend reservation in lib/workers/budget
+    // and every distributed rate limiter. A green check while all spend
+    // ceilings are unenforced is the most expensive lie this endpoint can tell.
+    // Matches api/health/workers, which already answers 503 when degraded.
     return NextResponse.json(
       {
         translationQueue: false,
         redis: false,
         message: "Redis is unavailable. Start Redis to enable translation queue.",
       },
-      { status: 200 }
+      { status: 503 }
     );
   }
 
@@ -30,7 +36,7 @@ export async function GET(request: Request) {
         redis: true,
         message: "Translation queue is unavailable.",
       },
-      { status: 200 }
+      { status: 503 }
     );
   }
 
@@ -48,7 +54,7 @@ export async function GET(request: Request) {
         redis: true,
         message: "Failed to read translation queue health.",
       },
-      { status: 200 }
+      { status: 503 }
     );
   }
 }
