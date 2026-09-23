@@ -10,7 +10,7 @@ Starta `npm run dev -w @verkli/web -- --port 3217` med Node 22 och lokala offent
 
 1. Välj ready, öppna sparad översättning och kontrollera sv-utgåvans ID, aktuell text och båda kapitlen. Öppna rapport/fynd och kontrollera att de anges som historiska.
 2. Kontrollera Fixture request evidence: öppning/uppdatering gör bara läsningar, inga translation-preview, translate eller checkout-anrop. Ladda om och öppna igen.
-3. Välj slow, öppna och byt omedelbart Target language till ar. Öppna igen; endast ar visas. Byt Source edition under en ny långsam laddning och kontrollera rätt original.
+3. Välj slow, öppna och byt omedelbart Target language till ar. Öppna igen; endast ar visas. Byt Source edition under en ny långsam laddning och kontrollera rätt original. Välj sedan Swedish edition när målet är svenska, samt Dutch/Polish edition när motsvarande målspråk är valt: målvalet måste ändras till ett annat språk och öppningen använda samma mål som UI visar.
 4. Prova unavailable, empty och failure. Kontrollera skillnaden mellan saknad utgåva, tomma kapitel och laddningsfel, samt möjlighet att uppdatera.
 5. Prova report-failure och edited. Texten ska kunna visas även om rapport saknas; ändrat textfingeravtryck ska anges tydligt.
 6. Prova 390 px, tangentbordsfokus och arabiskt RTL. Välj Generate opening preview först när du avsiktligt vill starta en separat AI-förhandsvisning (syntetisk i fixturen).

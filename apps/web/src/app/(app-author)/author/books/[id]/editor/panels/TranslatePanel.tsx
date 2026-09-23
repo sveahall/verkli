@@ -52,10 +52,15 @@ export default function TranslatePanel({
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [targetLanguage, setTargetLanguage] = useState<SupportedLanguage>(() => {
+  const [selectedTargetLanguage, setTargetLanguage] = useState<SupportedLanguage>(() => {
     const preferred = sourceLanguage === "sv" ? "en" : "sv";
     return isSupportedLanguage(preferred) ? preferred : "en";
   });
+  // Edition changes can make the stored target become the source. Derive a
+  // valid target before rendering so the select, labels and requests agree.
+  const targetLanguage = selectedTargetLanguage === sourceLanguage
+    ? (sourceLanguage === "sv" ? "en" : "sv")
+    : selectedTargetLanguage;
   const [selectedLanguages, setSelectedLanguages] = useState<Set<string>>(() => {
     const defaultTarget = sourceLanguage === "sv" ? "en" : sourceLanguage === "en" ? "sv" : "en";
     return isTranslationPairSupported(sourceLanguage, defaultTarget) ? new Set([defaultTarget]) : new Set();
