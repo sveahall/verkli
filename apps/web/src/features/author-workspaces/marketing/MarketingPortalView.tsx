@@ -230,6 +230,8 @@ export default function MarketingPortalView({
             ) : null}
           </div>
 
+          <Link href="/author/marketing/ads" className="text-sm font-medium underline underline-offset-4">Plan an ad draft and budget</Link>
+
           {/* Campaign list */}
           {campaigns.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-white/40 p-8 text-center dark:border-border dark:bg-card">
