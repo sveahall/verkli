@@ -501,6 +501,7 @@ export async function POST(
       // on books.published=true, so per-book firings are safe.
       await emitFirstPublishEvent({
         bookId: id,
+        bookVersionId: versionId,
         userId: user.id,
         scope: "chapter",
       });
@@ -560,6 +561,7 @@ export async function POST(
     // Cohort funnel metric: first_publish on full-version publish path.
     await emitFirstPublishEvent({
       bookId: id,
+      bookVersionId: versionId,
       userId: user.id,
       scope: "book",
     });
@@ -576,6 +578,7 @@ export async function POST(
  */
 async function emitFirstPublishEvent(input: {
   bookId: string;
+  bookVersionId: string;
   userId: string;
   scope: "book" | "chapter";
 }): Promise<void> {
@@ -586,7 +589,7 @@ async function emitFirstPublishEvent(input: {
       userId: input.userId,
       bookId: input.bookId,
       path: `/api/books/${input.bookId}/publish`,
-      props: { scope: input.scope },
+      props: { scope: input.scope, bookVersionId: input.bookVersionId },
     });
   } catch (err) {
     console.error("[publish] first_publish metric emission failed", {
