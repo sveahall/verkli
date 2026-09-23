@@ -14,7 +14,15 @@ const USER = "11111111-1111-4111-8111-111111111111";
 
 type Call = { table: string; op: string; payload?: unknown; filters: Array<[string, ...unknown[]]> };
 
-function database(options: { due?: string[]; failOn?: string; listError?: boolean } = {}) {
+type Options = {
+  due?: string[];
+  failOn?: string;
+  listError?: boolean;
+  /** What the pre-teardown intent re-check sees. Null means no profile row. */
+  intent?: { deletion_requested_at: string | null; deletion_completed_at: string | null } | null;
+};
+
+function database(options: Options = {}) {
   const calls: Call[] = [];
   const updateUserById = vi.fn(async () => ({ error: options.failOn === "auth" ? { code: "auth" } : null }));
 
@@ -30,6 +38,11 @@ function database(options: { due?: string[]; failOn?: string; listError?: boolea
       };
       const filter = (name: string) => (...args: unknown[]) => { call?.filters.push([name, ...args]); return chain; };
       chain.select = () => record("select");
+      // The teardown re-reads intent before destroying anything; default to a
+      // pending, not-yet-completed request so the happy path proceeds.
+      chain.maybeSingle = async () => options.intent === null
+        ? { data: null, error: null }
+        : { data: options.intent ?? { deletion_requested_at: "2026-09-01T00:00:00.000Z", deletion_completed_at: null }, error: null };
       chain.delete = () => record("delete");
       chain.update = (payload: unknown) => record("update", payload);
       chain.insert = (payload: unknown) => { record("insert", payload); return Promise.resolve({ error: options.failOn === "audit_log" && table === "audit_log" ? { code: "audit" } : null }); };
@@ -81,14 +94,18 @@ describe("account teardown", () => {
     const deleted = db.calls.filter((call) => call.op === "delete").map((call) => call.table);
     expect(deleted).toEqual(["ai_messages", "ai_threads", "ai_memories", "ai_memory_settings"]);
 
-    const profile = db.calls.find((call) => call.table === "profiles" && call.op === "update");
-    expect(profile?.payload).toEqual({
+    const updates = db.calls.filter((call) => call.table === "profiles" && call.op === "update");
+    expect(updates[0]?.payload).toEqual({
       display_name: REMOVED_AUTHOR_NAME,
       bio: null, avatar_url: null, cover_image: null, website_url: null, social_links: null,
       username: null, is_public: false,
+    });
+    // Completion is a separate write, made only after the ban succeeded.
+    expect(updates[1]?.payload).toEqual({
       deletion_requested_at: null,
       deletion_completed_at: NOW.toISOString(),
     });
+    expect(db.updateUserById).toHaveBeenCalledWith(USER, expect.objectContaining({ user_metadata: {} }));
 
     expect(db.updateUserById).toHaveBeenCalledWith(USER, expect.objectContaining({ email: tombstoneEmail(USER) }));
     expect(tombstoneEmail(USER)).toMatch(/@removed\.invalid$/);
@@ -128,6 +145,44 @@ describe("account teardown", () => {
   it("still reports success when only the audit entry fails, so it is not retried against an erased account", async () => {
     const db = database({ failOn: "audit_log" });
     expect(await tearDownAccount(db.admin, USER, NOW)).toEqual({ userId: USER, ok: true });
+  });
+
+  /**
+   * Found by an outside review. Completion used to be written in the same
+   * update as the profile erasure, before the ban. A failed ban then left the
+   * account excluded from every future sweep — half-erased, still signed in,
+   * and never retried.
+   */
+  it("does not record completion when the ban fails, so the sweep retries it", async () => {
+    const db = database({ failOn: "auth" });
+    expect(await tearDownAccount(db.admin, USER, NOW)).toEqual({ userId: USER, ok: false, step: "auth" });
+    const updates = db.calls.filter((call) => call.table === "profiles" && call.op === "update");
+    expect(updates).toHaveLength(1);
+    expect(updates[0]?.payload).not.toHaveProperty("deletion_completed_at");
+  });
+
+  /**
+   * Also found by an outside review. The sweep lists due accounts and then works
+   * through them one at a time, so a withdrawal can land after the list was
+   * taken. Without this the author is told "Keep my account" worked and loses it.
+   */
+  it("skips an account that withdrew after the sweep listed it", async () => {
+    const withdrawn = database({ intent: { deletion_requested_at: null, deletion_completed_at: null } });
+    expect(await tearDownAccount(withdrawn.admin, USER, NOW)).toEqual({ userId: USER, ok: true, skipped: "withdrawn" });
+    expect(withdrawn.calls.some((call) => call.op === "delete")).toBe(false);
+    expect(withdrawn.updateUserById).not.toHaveBeenCalled();
+
+    const already = database({ intent: { deletion_requested_at: "2026-09-01T00:00:00.000Z", deletion_completed_at: "2026-09-10T00:00:00.000Z" } });
+    expect(await tearDownAccount(already.admin, USER, NOW)).toMatchObject({ ok: true, skipped: "withdrawn" });
+    expect(already.updateUserById).not.toHaveBeenCalled();
+  });
+
+  it("clears the signup name and avatar, not just the profile row", async () => {
+    // public-author.ts falls back to auth user_metadata when the profile row
+    // cannot be read, so erasing the profile alone does not erase the person.
+    const db = database();
+    await tearDownAccount(db.admin, USER, NOW);
+    expect(db.updateUserById).toHaveBeenCalledWith(USER, expect.objectContaining({ user_metadata: {} }));
   });
 
   it("sweeps every due account and is a no-op when none are", async () => {
