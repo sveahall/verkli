@@ -51,6 +51,14 @@ describe("findTextMatches", () => {
     expect(match.after).toBe(" och v");
   });
 
+  it("finds an occurrence that overlaps a rejected one", () => {
+    // "foo foo" first matches inside "xfoo", which whole-word rejects. Skipping
+    // past the whole rejected match stepped over the valid occurrence that
+    // overlaps it, and the search reported nothing at all.
+    const node = doc([paragraph(text("xfoo foo foo"))]);
+    expect(found(node, findTextMatches(node, "foo foo", { wholeWord: true }))).toEqual(["foo foo"]);
+  });
+
   it("stops at the limit and finds nothing for an empty query", () => {
     const node = doc([paragraph(text("aaaa"))]);
     expect(findTextMatches(node, "aa")).toEqual([{ from: 1, to: 3 }, { from: 3, to: 5 }]);

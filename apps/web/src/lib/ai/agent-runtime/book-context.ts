@@ -66,11 +66,43 @@ export function hashChapterContent(content: string): string {
  * same kind of document here, or the agent would silently see an empty chapter
  * for the older two.
  */
+const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
+
+/** The stored value, when it is already a document rather than legacy text. */
+function storedDocument(content: string): Record<string, unknown> | null {
+  const trimmed = content.trim();
+  if (!trimmed.startsWith("{")) return null;
+  try {
+    const parsed: unknown = JSON.parse(trimmed);
+    if (!parsed || typeof parsed !== "object") return null;
+    const candidate = parsed as { type?: unknown; content?: unknown };
+    return candidate.type === "doc" && Array.isArray(candidate.content) ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function parseChapterDocument(content: string | null): ProseMirrorNode {
+  if (!content?.trim()) return ProseMirrorNode.fromJSON(chapterSchema, EMPTY_DOC);
+
+  // A chapter already in Tiptap JSON is parsed exactly as it is.
+  //
+  // It used to go through toTiptapContent, which is a lenient importer, not a
+  // parser: it detects headings and splits a flattened document into one. That
+  // is right when adopting legacy text and wrong here, because apply() writes
+  // the whole parsed chapter back after a single approved word change. So
+  // approving "harbor → port" also turned "Listen!" into a heading, split a
+  // text node mid-word and dropped its italics — and both concurrency guards
+  // passed, because the hash is of the stored string while what gets written is
+  // the reinterpreted one. The outcome still said "1 passage changed".
+  const stored = storedDocument(content);
+  if (stored) return ProseMirrorNode.fromJSON(chapterSchema, stored);
+
+  // Legacy generations only: raw HTML from early imports, and plain text from
+  // before that. Reinterpreting those is the entire point.
   const value = toTiptapContent(content);
   if (typeof value === "string") {
-    const json = value.trim() ? htmlToTiptapDoc(value) : { type: "doc", content: [{ type: "paragraph" }] };
-    return ProseMirrorNode.fromJSON(chapterSchema, json);
+    return ProseMirrorNode.fromJSON(chapterSchema, value.trim() ? htmlToTiptapDoc(value) : EMPTY_DOC);
   }
   return ProseMirrorNode.fromJSON(chapterSchema, value);
 }

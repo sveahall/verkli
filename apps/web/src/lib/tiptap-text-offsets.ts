@@ -113,13 +113,21 @@ export function findTextMatches(
         continue;
       }
       if (wholeWord && !(isWordBoundary(block.text, start - 1) && isWordBoundary(block.text, end))) {
+        // Resume one character in, not past the whole rejected match: in
+        // "xfoo foo foo" the query "foo foo" first matches inside "xfoo",
+        // and skipping its full length stepped over the valid occurrence
+        // that overlaps it. The search then reported no matches at all.
+        pattern.lastIndex = start + 1;
         continue;
       }
       const span = block.positions.slice(start, end);
       const contiguous = span.every(
         (position, index) => position >= 0 && (index === 0 || position === span[index - 1] + 1),
       );
-      if (!contiguous) continue;
+      if (!contiguous) {
+        pattern.lastIndex = start + 1;
+        continue;
+      }
 
       const match: TextMatch = { from: span[0], to: span[span.length - 1] + 1 };
       if (contextChars > 0) {
