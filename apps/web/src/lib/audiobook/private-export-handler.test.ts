@@ -17,7 +17,7 @@ describe("private export HTTP publication", () => {
     expect(response.status).toBe(499); expect(response.headers.get("Content-Disposition")).toBeNull(); expect(await response.text()).not.toContain("synthetic-output");
   });
   it("rejects oversized and client path payloads before any source reads", async () => {
-    for (const body of [{ ...input, path: "/private" }, { ...input, extra: "x".repeat(3000) }]) expect((await handlers.POST(new Request("http://localhost/export", { method: "POST", body: JSON.stringify(body) }), ctx)).status).toBe(body.extra ? 413 : 400);
+    for (const body of [{ ...input, path: "/private" }, { ...input, extra: "x".repeat(3000) }]) expect((await handlers.POST(new Request("http://localhost/export", { method: "POST", body: JSON.stringify(body) }), ctx)).status).toBe("extra" in body ? 413 : 400);
     expect(exported).not.toHaveBeenCalled();
   });
   it("sanitizes unknown errors without exposing references", async () => { exported.mockRejectedValue(new Error("private/path signed-token")); const response = await handlers.POST(new Request("http://localhost/export", { method: "POST", body: JSON.stringify(input) }), ctx); expect(response.status).toBe(500); expect(await response.text()).not.toContain("signed-token"); expect(response.headers.get("Content-Disposition")).toBeNull(); });

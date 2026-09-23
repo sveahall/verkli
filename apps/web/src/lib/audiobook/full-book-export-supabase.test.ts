@@ -122,7 +122,7 @@ function sampleSource() {
 function mockStorage(source: ReturnType<typeof sampleSource>, options: { audio?: Buffer; sidecar?: unknown; uploadError?: boolean; abortUpload?: AbortController } = {}) {
   const upload = vi.fn(async (_destination: string, stream: NodeJS.ReadableStream) => {
     if (options.abortUpload) { options.abortUpload.abort(); return { error: { message: "untrusted-storage-detail" } }; }
-    const chunks = []; for await (const chunk of stream) chunks.push(chunk); expect(Buffer.concat(chunks)).toEqual(Buffer.from("output"));
+    const chunks: Buffer[] = []; for await (const chunk of stream) chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk); expect(Buffer.concat(chunks)).toEqual(Buffer.from("output"));
     return { error: options.uploadError ? { message: "untrusted-storage-detail" } : null };
   });
   const remove = vi.fn(async () => ({ error: null }));

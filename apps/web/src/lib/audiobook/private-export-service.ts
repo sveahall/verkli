@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import type { ExportChapter } from "./export-contract";
 import { exportLocalAudio } from "./export-local";
 import { audioObjectHash, parseTimingSidecar } from "./timing-storage";
 import { PRIVATE_EXPORT_LIMITS, PrivateExportError, privateExportEditionSchema, privateExportMetadata, privateExportPreview, privateExportRequestSchema, privateSnapshotId, validatePrivateSnapshot, type PrivateExportRequest } from "./private-export-contract";
@@ -46,7 +47,7 @@ export async function exportPrivateAudio(deps: PrivateExportDependencies, bookId
     const identity = privateSnapshotId(source);
     if (identity !== input.snapshotId) throw changed();
     temporary = await fs.mkdtemp(path.join(os.tmpdir(), "verkli-private-export-"));
-    const chapters = [], timingEnds: number[] = [];
+    const chapters: ExportChapter[] = [], timingEnds: number[] = [];
     for (const [index, chapter] of source.chapters.entries()) {
       assertActive(signal);
       const bytes = await deps.readObject(chapter.cache.path, PRIVATE_EXPORT_LIMITS.sourceBytes, signal); assertActive(signal);

@@ -17,7 +17,7 @@ export type FullBookFixtureScenario = typeof FULL_BOOK_FIXTURE_SCENARIOS[number]
 const root = path.join(os.tmpdir(), `verkli-full-book-fixture-${createHash("sha256").update(process.cwd()).digest("hex").slice(0, 12)}`);
 type FixtureState = { lock: Promise<unknown>; active: Map<string, Promise<void>>; source?: Promise<{ snapshot: PrivateExportSnapshot; chapters: { id: string; title: string; filePath: string; sha256: string }[] }> };
 const scope = globalThis as typeof globalThis & { __verkliFullBookFixture?: FixtureState };
-const state = scope.__verkliFullBookFixture ??= { lock: Promise.resolve(), active: new Map() };
+const state: FixtureState = scope.__verkliFullBookFixture ??= { lock: Promise.resolve(), active: new Map() };
 function atomic<T>(operation: () => Promise<T>): Promise<T> { const next = state.lock.then(operation); state.lock = next.catch(() => undefined); return next; }
 function recordPath(jobId: string, scenario: string) { if (!/^[a-f0-9-]{36}$/.test(jobId)) throw new Error("Invalid synthetic job"); return path.join(root, scenario, `${jobId}.json`); }
 async function load(jobId: string, scenario: string) { try { return JSON.parse(await fs.readFile(recordPath(jobId, scenario), "utf8")) as ExportJobRecord; } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return null; throw error; } }

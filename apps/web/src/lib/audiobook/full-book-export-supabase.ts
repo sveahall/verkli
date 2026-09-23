@@ -7,7 +7,7 @@ import { z } from "zod";
 import type { Database } from "@/lib/supabase/types";
 import { getServerEnv } from "@/lib/env";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
-import { EXPORT_SAMPLE_RATE, exportProfile, type ExportFormat } from "./export-contract";
+import { EXPORT_SAMPLE_RATE, exportProfile, type ExportFormat, type ExportChapter } from "./export-contract";
 import { FULL_BOOK_EXPORT_SOURCE_LIMITS, fullBookExportRequestSchema } from "./full-book-export-contract";
 import { runFullBookJob, type ExportArtifact, type ExportJobRecord, type ExportJobStore } from "./full-book-export-jobs";
 import { encodeFullBookAudio } from "./full-book-export-encoder";
@@ -89,7 +89,8 @@ export async function readExportObject(client: Client, objectPath: string, maxim
   signal.throwIfAborted(); let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   const abort = () => { void reader?.cancel().catch(() => undefined); };
   try {
-    const { data, error } = await client.storage.from(getAudiobookStorageBucket()).download(objectPath, {}, { signal, cache: "no-store", redirect: "error" }).asStream();
+    const parameters = { signal, cache: "no-store", redirect: "error" } satisfies RequestInit;
+    const { data, error } = await client.storage.from(getAudiobookStorageBucket()).download(objectPath, {}, parameters).asStream();
     if (error || !data) failure("SOURCE_READ_FAILED", "Could not read verified existing audio. Try again shortly.");
     reader = data.getReader(); signal.addEventListener("abort", abort, { once: true }); signal.throwIfAborted(); let bytes = 0;
     while (true) {
@@ -108,7 +109,7 @@ export async function buildFullBookExport(job: ExportJobRecord, signal: AbortSig
   if (privateSnapshotId(source, FULL_BOOK_EXPORT_SOURCE_LIMITS) !== job.input.snapshotId) throw new PrivateExportError(409, "SOURCE_CHANGED", "The edition or its audio changed. Reload before exporting again.");
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "verkli-full-export-source-")); let result: Awaited<ReturnType<typeof encodeFullBookAudio>> | undefined;
   try {
-    const chapters = [], timingEnds: number[] = [];
+    const chapters: ExportChapter[] = [], timingEnds: number[] = [];
     for (const [index, chapter] of source.chapters.entries()) {
       const audioHash = createHash("sha256"), fileHash = createHash("sha256"), filePath = path.join(temporary, `chapter-${index}.audio`), handle = await fs.open(filePath, "wx", 0o600);
       let count: number;
@@ -154,7 +155,7 @@ export async function reconcileFailedFullBookExport(trusted: ExportJobRecord) {
   if (!current || !["pending", "processing"].includes(current.status)) return;
   await store.compareAndSwap(current, { status: "failed", phase: "Export failed", message: "The export worker stopped before completion. Start a new export.", artifact: null, leaseUntil: 0 });
 }
-let rateLimiter: { check(ownerId: string): Promise<{ allowed: boolean }> } | undefined;
+let rateLimiter: { check(ownerId: string): { allowed: boolean } | Promise<{ allowed: boolean }> } | undefined;
 /** EOF verification closes mismatched responses with an error; cancellation always releases upstream. */
 export function verifiedExportDownload(data: ReadableStream<Uint8Array>, artifact: ExportArtifact, signal: AbortSignal): ReadableStream<Uint8Array> {
   const reader = data.getReader(), hash = createHash("sha256"); let bytes = 0, stopped = false;
@@ -225,7 +226,8 @@ export function createFullBookExportRuntime() {
           const client = createCancellableExportClient(downloadSignal);
           if (artifact.byteLength > await exportStorageCapacity(client, record.input.format, downloadSignal)) failure("EXPORT_STORAGE_UNAVAILABLE", "Private audio export storage no longer accepts this file size.");
           downloadSignal.throwIfAborted();
-          const { data, error } = await client.storage.from(getAudiobookStorageBucket()).download(artifact.path, {}, { signal: downloadSignal, cache: "no-store", redirect: "error" }).asStream();
+          const parameters = { signal: downloadSignal, cache: "no-store", redirect: "error" } satisfies RequestInit;
+          const { data, error } = await client.storage.from(getAudiobookStorageBucket()).download(artifact.path, {}, parameters).asStream();
           // An SDK request may resolve after the caller has stopped awaiting it. Close that late body.
           if (downloadSignal.aborted || error) { await data?.cancel().catch(() => undefined); downloadSignal.throwIfAborted(); }
           if (error || !data) failure("EXPORT_DOWNLOAD_FAILED", "Could not download this private export. Try again shortly.");

@@ -38,8 +38,9 @@ export function createPrivateExportDependencies(): PrivateExportDependencies {
       let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
       const abort = () => { void reader?.cancel().catch(() => undefined); };
       try {
+        const parameters = { signal, cache: "no-store", redirect: "error" } satisfies RequestInit;
         const { data, error } = await createAdminClient().storage.from(getAudiobookStorageBucket())
-          .download(path, {}, { signal, cache: "no-store", redirect: "error" }).asStream();
+          .download(path, {}, parameters).asStream();
         if (error || !data) throw new PrivateExportError(503, "SOURCE_READ_FAILED", "Could not read verified existing audio. Try again shortly.");
         reader = data.getReader(); signal.addEventListener("abort", abort, { once: true });
         signal.throwIfAborted();
