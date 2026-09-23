@@ -5,7 +5,7 @@ import { chapterSchema } from "./tiptap-schema";
 import { findTextMatches } from "./tiptap-text-offsets";
 import { replaceTextRanges } from "./tiptap-replace";
 
-const text = (value: string, marks?: { type: string }[]) => ({ type: "text", text: value, ...(marks ? { marks } : {}) });
+const text = (value: string, marks?: { type: string; attrs?: Record<string, string> }[]) => ({ type: "text", text: value, ...(marks ? { marks } : {}) });
 const paragraph = (...content: ReturnType<typeof text>[]) => ({ type: "paragraph", content });
 
 function fixture(content: unknown[]) {
@@ -51,6 +51,31 @@ describe("replaceTextRanges", () => {
       { type: "text", text: "nas", marks: [{ type: "bold" }] },
       { type: "text", text: " gick." },
     ]);
+  });
+
+  it("does not stretch a link over words the author never linked", () => {
+    const state = fixture([paragraph(
+      text("Läs "), text("Ulysses", [{ type: "link", attrs: { href: "https://example.test/ulysses" } }]), text(" idag."),
+    )]);
+    const applied = state.apply(replaceTextRanges(state, editsFor(state, "Ulysses", "Ulysses and Dubliners")).transaction);
+    const nodes = applied.doc.toJSON().content[0].content as { text: string; marks?: { type: string }[] }[];
+
+    // The added words carry no link, so they merge with the plain text after
+    // them: the href belongs to the title that was linked, not to a second one
+    // that happens to follow it.
+    expect(nodes.map((node) => node.text)).toEqual(["Läs ", "Ulysses", " and Dubliners idag."]);
+    expect(nodes[1].marks?.[0].type).toBe("link");
+    expect(nodes[2].marks).toBeUndefined();
+  });
+
+  it("still lets emphasis cover text added inside it", () => {
+    const state = fixture([paragraph(text("Hej "), text("Johan", [{ type: "bold" }]), text("!"))]);
+    const applied = state.apply(replaceTextRanges(state, editsFor(state, "Johan", "unge Johan")).transaction);
+    const nodes = applied.doc.toJSON().content[0].content as { text: string; marks?: { type: string }[] }[];
+    // Emphasis still covers what was added inside it, so the whole phrase is
+    // one bold node rather than a bold word after a plain one.
+    expect(nodes.map((node) => node.text)).toEqual(["Hej ", "unge Johan", "!"]);
+    expect(nodes[1].marks?.[0].type).toBe("bold");
   });
 
   it("reports the edits it could not apply and still applies the rest", () => {

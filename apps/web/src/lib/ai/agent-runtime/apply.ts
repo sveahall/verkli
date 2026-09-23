@@ -27,7 +27,7 @@ import { chapterSchema } from "@/lib/tiptap-schema";
 import {
   authorizeProductionEdition, loadProductionDraft, saveProductionDraft,
 } from "@/lib/book-production/server";
-import { createProductionSettings, type ProductionSettings } from "@/features/book-production/model";
+import { createProductionSection, createProductionSettings, type ProductionSettings } from "@/features/book-production/model";
 import type { AgentBook, AgentChapter } from "./book-context";
 import type { Plan, PlanStep } from "./plan";
 
@@ -50,6 +50,15 @@ export type ApplySelection = {
 type ChapterWork = { chapter: AgentChapter; edits: (TextEdit & { stepId: string })[] };
 
 const STALE_CHAPTER = "You edited this chapter after the plan was made, so it was left untouched. Ask again for a fresh plan.";
+/**
+ * Losing the compare-and-swap and failing to reach the database are different
+ * events, and collapsing them told the author they had edited a chapter they
+ * had not touched. Neither client sets `throwOnError`, so a pooler timeout, a
+ * statement timeout or a dropped connection arrives here as an ordinary
+ * `error` — and the plan is spent either way, so the wrong explanation costs a
+ * whole new run as well as the trust.
+ */
+const WRITE_UNAVAILABLE = "The database did not accept this chapter, so nothing in it was written. Nothing was lost — ask for a fresh plan and try again.";
 
 function selectedSteps(plan: Plan, selection: ApplySelection): PlanStep[] {
   if (!selection.stepIds) return plan.steps;
@@ -153,16 +162,29 @@ function dropOverlaps(edits: (TextEdit & { stepId: string })[]): { kept: typeof 
  */
 async function applyChapter(
   supabase: SupabaseClient, bookId: string, { chapter, edits }: ChapterWork,
-): Promise<{ applied: Map<string, number>; failures: Map<string, string> }> {
+): Promise<{ applied: Map<string, number>; failures: Map<string, Set<string>> }> {
   const appliedByStep = new Map<string, number>();
-  const failures = new Map<string, string>();
+  /**
+   * A set per step, not one string. A step can span several chapters and fail
+   * differently in each — one stale, one on a formatting seam — and overwriting
+   * meant the author heard about whichever came last and never learned the
+   * other passages had been skipped at all.
+   */
+  const failures = new Map<string, Set<string>>();
+  const note = (stepId: string, reason: string) => {
+    const reasons = failures.get(stepId) ?? new Set<string>();
+    reasons.add(reason);
+    failures.set(stepId, reasons);
+  };
   const { kept, dropped } = dropOverlaps(edits);
-  for (const edit of dropped) failures.set(edit.stepId, "Two changes covered the same words; the later one was left out.");
+  // Not "the later one": dropOverlaps keeps the edit that starts earliest in the
+  // chapter, which need not be the earlier step.
+  for (const edit of dropped) note(edit.stepId, "Another change in this chapter already covered these words, so this one was left out.");
 
   const state = EditorState.create({ schema: chapterSchema, doc: chapter.doc! });
   const { transaction, applied, skipped } = replaceTextRanges(state, kept, { skipInvalid: true });
   const skippedEdits = new Set(skipped.map((entry) => entry.index));
-  for (const entry of skipped) failures.set(kept[entry.index].stepId, entry.reason);
+  for (const entry of skipped) note(kept[entry.index].stepId, entry.reason);
   if (!applied) return { applied: appliedByStep, failures };
 
   const serialized = JSON.stringify(state.apply(transaction).doc.toJSON());
@@ -176,8 +198,13 @@ async function applyChapter(
     .eq("version_number", chapter.versionNumber)
     .select("id");
 
-  if (error || !data?.some((row) => row.id === chapter.id)) {
-    for (const edit of kept) failures.set(edit.stepId, STALE_CHAPTER);
+  if (error) {
+    console.error("[agent.apply] chapter write failed", { chapterId: chapter.id, code: error.code });
+    for (const edit of kept) note(edit.stepId, WRITE_UNAVAILABLE);
+    return { applied: appliedByStep, failures };
+  }
+  if (!data?.some((row) => row.id === chapter.id)) {
+    for (const edit of kept) note(edit.stepId, STALE_CHAPTER);
     return { applied: appliedByStep, failures };
   }
 
@@ -188,8 +215,10 @@ async function applyChapter(
   return { applied: appliedByStep, failures };
 }
 
-async function applyCoverSteps(bookId: string, versionId: string, steps: PlanStep[], bookTitle: string): Promise<StepOutcome[]> {
-  const relevant = steps.filter((step) => step.tool === "set_cover_text" || step.tool === "set_cover_style");
+/** Everything stored in the edition's production settings: cover and front matter. */
+async function applyEditionSteps(bookId: string, versionId: string, steps: PlanStep[], bookTitle: string): Promise<StepOutcome[]> {
+  const relevant = steps.filter((step) =>
+    step.tool === "set_cover_text" || step.tool === "set_cover_style" || step.tool === "add_front_matter_section");
   if (!relevant.length) return [];
 
   try {
@@ -214,11 +243,19 @@ async function applyCoverSteps(bookId: string, versionId: string, steps: PlanSte
         };
       } else if (step.tool === "set_cover_style") {
         next = { ...next, cover: { ...next.cover, ...step.fields } };
+      } else if (step.tool === "add_front_matter_section") {
+        // Built from the same factory the panel uses, so placement, id and the
+        // recto rule come from one definition rather than being guessed here.
+        const section = { ...createProductionSection(step.kind), title: step.title, body: step.body };
+        next = { ...next, sections: [...next.sections, section] };
       }
     }
 
     await saveProductionDraft(context, next, draft.revision);
-    return relevant.map((step) => ({ stepId: step.id, tool: step.tool, status: "applied" as const, detail: "Saved to your cover." }));
+    return relevant.map((step) => ({
+      stepId: step.id, tool: step.tool, status: "applied" as const,
+      detail: step.tool === "add_front_matter_section" ? "Added to your book's pages." : "Saved to your cover.",
+    }));
   } catch (error) {
     const detail = error instanceof Error && error.message ? error.message : "The cover could not be saved. Open Cover and try again.";
     return relevant.map((step) => ({ stepId: step.id, tool: step.tool, status: "failed" as const, detail }));
@@ -235,12 +272,18 @@ export async function applyPlan(
   const { work, outcomes, notes } = collectChapterWork(steps, book, selection);
 
   const changedByStep = new Map<string, number>();
-  const failedByStep = new Map<string, string>(notes);
+  const failedByStep = new Map<string, Set<string>>();
+  for (const [stepId, reason] of notes) failedByStep.set(stepId, new Set([reason]));
+  const noteStep = (stepId: string, reason: string) => {
+    const reasons = failedByStep.get(stepId) ?? new Set<string>();
+    reasons.add(reason);
+    failedByStep.set(stepId, reasons);
+  };
   // A step's edits can span several chapters, and a chapter's edits can come
   // from several steps, so both maps accumulate across the whole plan.
   for (const entry of work.values()) {
     const { applied, failures } = await applyChapter(supabase, book.bookId, entry);
-    for (const [stepId, reason] of failures) failedByStep.set(stepId, reason);
+    for (const [stepId, reasons] of failures) for (const reason of reasons) noteStep(stepId, reason);
     for (const [stepId, count] of applied) changedByStep.set(stepId, (changedByStep.get(stepId) ?? 0) + count);
   }
 
@@ -248,7 +291,8 @@ export async function applyPlan(
     if (step.tool !== "replace_in_book" && step.tool !== "rewrite_passage") continue;
     if (outcomes.some((outcome) => outcome.stepId === step.id)) continue;
     const changed = changedByStep.get(step.id) ?? 0;
-    const failure = failedByStep.get(step.id);
+    // Every distinct reason, so a step that failed two ways says both.
+    const failure = [...(failedByStep.get(step.id) ?? [])].join(" ") || undefined;
     outcomes.push(
       changed
         // Partly applied is the common case, not an edge one: say both halves.
@@ -258,7 +302,17 @@ export async function applyPlan(
     );
   }
 
-  outcomes.push(...await applyCoverSteps(book.bookId, book.versionId, steps, book.bookTitle));
+  outcomes.push(...await applyEditionSteps(book.bookId, book.versionId, steps, book.bookTitle));
+
+  for (const step of steps) {
+    if (step.tool !== "set_book_description") continue;
+    // The author's own client, so row-level security is the ownership check.
+    const { data, error } = await supabase
+      .from("books").update({ description: step.description }).eq("id", book.bookId).select("id");
+    outcomes.push(error || !data?.length
+      ? { stepId: step.id, tool: step.tool, status: "failed", detail: "The description could not be saved. Try again." }
+      : { stepId: step.id, tool: step.tool, status: "applied", detail: "Saved to your book." });
+  }
 
   for (const step of steps) {
     if (step.tool !== "generate_cover_image") continue;

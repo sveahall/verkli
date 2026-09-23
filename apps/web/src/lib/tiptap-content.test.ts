@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   plainTextToTiptapDoc,
+  shouldAdoptEditorContent,
   toTiptapContent,
   type TiptapDocument,
   contentToPlainText,
@@ -124,5 +125,22 @@ describe("contentToPlainText", () => {
   it("returns an empty string for no content", () => {
     expect(contentToPlainText(null)).toBe("");
     expect(contentToPlainText("")).toBe("");
+  });
+});
+
+describe("shouldAdoptEditorContent", () => {
+  const doc = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Before." }] }] };
+  const next = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "After the agent." }] }] };
+
+  it("adopts a stored document the editor is not already showing", () => {
+    expect(shouldAdoptEditorContent(doc, JSON.stringify(next), false)).toBe(true);
+  });
+
+  it("leaves the editor alone when it already shows that document", () => {
+    expect(shouldAdoptEditorContent(next, JSON.stringify(next), false)).toBe(false);
+  });
+
+  it("does not replace keystrokes that have not been saved yet", () => {
+    expect(shouldAdoptEditorContent(doc, JSON.stringify(next), true)).toBe(false);
   });
 });

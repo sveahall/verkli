@@ -16,7 +16,7 @@
 import Redis from "ioredis";
 import { getRedisClientOptions } from "@/lib/env";
 
-export type BudgetPipeline = "tts" | "translation" | "video" | "editorial" | "marketing";
+export type BudgetPipeline = "tts" | "translation" | "video" | "editorial" | "marketing" | "agent";
 
 export interface BudgetCheckInput {
   userId: string;
@@ -58,6 +58,10 @@ const DEFAULT_DAILY_BUDGETS: Record<BudgetPipeline, number> = {
   video: 100,
   marketing: 0, // No implicit spending allowance.
   editorial: 0, // No implicit spending allowance; configuration is required.
+  // The agent ships with a working ceiling rather than requiring configuration,
+  // like tts/translation/video and unlike editorial/marketing. A feature whose
+  // only guard is an unset variable is not guarded — it is off.
+  agent: 400_000,
 };
 
 const DEFAULT_JOB_COST_CAPS: Record<BudgetPipeline, number> = {
@@ -66,6 +70,13 @@ const DEFAULT_JOB_COST_CAPS: Record<BudgetPipeline, number> = {
   video: 5,
   editorial: 80_000,
   marketing: 0,
+  // Present because the Record is exhaustive, not because it is enforced:
+  // validateJobCost is called for translation, tts, video and marketing only,
+  // so this is never consulted for an agent run. What actually bounds one run
+  // is the loop's own turn and token limits plus the reservation clip in
+  // ai/agent-runtime/budget. Stating that here rather than leaving a number
+  // that reads like a guard.
+  agent: 332_000,
 };
 
 const PIPELINE_JOB_COST_UNITS: Record<BudgetPipeline, JobCostUnit> = {
@@ -74,6 +85,7 @@ const PIPELINE_JOB_COST_UNITS: Record<BudgetPipeline, JobCostUnit> = {
   video: "units",
   editorial: "chars",
   marketing: "units",
+  agent: "units",
 };
 
 const REDIS_RESERVE_SCRIPT = `
@@ -157,6 +169,30 @@ return amount or 0
 const touchedKeys = new Set<string>();
 let sharedRedis: Redis | null = null;
 
+/**
+ * Defaults when the variable is absent, throws when it is present and
+ * unusable.
+ *
+ * The lenient reader below returns the fallback for NaN, 0 and negatives
+ * alike, so `AGENT_DAILY_BUDGET=50_000` — an underscore Number() does not
+ * parse — resolved to the 400 000 default with no error, no log and no gate
+ * entry. An operator tightening the ceiling got eight times what they asked
+ * for and no signal anywhere. "Default when unset" was the intended choice;
+ * "default when malformed" was not.
+ *
+ * Only the agent pipeline reads through this. tts, translation and video still
+ * use the lenient reader, and changing that would turn a deployment that is
+ * silently running on defaults today into a 503 — worth fixing, not worth
+ * doing to someone else's pipeline without them knowing.
+ */
+function readConfiguredIntEnv(key: string, fallback: number): number {
+  const raw = process.env[key]?.trim();
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) throw new BudgetConfigurationError(key);
+  return parsed;
+}
+
 function readPositiveIntEnv(key: string, fallback: number): number {
   const raw = process.env[key];
   if (!raw) return fallback;
@@ -182,6 +218,8 @@ function requirePositiveIntEnv(key: string): number {
 
 function getPipelineLimit(pipeline: BudgetPipeline): number {
   switch (pipeline) {
+    case "agent":
+      return readConfiguredIntEnv("AGENT_DAILY_BUDGET", DEFAULT_DAILY_BUDGETS.agent);
     case "editorial":
       return requirePositiveIntEnv("EDITORIAL_DAILY_BUDGET");
     case "marketing":

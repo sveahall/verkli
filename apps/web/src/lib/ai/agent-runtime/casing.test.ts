@@ -15,6 +15,18 @@ describe("transferCasing", () => {
     expect(transferCasing("Johan", '"jonas"')).toBe('"Jonas"');
   });
 
+  it("keeps every capital the replacement already had", () => {
+    // A rename to a full name is the ordinary case, and lowercasing the rest of
+    // the replacement wrote "Erik nilsson" into the manuscript at every match.
+    expect(transferCasing("Johan", "Erik Nilsson")).toBe("Erik Nilsson");
+    expect(transferCasing("Johan", "Anna Karenina")).toBe("Anna Karenina");
+    expect(transferCasing("johan", "Erik Nilsson")).toBe("Erik Nilsson");
+    expect(transferCasing("JOHAN", "Erik Nilsson")).toBe("ERIK NILSSON");
+    // A lowercase word the model deliberately left lowercase stays lowercase
+    // apart from the opening, which the match's own title case decides.
+    expect(transferCasing("Johan", "herr Nilsson")).toBe("Herr Nilsson");
+  });
+
   it("leaves anything it cannot read confidently exactly as written", () => {
     // Mixed case is a deliberate spelling, not a pattern to imitate.
     expect(transferCasing("jOhAn", "Jonas")).toBe("Jonas");
