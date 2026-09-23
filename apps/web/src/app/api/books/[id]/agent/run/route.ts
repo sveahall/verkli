@@ -7,7 +7,7 @@ import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { isAiChatEnabled } from "@/lib/flags";
 import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 import { BudgetConfigurationError, BudgetExceededError, checkBudget, releaseBudget } from "@/lib/workers/budget";
-import { estimateAgentRunUnits } from "@/lib/ai/agent-runtime/budget";
+import { estimateAgentRunUnits, reconcileAgentRunUnits } from "@/lib/ai/agent-runtime/budget";
 import { randomUUID } from "node:crypto";
 import { assistantToolSchema } from "@/lib/ai/agent-actions";
 import { conversationInputSchema } from "@/features/ai-team/memory/contracts";
@@ -38,31 +38,32 @@ const bodySchema = z.object({
  */
 const runLimiter = createPerUserRateLimiter({ name: "books-agent-run", maxPerMinute: 6 });
 const noStore = { headers: { "Cache-Control": "private, no-store" } };
+const STOPPED_BECAUSE = ["finished", "turn_limit", "token_ceiling"] as const;
+type StoppedBecause = typeof STOPPED_BECAUSE[number];
+
+function asStoppedBecause(value: unknown): StoppedBecause {
+  return (STOPPED_BECAUSE as readonly string[]).includes(String(value)) ? value as StoppedBecause : "finished";
+}
 
 /**
- * A lost response must not cost a second model run. The saved reply holds the
- * summary and the plan row holds the steps; they were written together, so the
- * newest unapplied plan with that summary is the one this request already paid for.
+ * A lost response must not cost a second model run. The plan is stored under
+ * this request id, so a replay cannot pick up a different plan that happens
+ * to share the summary.
  */
 async function replayablePlan(
   admin: ReturnType<typeof createAdminClient>,
   ownerId: string,
   bookId: string,
-  versionId: string,
-  tool: string,
-  summary: string,
+  requestId: string,
 ) {
   const { data, error } = await admin
     .from("agent_plans")
-    .select("id, steps, summary, expires_at, version_id")
+    .select("id, steps, summary, expires_at, version_id, stopped_because")
     .eq("owner_id", ownerId)
     .eq("book_id", bookId)
-    .eq("version_id", versionId)
-    .eq("tool", tool)
-    .eq("summary", summary)
+    .eq("request_id", requestId)
     .is("applied_at", null)
     .gt("expires_at", new Date().toISOString())
-    .order("created_at", { ascending: false })
     .limit(1);
   const row = data?.[0];
   if (error || !row) return null;
@@ -75,6 +76,7 @@ async function replayablePlan(
     summary: row.summary,
     plan,
     stats: summarisePlan(plan),
+    stoppedBecause: asStoppedBecause(row.stopped_because),
     source: "llm" as const,
   };
 }
@@ -116,10 +118,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const book = await loadAgentBook(supabase, parsedParams.data.id, user.id, body.data.versionId);
 
     const chapterChars = book.chapters.reduce((total, chapter) => total + (chapter.doc?.content.size ?? 0), 0);
-    await checkBudget({
-      userId: user.id, pipeline: "agent", jobId: budgetJobId,
-      units: estimateAgentRunUnits(chapterChars),
-    });
+    const reservedUnits = estimateAgentRunUnits(chapterChars);
+    await checkBudget({ userId: user.id, pipeline: "agent", jobId: budgetJobId, units: reservedUnits });
     reserved = true;
 
     // Saved conversations work exactly as they do for advice: the same reserve
@@ -138,10 +138,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       // and the response was lost, hand that same plan back so the author can
       // still approve it.
       if (reservation.status === "completed") {
-        const existing = reservation.content
-          ? await replayablePlan(admin, user.id, book.bookId, book.versionId, body.data.tool, reservation.content)
-          : null;
-        if (existing) return NextResponse.json({ ...existing, stoppedBecause: "finished", threadId }, noStore);
+        const existing = await replayablePlan(admin, user.id, book.bookId, conversation.requestId);
+        if (existing) return NextResponse.json({ ...existing, threadId }, noStore);
         return NextResponse.json({
           planId: null, summary: reservation.content ?? "", plan: null, stats: null,
           stoppedBecause: "finished", threadId, source: "history",
@@ -157,6 +155,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // chat reply never does, and until the per-user usage ledger on
     // feat/usage-metering lands and this call can take a `meter` context, a log
     // line is the only thing standing between that and an invisible bill.
+    // The reservation is an opening position taken before anything is known.
+    // Charging only that would make the daily ceiling a guess: a search for a
+    // common substring fills the conversation and is re-sent every turn, so a
+    // run can cost several times what its book's size suggested. A refused
+    // overrun is not recorded, but by then the key is already at its limit, so
+    // the next run is stopped either way.
+    const overrun = reconcileAgentRunUnits(reservedUnits, result.usage);
+    if (overrun > 0) {
+      await checkBudget({
+        userId: user.id, pipeline: "agent", jobId: `${budgetJobId}:overrun`, units: overrun,
+      }).catch((error: unknown) => {
+        console.warn("[agent.run] overrun could not be charged", {
+          overrun, reason: error instanceof Error ? error.name : "unknown",
+        });
+      });
+    }
+
     console.info("[agent.run] finished", {
       bookId: book.bookId,
       tool: body.data.tool,
@@ -164,6 +179,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       turns: result.turns,
       steps: result.plan.steps.length,
       stoppedBecause: result.stoppedBecause,
+      reservedUnits,
       inputTokens: result.usage.inputTokens,
       outputTokens: result.usage.outputTokens,
     });
@@ -188,6 +204,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         tool: body.data.tool,
         summary: result.summary,
         steps: result.plan.steps,
+        stopped_because: result.stoppedBecause,
+        request_id: conversation?.requestId ?? null,
       })
       .select("id, expires_at")
       .single();

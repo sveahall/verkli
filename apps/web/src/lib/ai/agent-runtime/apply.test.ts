@@ -64,7 +64,7 @@ function book(): AgentBook {
 type Write = { table: string; values: Record<string, unknown>; filters: Record<string, unknown> };
 
 /** Mirrors the compare-and-swap the real table write uses; `conflict` makes it lose. */
-function fakeSupabase(conflict = false) {
+function fakeSupabase(conflict: boolean | "error" = false) {
   const writes: Write[] = [];
   const client = {
     from(table: string) {
@@ -75,6 +75,7 @@ function fakeSupabase(conflict = false) {
             eq(column: string, value: unknown) { filters[column] = value; return chain; },
             async select() {
               writes.push({ table, values, filters });
+              if (conflict === "error") return { data: null, error: { code: "57014", message: "canceling statement due to statement timeout" } };
               return conflict ? { data: [], error: null } : { data: [{ id: filters.id }], error: null };
             },
           };
@@ -159,6 +160,20 @@ describe("applyPlan", () => {
 
     expect(writes).toHaveLength(1);
     expect(outcomes[0]).toMatchObject({ status: "skipped", changed: 0 });
+  });
+
+  it("does not blame the author when the database is what failed", async () => {
+    // The CAS branch and the error branch were one condition, so a statement
+    // timeout was reported as "you edited this chapter after the plan was
+    // made" — and the plan is spent either way, so the wrong explanation costs
+    // the author another run on top of the confusion.
+    const target = book();
+    const { client } = fakeSupabase("error");
+    const outcomes = await applyPlan(client, target, renamePlan(target));
+
+    expect(outcomes[0]).toMatchObject({ changed: 0 });
+    expect(outcomes[0].detail).toMatch(/database did not accept/i);
+    expect(outcomes[0].detail).not.toMatch(/you edited/i);
   });
 
   it("saves cover text through the production module, at the revision it read", async () => {

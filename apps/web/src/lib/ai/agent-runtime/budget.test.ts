@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AGENT_RUN_CEILING_UNITS, estimateAgentRunUnits } from "./budget";
+import { AGENT_RUN_CEILING_UNITS, estimateAgentRunUnits, reconcileAgentRunUnits } from "./budget";
 
 describe("estimateAgentRunUnits", () => {
   it("reserves more than a real run costs, without being absurd about it", () => {
@@ -15,6 +15,10 @@ describe("estimateAgentRunUnits", () => {
   });
 
   it("never reserves more than the loop could spend", () => {
+    // The ceiling counts one whole turn past MAX_RUN_INPUT_TOKENS, because the
+    // loop adds a turn's input to the total and only then compares — the turn
+    // that crosses the line has already been billed.
+    expect(AGENT_RUN_CEILING_UNITS).toBe(2 * 150_000 + 8 * 4_000);
     expect(estimateAgentRunUnits(50_000_000)).toBe(AGENT_RUN_CEILING_UNITS);
     expect(estimateAgentRunUnits(0)).toBeLessThan(AGENT_RUN_CEILING_UNITS);
   });
@@ -23,5 +27,24 @@ describe("estimateAgentRunUnits", () => {
     // Framing and output are paid whatever the book holds.
     expect(estimateAgentRunUnits(-1)).toBe(estimateAgentRunUnits(0));
     expect(estimateAgentRunUnits(0)).toBeGreaterThan(0);
+  });
+});
+
+describe("reconcileAgentRunUnits", () => {
+  it("charges the difference when a run cost more than it reserved", () => {
+    // The measured shape of the gap: a search for a common substring fills the
+    // conversation and is re-sent every turn, so the real bill can be several
+    // times an opening reservation based on the book's size.
+    expect(reconcileAgentRunUnits(76_000, { inputTokens: 200_100, outputTokens: 20_000 })).toBe(144_100);
+  });
+
+  it("charges nothing when the reservation already covered it", () => {
+    expect(reconcileAgentRunUnits(76_000, { inputTokens: 11_000, outputTokens: 800 })).toBe(0);
+    expect(reconcileAgentRunUnits(76_000, { inputTokens: 76_000, outputTokens: 0 })).toBe(0);
+  });
+
+  it("treats missing usage as nothing further to charge, never as a credit", () => {
+    expect(reconcileAgentRunUnits(76_000, { inputTokens: 0, outputTokens: 0 })).toBe(0);
+    expect(reconcileAgentRunUnits(0, { inputTokens: -5, outputTokens: -5 })).toBe(0);
   });
 });

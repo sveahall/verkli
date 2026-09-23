@@ -50,6 +50,15 @@ export type ApplySelection = {
 type ChapterWork = { chapter: AgentChapter; edits: (TextEdit & { stepId: string })[] };
 
 const STALE_CHAPTER = "You edited this chapter after the plan was made, so it was left untouched. Ask again for a fresh plan.";
+/**
+ * Losing the compare-and-swap and failing to reach the database are different
+ * events, and collapsing them told the author they had edited a chapter they
+ * had not touched. Neither client sets `throwOnError`, so a pooler timeout, a
+ * statement timeout or a dropped connection arrives here as an ordinary
+ * `error` — and the plan is spent either way, so the wrong explanation costs a
+ * whole new run as well as the trust.
+ */
+const WRITE_UNAVAILABLE = "The database did not accept this chapter, so nothing in it was written. Nothing was lost — ask for a fresh plan and try again.";
 
 function selectedSteps(plan: Plan, selection: ApplySelection): PlanStep[] {
   if (!selection.stepIds) return plan.steps;
@@ -176,7 +185,12 @@ async function applyChapter(
     .eq("version_number", chapter.versionNumber)
     .select("id");
 
-  if (error || !data?.some((row) => row.id === chapter.id)) {
+  if (error) {
+    console.error("[agent.apply] chapter write failed", { chapterId: chapter.id, code: error.code });
+    for (const edit of kept) failures.set(edit.stepId, WRITE_UNAVAILABLE);
+    return { applied: appliedByStep, failures };
+  }
+  if (!data?.some((row) => row.id === chapter.id)) {
     for (const edit of kept) failures.set(edit.stepId, STALE_CHAPTER);
     return { applied: appliedByStep, failures };
   }
