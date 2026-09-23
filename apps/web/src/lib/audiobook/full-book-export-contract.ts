@@ -15,7 +15,8 @@ export type FullBookExportJob = z.infer<typeof fullBookExportJobSchema>;
 export const fullBookExportPreviewSchema = z.object({
   editionId: z.string().uuid(), snapshotId: z.string().regex(/^[a-f0-9]{64}$/).nullable(), metadata: exportMetadataSchema.nullable(), sourceError: z.string().max(1000).nullable(),
   chapterCount: z.number().int().nonnegative().max(FULL_BOOK_EXPORT_SOURCE_LIMITS.chapters),
-  maxOutputBytes: z.number().int().positive().max(512 * 1024 * 1024),
+  maxOutputBytes: z.number().int().positive().max(4 * 1024 ** 3),
+  maxPartBytes: z.number().int().positive().max(64 * 1024 ** 2).nullable().default(null),
   jobs: z.array(fullBookExportJobSchema).max(10),
 }).strict();
 export type FullBookExportPreview = z.infer<typeof fullBookExportPreviewSchema>;

@@ -11,7 +11,9 @@ vi.mock("./full-book-export-encoder", () => ({ encodeFullBookAudio: mock.encode 
 vi.mock("@/lib/env", () => ({ getServerEnv: () => ({ SUPABASE_URL: "https://local.invalid", SUPABASE_SERVICE_ROLE_KEY: "test-only" }), getRedisConnectionOptions: () => null }));
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
-import { createFullBookJob } from "./full-book-export-jobs";
+import { buildExportPartManifest, exportPartPath } from "./full-book-export-parts";
+import { partIdentity, multipart } from "./full-book-export-cleanup";
+import { createFullBookJob, type ExportJobRecord } from "./full-book-export-jobs";
 import { createExportJobStore, parseExportRow, exportStorageCapacity, readExportObject, createFullBookExportRuntime, verifiedExportDownload, buildFullBookExport, createCancellableExportClient } from "./full-book-export-supabase";
 const owner = "11111111-1111-4111-8111-111111111111", book = "22222222-2222-4222-8222-222222222222", edition = "33333333-3333-4333-8333-333333333333", request = "44444444-4444-4444-8444-444444444444";
 const input = { editionId: edition, format: "mp3-128" as const, snapshotId: "a".repeat(64), requestId: request };
@@ -32,7 +34,7 @@ describe("full-book Supabase boundaries", () => {
     const attempt = "55555555-5555-4555-8555-555555555555";
     const processing = { ...row(), status: "processing", output: { ...row().output, attemptId: attempt, leaseUntil: 1 } };
     const expected = parseExportRow(processing);
-    for (const patch of [{ status: "cancelled" as const }, { status: "failed" as const }, { status: "processing" as const, attemptId: request }]) {
+    for (const patch of [{ status: "cancelled" as const }, { status: "failed" as const }, { status: "processing" as const, attemptId: request }, { cleanup: [] }]) {
       calls.length = 0; results = [{ data: null, error: null }];
       await createExportJobStore(client).compareAndSwap(expected, patch);
       expect(calls.some(([name]) => name === "gt")).toBe(false);
@@ -119,29 +121,38 @@ function sampleSource() {
   const sidecar = { version: 1, chapterId: chapter, bookVersionId: edition, audioPath, timing: { sourceText: text, words: [{ word: text, start: 0, end: 0.5, startOffset: 0, endOffset: 3 }] } };
   return { audio, audioPath, snapshot, sidecar };
 }
-function mockStorage(source: ReturnType<typeof sampleSource>, options: { audio?: Buffer; sidecar?: unknown; uploadError?: boolean; abortUpload?: AbortController } = {}) {
-  const upload = vi.fn(async (_destination: string, stream: NodeJS.ReadableStream) => {
+function databaseRow(job: ExportJobRecord) { return { ...row(), id: job.id, input: { version: 1, ...job.input }, status: job.status, output: { version: 2, attemptId: job.attemptId, leaseUntil: job.leaseUntil, progress: job.progress, phase: job.phase, message: job.message, artifact: job.artifact, cleanup: job.cleanup ?? [] } }; }
+function staticQuery(table: string, job: ExportJobRecord, available = true) {
+  const data = table === "books" ? { id: book, author_id: available ? owner : request, deleted_at: null, demo_run_id: null } : table === "book_versions" ? { id: edition, book_id: book, demo_run_id: null } : databaseRow(job);
+  const chain: Record<string, unknown> = {};
+  for (const key of ["select", "eq", "is", "abortSignal", "maybeSingle"]) chain[key] = () => chain;
+  chain.then = (resolve: (value: unknown) => unknown) => Promise.resolve({ data, error: null }).then(resolve); return chain;
+}
+function mockStorage(source: ReturnType<typeof sampleSource>, options: { audio?: Buffer; sidecar?: unknown; uploadError?: boolean; abortUpload?: AbortController; partBytes?: number; corrupt?: boolean } = {}) {
+  const objects = new Map<string, Buffer>(), reads: string[] = [];
+  const upload = vi.fn(async (destination: string, stream: NodeJS.ReadableStream) => {
     if (options.abortUpload) { options.abortUpload.abort(); return { error: { message: "untrusted-storage-detail" } }; }
-    const chunks: Buffer[] = []; for await (const chunk of stream) chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk); expect(Buffer.concat(chunks)).toEqual(Buffer.from("output"));
+    const chunks: Buffer[] = []; for await (const chunk of stream) chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk); objects.set(destination, options.corrupt ? Buffer.from("bad") : Buffer.concat(chunks));
     return { error: options.uploadError ? { message: "untrusted-storage-detail" } : null };
   });
   const remove = vi.fn(async () => ({ error: null }));
-  mock.client.mockReturnValue({ storage: { getBucket: async () => ({ data: { public: false, file_size_limit: 1024, allowed_mime_types: ["audio/*"] }, error: null }), from: () => ({ upload, remove, download: (objectPath: string) => ({ asStream: async () => ({ data: new ReadableStream<Uint8Array>({ start(c) { const data = objectPath.endsWith("timing.json") ? Buffer.from(JSON.stringify(options.sidecar ?? source.sidecar)) : options.audio ?? source.audio; c.enqueue(data.subarray(0, 2)); c.enqueue(data.subarray(2)); c.close(); } }), error: null }) }) }) } });
+  mock.client.mockReturnValue({ from: (table: string) => staticQuery(table, job), storage: { getBucket: async () => ({ data: { public: false, file_size_limit: options.partBytes ?? 1024, allowed_mime_types: ["audio/*"] }, error: null }), from: () => ({ upload, remove, download: (objectPath: string) => ({ asStream: async () => (reads.push(objectPath), { data: new ReadableStream<Uint8Array>({ start(c) { const data = objects.get(objectPath) ?? (objectPath.endsWith("timing.json") ? Buffer.from(JSON.stringify(options.sidecar ?? source.sidecar)) : options.audio ?? source.audio); c.enqueue(data.subarray(0, 2)); c.enqueue(data.subarray(2)); c.close(); } }), error: null }) }) }) } });
   mock.snapshot.mockResolvedValue(source.snapshot);
   mock.encode.mockImplementation(async (input, options) => {
     expect(await fs.readFile(input.chapters[0].filePath)).toEqual(source.audio);
     const filePath = path.join(options.outputRoot, "verified.mp3"); await fs.writeFile(filePath, "output");
     return { filePath, byteLength: 6, sha256: createHash("sha256").update("output").digest("hex"), durationSeconds: 1, contentType: "audio/mpeg", chapters: [{ id: source.snapshot.chapters[0].id, startSample: 0, endSample: 48000 }], cleanup: vi.fn() };
   });
-  const job = { ...parseExportRow(row()), attemptId: request, input: { ...input, snapshotId: privateSnapshotId(source.snapshot, FULL_BOOK_EXPORT_SOURCE_LIMITS) } };
-  return { job, upload, remove };
+  const job: ExportJobRecord = { ...parseExportRow(row()), status: "processing", leaseUntil: Date.now() + 30000, attemptId: request, input: { ...input, snapshotId: privateSnapshotId(source.snapshot, FULL_BOOK_EXPORT_SOURCE_LIMITS) } };
+  return { job, upload, remove, objects, reads };
 }
 describe("streamed full-book production adapter with mock storage", () => {
   it("writes exact streamed bytes, checks timing, and uploads a unique private path without upsert", async () => {
     vi.stubEnv("AUDIOBOOK_FULL_EXPORT_ENABLED", "true"); const source = sampleSource(), { job, upload } = mockStorage(source);
-    const artifact = await buildFullBookExport(job, new AbortController().signal, async () => undefined);
-    expect(artifact).toMatchObject({ path: `exports/${owner}/${book}/${edition}/${request}/${request}.mp3`, byteLength: 6, chapterCount: 1 });
-    expect(upload).toHaveBeenCalledWith(artifact.path, expect.anything(), expect.objectContaining({ upsert: false, headers: { "Content-Length": "6" }, contentType: "audio/mpeg" }));
+    const artifact = await buildFullBookExport(job, new AbortController().signal, async () => undefined, async () => undefined);
+    expect(artifact).toMatchObject({ version: 2, byteLength: 6, chapterCount: 1 });
+    if (!multipart(artifact)) throw new Error("Expected multipart artifact");
+    expect(upload).toHaveBeenCalledWith(artifact.parts[0].path, expect.anything(), expect.objectContaining({ upsert: false, headers: { "Content-Length": "6" }, contentType: "audio/mpeg" }));
     const sourcePath = mock.encode.mock.calls[0][0].chapters[0].filePath; await expect(fs.stat(sourcePath)).rejects.toMatchObject({ code: "ENOENT" });
   });
   it("rejects altered audio, wrong chapter timing and timings beyond measured duration before upload", async () => {
@@ -151,13 +162,13 @@ describe("streamed full-book production adapter with mock storage", () => {
       await expect(buildFullBookExport(job, new AbortController().signal, async () => undefined)).rejects.toThrow(); expect(upload).not.toHaveBeenCalled();
     }
   });
-  it("removes only its own attempt object after ambiguous upload failure or abort", async () => {
+  it("preserves planned targets for job-core cleanup after ambiguous upload failure or abort", async () => {
     vi.stubEnv("AUDIOBOOK_FULL_EXPORT_ENABLED", "true");
     for (const abort of [false, true]) {
       const source = sampleSource(), controller = new AbortController();
       const { job, remove, upload } = mockStorage(source, { uploadError: true, ...(abort ? { abortUpload: controller } : {}) });
-      await expect(buildFullBookExport(job, controller.signal, async () => undefined)).rejects.toMatchObject({ code: "EXPORT_UPLOAD_FAILED" });
-      expect(remove).toHaveBeenCalledWith([`exports/${owner}/${book}/${edition}/${request}/${request}.mp3`]);
+      await expect(buildFullBookExport(job, controller.signal, async () => undefined, async () => undefined)).rejects.toMatchObject({ code: "EXPORT_UPLOAD_FAILED" });
+      expect(remove).not.toHaveBeenCalled();
       expect(upload.mock.calls[0][1]).toHaveProperty("destroyed", true);
     }
   });
@@ -237,7 +248,57 @@ describe("edition-only authorization and download acquisition", () => {
 });
 function downloadMock(open: () => Promise<{ data: ReadableStream<Uint8Array>; error: null }>) {
   const download = vi.fn<(path: string, options: object, fetchOptions: { signal: AbortSignal }) => { asStream: typeof open }>(() => ({ asStream: open }));
-  mock.client.mockReturnValue({ storage: { getBucket: async () => ({ data: { public: false, file_size_limit: 1024, allowed_mime_types: ["audio/*"] }, error: null }), from: () => ({ download }) } });
+  mock.client.mockReturnValue({ from: (table: string) => staticQuery(table, job), storage: { getBucket: async () => ({ data: { public: false, file_size_limit: 1024, allowed_mime_types: ["audio/*"] }, error: null }), from: () => ({ download }) } });
   const job = parseExportRow({ ...row(), status: "completed", output: { ...row().output, attemptId: request, artifact: { path: `exports/${owner}/${book}/${edition}/${request}/${request}.mp3`, sha256: "a".repeat(64), byteLength: 10, durationSeconds: 1, chapterCount: 1 } } });
   return { job, download };
 }
+
+describe("multipart storage integration", () => {
+  it("uploads and independently verifies tiny parts, then reconstructs the exact full-file hash", async () => {
+    vi.stubEnv("AUDIOBOOK_FULL_EXPORT_ENABLED", "true"); const f = mockStorage(sampleSource(), { partBytes: 2 });
+    const prepare = vi.fn(async () => { expect(f.upload).not.toHaveBeenCalled(); });
+    const artifact = await buildFullBookExport(f.job, new AbortController().signal, async () => undefined, prepare);
+    if (!multipart(artifact)) throw new Error("Expected v2 manifest");
+    expect(artifact.parts).toHaveLength(3); expect(prepare).toHaveBeenCalledWith(artifact); expect(f.upload).toHaveBeenCalledTimes(3);
+    for (const part of artifact.parts) expect(f.reads).toContain(part.path);
+    expect(mock.encode.mock.calls[0][1].limits.maxOutputBytes).toBe(2 * 4096);
+    f.job.status = "completed"; f.job.artifact = artifact;
+    const downloaded = Buffer.from(await new Response(await createFullBookExportRuntime().download(f.job, new AbortController().signal)).arrayBuffer());
+    expect(downloaded).toEqual(Buffer.from("output")); expect(createHash("sha256").update(downloaded).digest("hex")).toBe(artifact.sha256);
+  });
+  it("does not PUT without a durable plan, and rejects stored corruption before returning a manifest", async () => {
+    vi.stubEnv("AUDIOBOOK_FULL_EXPORT_ENABLED", "true"); let f = mockStorage(sampleSource(), { partBytes: 2 });
+    await expect(buildFullBookExport(f.job, new AbortController().signal, async () => undefined, async () => { throw new Error("Checkpoint failed"); })).rejects.toThrow("Checkpoint failed"); expect(f.upload).not.toHaveBeenCalled();
+    f = mockStorage(sampleSource(), { partBytes: 2, corrupt: true });
+    await expect(buildFullBookExport(f.job, new AbortController().signal, async () => undefined, async () => undefined)).rejects.toThrow(); expect(f.upload).toHaveBeenCalledTimes(1);
+  });
+  it("rechecks ownership before opening the next part and stops after transfer", async () => {
+    vi.stubEnv("AUDIOBOOK_FULL_EXPORT_ENABLED", "true"); const f = mockStorage(sampleSource(), { partBytes: 2 });
+    const artifact = await buildFullBookExport(f.job, new AbortController().signal, async () => undefined, async () => undefined); f.job.status = "completed"; f.job.artifact = artifact;
+    const adapter = mock.client.mock.results[0].value; let owns = true;
+    adapter.from = (table: string) => staticQuery(table, f.job, owns); f.reads.length = 0;
+    const stream = await createFullBookExportRuntime().download(f.job, new AbortController().signal); owns = false;
+    await expect(new Response(stream).text()).rejects.toThrow(); expect(f.reads).toHaveLength(1);
+  });
+  it("rejects changed completed manifests between parts, part corruption, and full hash mismatch", async () => {
+    vi.stubEnv("AUDIOBOOK_FULL_EXPORT_ENABLED", "true");
+    for (const fault of ["manifest", "part", "full"]) {
+      const f = mockStorage(sampleSource(), { partBytes: 2 }), artifact = await buildFullBookExport(f.job, new AbortController().signal, async () => undefined, async () => undefined);
+      if (!multipart(artifact)) throw new Error("Expected multipart");
+      f.job.status = "completed"; f.job.artifact = fault === "full" ? { ...artifact, sha256: "a".repeat(64) } : artifact;
+      if (fault === "part") f.objects.set(artifact.parts[1].path, Buffer.from("xx"));
+      const stream = await createFullBookExportRuntime().download(f.job, new AbortController().signal);
+      if (fault === "manifest") f.job.artifact = { ...artifact, sha256: "a".repeat(64) };
+      await expect(new Response(stream).text()).rejects.toThrow();
+    }
+  });
+  it("strictly parses v2 outputs and owner-bound cleanup manifests while E3 outputs remain readable", () => {
+    const job = { ...parseExportRow(row()), attemptId: request }, identity = partIdentity(job);
+    const manifest = buildExportPartManifest({ identity, byteLength: 2, sha256: "a".repeat(64), durationSeconds: 1, chapterCount: 1 }, [{ index: 0, offset: 0, byteLength: 2, sha256: "b".repeat(64), path: exportPartPath(identity, 0) }]);
+    const output = { ...row().output, version: 2, artifact: manifest, attemptId: request, cleanup: [] };
+    expect(parseExportRow({ ...row(), status: "completed", output }).artifact).toEqual(manifest);
+    expect(() => parseExportRow({ ...row(), status: "completed", output: { ...output, extra: "unknown" } })).toThrow();
+    expect(() => parseExportRow({ ...row(), output: { ...output, artifact: null, cleanup: [{ manifest: { ...manifest, ownerId: book }, cleanupAfter: 0 }] } })).toThrow();
+    expect(parseExportRow(row()).artifact).toBeNull();
+  });
+});

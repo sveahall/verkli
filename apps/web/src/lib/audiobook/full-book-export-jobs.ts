@@ -1,14 +1,18 @@
 import { createHash, randomUUID } from "node:crypto";
 import { fullBookExportRequestSchema, type FullBookExportRequest } from "./full-book-export-contract";
 import { PrivateExportError } from "./private-export-contract";
-export type ExportArtifact = { path: string; sha256: string; byteLength: number; durationSeconds: number; chapterCount: number };
+import type { ExportPartManifest } from "./full-book-export-parts";
+import { EXPORT_CLEANUP_GRACE_MS, partIdentity, reconcileExportCleanup, sameArtifact, validateCleanupLedger, type ExportCleanupEntry } from "./full-book-export-cleanup";
+import { validateExportPartManifest } from "./full-book-export-parts";
+export type ExportSingleArtifact = { path: string; sha256: string; byteLength: number; durationSeconds: number; chapterCount: number };
+export type ExportArtifact = ExportSingleArtifact | ExportPartManifest;
 export type ExportJobRecord = {
   id: string; ownerId: string; bookId: string; input: FullBookExportRequest;
   status: "pending" | "processing" | "completed" | "failed" | "cancelled";
   createdAt: string; updatedAt: string; attemptId: string | null; leaseUntil: number;
-  phase: string; progress: number; message: string | null; artifact: ExportArtifact | null;
+  phase: string; progress: number; message: string | null; artifact: ExportArtifact | null; cleanup?: ExportCleanupEntry[];
 };
-export type ExportJobPatch = Partial<Pick<ExportJobRecord, "status" | "attemptId" | "leaseUntil" | "phase" | "progress" | "message" | "artifact">>;
+export type ExportJobPatch = Partial<Pick<ExportJobRecord, "status" | "attemptId" | "leaseUntil" | "phase" | "progress" | "message" | "artifact" | "cleanup">>;
 export type ExportJobStore = {
   read(identity: Pick<ExportJobRecord, "id" | "ownerId" | "bookId" | "input">, signal?: AbortSignal): Promise<ExportJobRecord | null>;
   insert(record: ExportJobRecord, signal?: AbortSignal): Promise<ExportJobRecord>;
@@ -17,7 +21,8 @@ export type ExportJobStore = {
 export type ExportWorkerDependencies = {
   store: ExportJobStore;
   verify(job: ExportJobRecord, signal: AbortSignal): Promise<string>;
-  build(job: ExportJobRecord, signal: AbortSignal, progress: (phase: string, percent: number) => Promise<void>): Promise<ExportArtifact>;
+  build(job: ExportJobRecord, signal: AbortSignal, progress: (phase: string, percent: number) => Promise<void>, prepare: (manifest: ExportPartManifest) => Promise<void>): Promise<ExportArtifact>;
+  checkpoint?(record: ExportJobRecord): Promise<void>;
   remove(artifact: ExportArtifact): Promise<void>;
 };
 export function fullBookJobId(ownerId: string, bookId: string, requestId: string) {
@@ -34,9 +39,26 @@ export async function createFullBookJob(store: ExportJobStore, ownerId: string, 
   if (!sameIdentity(existing, proposed)) throw new PrivateExportError(409, "EXPORT_IDENTITY_CONFLICT", "This request identity belongs to another export. Reload before making a new request.");
   return existing;
 }
+/** Queue persistence may complete late. A timeout prevents uploads, but never discards the saved plan. */
+export async function checkpointExportJob(deps: Pick<ExportWorkerDependencies, "checkpoint">, record: ExportJobRecord, signal?: AbortSignal) {
+  if (!deps.checkpoint) return;
+  signal?.throwIfAborted(); const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(new Error("Export queue checkpoint timed out. Its outcome must be reconciled.")), 10000);
+  const bounded = AbortSignal.any([controller.signal, ...(signal ? [signal] : [])]);
+  try {
+    const work = deps.checkpoint(record);
+    await new Promise<void>((resolve, reject) => {
+      const abort = () => { bounded.removeEventListener("abort", abort); reject(bounded.reason); };
+      work.then(() => { bounded.removeEventListener("abort", abort); resolve(); }, (error) => { bounded.removeEventListener("abort", abort); reject(error); });
+      if (bounded.aborted) abort(); else bounded.addEventListener("abort", abort, { once: true });
+    });
+  } finally { clearTimeout(deadline); }
+}
 const changed = () => new PrivateExportError(409, "SOURCE_CHANGED", "The edition or its audio changed. Reload the edition before exporting again.");
 /** Queue retries operate only on this export pipeline; no synthesis or billing dependency exists. */
 export async function runFullBookJob(deps: ExportWorkerDependencies, trusted: ExportJobRecord, options: { lastAttempt: boolean; signal?: AbortSignal }) {
+  trusted = await reconcileExportCleanup(deps.store, trusted, deps.remove);
+  await checkpointExportJob(deps, trusted, options.signal);
   let current = await deps.store.read(trusted, AbortSignal.timeout(10000));
   if (!current) return; // Owner deleted the job: it must not be resurrected.
   if (!sameIdentity(current, trusted)) throw new Error("Full-book export queue identity mismatch.");
@@ -46,6 +68,7 @@ export async function runFullBookJob(deps: ExportWorkerDependencies, trusted: Ex
   if (!claimed) throw new Error("Full-book export claim changed. Retry the queued job.");
   current = claimed;
   const controller = new AbortController(), signal = AbortSignal.any([controller.signal, AbortSignal.timeout(3600000), ...(options.signal ? [options.signal] : [])]);
+  let planned: ExportPartManifest | undefined;
   let operations = Promise.resolve(), artifact: ExportArtifact | undefined, published = false, publicationAttempted = false, publicationUnknown = false;
   const update = (patch: ExportJobPatch) => {
     const next = operations.then(async () => {
@@ -61,13 +84,19 @@ export async function runFullBookJob(deps: ExportWorkerDependencies, trusted: Ex
   const heartbeat = setInterval(() => { void update({ leaseUntil: Date.now() + 30000 }).catch(() => undefined); }, 5000);
   try {
     if (await deps.verify(current, signal) !== current.input.snapshotId) throw changed();
-    artifact = await deps.build(current, signal, (phase, percent) => update({ phase, progress: Math.min(95, Math.max(1, Math.floor(percent))), leaseUntil: Date.now() + 30000 }));
+    artifact = await deps.build(current, signal, (phase, percent) => update({ phase, progress: Math.min(95, Math.max(1, Math.floor(percent))), leaseUntil: Date.now() + 30000 }), async (manifest) => {
+      if (!deps.checkpoint) throw new Error("Durable export queue checkpoint is required before uploading parts.");
+      planned = validateExportPartManifest(manifest, partIdentity(current!));
+      const cleanup = validateCleanupLedger([...(current!.cleanup ?? []), { manifest: planned, cleanupAfter: Date.now() + 3600000 + EXPORT_CLEANUP_GRACE_MS }], current!);
+      await update({ cleanup });
+      await checkpointExportJob(deps, current!, signal); signal.throwIfAborted();
+    });
     signal.throwIfAborted();
     if (await deps.verify(current, signal) !== current.input.snapshotId) throw changed();
     clearInterval(heartbeat); await operations; signal.throwIfAborted();
     await update({ leaseUntil: Date.now() + 30000 });
     publicationAttempted = true;
-    await update({ status: "completed", phase: "Verified file ready", progress: 100, leaseUntil: 0, artifact, message: null });
+    await update({ status: "completed", phase: "Verified file ready", progress: 100, leaseUntil: 0, artifact, message: null, cleanup: (current.cleanup ?? []).filter((entry) => !planned || entry.manifest.attemptId !== planned.attemptId) });
     published = true;
   } catch (error) {
     clearInterval(heartbeat); await operations;
@@ -75,7 +104,7 @@ export async function runFullBookJob(deps: ExportWorkerDependencies, trusted: Ex
     try { latest = await deps.store.read(trusted, AbortSignal.timeout(10000)); }
     catch (lookupError) { publicationUnknown = publicationAttempted; throw lookupError; }
     // A lost acknowledgement can follow a committed transaction. Preserve that verified file.
-    if (latest?.status === "completed" && latest.attemptId === claimed.attemptId && latest.artifact?.path === artifact?.path) { published = true; return; }
+    if (latest?.status === "completed" && latest.attemptId === claimed.attemptId && sameArtifact(latest.artifact, artifact)) { published = true; return; }
     if (latest?.status === "processing" && latest.attemptId === claimed.attemptId) {
       const terminal = options.lastAttempt || (error instanceof PrivateExportError && error.status >= 400 && error.status < 500 && ![408, 429].includes(error.status)) || options.signal?.aborted;
       await deps.store.compareAndSwap(latest, { status: terminal ? "failed" : "pending", phase: terminal ? "Export failed" : "Waiting to retry export", message: error instanceof PrivateExportError ? error.message : "The export could not be completed. No file was published.", leaseUntil: 0, artifact: null });
@@ -84,6 +113,13 @@ export async function runFullBookJob(deps: ExportWorkerDependencies, trusted: Ex
     if (latest?.status !== "cancelled" && latest !== null) throw error;
   } finally {
     clearInterval(heartbeat); controller.abort(); await operations;
-    if (artifact && !published && !publicationUnknown) await deps.remove(artifact);
+    if (!published && !publicationUnknown && (artifact || planned)) {
+      // A fresh row read fences late/ambiguous publication before any deletion.
+      const latest = await deps.store.read(trusted, AbortSignal.timeout(10000));
+      if (!latest?.artifact || !sameArtifact(latest.artifact, artifact ?? planned)) await deps.remove(artifact ?? planned!);
+    }
+    // Preserve the pre-upload ledger until delayed reconciliation confirms deletion after PUT grace.
+    const latest = await deps.store.read(trusted, AbortSignal.timeout(10000));
+    await checkpointExportJob(deps, latest ?? { ...current!, cleanup: current!.cleanup ?? [] });
   }
 }

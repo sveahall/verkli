@@ -15,5 +15,21 @@ export async function enqueueFullBookExport(record: ExportJobRecord): Promise<vo
     if (existing.name !== "export" || identity(existing.data as ExportJobRecord) !== identity(record)) throw new PrivateExportError(409, "EXPORT_IDENTITY_CONFLICT", "This request identity belongs to another job. Reload before exporting again.");
     return;
   }
-  await queue.add("export", record, { jobId: record.id, attempts: 3, backoff: { type: "exponential", delay: 10000 }, removeOnComplete: { count: 100 }, removeOnFail: { count: 100 } });
+  await queue.add("export", record, { jobId: record.id, attempts: 3, backoff: { type: "exponential", delay: 10000 }, removeOnComplete: false, removeOnFail: false });
+}
+
+/** Cleanup metadata is retained on failure; no pruning may erase unresolved part namespaces. */
+export async function enqueueExportCleanup(record: ExportJobRecord): Promise<void> {
+  const { validateCleanupLedger } = await import("./full-book-export-cleanup");
+  const ledger = validateCleanupLedger(record.cleanup, record); if (!ledger.length) return;
+  const queue = getAudiobookQueue(); if (!queue) throw new Error("Export cleanup queue is unavailable.");
+  for (const entry of ledger) {
+    const jobId = `${record.id}-cleanup-${entry.manifest.attemptId}`, data = { ...record, cleanup: [entry] };
+    const existing = await queue.getJob(jobId);
+    if (existing) {
+      if (existing.name !== "export-cleanup" || identity(existing.data as ExportJobRecord) !== identity(record) || JSON.stringify(validateCleanupLedger(existing.data.cleanup, record)) !== JSON.stringify([entry])) throw new Error("Export cleanup queue identity mismatch.");
+      continue;
+    }
+    await queue.add("export-cleanup", data, { jobId, delay: Math.max(0, entry.cleanupAfter - Date.now()), attempts: 10, backoff: { type: "exponential", delay: 60000 }, removeOnComplete: false, removeOnFail: false });
+  }
 }
