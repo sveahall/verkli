@@ -98,6 +98,19 @@ const COPY_FROM_LOCAL = [
   // than failing, so this is optional-but-pushed like the other provider keys.
   "OPENAI_API_KEY",
   "FAL_KEY",
+  // Daily AI spending ceilings, read by lib/workers/budget. None of them was
+  // ever copied, so setting one locally changed nothing about the deployment —
+  // and two of them (EDITORIAL_, MARKETING_) are read with requirePositiveIntEnv,
+  // which throws when absent. That is why the editorial review and marketing AI
+  // routes fail closed in every environment: the configuration they require was
+  // not reachable from here. Absent values are reported as skipped rather than
+  // fatal, so listing them costs nothing and makes the gap visible.
+  "TTS_DAILY_BUDGET",
+  "TRANSLATION_DAILY_BUDGET",
+  "VIDEO_DAILY_BUDGET",
+  "EDITORIAL_DAILY_BUDGET",
+  "MARKETING_DAILY_BUDGET",
+  "AGENT_DAILY_BUDGET",
   "HF_CREDENTIALS",
   "PRICE_PLUS",
   "PRICE_PRO",

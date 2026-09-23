@@ -128,7 +128,25 @@ describe("PlanBuilder", () => {
     expect(() => planner().builder.record("replace_in_book", { matchIds: ["m99"], replacement: "Jonas", reason: "x" }))
       .toThrow(PlanRejection);
     expect(() => planner().builder.record("replace_in_book", { matchIds: ["m1", "m1"], replacement: "Jonas", reason: "x" }))
-      .toThrow(/more than once/);
+      .toThrow(/already part of this plan/);
+  });
+
+  it("will not let a second step claim a match the first already took", () => {
+    // The card keys its checkboxes by matchId, so two rows for one match move
+    // together — the author cannot keep one and drop the other, and step order,
+    // not the author, decides which replacement lands.
+    const { builder } = planner();
+    builder.record("replace_in_book", { matchIds: ["m1", "m2"], replacement: "Jonas", reason: "Rename." });
+    expect(() => builder.record("replace_in_book", { matchIds: ["m2"], replacement: "Jens", reason: "Again." }))
+      .toThrow(/already part of this plan/);
+  });
+
+  it("refuses a replacement that would fake a paragraph break", () => {
+    // The splice writes one text node, so the break would not exist — and the
+    // next run could not tell the embedded newline from a real boundary.
+    const { builder } = planner();
+    expect(() => builder.record("replace_in_book", { matchIds: ["m1"], replacement: "Jonas\n\nSvensson", reason: "x" }))
+      .toThrow();
   });
 
   it("checks a rewrite against the chapter while the model can still fix it", () => {
@@ -152,6 +170,27 @@ describe("PlanBuilder", () => {
     expect(step.fields).toEqual({ backText: "En roman om att inte ge upp." });
   });
 
+  it("records a description and a front-matter page without touching the manuscript", () => {
+    const { builder } = planner();
+    builder.record("set_book_description", { description: "En roman om att inte ge upp.", reason: "The author asked for a blurb." });
+    builder.record("add_front_matter_section", { kind: "dedication", title: "Tillägnan", body: "Till Mira.", reason: "The author asked for a dedication." });
+
+    const [description, dedication] = builder.build().steps;
+    if (description.tool !== "set_book_description" || dedication.tool !== "add_front_matter_section") throw new Error("unexpected steps");
+    expect(description.description).toBe("En roman om att inte ge upp.");
+    expect({ kind: dedication.kind, title: dedication.title, body: dedication.body }).toEqual({ kind: "dedication", title: "Tillägnan", body: "Till Mira." });
+    // Neither counts as a changed passage: the summary line above the plan is
+    // about the manuscript, and these do not touch it.
+    expect(summarisePlan(builder.build())).toMatchObject({ steps: 2, replacements: 0, optional: 0, chapters: [] });
+  });
+
+  it("refuses the three automatic pages, which the book generates for itself", () => {
+    const { builder } = planner();
+    for (const kind of ["title", "copyright", "contents"]) {
+      expect(() => builder.record("add_front_matter_section", { kind, title: "x", body: "y", reason: "z" })).toThrow();
+    }
+  });
+
   it("summarises what the author is being asked to approve", () => {
     const { builder } = planner();
     builder.record("replace_in_book", { matchIds: ["m1", "m2"], optionalMatchIds: ["m3"], replacement: "Jonas", reason: "Rename." });
@@ -160,10 +199,29 @@ describe("PlanBuilder", () => {
       steps: 2,
       replacements: 2,
       optional: 1,
+      truncated: false,
       chapters: [
         { chapterId: CHAPTER_ONE, chapterTitle: "Hamnen", count: 2 },
         { chapterId: CHAPTER_TWO, chapterTitle: "Färjan", count: 1 },
       ],
     });
+  });
+});
+
+describe("a truncated search", () => {
+  it("marks the step so the plan can say the book holds more", () => {
+    const target = book();
+    const registry = new MatchRegistry();
+    search(target, registry, "johan");
+    // What searchBook sets when it hits MAX_MATCHES_PER_SEARCH.
+    registry.truncated = true;
+    const builder = new PlanBuilder(target, registry);
+    builder.record("replace_in_book", { matchIds: ["m1"], replacement: "Jonas", reason: "Rename." });
+
+    const plan = builder.build();
+    const [step] = plan.steps;
+    if (step.tool !== "replace_in_book") throw new Error("expected a replacement step");
+    expect(step.searchTruncated).toBe(true);
+    expect(summarisePlan(plan).truncated).toBe(true);
   });
 });

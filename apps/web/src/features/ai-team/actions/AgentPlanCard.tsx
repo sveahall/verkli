@@ -13,6 +13,8 @@ export type PlanState = {
   error?: string;
   /** The server already wrote this plan. Run must not be offered again. */
   alreadyApplied?: boolean;
+  /** The plan's positions are no longer safe to write. Ask for a fresh one. */
+  expired?: boolean;
 };
 export type PlanStats = ReturnType<typeof summarisePlan>;
 
@@ -101,6 +103,26 @@ function StepBody({ step, ticked, onToggle }: {
       </>
     );
   }
+  if (step.tool === "set_book_description") {
+    return (
+      <>
+        <p className={styles.meta}>Book description</p>
+        <p className={styles.brief}>{step.description}</p>
+        <p className={styles.reason}>{step.reason}</p>
+      </>
+    );
+  }
+  if (step.tool === "add_front_matter_section") {
+    return (
+      <>
+        <p className={styles.meta}>New page · {step.kind.replace(/-/g, " ")}</p>
+        <div className={styles.comparison}>
+          <div data-new="true"><span>{step.title}</span><p>{step.body}</p></div>
+        </div>
+        <p className={styles.reason}>{step.reason}</p>
+      </>
+    );
+  }
   return (
     <>
       <div className={styles.comparison}>
@@ -123,6 +145,15 @@ export function initialTicked(plan: Plan): Set<string> {
     : []));
 }
 
+/** Cover saves and generated artwork have no passage count, so `changed: 0` is not "nothing happened". */
+export function resultHeading(state: { changed?: number; outcomes?: { status: string }[] }): string {
+  if (state.changed) return `${state.changed} ${state.changed === 1 ? "passage" : "passages"} changed`;
+  const applied = state.outcomes?.filter((outcome) => outcome.status === "applied").length ?? 0;
+  if (applied === 1) return "1 change saved";
+  if (applied > 1) return `${applied} changes saved`;
+  return "Nothing was changed";
+}
+
 /**
  * What gets sent for approval. A replacement step with nothing ticked drops out
  * entirely rather than being sent as an empty instruction.
@@ -136,9 +167,11 @@ export function planSelection(plan: Plan, ticked: Set<string>, dropped: Set<stri
   return { stepIds: steps.map((step) => step.id), matchIds: [...ticked] };
 }
 
-export default function AgentPlanCard({ plan, stats, state, onApply, onDismiss }: {
+export default function AgentPlanCard({ plan, stats, stoppedBecause, state, onApply, onDismiss }: {
   plan: Plan;
   stats: PlanStats;
+  /** Anything but "finished" means the agent stopped early, so the plan is partial. */
+  stoppedBecause?: string;
   state?: PlanState;
   onApply: (selection: { stepIds: string[]; matchIds: string[] }) => void;
   onDismiss: () => void;
@@ -167,7 +200,7 @@ export default function AgentPlanCard({ plan, stats, state, onApply, onDismiss }
   if (state?.outcomes) {
     return (
       <section className={styles.proposal} aria-label="What was changed">
-        <h4>{state.changed ? `${state.changed} ${state.changed === 1 ? "passage" : "passages"} changed` : "Nothing was changed"}</h4>
+        <h4>{resultHeading(state)}</h4>
         {state.outcomes.map((outcome) => (
           <p key={outcome.stepId} className={outcome.status === "applied" ? styles.result : styles.meta}>
             {outcome.status === "applied" && <Check size={15} aria-hidden />}{outcome.detail}
@@ -187,9 +220,35 @@ export default function AgentPlanCard({ plan, stats, state, onApply, onDismiss }
     );
   }
 
+  if (state?.expired) {
+    return (
+      <section className={styles.proposal} aria-label="Plan too old to apply">
+        <h4>This plan is too old to apply</h4>
+        {state.error && <p role="alert" className={styles.error}>{state.error}</p>}
+        <p className={styles.footnote}>Ask for a fresh plan. Nothing was written from this one.</p>
+      </section>
+    );
+  }
+
   return (
     <section className={styles.proposal} aria-label="Plan awaiting your approval">
       <h4>{heading}</h4>
+      {stoppedBecause && stoppedBecause !== "finished" && (
+        // The agent ran out of room rather than out of work. Said here and not
+        // left to the summary, for the same reason as the search cap: the
+        // author cannot otherwise tell a finished plan from an interrupted one.
+        <p className={styles.meta} role="status">
+          I stopped before I had finished looking, so there may be more. Run this, then ask me to continue.
+        </p>
+      )}
+      {stats.truncated && (
+        // The search stopped at its cap, so this plan covers part of the book.
+        // Saying so here rather than hoping the agent mentioned it: an author
+        // reading "500 changes" cannot otherwise tell that from all of them.
+        <p className={styles.meta} role="status">
+          This is as far as one search reaches. Run it again afterwards to catch the rest.
+        </p>
+      )}
       {plan.steps.map((step) => (
         <div key={step.id} className={styles.planStep} data-dropped={dropped.has(step.id) || undefined}>
           {plan.steps.length > 1 && (

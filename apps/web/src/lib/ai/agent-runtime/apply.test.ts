@@ -64,7 +64,7 @@ function book(): AgentBook {
 type Write = { table: string; values: Record<string, unknown>; filters: Record<string, unknown> };
 
 /** Mirrors the compare-and-swap the real table write uses; `conflict` makes it lose. */
-function fakeSupabase(conflict = false) {
+function fakeSupabase(conflict: boolean | "error" = false) {
   const writes: Write[] = [];
   const client = {
     from(table: string) {
@@ -75,6 +75,7 @@ function fakeSupabase(conflict = false) {
             eq(column: string, value: unknown) { filters[column] = value; return chain; },
             async select() {
               writes.push({ table, values, filters });
+              if (conflict === "error") return { data: null, error: { code: "57014", message: "canceling statement due to statement timeout" } };
               return conflict ? { data: [], error: null } : { data: [{ id: filters.id }], error: null };
             },
           };
@@ -161,6 +162,44 @@ describe("applyPlan", () => {
     expect(outcomes[0]).toMatchObject({ status: "skipped", changed: 0 });
   });
 
+  it("reports every way a step failed, not whichever came last", async () => {
+    // A step can span chapters and fail differently in each. Overwriting one
+    // reason with another meant the author heard about the formatting seam and
+    // never learned that a whole chapter's passages had been skipped too.
+    const text = (value: string, marks?: { type: string }[]) => ({ type: "text", text: value, ...(marks ? { marks } : {}) });
+    const stale = richChapter(ONE, 1, "Hamnen", [[text("Johansson kom.")]]);
+    const seam = richChapter(TWO, 2, "Färjan", [[text("Jo"), text("han", [{ type: "bold" }]), text("sson gick.")]]);
+    const target: AgentBook = { bookId: BOOK, versionId: VERSION, bookTitle: "Inget kan stoppa", chapters: [stale, seam] };
+    const matches = [...plannedFor(stale, "Johansson", "Karlsson"), ...plannedFor(seam, "Johansson", "Karlsson")];
+    expect(matches).toHaveLength(2);
+
+    // The author typed in the first chapter after the plan was made.
+    stale.hash = "the-author-typed-something";
+
+    const outcomes = await applyPlan(fakeSupabase().client, target, {
+      versionId: VERSION,
+      steps: [{ id: "s1", tool: "replace_in_book", reason: "Rename.", replacement: "Karlsson", matches }],
+    });
+
+    // Both reasons, in one detail: the chapter the author edited, and the seam.
+    expect(outcomes[0].detail).toMatch(/edited since/);
+    expect(outcomes[0].detail).toMatch(/formatting/);
+  });
+
+  it("does not blame the author when the database is what failed", async () => {
+    // The CAS branch and the error branch were one condition, so a statement
+    // timeout was reported as "you edited this chapter after the plan was
+    // made" — and the plan is spent either way, so the wrong explanation costs
+    // the author another run on top of the confusion.
+    const target = book();
+    const { client } = fakeSupabase("error");
+    const outcomes = await applyPlan(client, target, renamePlan(target));
+
+    expect(outcomes[0]).toMatchObject({ changed: 0 });
+    expect(outcomes[0].detail).toMatch(/database did not accept/i);
+    expect(outcomes[0].detail).not.toMatch(/you edited/i);
+  });
+
   it("saves cover text through the production module, at the revision it read", async () => {
     const target = book();
     authorize.mockResolvedValue({ marker: "context" });
@@ -225,6 +264,39 @@ describe("applyPlan", () => {
     const outcomes = await applyPlan(client, target, plan, { matchIds: ["m1", "m2", "m3"] });
     expect(outcomes[0]).toMatchObject({ status: "applied", changed: 2 });
     expect(outcomes[0].detail).toMatch(/1 passage was in a chapter you have edited since/);
+  });
+
+  it("appends a front-matter page through the production settings, keeping the existing ones", async () => {
+    authorize.mockResolvedValue({ marker: "context" });
+    loadDraft.mockResolvedValue({ settings: null, revision: 2 });
+    saveDraft.mockResolvedValue({ revision: 3 });
+
+    const outcomes = await applyPlan(fakeSupabase().client, book(), {
+      versionId: VERSION,
+      steps: [{ id: "s1", tool: "add_front_matter_section", reason: "Dedication.", kind: "dedication", title: "Tillägnan", body: "Till Mira." }],
+    });
+
+    const [, settings] = saveDraft.mock.calls[0];
+    // The seed already carries title, copyright and contents; a new page is
+    // appended rather than replacing them.
+    expect(settings.sections.map((section: { kind: string }) => section.kind)).toEqual(["title", "copyright", "contents", "dedication"]);
+    const added = settings.sections.at(-1);
+    expect({ title: added.title, body: added.body, placement: added.placement, enabled: added.enabled }).toEqual({
+      title: "Tillägnan", body: "Till Mira.", placement: "before", enabled: true,
+    });
+    expect(added.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(outcomes[0]).toMatchObject({ status: "applied" });
+  });
+
+  it("writes the description through the author's own client, so RLS is the ownership check", async () => {
+    const { client, writes } = fakeSupabase();
+    const outcomes = await applyPlan(client, book(), {
+      versionId: VERSION,
+      steps: [{ id: "s1", tool: "set_book_description", reason: "Blurb.", description: "En roman om att inte ge upp." }],
+    });
+
+    expect(writes).toEqual([{ table: "books", values: { description: "En roman om att inte ge upp." }, filters: { id: BOOK } }]);
+    expect(outcomes[0]).toMatchObject({ status: "applied" });
   });
 
   it("hands cover generation back to the panel that owns its spend limit", async () => {
