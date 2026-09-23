@@ -48,7 +48,7 @@ function aggregateScoredBooks(
   }
 
   return [...merged.values()]
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
     .slice(0, limit);
 }
 
@@ -66,7 +66,8 @@ export async function GET(request: Request) {
 
   const [readingsRes, genrePrefRes] = await Promise.all([
     supabase.from("readings").select("book_id").eq("user_id", user.id)
-      .order("last_read_at", { ascending: false }).limit(50),
+      .order("last_read_at", { ascending: false })
+      .order("book_id", { ascending: true }).limit(50),
     supabase.from("reader_genre_preferences").select("genre_id").eq("user_id", user.id).limit(30),
   ]);
 
@@ -113,12 +114,17 @@ export async function GET(request: Request) {
       genreMap.set(row.book_id, current);
     }
 
-    seeds = (historyBooks ?? []).map((book) => ({
-      id: book.id,
-      author_id: book.author_id,
-      language: normalizeLanguageOrNull(book.language),
-      genreIds: makeUnique([...(genreMap.get(book.id) ?? []), ...preferredGenreIds]),
-    }));
+    // IN does not preserve the recency order used to select these seeds.
+    const historyBooksById = new Map((historyBooks ?? []).map((book) => [book.id, book]));
+    seeds = historySeedIds.flatMap((id) => {
+      const book = historyBooksById.get(id);
+      return book ? [{
+        id: book.id,
+        author_id: book.author_id,
+        language: normalizeLanguageOrNull(book.language),
+        genreIds: makeUnique([...(genreMap.get(book.id) ?? []), ...preferredGenreIds]),
+      }] : [];
+    });
   }
 
   if (seeds.length === 0 && preferredGenreIds.length > 0) {
