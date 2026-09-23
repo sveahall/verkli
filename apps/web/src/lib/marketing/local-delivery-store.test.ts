@@ -36,6 +36,22 @@ it("rejects forged/stale approval and edits after schedule; cancel preserves his
   expect(view.deliveries[0].state).toBe("cancelled");
   expect((await act()).deliveries[0].events.some(event => event.state === "cancelled")).toBe(true);
 });
+it("uses the latest delivery for the same post without reordering its history", async () => {
+  const act = await setup(); let view = await act();
+  view = await act({ action: "approve", expectedUpdatedAt: view.post.updatedAt, caption: "First copy", hashtags: "" });
+  view = await act({ action: "schedule", expectedUpdatedAt: view.post.updatedAt, scheduledFor: new Date().toISOString() });
+  const firstId = view.deliveries[0].id;
+  view = await act({ action: "cancel", expectedUpdatedAt: view.post.updatedAt });
+  view = await act({ action: "approve", expectedUpdatedAt: view.post.updatedAt, caption: "Revised copy", hashtags: "" });
+  view = await act({ action: "schedule", expectedUpdatedAt: view.post.updatedAt, scheduledFor: new Date().toISOString() });
+  const secondId = view.deliveries[1].id;
+  expect(secondId).not.toBe(firstId);
+  expect(view.post.metadata).toMatchObject({ delivery: { jobId: secondId, state: "scheduled" } });
+  view = await act({ action: "consume", outcome: "failure" });
+  expect(view.deliveries.map(delivery => [delivery.id, delivery.state])).toEqual([[firstId, "cancelled"], [secondId, "failed"]]);
+  expect((await act()).deliveries.map(delivery => delivery.id)).toEqual([firstId, secondId]);
+  expect(view.post.metadata).toMatchObject({ delivery: { jobId: secondId, state: "failed" } });
+});
 it("does not retry or cancel an unknown transport outcome", async () => {
   const act = await setup(); let view = await act();
   view = await act({ action: "approve", expectedUpdatedAt: view.post.updatedAt, caption: "Safe fixture", hashtags: "" });

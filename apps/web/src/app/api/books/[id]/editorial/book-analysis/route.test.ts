@@ -5,7 +5,12 @@ import { analysisManifestSchema, analysisRunSchema, type BookAnalysisResult } fr
 import { splitBookAnalysis, type BookAnalysisPart } from "@/lib/editorial/book-analysis-content";
 import { reviewText } from "@/lib/editorial/content";
 import type { EditorialUsage } from "@/lib/editorial/provider";
-const mocks = vi.hoisted(() => ({ gate: vi.fn(), db: vi.fn(), admin: vi.fn(), notes: vi.fn(), report: vi.fn(), estimateNotes: vi.fn(), estimateReport: vi.fn(), check: vi.fn(), enabled: vi.fn(), budget: vi.fn(), release: vi.fn() }));
+const mocks = vi.hoisted(() => ({ gate: vi.fn(), db: vi.fn(), admin: vi.fn(), notes: vi.fn(), report: vi.fn(), estimateNotes: vi.fn(), estimateReport: vi.fn(), check: vi.fn(), enabled: vi.fn(), budget: vi.fn(), release: vi.fn(), requireAiEnabled: vi.fn() }));
+vi.mock("@/features/ai-team/settings/server", async (original) => ({
+  ...(await original<typeof import("@/features/ai-team/settings/server")>()),
+  requireAiEnabled: mocks.requireAiEnabled,
+}));
+import { AiSettingsError } from "@/features/ai-team/settings/server";
 vi.mock("@/lib/auth/require-author", () => ({ requireAuthorRoleForApi: mocks.gate }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.db }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mocks.admin }));
@@ -127,6 +132,7 @@ async function finishParts(jobId: string, count: number) {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.requireAiEnabled.mockResolvedValue(undefined);
   vi.spyOn(console, "error").mockImplementation(() => {});
   tables = { books: [{ id: bookId, author_id: authorId, deleted_at: null }], book_versions: [{ id: versionId, book_id: bookId }], chapters: [makeChapter(0, "a".repeat(11999) + "🦋This entire chapter is split safely."), makeChapter(1, "On Tuesday Ada arrived."), makeChapter(2, "On Wednesday Ada left.")], ai_jobs: [] };
   history = []; failReceipt = 0; ambiguousSave = null; throwAfterPartSave = false; beforeClaim = null;
@@ -146,6 +152,41 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe("whole-book analysis API", () => {
+  it.each([
+    ["AI_DISABLED", 403, "AI is turned off for your account."],
+    ["AI_SETTINGS_UNAVAILABLE", 503, "Your AI settings could not be read."],
+  ] as const)("blocks start and advance for %s without spending or changing jobs", async (code, status, message) => {
+    const analysis = await start();
+    const jobs = clone(tables.ai_jobs);
+    mocks.requireAiEnabled.mockRejectedValue(new AiSettingsError(code, status, message));
+
+    for (const body of [{ action: "start" }, { action: "advance", jobId: analysis.jobId, expectedPart: 0 }]) {
+      const result = await post(body);
+      expect(result.status).toBe(status);
+      expect(await result.json()).toMatchObject({ error: message });
+    }
+    expect(mocks.requireAiEnabled).toHaveBeenCalledWith(expect.anything(), authorId);
+    expect(tables.ai_jobs).toEqual(jobs);
+    expect(mocks.budget).not.toHaveBeenCalled();
+    expect(mocks.notes).not.toHaveBeenCalled();
+    expect(mocks.report).not.toHaveBeenCalled();
+  });
+
+  it("keeps saved analysis readable and lets the author stop work with account AI off", async () => {
+    const analysis = await start();
+    mocks.requireAiEnabled.mockRejectedValue(new AiSettingsError("AI_DISABLED", 403, "AI is turned off for your account."));
+
+    const loaded = await get();
+    expect(loaded.status).toBe(200);
+    expect(await loaded.json()).toMatchObject({ analysis: { jobId: analysis.jobId }, available: false, unavailableReason: "AI is turned off for your account." });
+    const calls = mocks.requireAiEnabled.mock.calls.length;
+    expect((await post({ action: "abandon", jobId: analysis.jobId })).status).toBe(200);
+    expect(mocks.requireAiEnabled).toHaveBeenCalledTimes(calls);
+    expect(tables.ai_jobs[0].status).toBe("failed");
+    expect(mocks.budget).not.toHaveBeenCalled();
+    expect(mocks.notes).not.toHaveBeenCalled();
+  });
+
   it("starts without spend, extracts every complete chapter part, then saves one synthesis and receipts", async () => {
     const analysis = await start();
     expect(analysis).toMatchObject({ status: "pending", completedParts: 0, totalParts: 4, stale: false, report: null });

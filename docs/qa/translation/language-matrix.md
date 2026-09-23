@@ -2,6 +2,12 @@
 
 Detta underlag skiljer specifikation, tekniskt valbart textstöd och verifierad litterär kvalitet. Det ändrar inte lanseringslöftet och certifierar inte ljud. Bas för inventeringen: 296f2faf (PR76).
 
+## Integrationskontroll den 23 september 2026
+
+På `platform`-bas `6896cb8a` finns nu samtliga tio specifikationsspråk i den centrala textlistan. Listan har totalt 17 språk: en, es, fr, de, it, pt, sv, da, no, fi, nl, pl, ru, zh, ja, ko, ar. Matrisen nedan bevarar den ursprungliga inventeringen på PR76; den beskriver inte längre aktuellt menyutbud. Nederländska och polska har uttrycklig text-only-copy och separata ljudspärrar före checkout och provideranrop i `src/lib/audiobook/language-capabilities.ts` och dess konsumenter.
+
+PR93:s critic-rättning finns också i denna bas: granskningsläge och full källtext förmedlas till den andra granskaren och ingår i samma konservativa request-estimator. Riktade mocktester på den samlade koden omfattar källkontext, kvitton, språk och ljudspärrar. Detta verifierar kodkopplingen, inte verklig modellkvalitet eller hela driftsättningen. Inga nya betalda eller mänskliga språkprov har gjorts.
+
 ## Primär källa
 
 `/Users/admin/Downloads/Verkli Erbjudande Fredrik 2026-07-29.docx`, Bilaga 1, §3.2.1 (stycke 128 i dokumentets OOXML):
@@ -60,4 +66,4 @@ Alla språk har `not_run` för nya providerprov och `not_reviewed` för mänskli
 
 Förslag, inte godkännande: börja med ett valt språkpar och högst 4 000 källtecken, en granskad körning, högst 7 modellanrop (profil + första översättning + två granskare + en rättning + två omgranskningar), inga automatiska omförsök eller andra språk. Stoppa innan provideranrop om den befintliga budgetreserveringen inte ryms. Manifestet anger konservativa interna reservationsenheter; dessa är INTE valuta eller faktiska tokenkostnader. Dollar-/kronetak måste räknas från aktuell modellprissättning och uttryckligen godkännas före en körning. Ingen sådan körning har gjorts här. Ett fullmanusprov ska få eget kostnadsförslag och separat godkännande.
 
-Känd separat kvalitetsrisk från releaseägaren: befintlig editorial critic får endast måltext i translation-läge, inte källtext/mode. Den kan därför inte säkert avfärda semantiska fynd. Fryst kostnadspaket ägs av support/drift; framtida kvalitetsfix måste samordna källkontext med budgetestimatorn. Sparade-jämförelsepaketet ändrar inte critic och ger ingen ny kvalitetsgaranti.
+Historik på PR76-basen: editorial critic saknade källtext/mode. Detta har rättats tekniskt i PR93 enligt integrationskontrollen ovan. Bevarade fynd och faktisk litterär kvalitet behöver fortfarande verifieras med riktiga språkprov; mocktester ger ingen sådan kvalitetsgaranti.
