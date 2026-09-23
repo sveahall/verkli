@@ -30,6 +30,21 @@ const MAX_RUN_INPUT_TOKENS = 150_000;
 
 const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g;
 
+/**
+ * Matches the CHECK on `agent_plans.summary`.
+ *
+ * The prompt asks for 120 words, which is a request to the model, not a bound
+ * on it — and `max_tokens` is 4000 TOKENS, roughly three times this many
+ * characters. Manuscript text reaches the model verbatim, including text
+ * imported from other files, so a book that asks for a long closing message is
+ * enough to overrun the column. The insert then fails, the whole plan is thrown
+ * away after the model has already been paid for building it, and the turn is
+ * left reserved so the conversation refuses the next message too.
+ *
+ * Bounded here rather than at the insert so every consumer inherits it.
+ */
+const MAX_SUMMARY_CHARS = 4_000;
+
 export class AgentRunError extends Error {
   readonly code: "PROVIDER_UNAVAILABLE" | "PROVIDER_FAILED" | "PROVIDER_TIMEOUT";
   constructor(message: string, code: AgentRunError["code"]) {
@@ -181,5 +196,9 @@ export async function runAgent(input: {
       : "I ran out of room before I could work this out. Try asking for one change at a time.";
   }
 
-  return { summary: sanitize(summary), plan: planner.build(), turns, stoppedBecause, usage: { inputTokens, outputTokens } };
+  return {
+    summary: sanitize(summary).slice(0, MAX_SUMMARY_CHARS),
+    plan: planner.build(), turns, stoppedBecause,
+    usage: { inputTokens, outputTokens },
+  };
 }
