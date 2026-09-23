@@ -53,6 +53,7 @@ type StoredPost = { scheduled_for: string; channel: string; language: string; co
 let posts: StoredPost[];
 let updates: Array<Record<string, unknown>>;
 let readError = false;
+let paidConfig: unknown = {};
 let bookOwner = "author";
 let receiptWriteError = false;
 let jobData: MarketingJobData;
@@ -85,6 +86,7 @@ describe("campaign worker", () => {
     posts = [];
     updates = [];
     readError = false;
+    paidConfig = {};
     bookOwner = "author";
     receiptWriteError = false;
     mocks.generate.mockImplementation(async (input) => ({ headline: input.title, body: `Utkast för dag ${input.campaign?.day ?? 1}`, hashtags: "#bok", cta: "Upptäck boken" }));
@@ -99,7 +101,7 @@ describe("campaign worker", () => {
         if (table === "books") return { data: { id: "book", title: "Ocean", description: "A family crosses the sea.", author_id: bookOwner }, error: null };
         if (table === "marketing_campaign_plans") {
           if (operation === "update") updates.push(value as Record<string, unknown>);
-          return { data: plan, error: null };
+          return { data: { ...plan, paid_config: paidConfig }, error: null };
         }
         if (operation === "insert" || operation === "upsert") {
           posts.push(...(Array.isArray(value) ? value : [value]) as StoredPost[]);
@@ -117,6 +119,16 @@ describe("campaign worker", () => {
       };
       return query;
     });
+  });
+
+  it.each([1, 999])("never runs an ad draft, even with forged runnable fields (version %s)", async version => {
+    paidConfig = { kind: "ad_draft", version };
+    await expect(processPlan()).rejects.toThrow("Ad drafts cannot be generated");
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(validateJobCost).not.toHaveBeenCalled();
+    expect(updates).toEqual([]);
+    expect(posts).toEqual([]);
   });
 
   it("generates language/channel-aware drafts with different day briefs and book facts", async () => {

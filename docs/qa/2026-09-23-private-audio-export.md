@@ -1,0 +1,46 @@
+# E2 bounded private audio export
+
+Approved continuation from E1/V1, base eb6418c6, isolated audio-private-export worktree. No real private asset reads, storage/database writes, providers, schema changes or dependencies are authorized for verification. Full gates remain queued with release owner. Existing PDF export owner confirmed no overlap.
+
+## Inventory and exact contract
+
+- `src/lib/supabase/types.ts`: books/versions/chapters, chapter_audio_cache (edition, content_hash, path, size, voice/model/language), audiobook_assets (generated/is_smoke/demo_run_id), profiles.display_name already exist. No export registry is needed for a synchronous download; durable exports/restartable jobs are outside this bounded slice.
+- `src/lib/audiobook/chapter-audio-storage.ts`: smoke audio never enters the current reusable cache or gets timing. `timing-storage.ts` binds sidecars to edition/chapter/path/exact text and filenames to SHA-256(audio + NUL + text), truncated to 16 hex characters. Legacy content-only filenames will fail verification; no silent legacy fallback.
+- `scripts/audiobook-worker.ts`: normalized text/chapter/edition content hash can be independently recomputed. All chapter cache rows must match it, the exact edition/language, and a single voice/model. Current text is taken through the existing getChapterText helper without normalization changes.
+- `node_modules/@supabase/storage-js/src/packages/{StorageFileApi,BlobDownloadBuilder,StreamDownloadBuilder}.ts`: installed SDK supports download(path, {}, {signal, cache:'no-store', redirect:'error'}).asStream(). This permits bounded cancellation without user-supplied URLs, signed URLs or public storage.
+- Existing PDF endpoint is independent; its source files stay untouched. Playback/worker/language/voice files stay untouched.
+
+Client input: bookId in route, editionId UUID, format enum and SHA-256 snapshot identity on POST. No owner, paths, URL, bucket, chapter list, metadata or raw audio input. GET authorizes an author session and returns only a verified metadata/chapter preview and snapshot identity. POST reauthorizes, reconstructs the same server snapshot, checks identity, streams private objects within limits, verifies hash and timing, freezes bytes in an owned temporary directory, uses E1 encoding, then reauthorizes and reconstructs snapshot again before returning private,no-store binary. No upload or persistent export object is created.
+
+Normalized snapshot fields: ownerId; book{id,authorId,title,deletedAt,demoRunId}; edition{id,bookId,language,demoRunId}; authorName; asset{id,bookId,language,status,isSmoke,demoRunId}; chapterCount; chapters[{id,bookId,editionId,order,title,text,cache:{id,chapterId,editionId,contentHash,voiceId,modelId,language,path,bytes}}]. All inputs from DB remain untrusted. Reject demos, smoke, deleted books, missing/duplicate/order-ambiguous chapters, missing/legacy cache, unsupported language, mixed voices/models, cross-book/edition/chapter paths and incomplete/truncated snapshots. Timing remains mandatory for this initial high-confidence export path.
+
+Limits inherited from E1: 20 chapters, 20 MiB per compressed source, 32 MiB total decoded PCM at 48 kHz mono, 50 MiB output. E2 also bounds metadata bodies, timing sidecars, aggregate source bytes and a whole-request deadline. These are technical bounds of this initial synchronous slice, not approved commercial book-length limits. UI states them openly and does not promise that 320 kbps improves source quality. A larger/restartable production exporter remains future work.
+
+## Implementation sequence
+
+- [x] Contract + failing regressions: ownership, edition, chapter completeness, smoke/demo, content hash, paths, cache identity, mixed voices, unsupported language, strict input.
+- [x] Service tests + implementation: streamed size limits, byte/hash/timing mismatch, stale snapshot/ownership after encode, abort/deadline, cleanup on all failures, sanitized errors and no binary on failure.
+- [x] Supabase session/metadata/storage adapter + strict GET/POST route, mock-only tests. No real connections during verification.
+- [x] Reuse AudioExportPanel with explicit source context; private export client and dev-only synthetic adapter surface; actual browser downloads/failures/mobile.
+- [x] Targeted tests/lint, manifest/diffs, freeze and independent review. Full gate/integration/live/real-audio final test stay separate.
+
+## Manual QA (6 steps)
+
+1. With existing Node 22 and FFmpeg/ffprobe, run `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-fixture-placeholder npm run dev -w @verkli/web -- --hostname 127.0.0.1 --port 3249`. Open `http://127.0.0.1:3249/dev/private-audio-export`. This surface always uses fabricated session/database/storage data and generated tones; no real private source is read.
+2. Confirm the visible limits, two source chapters and synthetic notice. Create and download MP3 128, MP3 320 and M4B. Each must be 5 seconds from the same two-chapter source; M4B markers are Departure at 0 and Arrival at 2, final end at 5 seconds. Encoding bitrate is not an improvement to source quality.
+3. Select missing chapters, denied account, wrong edition and smoke scenarios. Each must stop at preview with an explanation and no download.
+4. Select incorrect audio hash, changed source and storage failure scenarios. Each must stop export with no attachment; Reload source can recover the preview but does not bypass validation.
+5. Return to the complete source, create then immediately cancel. Verify no completed download. At 390px verify no horizontal overflow. The automated script also fully decodes each downloaded file and inspects format/metadata/chapters with ffprobe.
+6. Run `npm run test -w @verkli/web -- src/lib/audiobook/private-export-contract.test.ts src/lib/audiobook/private-export-service.test.ts src/lib/audiobook/private-export-handler.test.ts src/lib/audiobook/private-export-supabase.test.ts 'src/app/api/author/books/[id]/audiobook/export/route.test.ts' 'src/app/api/dev/private-audio-export/[scenario]/route.test.ts' src/app/dev/private-audio-export/page.test.tsx` and `node apps/web/scripts/qa-private-audio-export.mjs`. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to an existing Chromium binary if needed. The prepared author page is `/author/books/<bookId>/audiobook/export?editionId=<editionId>`; its real backend was not exercised in this package.
+
+## Verification and remaining work
+
+2026-09-23: 66 targeted tests passed. Twelve E2 browser checks passed with real synthetic MP3/M4B downloads, metadata/full decode, seven negative scenarios, cancellation and 390px. All eight E1 browser regression checks also passed with the shared AudioExportPanel changes. Desktop and mobile screenshots were visually inspected. Targeted lint passed with no warnings. Existing locked and installed Supabase/storage-js versions both resolve to 2.116.0, including the streaming API; no dependency change was made.
+
+Peer review found cancellation during final temporary cleanup, stalled non-cancellable auth/rate-limit awaits, and pre-aborted request-body cleanup. Failing regressions were observed and all were fixed. A peer independently reran all 18 service/handler tests and verified the two publication/slot-release findings closed. Whole-package independent review is still required.
+
+Evidence: `/Users/admin/Documents/Verkli/Fardigstallande-2026-09-22/ljud/private-export-targeted-tests.log`, `private-export-lint.log`, red regression logs (`private-export-cancel-red.log`, `private-export-stalled-auth-red.log`, `private-export-body-cancel-red.log`), `private-export-ui/result.json` plus screenshots/downloaded files and hashes, and `private-export-e1-regression/result.json`. The first browser run was blocked by the standard cookie panel; selecting Essential only before interaction fixed the test harness.
+
+Built: real session/ownership metadata adapter, private bounded streaming, verified existing-asset encoder integration, GET/POST download route and author UI. Tested: mocked backend dependencies plus genuine local synthetic encoding/downloads. Not tested: actual private storage/RLS/auth in a deployed environment, production FFmpeg availability, real narration quality or a full-length audiobook. No new synthesis, provider calls, signed URLs, public objects, export registry, DB/storage writes, schemas or dependencies. Full lint/typecheck/test/build remain queued; a4ac0e9 owns the current fullgate slot. No merge/deploy was performed.
+
+This is a bounded synchronous E2 slice, not the complete durable full-book export system. Its 32 MiB decoded limit is about 5m49s at 48 kHz mono; larger exports and restartable jobs need a separate design. Successful HTTP responses carry a current snapshot and `private, no-store`; clients receive no storage path or owner ID. Persisted cache filenames use the existing 64-bit truncated audio+text digest; full SHA-256 is computed for the frozen local bytes before encoder use. Existing narration receives generic `AI narration` metadata because the current schema does not provide a verified human narrator credit. Legacy/provenance-incomplete rows fail closed rather than being relabeled as verified.

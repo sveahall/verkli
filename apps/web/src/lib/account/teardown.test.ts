@@ -87,6 +87,14 @@ describe("account teardown", () => {
     expect(await findDueDeletions(db.admin, NOW)).toEqual([]);
   });
 
+  it.each([NOW.toISOString(), graceCutoff(NOW), "invalid-date"])("does not erase an account whose current request is not past its grace window (%s)", async (requestedAt) => {
+    const db = database({ due: [USER], intent: { deletion_requested_at: requestedAt, deletion_completed_at: null } });
+    const outcomes = await runAccountTeardownSweep(db.admin, NOW);
+    expect(outcomes).toEqual([{ userId: USER, ok: true, skipped: "not_due" }]);
+    expect(db.calls.some((call) => call.op === "delete" || call.op === "update" || call.op === "insert")).toBe(false);
+    expect(db.updateUserById).not.toHaveBeenCalled();
+  });
+
   it("erases the person: private AI data, profile identity, and sign-in", async () => {
     const db = database();
     expect(await tearDownAccount(db.admin, USER, NOW)).toEqual({ userId: USER, ok: true });

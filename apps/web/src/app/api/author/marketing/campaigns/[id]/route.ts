@@ -1,3 +1,4 @@
+import { AD_DRAFT_FILTER } from "@/lib/marketing/ad-draft";
 import { getMarketingQueueReadiness } from "@/lib/marketing/queue-readiness";
 import { NextResponse } from "next/server";
 import { requireProBillingForApi } from "@/lib/billing/server";
@@ -193,6 +194,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const { data: plan, error } = await supabase.from("marketing_campaign_plans")
     .update({ status: "generating", generation_error: null })
     .eq("id", id).eq("author_id", gate.user.id).eq("status", "failed")
+    .not("paid_config", "cs", AD_DRAFT_FILTER)
     .select("id, book_id, channels, languages").maybeSingle();
   if (error) {
     console.error("[campaign retry] could not claim plan:", error.message);

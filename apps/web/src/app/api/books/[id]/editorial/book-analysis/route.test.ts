@@ -5,7 +5,7 @@ import { analysisManifestSchema, analysisRunSchema, type BookAnalysisResult } fr
 import { splitBookAnalysis, type BookAnalysisPart } from "@/lib/editorial/book-analysis-content";
 import { reviewText } from "@/lib/editorial/content";
 import type { EditorialUsage } from "@/lib/editorial/provider";
-const mocks = vi.hoisted(() => ({ gate: vi.fn(), db: vi.fn(), admin: vi.fn(), notes: vi.fn(), report: vi.fn(), estimateNotes: vi.fn(), estimateReport: vi.fn(), check: vi.fn(), enabled: vi.fn(), budget: vi.fn(), release: vi.fn(), requireAiEnabled: vi.fn() }));
+const mocks = vi.hoisted(() => ({ gate: vi.fn(), db: vi.fn(), admin: vi.fn(), notes: vi.fn(), report: vi.fn(), estimateNotes: vi.fn(), estimateReport: vi.fn(), check: vi.fn(), enabled: vi.fn(), budget: vi.fn(), release: vi.fn(), requireAiEnabled: vi.fn(), aiDisabledResponse: vi.fn() }));
 vi.mock("@/features/ai-team/settings/server", async (original) => ({
   ...(await original<typeof import("@/features/ai-team/settings/server")>()),
   requireAiEnabled: mocks.requireAiEnabled,
@@ -18,9 +18,7 @@ vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: m
 vi.mock("@/lib/flags", () => ({ isAiChatEnabled: mocks.enabled }));
 vi.mock("@/lib/editorial/book-analysis-provider", () => ({ generateBookAnalysisNotes: mocks.notes, generateBookAnalysisReport: mocks.report, estimateBookAnalysisNotesUnits: mocks.estimateNotes, estimateBookAnalysisReportUnits: mocks.estimateReport }));
 vi.mock("@/lib/workers/budget", () => ({ checkBudget: mocks.budget, releaseBudget: mocks.release, BudgetExceededError: class extends Error {} }));
-// This route now checks the account's master AI switch first. Its own guard
-// test covers the blocked path; here the account simply has AI on.
-vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: mocks.aiDisabledResponse }));
 import { BudgetExceededError } from "@/lib/workers/budget";
 import { GET, POST } from "./route";
 
@@ -136,6 +134,7 @@ async function finishParts(jobId: string, count: number) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.requireAiEnabled.mockResolvedValue(undefined);
+  mocks.aiDisabledResponse.mockResolvedValue(null);
   vi.spyOn(console, "error").mockImplementation(() => {});
   tables = { books: [{ id: bookId, author_id: authorId, deleted_at: null }], book_versions: [{ id: versionId, book_id: bookId }], chapters: [makeChapter(0, "a".repeat(11999) + "🦋This entire chapter is split safely."), makeChapter(1, "On Tuesday Ada arrived."), makeChapter(2, "On Wednesday Ada left.")], ai_jobs: [] };
   history = []; failReceipt = 0; ambiguousSave = null; throwAfterPartSave = false; beforeClaim = null;
@@ -173,6 +172,17 @@ describe("whole-book analysis API", () => {
     expect(mocks.budget).not.toHaveBeenCalled();
     expect(mocks.notes).not.toHaveBeenCalled();
     expect(mocks.report).not.toHaveBeenCalled();
+  });
+
+  it.each([403, 503])("allows stopping without consulting unavailable or disabled AI settings (%s)", async (status) => {
+    const analysis = await start();
+    mocks.aiDisabledResponse.mockResolvedValue(NextResponse.json({ error: "AI settings unavailable" }, { status }));
+    mocks.requireAiEnabled.mockRejectedValue(new AiSettingsError("AI_SETTINGS_UNAVAILABLE", 503, "AI settings unavailable"));
+    const stopped = await post({ action: "abandon", jobId: analysis.jobId });
+    expect(stopped.status).toBe(200);
+    expect(tables.ai_jobs[0].status).toBe("failed");
+    expect(mocks.budget).not.toHaveBeenCalled();
+    expect(mocks.notes).not.toHaveBeenCalled();
   });
 
   it("keeps saved analysis readable and lets the author stop work with account AI off", async () => {
