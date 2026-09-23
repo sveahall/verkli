@@ -6,23 +6,24 @@ export class PrivateExportError extends Error {
 }
 export const PRIVATE_EXPORT_LIMITS = { chapters: 20, sourceBytes: 20 * 1024 * 1024, totalSourceBytes: 80 * 1024 * 1024, timingBytes: 2 * 1024 * 1024, deadlineMs: 120000 } as const;
 const uuid = z.string().uuid(), hash = z.string().regex(/^[a-f0-9]{64}$/), label = z.string().min(1).max(200).regex(/^[^\r\n\0]+$/);
-const snapshotSchema = z.object({
+export type PrivateExportLimits = { [K in keyof typeof PRIVATE_EXPORT_LIMITS]: number };
+const snapshotSchemaFor = (limits: PrivateExportLimits) => z.object({
   ownerId: uuid,
   book: z.object({ id: uuid, authorId: uuid, title: label, deletedAt: z.string().nullable(), demoRunId: z.string().nullable() }).strict(),
   edition: z.object({ id: uuid, bookId: uuid, language: z.string().min(2).max(8), demoRunId: z.string().nullable() }).strict(),
   authorName: label,
   asset: z.object({ id: uuid, bookId: uuid, language: z.string(), status: z.string(), isSmoke: z.boolean(), demoRunId: z.string().nullable() }).strict(),
-  chapterCount: z.number().int().positive().max(PRIVATE_EXPORT_LIMITS.chapters),
-  chapters: z.array(z.object({ id: uuid, bookId: uuid, editionId: uuid, order: z.number().int().nonnegative(), title: label, text: z.string().min(1).max(100000), cache: z.object({ id: uuid, chapterId: uuid, editionId: uuid, contentHash: hash, voiceId: z.string().min(1).max(200), modelId: z.string().min(1).max(200), language: z.string(), path: z.string(), bytes: z.number().int().positive().max(PRIVATE_EXPORT_LIMITS.sourceBytes) }).strict() }).strict()).min(1).max(PRIVATE_EXPORT_LIMITS.chapters),
+  chapterCount: z.number().int().positive().max(limits.chapters),
+  chapters: z.array(z.object({ id: uuid, bookId: uuid, editionId: uuid, order: z.number().int().nonnegative(), title: label, text: z.string().min(1).max(100000), cache: z.object({ id: uuid, chapterId: uuid, editionId: uuid, contentHash: hash, voiceId: z.string().min(1).max(200), modelId: z.string().min(1).max(200), language: z.string(), path: z.string(), bytes: z.number().int().positive().max(limits.sourceBytes) }).strict() }).strict()).min(1).max(limits.chapters),
 }).strict();
-export type PrivateExportSnapshot = z.infer<typeof snapshotSchema>;
+export type PrivateExportSnapshot = z.infer<ReturnType<typeof snapshotSchemaFor>>;
 export const privateExportRequestSchema = z.object({ editionId: uuid, format: exportFormatSchema, snapshotId: hash }).strict();
 export type PrivateExportRequest = z.infer<typeof privateExportRequestSchema>;
 export const privateExportEditionSchema = uuid;
 const iso3: Record<string, string> = { en: "eng", es: "spa", fr: "fra", de: "deu", it: "ita", pt: "por", sv: "swe", ru: "rus", zh: "zho", ja: "jpn", ko: "kor", ar: "ara" };
 export function privateContentHash(text: string, chapterId: string, editionId: string) { return createHash("sha256").update(`${text.trim().replace(/\s+/g, " ")}|${chapterId}|${editionId}`).digest("hex"); }
-export function validatePrivateSnapshot(value: unknown, ownerId: string, bookId: string, editionId: string): PrivateExportSnapshot {
-  const parsed = snapshotSchema.safeParse(value);
+export function validatePrivateSnapshot(value: unknown, ownerId: string, bookId: string, editionId: string, limits: PrivateExportLimits = PRIVATE_EXPORT_LIMITS): PrivateExportSnapshot {
+  const parsed = snapshotSchemaFor(limits).safeParse(value);
   const fail = () => { throw new PrivateExportError(422, "SOURCE_UNVERIFIED", "This edition does not have a complete, verifiable set of existing audio chapters within the export limits. No audio was generated."); };
   if (!parsed.success) return fail();
   const source = parsed.data;
@@ -38,10 +39,10 @@ export function validatePrivateSnapshot(value: unknown, ownerId: string, bookId:
     if (cache.contentHash !== privateContentHash(chapter.text, chapter.id, editionId) || !new RegExp(`^cache/${bookId}/${chapter.id}-[a-f0-9]{16}\\.(wav|mp3)$`).test(cache.path)) return fail();
     previous = chapter.order; bytes += cache.bytes; voices.add(JSON.stringify([cache.voiceId, cache.modelId]));
   }
-  if (voices.size !== 1 || bytes > PRIVATE_EXPORT_LIMITS.totalSourceBytes) return fail();
+  if (voices.size !== 1 || bytes > limits.totalSourceBytes) return fail();
   return source;
 }
-export function privateSnapshotId(source: PrivateExportSnapshot) { return createHash("sha256").update(JSON.stringify(snapshotSchema.parse(source))).digest("hex"); }
+export function privateSnapshotId(source: PrivateExportSnapshot, limits: PrivateExportLimits = PRIVATE_EXPORT_LIMITS) { return createHash("sha256").update(JSON.stringify(snapshotSchemaFor(limits).parse(source))).digest("hex"); }
 export function privateExportMetadata(source: PrivateExportSnapshot) { return { title: source.book.title, author: source.authorName, narrator: "AI narration", language: iso3[source.edition.language] }; }
 export function privateExportPreview(source: PrivateExportSnapshot) {
   return { snapshotId: privateSnapshotId(source), editionId: source.edition.id, metadata: privateExportMetadata(source), chapters: source.chapters.map(({ id, title }) => ({ id, title })), limits: PRIVATE_EXPORT_LIMITS };

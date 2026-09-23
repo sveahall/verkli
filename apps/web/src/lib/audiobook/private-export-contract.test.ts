@@ -1,12 +1,30 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { validatePrivateSnapshot, privateSnapshotId, privateExportRequestSchema } from "./private-export-contract";
+import { validatePrivateSnapshot, privateSnapshotId, privateExportRequestSchema, privateContentHash } from "./private-export-contract";
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 export function snapshotFixture() {
   const text = "A synthetic chapter.", chapterId = id(4), editionId = id(3);
   return { ownerId: id(1), book: { id: id(2), authorId: id(1), title: "Synthetic book", deletedAt: null, demoRunId: null }, edition: { id: editionId, bookId: id(2), language: "en", demoRunId: null }, authorName: "Demo author", asset: { id: id(5), bookId: id(2), language: "en", status: "generated", isSmoke: false, demoRunId: null }, chapterCount: 1, chapters: [{ id: chapterId, bookId: id(2), editionId, order: 0, title: "Chapter one", text, cache: { id: id(6), chapterId, editionId, contentHash: createHash("sha256").update(`${text}|${chapterId}|${editionId}`).digest("hex"), voiceId: "voice", modelId: "model", language: "en", path: `cache/${id(2)}/${chapterId}-0123456789abcdef.wav`, bytes: 100 } }] };
 }
 describe("private export snapshot boundary", () => {
+  it("accepts a larger book only with explicit server limits, keeping E2 defaults unchanged", () => {
+    const source = snapshotFixture();
+    source.chapters = Array.from({ length: 21 }, (_, index) => {
+      const chapter = structuredClone(source.chapters[0]);
+      chapter.id = id(100 + index); chapter.order = index; chapter.cache.id = id(200 + index); chapter.cache.chapterId = chapter.id;
+      chapter.cache.contentHash = privateContentHash(chapter.text, chapter.id, chapter.editionId);
+      chapter.cache.path = `cache/${id(2)}/${chapter.id}-0123456789abcdef.wav`;
+      return chapter;
+    });
+    source.chapterCount = source.chapters.length;
+    const limits = { chapters: 500, sourceBytes: 134217728, totalSourceBytes: 2147483648, timingBytes: 2097152, deadlineMs: 3600000 };
+    expect(() => validatePrivateSnapshot(source, id(1), id(2), id(3))).toThrow();
+    expect(validatePrivateSnapshot(source, id(1), id(2), id(3), limits)).toEqual(source);
+    expect(privateSnapshotId(source, limits)).toMatch(/^[a-f0-9]{64}$/);
+    source.chapters[20].cache.voiceId = "different";
+    expect(() => validatePrivateSnapshot(source, id(1), id(2), id(3), limits)).toThrow();
+  });
+
   it("accepts a complete matching server snapshot and creates a stable identity", () => { const source = snapshotFixture(); expect(validatePrivateSnapshot(source, id(1), id(2), id(3))).toEqual(source); expect(privateSnapshotId(source)).toMatch(/^[a-f0-9]{64}$/); });
   it.each(["owner", "book", "edition", "count", "smoke", "demo", "path", "hash", "cache-edition", "deleted"])("rejects %s mismatches before any storage read", (scenario) => {
     const source = snapshotFixture();

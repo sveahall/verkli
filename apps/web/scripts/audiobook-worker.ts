@@ -32,6 +32,8 @@ import { audioObjectHash } from "../src/lib/audiobook/timing-storage";
 import type { AudioTiming } from "../src/lib/audiobook/timing";
 import { Sentry } from "./sentry-worker-init";
 import type { AudiobookJobData } from "../src/lib/audiobook-queue";
+import { processFullBookExportJob, reconcileFailedFullBookExport } from "../src/lib/audiobook/full-book-export-supabase";
+import type { ExportJobRecord } from "../src/lib/audiobook/full-book-export-jobs";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
 import {
@@ -980,6 +982,10 @@ function main() {
   const worker = new Worker(
     QUEUE_NAME,
     async (job) => {
+      if (job.name === "export") {
+        await processFullBookExportJob(job.data as ExportJobRecord, job.attemptsMade + 1 >= (job.opts.attempts ?? 3));
+        return;
+      }
       if (job.name === "generate" && job.data) {
         console.log("[audiobook-worker] processing job", job.id);
         await processJob(job.data as AudiobookJobData);
@@ -1001,6 +1007,13 @@ function main() {
   worker.on("failed", (job, err) => {
     Sentry.captureException(err);
     console.error("[audiobook-worker] job failed", job?.id, err?.message);
+    if (job?.name === "export") {
+      const terminal = job.attemptsMade >= (job.opts.attempts ?? 3) || /stalled more than allowable limit/i.test(err?.message ?? "");
+      if (terminal) void reconcileFailedFullBookExport(job.data as ExportJobRecord).catch(() => {
+        console.error("[audiobook export] terminal job reconciliation failed");
+      });
+      return;
+    }
     // Reconcile orphaned DB state. The in-process catch writes ai_jobs="failed"
     // before re-throwing, so on an ordinary failure the row is already terminal
     // by the time this fires. But when the worker is hard-killed (OOM/SIGKILL/
