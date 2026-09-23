@@ -1,6 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import BookToolsMenu from "../BookToolsMenu";
+import AgentAvatar from "@/features/ai-team/AgentAvatar";
+import { useAiEnabled } from "@/features/ai-team/settings/availability";
+import { getAgent } from "@/features/ai-team/agents";
+import { agentConversations, conversationTool } from "@/features/ai-team/agent-conversations";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useBookJobs } from "@/hooks/useBookJobs";
@@ -14,6 +20,7 @@ import { useBookWorkspaceCommandPalette } from "./workspace/BookWorkspaceCommand
 import { useBookWorkspaceController } from "./hooks/useBookWorkspaceController";
 import { useChapterSelection } from "./hooks/useChapterSelection";
 import { useBookPricing } from "./hooks/useBookPricing";
+import { useAgentExecution } from "./hooks/useAgentExecution";
 import { useBookCover } from "./hooks/useBookCover";
 import { useBookRename } from "./hooks/useBookRename";
 import { useChapterCrud } from "./hooks/useChapterCrud";
@@ -88,13 +95,20 @@ export default function BookEditorView({
     setContextPanelState,
     clearContextPanelState,
   } = useAuthorWorkspace();
+  // Account-level AI switch. Presentation only — every AI route enforces it
+  // again on the server, so a stale tab cannot spend anything.
+  const aiEnabled = useAiEnabled();
+  const workspaceTools = useMemo(
+    () => (aiEnabled ? visibleTools : visibleTools?.filter((entry) => entry !== "ai")),
+    [aiEnabled, visibleTools]
+  );
   const {
     activePanel: tool,
     setActivePanel: setTool,
     focusMode,
     setFocusMode,
     effectiveTools,
-  } = useBookWorkspaceController({ bookId: book.id, visibleTools });
+  } = useBookWorkspaceController({ bookId: book.id, visibleTools: workspaceTools });
   const {
     openPalette,
     setCommands,
@@ -167,6 +181,7 @@ export default function BookEditorView({
   // Docked beside the manuscript rather than replacing it, so asking a question
   // no longer costs the author their place in the text. `?panel=ai` and the
   // sidebar entry both open it; neither navigates away any more.
+  const [assistantTool, setAssistantTool] = useState<Tool | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -176,6 +191,11 @@ export default function BookEditorView({
     }
   });
 
+  // A remembered open dock must not reopen for an author who has since turned
+  // AI off, so the stored preference is read through the account switch rather
+  // than reset — turning AI back on restores the dock where they left it.
+  const assistantVisible = aiEnabled && assistantOpen;
+
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_ASSISTANT_OPEN, String(assistantOpen));
@@ -184,17 +204,24 @@ export default function BookEditorView({
     }
   }, [assistantOpen]);
 
+  // The specialist follows the task. Each tool keeps its own transcript in
+  // AiAssistantPanel, so changing rooms does not mix translation and editing.
+  useEffect(() => { setAssistantTool(tool); }, [tool]);
+  const currentAgent = getAgent(agentConversations[conversationTool(assistantTool ?? tool)].agent);
+
   // ⌘I / Ctrl+I, the shortcut Cursor trained everyone on.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "i") {
+        if (!aiEnabled) return;
         event.preventDefault();
+        setAssistantTool(tool);
         setAssistantOpen((open) => !open);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [aiEnabled, tool]);
 
   // ── Jobs & billing ────────────────────────────────────────────────────────
   const { jobs: allJobs, loading: jobLoading, error: jobError, refetch: refetchBookJob, settled: jobsSettled } = useBookJobs(book.id);
@@ -301,12 +328,17 @@ export default function BookEditorView({
     // `ai` is no longer a page. The sidebar entry and any existing ?panel=ai
     // link now open the dock and leave the author on the manuscript.
     if (requestedPanel === "ai") {
-      setAssistantOpen(true);
+      if (aiEnabled) {
+        setAssistantTool("edit");
+        setAssistantOpen(true);
+      }
       setTool("edit");
       // Drop the param so the URL describes what is actually on screen: the
       // manuscript, with the dock open. Leaving it would also make a refresh
       // re-open a dock the author had since closed.
-      router.replace(`/author/books/${book.id}`, { scroll: false });
+      const query = new URLSearchParams(searchParams?.toString());
+      query.delete("panel");
+      router.replace(`/author/books/${book.id}${query.size ? `?${query}` : ""}`, { scroll: false });
       return;
     }
     if (requestedPanel && (effectiveTools.includes(requestedPanel as Tool) || ALL_TOOLS.includes(requestedPanel as Tool))) {
@@ -314,7 +346,7 @@ export default function BookEditorView({
     } else if (!requestedPanel) {
       setTool("edit");
     }
-  }, [book.id, effectiveTools, panelParam, router, setTool]);
+  }, [aiEnabled, book.id, effectiveTools, panelParam, router, setTool, searchParams]);
 
   useEffect(() => {
     if (tool === "publish") {
@@ -346,9 +378,11 @@ export default function BookEditorView({
     onAiPanelRequest: handleAiPanelRequest,
   });
 
+  const agentExecution = useAgentExecution({ bookId: book.id, chapter: selectedChapter,
+    navigate: navigateToPanel, cover, pricing, demo: isDemoEditorView });
   useEffect(() => {
-    if (pendingAiRequest) setAssistantOpen(true);
-  }, [pendingAiRequest]);
+    if (pendingAiRequest && aiEnabled) { setAssistantTool("edit"); setAssistantOpen(true); }
+  }, [aiEnabled, pendingAiRequest]);
 
   // ── Write-only workspace context sync ─────────────────────────────────────
   useEffect(() => {
@@ -405,15 +439,35 @@ export default function BookEditorView({
 
   // ── Status banners ────────────────────────────────────────────────────────
   const statusBanners = (
+    <>
+    {chapterCrud.hasSaveConflict && (
+      <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted p-4 text-sm">
+        <p className="flex-1">A newer chapter was saved elsewhere. Your unsaved draft is still in this tab. Download it before leaving or reloading to compare and keep your changes.</p>
+        <button type="button" className="min-h-11 rounded-lg border border-border px-4 font-medium" onClick={chapterCrud.downloadUnsavedDrafts}>Download unsaved draft</button>
+      </div>
+    )}
     <BookEditorStatusBanners
       jobLoading={jobLoading}
       jobError={jobError}
       jobsForBanner={jobsForBanner}
       billingPastDue={billing.pastDue ?? false}
+      billingProActive={billing.isProActive}
       onJobRetry={handleJobRetry}
       suppressInDemo={isDemoEditorView}
     />
+    </>
   );
+
+  // A remount from saved props would discard the retained conflicted draft on
+  // the next keystroke. Keep writing paused until the author exports and reloads.
+  if (chapterCrud.hasSaveConflict && (focusMode || isWriteOnlyWorkspace || tool === "edit")) {
+    return <div className="p-6">{statusBanners}<p className="text-sm text-muted-foreground">Editing is paused to protect your unsaved draft. Download it, then reload to open the latest saved chapter.</p></div>;
+  }
+
+  // Do not mount a writing surface with old props while review persistence is in flight.
+  if (chapterCrud.isApplyingReview && (focusMode || isWriteOnlyWorkspace || tool === "edit")) {
+    return <div role="status" className="p-8 text-sm text-muted-foreground">Finishing your review change…</div>;
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // FOCUS MODE
@@ -436,7 +490,7 @@ export default function BookEditorView({
         onSelectNextChapter={selectNextChapter}
         onResetSessionWords={() => setSessionStartWords(null)}
         onAutoSave={chapterCrud.handleAutoSave}
-        onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
+        onDirty={() => chapterCrud.markChapterDirty(selectedChapterId)}
         onWordCount={setWordCount}
         onExitFocusMode={() => setFocusMode(false)}
       />
@@ -488,7 +542,7 @@ export default function BookEditorView({
         onSaveTitle={chapterCrud.handleSaveTitle}
         onCancelEditTitle={chapterCrud.handleCancelEditTitle}
         onWordCount={setWordCount}
-        onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
+        onDirty={() => chapterCrud.markChapterDirty(selectedChapterId)}
         onAutoSave={chapterCrud.handleAutoSave}
         // NOTE: unlike SimplifiedEditView this passes the raw handler, so a
         // bubble-menu action fired within 500 ms of typing would lose those
@@ -516,30 +570,45 @@ export default function BookEditorView({
         </div>
       )}
       <WorkspaceLayout
-        asideLabel="AI Assistant"
-        asideOpen={assistantOpen}
+        asideLabel={`Talk to ${currentAgent.name}`}
+        asideId="book-ai-assistant"
+        asideOpen={assistantVisible}
         onAsideClose={() => setAssistantOpen(false)}
-        aside={
+        aside={!assistantVisible ? null : (
           <AiAssistantDock
+            key={`${book.id}:${activeVersion?.id ?? "book"}`}
+            editionId={activeVersion?.id ?? null}
+            editionLabel={activeLanguage}
+            bookTitle={bookTitle}
             bookId={book.id}
             chapterId={selectedChapterId}
             variant="dock"
+            activeTool={assistantTool ?? tool}
+            chapterTitle={selectedChapter?.title}
+            getDraftText={agentExecution.getDraftText}
+            onExecuteAction={agentExecution.execute}
+            // The agent writes chapters on the server, so the workspace has to
+            // re-read them. The existing "saved elsewhere" banner covers the
+            // case where the author also has unsaved typing in this tab.
+            onBookChanged={() => router.refresh()}
             onClose={() => setAssistantOpen(false)}
             pendingRequest={pendingAiRequest}
             onPendingRequestHandled={() => setPendingAiRequest(null)}
           />
-        }
+        )}
         header={
           <header>
-            <nav className="flex items-center gap-1.5 text-[14px]">
+            <nav className="flex min-w-0 items-center gap-1.5 text-[14px]">
               <Link
                 href="/author/library"
-                className="text-muted-foreground transition-colors hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-foreground"
+                aria-label="Back to library"
+                className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-foreground"
               >
-                Library
+                <ArrowLeft size={18} className="sm:hidden" aria-hidden />
+                <span className="hidden sm:inline">Library</span>
               </Link>
-              <span className="text-muted-foreground dark:text-muted-foreground" aria-hidden>/</span>
-              <span className="max-w-[220px] truncate font-medium text-foreground dark:text-foreground">
+              <span className="hidden text-muted-foreground dark:text-muted-foreground sm:inline" aria-hidden>/</span>
+              <span className="hidden max-w-[220px] truncate font-medium text-foreground dark:text-foreground sm:inline">
                 {bookTitle}
               </span>
             </nav>
@@ -547,35 +616,39 @@ export default function BookEditorView({
         }
         headerRight={
           <div className="flex items-center gap-2">
+            <BookToolsMenu bookId={book.id} language={activeLanguage} demo={isDemoEditorView} />
             {publishing.isPublished && (
               <Link
                 href={`/reader/books/${book.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
+                aria-label="View as reader"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
               >
-                View as reader
+                <span className="hidden sm:inline">View as reader</span>
                 <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M2.5 9.5l7-7M9.5 2.5H4m5.5 0v5.5" />
                 </svg>
               </Link>
             )}
-            <button
-              type="button"
-              onClick={() => setAssistantOpen((open) => !open)}
-              aria-pressed={assistantOpen}
-              title="AI Assistant (⌘I)"
-              className={`inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition ${
-                assistantOpen
-                  ? "border-[#907AFF]/40 bg-[#907AFF]/[0.08] text-accent-foreground"
-                  : "border-border text-muted-foreground hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
-              }`}
-            >
-              <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M8 1.5l1.6 3.6 3.9.4-2.9 2.6.8 3.8L8 10l-3.4 1.9.8-3.8L2.5 5.5l3.9-.4z" />
-              </svg>
-              AI
-            </button>
+            {aiEnabled && (
+              <button
+                type="button"
+                onClick={() => { if (!assistantOpen) setAssistantTool(tool); setAssistantOpen((open) => !open); }}
+                aria-expanded={assistantVisible}
+                aria-controls="book-ai-assistant"
+                title={`Talk to ${currentAgent.name} (⌘I)`}
+                aria-label={`Talk to ${currentAgent.name}`}
+                className={`inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition ${
+                  assistantVisible
+                    ? "border-[#907AFF]/40 bg-[#907AFF]/[0.08] text-accent-foreground"
+                    : "border-border text-muted-foreground hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
+                }`}
+              >
+                <AgentAvatar agent={currentAgent.id} size={28} />
+                <span className="hidden sm:inline">{currentAgent.name}</span>
+              </button>
+            )}
             <WorkspaceHeaderActions />
           </div>
         }
@@ -604,6 +677,7 @@ export default function BookEditorView({
             {/* Edit panel (has its own white card) */}
             {tool === "edit" && (
               <SimplifiedEditView
+                activeLanguage={activeLanguage}
                 bookId={book.id}
                 bookTitle={bookTitle}
                 chapters={chapters}
@@ -614,6 +688,8 @@ export default function BookEditorView({
                 selectedChapterId={selectedChapterId}
                 selectedChapter={selectedChapter}
                 preset={preset}
+                onPresetChange={setPreset}
+                onAgentEditorReady={agentExecution.onEditorReady}
                 focusMode={focusMode}
                 isPublished={publishing.isPublished}
                 activeTool={tool}
@@ -624,7 +700,7 @@ export default function BookEditorView({
                 onResetSessionWords={() => setSessionStartWords(null)}
                 onWordCount={setWordCount}
                 onAutoSave={chapterCrud.handleAutoSave}
-                onDirty={() => chapterCrud.setHasUnsavedChanges(true)}
+                onDirty={() => chapterCrud.markChapterDirty(selectedChapterId)}
                 onToggleFocusMode={() => setFocusMode((current) => !current)}
                 onDeleteChapter={chapterCrud.handleDeleteChapter}
                 onCreateChapter={chapterCrud.handleCreateChapter}
@@ -651,6 +727,12 @@ export default function BookEditorView({
             {/* All non-edit panels */}
             {tool !== "edit" && tool !== "dashboard" && (
               <BookEditorPanelContent
+                savedPriceAmountMinor={book.price_amount ?? 0}
+                savedPriceCurrency={book.price_currency ?? "SEK"}
+                savedPricingModel={book.pricing_model ?? "book"}
+                bookOwnerId={book.author_id}
+                onApplyReview={chapterCrud.handleApplyReview}
+                reviewSaveBlocked={chapterCrud.isSaving || chapterCrud.hasUnsavedChanges}
                 bookId={book.id}
                 bookTitle={bookTitle}
                 demoMode={isDemoEditorView}
@@ -675,6 +757,7 @@ export default function BookEditorView({
                 printOnDemandSettings={printOnDemandSettings}
                 onSavePrintOnDemandSettings={handleSavePrintOnDemandSettings}
                 onNavigateToPanel={navigateToPanel}
+                onTalkToAgent={() => { setAssistantTool(tool); setAssistantOpen(true); }}
                 onSetSelectedChapterId={(id) => { setSelectedChapterId(id); setSessionStartWords(null); }}
                 onResetSessionWords={() => setSessionStartWords(null)}
                 cover={cover}

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminRoleForApi } from "@/lib/admin-auth";
 import { apiError, E_DATABASE_ERROR, E_INVALID_USER_ID, isValidUuid } from "@/lib/api-errors";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
+import { getBetaDeliveryStates } from "@/lib/emails/beta-delivery";
 import { getUserEmailMap } from "@/lib/admin/user-emails";
 
 export async function GET(request: Request) {
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
 
   let query = admin
     .from("profiles")
-    .select("user_id, role, display_name, username, created_at, preferences", { count: "exact" })
+    .select("user_id, role, display_name, username, created_at, deletion_requested_at, deletion_completed_at", { count: "exact" })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -40,6 +41,25 @@ export async function GET(request: Request) {
   const userIds = (data ?? []).map((p) => p.user_id as string);
   const emailMap = await getUserEmailMap(userIds);
 
+  // Read beta access from the same table used by the grant path and middleware.
+  // Surface read failures instead of incorrectly showing users as disabled.
+  const betaEnabledIds = new Set<string>();
+  if (userIds.length > 0) {
+    const { data: flags, error: flagsError } = await admin
+      .from("user_flags")
+      .select("user_id, beta_enabled")
+      .in("user_id", userIds);
+
+    if (flagsError) {
+      console.error("[admin/users] beta flag load failed:", flagsError.message);
+      return apiError(E_DATABASE_ERROR, 500);
+    }
+
+    for (const row of flags ?? []) {
+      if (row.beta_enabled === true) betaEnabledIds.add(row.user_id as string);
+    }
+  }
+
   const users = (data ?? []).map((p) => ({
     user_id: p.user_id,
     email: emailMap.get(p.user_id as string) ?? null,
@@ -47,9 +67,20 @@ export async function GET(request: Request) {
     display_name: p.display_name,
     username: p.username,
     created_at: p.created_at,
-    beta_enabled: ((p.preferences as Record<string, unknown> | null)?.beta_enabled as boolean) ?? false,
+    beta_enabled: betaEnabledIds.has(p.user_id as string),
   }));
 
+  if (url.searchParams.get("includeDelivery") === "true") {
+    try {
+      const withEmail = users.filter(u => u.email);
+      const states = await getBetaDeliveryStates(admin, withEmail.map(u => ({ email: u.email!, audience: u.role === "reader" ? "reader" : "author", invitedAt: null })));
+      const byId = new Map(withEmail.map((u, index) => [u.user_id, states[index]]));
+      return NextResponse.json({ users: users.map(u => ({ ...u, deliveryState: byId.get(u.user_id) ?? null })), total: count ?? 0, page, limit });
+    } catch {
+      console.error("[beta invitations] account delivery status unavailable");
+      return apiError("Invitation delivery history could not be loaded. Please retry.", 503);
+    }
+  }
   return NextResponse.json({ users, total: count ?? 0, page, limit });
 }
 

@@ -131,6 +131,7 @@ export function useTranslation({
   const lastRequestedTargetLanguageRef = useRef<SupportedLanguage | null>(null);
   const requestedTargetVersionRef = useRef<BookVersion | null>(null);
   const translationFailedCountRef = useRef(0);
+  const requestedQueueJobRef = useRef<string | null>(null);
 
   // ---------------------------------------------------------------------------
   // Derived computed values (depend on state)
@@ -209,6 +210,25 @@ export function useTranslation({
         return;
       }
       router.refresh();
+      const queueJobId = requestedQueueJobRef.current;
+      if (queueJobId) {
+        void fetch(`/api/books/${book.id}/translation-quality?queueJobId=${encodeURIComponent(queueJobId)}`, { cache: "no-store" })
+          .then(async (response) => response.ok ? response.json() : null)
+          .then((result) => {
+            if (requestedQueueJobRef.current !== queueJobId) return;
+            const status = result?.queue?.status;
+            if (status !== "completed" && status !== "failed") return;
+            requestedQueueJobRef.current = null;
+            window.dispatchEvent(new CustomEvent("translation-quality-updated", {
+              detail: { bookId: book.id, targetLanguage: lastRequestedTargetLanguageRef.current },
+            }));
+            stopTranslationPoll(); setTranslationProgress(null); setLastRequestedTargetLanguage(null);
+            setTranslateMessage(status === "failed"
+              ? "Translation stopped. Open the saved quality report for details."
+              : result.queue.chapterId ? "Chapter translation job complete. Open the saved report to check its review status." : "Translation job complete. Open the saved report to check its review status.");
+            router.refresh();
+          }).catch(() => {});
+      }
       const lang = lastRequestedTargetLanguageRef.current;
       if (lang && book.id) {
         fetch(`/api/books/${book.id}/translation-progress?targetLanguage=${encodeURIComponent(lang)}`, {
@@ -299,6 +319,7 @@ export function useTranslation({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             targetLanguage: translateTargetLanguage,
+            sourceLanguage: translationSourceLang,
             sourceVersionId: activeVersion.id,
             targetVersionId,
             overwrite,
@@ -320,6 +341,7 @@ export function useTranslation({
             ? "Chapter translation started. Waiting for completion..."
             : "Translation started. Waiting for completion..."
         );
+        requestedQueueJobRef.current = typeof data.jobId === "string" ? data.jobId : null;
         setLastRequestedTargetLanguage(translateTargetLanguage);
         startTranslationPoll();
       } catch {
@@ -333,6 +355,7 @@ export function useTranslation({
       isStartingTranslation,
       startTranslationPoll,
       translateTargetLanguage,
+      translationSourceLang,
       activeVersion?.id,
       selectedChapterId,
       versionsByLang,
@@ -347,7 +370,7 @@ export function useTranslation({
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    if (!isPollingTranslation || !lastRequestedTargetLanguage) return;
+    if (!isPollingTranslation || !lastRequestedTargetLanguage || requestedQueueJobRef.current) return;
     if (requestedTargetVersion?.status === "done" || requestedTargetVersion?.published_at) {
       translationFailedCountRef.current = 0;
       stopTranslationPoll();
@@ -367,7 +390,7 @@ export function useTranslation({
         stopTranslationPoll();
         setTranslationProgress(null);
         setTranslateMessage(
-          (requestedTargetVersion as BookVersion).error_message?.trim() ||
+          (!requestedTargetVersion.error_message?.startsWith("translation-claim:") && (requestedTargetVersion as BookVersion).error_message?.trim()) ||
             "Translation failed. Try again."
         );
         setLastRequestedTargetLanguage(null);

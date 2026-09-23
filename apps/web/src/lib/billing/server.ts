@@ -183,8 +183,36 @@ export async function getBillingStateForUser(
     return { ok: false, response: apiError(E_GENERIC_ERROR, 500) };
   }
 
-  // Row is source of truth; never use Stripe price_ids to compute plan for state.
-  const state = scopeStateToRole(deriveBillingState(row), role);
+  // Preserve paid entitlements without depending on beta lookups.
+  let state = scopeStateToRole(deriveBillingState(row), role);
+  if (role === "author" && !state.isProActive && !state.isPlusActive && process.env.BETA_AUTHOR_PRO_ENABLED === "true") {
+    try {
+      // Re-read protected inputs on every request so revocation takes effect immediately.
+      // The requested billing role or an approved application alone cannot grant beta Pro.
+      const { data: profile, error: profileError } = await admin
+        .from("profiles")
+        .select("role")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (profileError) throw profileError;
+
+      if (profile?.role === "author" || profile?.role === "admin") {
+        const { data: flags, error: flagsError } = await admin
+          .from("user_flags")
+          .select("beta_enabled")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (flagsError) throw flagsError;
+
+        if (flags?.beta_enabled === true) {
+          state = { ...state, plan: "pro", isProActive: true, isBetaProActive: true };
+        }
+      }
+    } catch (error) {
+      console.error("[billing beta] failed to load author entitlement", { userId, error });
+      return { ok: false, response: apiError(E_GENERIC_ERROR, 500) };
+    }
+  }
 
   if (process.env.BILLING_DEBUG === "1") {
     console.debug("[billing] state", {
@@ -209,7 +237,7 @@ export async function requireProBillingForApi(
   const loaded = await getBillingStateForUser(userId, "author");
   if (!loaded.ok) return loaded;
 
-  if (loaded.state.status === "past_due") {
+  if (loaded.state.status === "past_due" && !loaded.state.isBetaProActive) {
     return { ok: false, response: apiError(E_SUBSCRIPTION_PAST_DUE, 402) };
   }
 

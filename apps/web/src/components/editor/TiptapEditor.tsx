@@ -1,13 +1,8 @@
 "use client";
 
-import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
-import TextAlign from "@tiptap/extension-text-align";
-import { TextStyle } from "@tiptap/extension-text-style";
-import { FontFamily } from "@tiptap/extension-font-family";
-import Highlight from "@tiptap/extension-highlight";
 import CharacterCount from "@tiptap/extension-character-count";
-import StarterKit from "@tiptap/starter-kit";
+import { chapterSchemaExtensions } from "@/lib/tiptap-schema";
 import {
   EditorContent,
   EditorContext,
@@ -139,18 +134,10 @@ export default function TiptapEditor({
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-      }),
-      Image.configure({ inline: false, allowBase64: true }),
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
-      TextStyle,
-      FontFamily,
-      // Underline comes from StarterKit (v3) — registering the standalone
-      // @tiptap/extension-underline too triggered a "Duplicate extension
-      // names found: ['underline']" warning. The toolbar's toggleUnderline()
-      // command is provided by StarterKit's bundled underline.
-      Highlight.configure({ multicolor: true }),
+      // The document half of this list lives in lib/tiptap-schema so the server
+      // can build the same schema; Placeholder and CharacterCount are UI-only
+      // and stay here.
+      ...chapterSchemaExtensions(),
       CharacterCount,
       Placeholder.configure({ placeholder }),
     ],
@@ -756,7 +743,7 @@ export default function TiptapEditor({
 function MenuButton({
   label,
   onClick,
-  active = false,
+  active,
   children,
 }: {
   label: string;
@@ -768,11 +755,13 @@ function MenuButton({
     <button
       type="button"
       aria-label={label}
+      aria-pressed={active}
       onMouseDown={(event) => {
         event.preventDefault();
         onClick();
       }}
-      className={`inline-flex h-10 min-w-10 shrink-0 items-center justify-center rounded-xl px-2.5 text-xs font-medium transition ${
+      onClick={(event) => { if (event.detail === 0) onClick(); }}
+      className={`inline-flex h-11 min-w-11 shrink-0 items-center justify-center rounded-xl px-2.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
         active
           ? "bg-accent text-accent-foreground"
           : "text-muted-foreground hover:bg-muted hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"
@@ -806,7 +795,7 @@ function ItalicIcon() {
 function ToolbarButton({
   label,
   onClick,
-  active = false,
+  active,
   children,
 }: {
   label: string;
@@ -818,11 +807,13 @@ function ToolbarButton({
     <button
       type="button"
       aria-label={label}
+      aria-pressed={active}
       onMouseDown={(event) => {
         event.preventDefault();
         onClick();
       }}
-      className={`inline-flex h-9 min-w-9 shrink-0 items-center justify-center rounded-lg px-2 text-xs font-medium transition ${
+      onClick={(event) => { if (event.detail === 0) onClick(); }}
+      className={`inline-flex h-11 min-w-11 shrink-0 items-center justify-center rounded-lg px-2 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
         active
           ? "bg-accent text-accent-foreground"
           : "text-muted-foreground hover:bg-muted hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-foreground"

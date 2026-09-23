@@ -10,7 +10,7 @@
 
 import "./load-dotenv";
 import { createAdminClient } from "../src/lib/supabase/admin";
-import { detectLanguageFromText } from "../src/lib/language-detect";
+import { detectLanguageFromParts } from "../src/lib/language-detect";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
 
 function extractText(node: unknown): string {
@@ -88,15 +88,16 @@ async function main() {
     let source = "book";
 
     if (!resolved) {
-      const { data: chapter } = await supabase
+      const { data: chapters } = await supabase
         .from("chapters")
-        .select("content, source_text")
+        .select("content")
         .eq("book_version_id", version.id)
+        .is("deleted_at", null)
         .order("order", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      const sample = extractPlainText((chapter?.source_text as string | null) ?? chapter?.content ?? null);
-      const detected = detectLanguageFromText(sample);
+        .limit(12);
+      const detected = detectLanguageFromParts(
+        (chapters ?? []).map((chapter: { content?: string | null }) => extractPlainText(chapter.content))
+      );
       if (detected) {
         resolved = detected;
         source = "heuristic";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   Type,
@@ -42,19 +42,41 @@ export default function EditorSidePanel({
   onToggle,
 }: EditorSidePanelProps) {
   const [tab, setTab] = useState<PanelTab>("format");
+  const [focusedTab, setFocusedTab] = useState<PanelTab>("format");
+  const panelId = useId();
+  const tabRefs = useRef<Partial<Record<PanelTab, HTMLButtonElement | null>>>({});
+
+  const togglePanel = (nextTab: PanelTab) => {
+    setTab(nextTab);
+    setFocusedTab(nextTab);
+    onToggle();
+    requestAnimationFrame(() => {
+      const target = tabRefs.current[nextTab];
+      if (target?.getClientRects().length) target.focus();
+    });
+  };
+
+  const closeFind = () => {
+    setTab("format");
+    setFocusedTab("format");
+    tabRefs.current.format?.focus();
+  };
 
   if (!open) {
     return (
-      <div className="flex w-full items-center justify-center gap-2 border-t border-border bg-background/50 py-2 lg:w-12 lg:flex-col lg:justify-start lg:border-l lg:border-t-0 lg:py-4 dark:border-border dark:bg-card">
+      <div role="group" aria-label="Writing tools" className="flex w-full items-center justify-center gap-2 border-t border-border bg-background py-2 lg:w-14 lg:flex-col lg:justify-start lg:border-l lg:border-t-0 lg:py-4">
         {TAB_CONFIG.map((t) => (
           <button
             key={t.id}
             type="button"
-            onClick={() => { setTab(t.id); onToggle(); }}
-            className="flex h-10 w-10 flex-col items-center justify-center gap-0.5 rounded-xl text-muted-foreground transition hover:bg-card hover:text-accent-foreground hover:shadow-sm dark:text-muted-foreground dark:hover:bg-accent dark:hover:text-accent-foreground"
-            title={t.label}
+            ref={(element) => { tabRefs.current[t.id] = element; }}
+            onClick={() => togglePanel(t.id)}
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            title={`Open ${t.label.toLowerCase()} panel`}
+            aria-label={`Open ${t.label.toLowerCase()} panel`}
+            aria-expanded={false}
           >
-            <t.icon className="h-5 w-5" />
+            <t.icon className="h-4 w-4" aria-hidden="true" />
           </button>
         ))}
       </div>
@@ -62,52 +84,71 @@ export default function EditorSidePanel({
   }
 
   return (
-    <aside className="flex w-full shrink-0 flex-col border-t lg:w-[280px] lg:border-l lg:border-t-0 border-border bg-card dark:border-border dark:bg-card">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3 dark:border-border">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onToggle}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-background hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <h2 className="text-[14px] font-semibold text-foreground dark:text-foreground">
-            {TAB_CONFIG.find((t) => t.id === tab)?.label}
-          </h2>
+    <aside aria-label="Writing tools" className="flex w-full shrink-0 flex-col border-t border-border bg-background lg:w-[280px] lg:border-l lg:border-t-0">
+      <div className="flex items-center gap-1 border-b border-border px-2 py-2">
+        <div role="tablist" aria-label="Writing tools" className="flex min-w-0 flex-1">
+          {TAB_CONFIG.map((t, index) => (
+            <button
+              key={t.id}
+              type="button"
+              ref={(element) => { tabRefs.current[t.id] = element; }}
+              role="tab"
+              id={`${panelId}-${t.id}-tab`}
+              aria-controls={`${panelId}-${t.id}-panel`}
+              aria-selected={tab === t.id}
+              tabIndex={focusedTab === t.id ? 0 : -1}
+              onFocus={() => setFocusedTab(t.id)}
+              onClick={() => { setTab(t.id); setFocusedTab(t.id); }}
+              onKeyDown={(event) => {
+                const nextIndex = event.key === "ArrowRight" ? (index + 1) % TAB_CONFIG.length
+                  : event.key === "ArrowLeft" ? (index + TAB_CONFIG.length - 1) % TAB_CONFIG.length
+                  : event.key === "Home" ? 0
+                  : event.key === "End" ? TAB_CONFIG.length - 1
+                  : null;
+                if (nextIndex === null) return;
+                event.preventDefault();
+                tabRefs.current[TAB_CONFIG[nextIndex].id]?.focus();
+              }}
+              className={`flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-lg px-2 text-[12px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+                tab === t.id
+                  ? "bg-card text-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
+        <button
+          type="button"
+          onClick={() => togglePanel(tab)}
+          aria-label="Collapse writing tools"
+          aria-expanded={true}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+        </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-border dark:border-border">
-        {TAB_CONFIG.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-[12px] font-semibold transition ${
-              tab === t.id
-                ? "border-b-2 border-[#907AFF] text-accent-foreground"
-                : "text-muted-foreground hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-muted-foreground"
-            }`}
-          >
-            <t.icon className="h-3.5 w-3.5" />
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        {tab === "format" && (
-          <EditorFormatPanel editor={editor} preset={preset} onPresetChange={onPresetChange} />
-        )}
-        {tab === "outline" && <EditorOutlinePanel editor={editor} />}
-        {tab === "find" && (
-          <EditorFindReplace editor={editor} onClose={() => setTab("format")} />
-        )}
-      </div>
+      {TAB_CONFIG.map((item) => (
+        <div
+          key={item.id}
+          role="tabpanel"
+          id={`${panelId}-${item.id}-panel`}
+          aria-labelledby={`${panelId}-${item.id}-tab`}
+          hidden={tab !== item.id}
+          tabIndex={0}
+          className="min-w-0 flex-1 overflow-y-auto focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring"
+        >
+          {tab === item.id && item.id === "format" && (
+            <EditorFormatPanel editor={editor} preset={preset} onPresetChange={onPresetChange} />
+          )}
+          {tab === item.id && item.id === "outline" && <EditorOutlinePanel editor={editor} />}
+          {tab === item.id && item.id === "find" && (
+            <EditorFindReplace editor={editor} onClose={closeFind} />
+          )}
+        </div>
+      ))}
     </aside>
   );
 }

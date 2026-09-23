@@ -1,7 +1,12 @@
 "use client";
 
+import { audioLanguageUnavailableReason } from "@/lib/audiobook/language-capabilities";
 import dynamic from "next/dynamic";
-import { getLanguageLabel, normalizeLanguage } from "@/lib/languages";
+import Link from "next/link";
+import { ArrowRight, Check, Globe2, Headphones, Loader2 } from "lucide-react";
+import { countWordsInContent } from "@/lib/tiptap-content";
+import styles from "./AudiobookPanel.module.css";
+import { getLanguageLabel } from "@/lib/languages";
 import {
   getAudiobookStatusLabel,
 } from "../BookEditorView.helpers";
@@ -13,7 +18,6 @@ import type {
 } from "../BookEditorView.types";
 import {
   AudiobookCheckoutModal,
-  AudiobookLanguageList,
   AudiobookPreviewPlayer,
 } from "./AudiobookPanel.components";
 
@@ -72,8 +76,6 @@ interface AudiobookPanelProps {
 
 export default function AudiobookPanel({
   bookId,
-  bookLanguage,
-  bookOriginalLanguage,
   chapters,
   selectedChapterId,
   activeVersion,
@@ -101,8 +103,6 @@ export default function AudiobookPanel({
   canCancelAudiobook,
   handleAudiobookControl,
   handleGenerateAudiobook,
-  audiobookSelectedLanguages,
-  setAudiobookSelectedLanguages,
   audiobookCheckoutModalOpen,
   setAudiobookCheckoutModalOpen,
   audiobookCheckoutLoading,
@@ -112,271 +112,128 @@ export default function AudiobookPanel({
   refreshAudioUrl,
   latestAudiobookManifestUrl,
 }: AudiobookPanelProps) {
+  const languageCode = activeVersion?.language_code ?? activeLanguage;
+  const language = getLanguageLabel(languageCode.trim().toLowerCase());
+  const languageUnavailable = audioLanguageUnavailableReason(languageCode);
+  const scope = billingIsProActive ? audiobookScope : "book";
+  const includedChapters = scope === "book" ? chapters : chapters.filter((chapter) => audiobookRequestedChapterIds.includes(chapter.id));
+  const words = scope === "book" ? totalBookWordCount : includedChapters.reduce((sum, chapter) => sum + countWordsInContent(chapter.content), 0);
+  const minutes = Math.round(words / 150);
+  const durationLabel = words === 0 ? "—" : minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}min` : minutes > 0 ? `${minutes}min` : "< 1min";
+  const progress = effectiveAudiobookProgress;
+  const percent = progress && progress.totalChapters > 0 ? Math.min(100, Math.max(0, progress.completedChapters / progress.totalChapters * 100)) : 0;
+  const error = audiobookStatusUi === "failed" ? effectiveAudiobookError ?? "Could not create audiobook. Try again." : audiobookError;
+  const hasManuscript = chapters.length > 0 && totalBookWordCount > 0;
+  const showManifest = shouldShowGeneratedAudiobookPlayer && !fallbackGeneratedAudiobookUrl && Boolean(latestAudiobookManifestUrl);
+  const cannotGenerate = Boolean(languageUnavailable) || isAudiobookActive || !audiobookFeatureEnabled || billingLoading || !hasManuscript || (billingIsProActive && scope !== "book" && audiobookRequestedChapterIds.length === 0);
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <h2 className="author-section-title text-[13px] font-medium uppercase tracking-[0.08em] text-foreground dark:text-foreground">AUDIOBOOK PREVIEW</h2>
+    <div className={styles.workspace}>
+      <header className={styles.heading}>
+        <div><h2>Audiobook</h2><p>A new way to hear your story. Listen, create, then review.</p></div>
+        <span className={styles.edition}><Globe2 size={15} aria-hidden />{language} edition</span>
+      </header>
 
-      {/*
-        Language badge (read-only — tied to the active book version).
+      {languageUnavailable && <p role="status" className={styles.hint}>{languageUnavailable}</p>}
 
-        There used to be a "Voice" and a "Tone" dropdown here. Both were
-        decorative: the options were hardcoded (Ryan/Emma/Alex,
-        neutral/warm/dramatic), neither value was ever put in the generate
-        request body, and the server always narrates with the voice from
-        deployment config. The three names were also Qwen speaker names from a
-        deleted TTS stack, so wiring them through would have sent ElevenLabs
-        voice ids it rejects. Per-book voice selection needs a real voice
-        catalogue (see /api/author/voices) and provider support for tone — it
-        is a feature to build, not a control to fake.
-      */}
-      <div className="flex flex-wrap gap-4">
-        <div className="flex items-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium text-foreground dark:border-border dark:bg-card dark:text-foreground">
-          {getLanguageLabel(normalizeLanguage(activeVersion?.language_code ?? activeLanguage))}
-        </div>
-      </div>
-
-      {/* Audio preview player */}
-      <AudiobookPreviewPlayer
-        audioUrl={shouldShowGeneratedAudiobookPlayer ? fallbackGeneratedAudiobookUrl : null}
-        bookId={bookId}
-        onRefreshAudioUrl={refreshAudioUrl}
-      />
-
-      {/* Two cards side by side */}
-      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-        {/* Left card: Generate audiobook */}
-        <div className="rounded-2xl border border-border bg-card p-6 dark:border-border dark:bg-card">
-          <h3 className="text-xl font-semibold text-foreground dark:text-foreground">Increase your sales</h3>
-          <p className="mt-1.5 text-sm text-muted-foreground dark:text-muted-foreground">Turn your book into a professional audiobook</p>
-
-          {/* Info box */}
-          <div className="mt-5 rounded-xl border border-border bg-background/80 p-5 dark:border-border dark:bg-card">
-            <p className="text-[15px] text-foreground dark:text-foreground">
-              Languages: <span className="font-semibold">{getLanguageLabel(normalizeLanguage(activeVersion?.language_code ?? activeLanguage))}</span>
-            </p>
-            <p className="mt-2 text-[15px] text-foreground dark:text-foreground">
-              Estimated audiobook length: <span className="font-medium">~{(() => {
-                const totalMinutes = Math.round(totalBookWordCount / 150);
-                const hours = Math.floor(totalMinutes / 60);
-                const mins = totalMinutes % 60;
-                if (hours > 0) return `${hours}h ${mins}min`;
-                return mins > 0 ? `${mins}min` : "< 1min";
-              })()}</span>
-            </p>
-            <p className="mt-2 text-[15px] text-foreground dark:text-foreground">
-              Estimated generation time: <span className="font-medium">~{(() => {
-                const audiobookMinutes = Math.round(totalBookWordCount / 150);
-                const genMinutes = Math.max(1, Math.round(audiobookMinutes * 0.15));
-                return `${genMinutes}min`;
-              })()}</span>
-            </p>
-            <p className="mt-3 flex items-center gap-1.5 text-[15px] font-medium text-foreground dark:text-foreground">
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path d="M5 13l4 4L19 7" /></svg>
-              Included in PRO
-            </p>
-          </div>
-
-          {/* Generation progress */}
-          {isAudiobookActive && effectiveAudiobookProgress && (
-            <div className="mt-4">
-              <div className="mb-1 flex justify-between text-xs text-muted-foreground dark:text-muted-foreground">
-                <span>{effectiveAudiobookProgress.currentChapterTitle ?? "Processing..."}</span>
-                <span>{effectiveAudiobookProgress.completedChapters} / {effectiveAudiobookProgress.totalChapters}</span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted dark:bg-card">
-                <div
-                  className="h-full rounded-full bg-[#907AFF] transition-all duration-300"
-                  style={{
-                    width: effectiveAudiobookProgress.totalChapters > 0
-                      ? `${(effectiveAudiobookProgress.completedChapters / effectiveAudiobookProgress.totalChapters) * 100}%`
-                      : "0%",
-                  }}
-                />
-              </div>
-              <p className="mt-1 text-[11px] text-muted-foreground dark:text-muted-foreground">
-                {audiobookEtaText ?? "Estimating remaining time..."}
-              </p>
-            </div>
-          )}
-
-          {/* Error messages */}
-          {audiobookStatusUi === "cancelled" && (
-            <p className="mt-3 text-xs text-muted-foreground dark:text-muted-foreground">{effectiveAudiobookError ?? "Generation cancelled."}</p>
-          )}
-          {audiobookStatusUi === "failed" && (
-            <p className="mt-3 text-xs text-red-600 dark:text-red-400">{effectiveAudiobookError ?? "Could not create audiobook. Try again."}</p>
-          )}
-          {audiobookError && audiobookStatusUi !== "failed" && audiobookStatusUi !== "cancelled" && (
-            <p className="mt-3 text-xs text-red-600 dark:text-red-400">{audiobookError}</p>
-          )}
-
-          {/* Generate button */}
-          <button
-            type="button"
-            onClick={() => void handleGenerateAudiobook()}
-            disabled={isAudiobookActive || !audiobookFeatureEnabled || billingLoading || (billingIsProActive && audiobookScope !== "book" && audiobookRequestedChapterIds.length === 0)}
-            className="mt-5 rounded-xl bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {!audiobookFeatureEnabled
-              ? "Generate audiobook (unavailable)"
-              : billingLoading
-              ? "Checking subscription..."
-              : isAudiobookActive
-              ? effectiveAudiobookProgress
-                ? `Generating (${effectiveAudiobookProgress.completedChapters}/${effectiveAudiobookProgress.totalChapters})...`
-                : "Queued..."
-              : "Generate audiobook"}
-          </button>
-
-          {/* Status badge */}
-          {audiobookStatusUi !== "idle" && !isAudiobookActive && (
-            <div className="mt-4">
-              <span
-                className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${
-                  audiobookStatusUi === "published"
-                    ? "bg-[#907AFF]/15 text-accent-foreground dark:bg-[#907AFF]/25 dark:text-accent-foreground"
-                    : audiobookStatusUi === "failed"
-                      ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                      : audiobookStatusUi === "cancelled"
-                        ? "bg-muted text-foreground dark:bg-card dark:text-muted-foreground"
-                        : "bg-muted text-foreground dark:bg-card dark:text-muted-foreground"
-                }`}
-              >
-                {getAudiobookStatusLabel(audiobookStatusUi)}
-              </span>
-            </div>
-          )}
-
-          {/* Scope selection (Pro only) */}
-          {billingIsProActive && (
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setAudiobookScope("book")}
-                className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
-                  audiobookScope === "book"
-                    ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-accent-foreground"
-                    : "border-border bg-card text-muted-foreground hover:bg-background"
-                }`}
-              >
-                Whole book
-              </button>
-              <button
-                type="button"
-                onClick={() => setAudiobookScope("current")}
-                className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
-                  audiobookScope === "current"
-                    ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-accent-foreground"
-                    : "border-border bg-card text-muted-foreground hover:bg-background"
-                }`}
-              >
-                Current chapter
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAudiobookScope("selected");
-                  setIsAudiobookChapterPickerOpen(true);
-                  if (selectedChapterId) {
-                    setAudiobookSelectedChapterIds((prev) => (
-                      prev.includes(selectedChapterId) ? prev : [...prev, selectedChapterId]
-                    ));
-                  }
-                }}
-                className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
-                  audiobookScope === "selected"
-                    ? "border-[#907AFF]/40 bg-[#907AFF]/10 text-accent-foreground"
-                    : "border-border bg-card text-muted-foreground hover:bg-background"
-                }`}
-              >
-                Select chapter
-              </button>
-            </div>
-          )}
-
-          {/* Chapter picker for selected scope */}
-          {audiobookScope === "selected" && (
-            <div className="mt-3 rounded-xl border border-border bg-white/70 p-3 dark:border-border dark:bg-card">
-              <button
-                type="button"
-                onClick={() => setIsAudiobookChapterPickerOpen((prev) => !prev)}
-                className="mb-2 w-full rounded-lg border border-border bg-card px-3 py-2 text-left text-xs font-medium text-foreground transition hover:bg-background dark:border-border dark:bg-card dark:text-foreground"
-              >
-                {isAudiobookChapterPickerOpen ? "Hide chapter list" : "Show chapter list"}
-              </button>
-              {isAudiobookChapterPickerOpen && (
-                <>
-                  <div className="mb-2 flex flex-wrap gap-2">
-                    <button type="button" onClick={() => setAudiobookSelectedChapterIds(chapters.map((ch) => ch.id))} className="rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-background">Select all</button>
-                    <button type="button" onClick={() => setAudiobookSelectedChapterIds([])} className="rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-background">Clear</button>
-                  </div>
-                  <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
-                    {chapters.map((chapter) => (
-                      <label key={chapter.id} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs text-foreground hover:bg-background">
-                        <input
-                          type="checkbox"
-                          checked={audiobookSelectedChapterIds.includes(chapter.id)}
-                          onChange={() => setAudiobookSelectedChapterIds((prev) => prev.includes(chapter.id) ? prev.filter((id) => id !== chapter.id) : [...prev, chapter.id])}
-                          className="h-3.5 w-3.5 rounded border-border text-accent-foreground focus:ring-[#907AFF]"
-                        />
-                        <span className="truncate">{chapter.title || "Untitled chapter"}</span>
-                      </label>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Control buttons during generation */}
-          {isAudiobookActive && (
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              <button type="button" onClick={() => void handleAudiobookControl("pause")} disabled={!canPauseAudiobook} className="rounded-full border border-border bg-card px-3 py-2 text-xs font-medium text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-50">
-                {audiobookControlPending === "pause" ? "Pausing..." : "Pause"}
-              </button>
-              <button type="button" onClick={() => void handleAudiobookControl("resume")} disabled={!canResumeAudiobook} className="rounded-full border border-border bg-card px-3 py-2 text-xs font-medium text-foreground transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-50">
-                {audiobookControlPending === "resume" ? "Resuming..." : "Resume"}
-              </button>
-              <button type="button" onClick={() => void handleAudiobookControl("cancel")} disabled={!canCancelAudiobook} className="rounded-full border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50">
-                {audiobookControlPending === "cancel" ? "Cancelling..." : "Cancel"}
-              </button>
-            </div>
-          )}
-
-          {!audiobookFeatureEnabled && (
-            <p className="mt-2 text-xs text-muted-foreground dark:text-muted-foreground">
-              Audiobook generation is temporarily disabled.
-            </p>
-          )}
-        </div>
-
-        {/* Right card: Languages */}
-        <div className="rounded-2xl border border-border bg-card p-6 dark:border-border dark:bg-card">
-          <h3 className="text-xl font-semibold text-foreground dark:text-foreground">Audiobook in more languages:</h3>
-          <AudiobookLanguageList
-            bookLanguage={bookLanguage}
-            bookOriginalLanguage={bookOriginalLanguage}
-            audiobookSelectedLanguages={audiobookSelectedLanguages}
-            setAudiobookSelectedLanguages={setAudiobookSelectedLanguages}
-          />
-        </div>
-      </div>
-
-      {/* Audiobook checkout modal */}
-      <AudiobookCheckoutModal
-        open={audiobookCheckoutModalOpen}
-        onClose={() => setAudiobookCheckoutModalOpen(false)}
-        audiobookError={audiobookError}
-        audiobookCheckoutLoading={audiobookCheckoutLoading}
-        onCheckout={() => void handleAudiobookCheckout()}
-      />
-
-      {/* Generated audiobook player (manifest-based) */}
-      {shouldShowGeneratedAudiobookPlayer && !fallbackGeneratedAudiobookUrl && latestAudiobookManifestUrl && (
-        <div className="mt-2">
-          <ManifestAudiobookPlayer bookId={bookId} manifestUrl={latestAudiobookManifestUrl} />
-        </div>
+      {showManifest ? (
+        <section className={styles.completedAudio} aria-label="Generated audiobook">
+          <div className={styles.sectionHeading}><div><h3>Your audio edition</h3><p>Listen through each chapter before publishing.</p></div><Headphones size={22} aria-hidden /></div>
+          <ManifestAudiobookPlayer bookId={bookId} manifestUrl={latestAudiobookManifestUrl!} />
+        </section>
+      ) : (
+        <AudiobookPreviewPlayer
+          key={`${bookId}:${activeVersion?.id ?? activeLanguage}`}
+          audioUrl={shouldShowGeneratedAudiobookPlayer ? fallbackGeneratedAudiobookUrl : null}
+          bookId={bookId}
+          versionId={activeVersion?.id}
+          onRefreshAudioUrl={refreshAudioUrl}
+          previewEnabled={audiobookFeatureEnabled && !languageUnavailable}
+        />
       )}
+
+      <div className={styles.creationLayout}>
+        <section className={styles.manuscript} aria-labelledby="audio-chapters-heading">
+          <div className={styles.sectionHeading}><div><h3 id="audio-chapters-heading">Choose your chapters</h3><p>{billingIsProActive ? "Create the whole book, or work a chapter at a time." : "Pay per book, or use PRO for chapter-level control."}</p></div><span className={styles.chapterCount}>{chapters.length}</span></div>
+          {!hasManuscript ? (
+            <div className={styles.empty}><h4>Start with your manuscript</h4><p>Add a chapter with text before creating an audiobook.</p><Link href={`/author/books/${bookId}?panel=edit&lang=${encodeURIComponent(languageCode)}`} className={styles.textLink}>Open writing <ArrowRight size={15} aria-hidden /></Link></div>
+          ) : (
+            <>
+              {billingIsProActive ? (
+                <div className={styles.scope} role="group" aria-label="Chapters to generate">
+                  <button type="button" aria-pressed={scope === "book"} onClick={() => setAudiobookScope("book")}>Whole book</button>
+                  <button type="button" aria-pressed={scope === "current"} onClick={() => setAudiobookScope("current")}>Current chapter</button>
+                  <button type="button" aria-pressed={scope === "selected"} onClick={() => {
+                    setAudiobookScope("selected");
+                    setIsAudiobookChapterPickerOpen(true);
+                    if (selectedChapterId) setAudiobookSelectedChapterIds((prev) => prev.includes(selectedChapterId) ? prev : [...prev, selectedChapterId]);
+                  }}>Choose chapters</button>
+                </div>
+              ) : <p className={styles.fullBookNote}>Whole book · {chapters.length} chapters</p>}
+
+              {scope === "selected" ? (
+                <div className={styles.chapterPicker}>
+                  <div className={styles.chapterActions}>
+                    <button type="button" aria-expanded={isAudiobookChapterPickerOpen} aria-controls="audio-chapter-list" onClick={() => setIsAudiobookChapterPickerOpen((prev) => !prev)}>{isAudiobookChapterPickerOpen ? "Hide chapter list" : "Show chapter list"}</button>
+                    <span>{includedChapters.length} selected</span>
+                  </div>
+                  {isAudiobookChapterPickerOpen && <>
+                    <div className={styles.selectionActions}><button type="button" onClick={() => setAudiobookSelectedChapterIds(chapters.map((chapter) => chapter.id))}>Select all</button><button type="button" onClick={() => setAudiobookSelectedChapterIds([])}>Clear</button></div>
+                    <div id="audio-chapter-list" className={styles.chapterList}>
+                      {chapters.map((chapter, index) => <label key={chapter.id} className={styles.chapterRow}>
+                        <input type="checkbox" checked={audiobookSelectedChapterIds.includes(chapter.id)} onChange={() => setAudiobookSelectedChapterIds((prev) => prev.includes(chapter.id) ? prev.filter((id) => id !== chapter.id) : [...prev, chapter.id])} />
+                        <span className={styles.chapterNumber}>{String(index + 1).padStart(2, "0")}</span><span>{chapter.title || `Chapter ${index + 1}`}</span>
+                      </label>)}
+                    </div>
+                  </>}
+                  {includedChapters.length === 0 && <p className={styles.hint}>Select at least one chapter to continue.</p>}
+                </div>
+              ) : (
+                <div className={styles.chapterSummary}>
+                  <span className={styles.chapterNumber}>{scope === "current" ? String(Math.max(0, chapters.findIndex((chapter) => chapter.id === selectedChapterId) + 1)).padStart(2, "0") : String(chapters.length).padStart(2, "0")}</span>
+                  <div><strong>{scope === "current" ? includedChapters[0]?.title || "No chapter selected" : "Every chapter, in order"}</strong><p>{scope === "current" ? "Only this chapter will be generated." : "Narration follows the chapter order in your manuscript."}</p></div>
+                </div>
+              )}
+            </>
+          )}
+          <section className={styles.languages} aria-labelledby="audio-language-heading">
+            <Globe2 size={20} aria-hidden /><div><h4 id="audio-language-heading">Take it into another language</h4><p>This audiobook uses your active {language} edition. To create audio in another language, translate the book and open that edition first.</p><Link href={`/author/books/${bookId}?panel=translate&lang=${encodeURIComponent(languageCode)}`} className={styles.textLink}>Open Translate <ArrowRight size={15} aria-hidden /></Link></div>
+          </section>
+        </section>
+
+        <aside className={styles.production} aria-labelledby="audio-generation-heading">
+          <div className={styles.productionHeading}><h3 id="audio-generation-heading">Ready to create?</h3><Headphones size={20} aria-hidden /></div>
+          <dl className={styles.facts}>
+            <div><dt>Edition</dt><dd>{language}</dd></div>
+            <div><dt>Chapters</dt><dd>{includedChapters.length} of {chapters.length}</dd></div>
+            <div><dt>Estimated listening time</dt><dd>{durationLabel}</dd></div>
+            <div><dt>Estimated generation</dt><dd>{words > 0 ? `~${Math.max(1, Math.round(minutes * 0.15))}min` : "—"}</dd></div>
+          </dl>
+          <p className={styles.estimateNote}>Estimates vary with narration pace and chapter length.</p>
+          <div className={styles.accessNote}>{billingLoading ? <><Loader2 size={16} className={styles.spin} aria-hidden />Checking subscription…</> : billingIsProActive ? <><Check size={16} aria-hidden />Included in your PRO plan</> : <><span>299 kr</span> per full audiobook</>}</div>
+
+          {isAudiobookActive && <div className={styles.progress} aria-live="polite">
+            <div><strong>{getAudiobookStatusLabel(audiobookStatusUi)}</strong><span>{progress ? `${progress.completedChapters} / ${progress.totalChapters}` : "Queued"}</span></div>
+            <div className={styles.progressTrack} role="progressbar" aria-label="Audiobook generation" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(percent)}><span style={{ width: `${percent}%` }} /></div>
+            <p>{progress?.currentChapterTitle ?? "Preparing your chapters…"}</p><p>{audiobookEtaText ?? "Estimating remaining time…"}</p>
+          </div>}
+          {error && <p role="alert" className={styles.error}>{error}</p>}
+          {audiobookStatusUi === "cancelled" && <p role="status" className={styles.hint}>{effectiveAudiobookError ?? "Generation cancelled."}</p>}
+          {!isAudiobookActive && audiobookStatusUi !== "idle" && <p role="status" className={styles.status}>{getAudiobookStatusLabel(audiobookStatusUi)}</p>}
+
+          <button type="button" onClick={() => void handleGenerateAudiobook()} disabled={cannotGenerate} className={styles.generate}>
+            {isAudiobookActive ? <Loader2 size={17} className={styles.spin} aria-hidden /> : <Headphones size={17} aria-hidden />}
+            {languageUnavailable ? "Audio unavailable for this language" : !audiobookFeatureEnabled ? "Generation unavailable" : billingLoading ? "Checking subscription…" : isAudiobookActive ? "Generation in progress" : billingIsProActive ? "Generate audiobook" : "Continue to payment"}
+          </button>
+          {isAudiobookActive && <div className={styles.jobControls}>
+            <button type="button" onClick={() => void handleAudiobookControl("pause")} disabled={!canPauseAudiobook}>{audiobookControlPending === "pause" ? "Pausing…" : "Pause"}</button>
+            <button type="button" onClick={() => void handleAudiobookControl("resume")} disabled={!canResumeAudiobook}>{audiobookControlPending === "resume" ? "Resuming…" : "Resume"}</button>
+            <button type="button" onClick={() => void handleAudiobookControl("cancel")} disabled={!canCancelAudiobook}>{audiobookControlPending === "cancel" ? "Cancelling…" : "Cancel"}</button>
+          </div>}
+          <p className={styles.hint}>{!audiobookFeatureEnabled ? "Audiobook generation is temporarily disabled." : "Creating audio does not publish your book. Listen and review before publishing."}</p>
+        </aside>
+      </div>
+      <AudiobookCheckoutModal open={audiobookCheckoutModalOpen && !languageUnavailable} onClose={() => setAudiobookCheckoutModalOpen(false)} audiobookError={audiobookError} audiobookCheckoutLoading={audiobookCheckoutLoading} onCheckout={() => void handleAudiobookCheckout()} />
     </div>
   );
 }

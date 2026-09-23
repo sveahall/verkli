@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { apiError, E_DATABASE_ERROR, E_JOB_FETCH_FAILED } from "@/lib/api-errors";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
+import { validateAudiobookStoragePath } from "@/lib/tts/validate-storage-path";
 import { normalizeJobStatus } from "@/lib/job-status";
 import { sanitizeJobError } from "@/lib/sanitize-job-error";
 
@@ -28,14 +29,6 @@ type AuthorJob = {
 
 const SIGNED_URL_TTL_SECONDS = 60 * 15;
 
-function normalizePreviewPath(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (/^https?:\/\//i.test(trimmed)) return null;
-  return trimmed;
-}
-
 function isManifestPath(path: string | null): boolean {
   return Boolean(path && path.toLowerCase().endsWith(".json"));
 }
@@ -56,9 +49,7 @@ async function signStoragePath(
   if (error || !data?.signedUrl) {
     console.error(logPrefix, {
       ...logMeta,
-      bucket,
-      path,
-      message: error?.message ?? "missing signedUrl",
+      message: error ? "Storage signing failed" : "Storage response missing signed URL",
     });
     return null;
   }
@@ -194,13 +185,12 @@ export async function GET() {
 
   const latestAssetByBookId = new Map<
     string,
-    { audioPath: string | null; audioBucket: string | null }
+    { audioPath: string | null }
   >();
   for (const asset of audiobookAssetsResult.data ?? []) {
-    if (latestAssetByBookId.has(asset.book_id)) continue;
+    if (!bookTitleById.has(asset.book_id) || latestAssetByBookId.has(asset.book_id)) continue;
     latestAssetByBookId.set(asset.book_id, {
-      audioPath: normalizePreviewPath(asset.audio_path),
-      audioBucket: asset.audio_bucket ?? null,
+      audioPath: validateAudiobookStoragePath(asset.audio_path, asset.audio_bucket, asset.book_id, "[author jobs]"),
     });
   }
 
@@ -215,11 +205,10 @@ export async function GET() {
         return;
       }
 
-      const bucket = asset.audioBucket?.trim() || defaultBucket;
       const signedUrl = await signStoragePath(
         admin,
         asset.audioPath,
-        bucket,
+        defaultBucket,
         "[author jobs] preview sign failed",
         { bookId }
       );
@@ -233,7 +222,7 @@ export async function GET() {
 
   const audiobookJobs: AuthorJob[] = await Promise.all(
     (audiobookJobsResult.data ?? [])
-      .filter((row) => typeof row.book_id === "string" && row.book_id.length > 0)
+      .filter((row) => typeof row.book_id === "string" && bookTitleById.has(row.book_id))
       .map(async (row) => {
         const status = normalizeJobStatus(row.status);
         const bookId = row.book_id as string;
@@ -242,22 +231,14 @@ export async function GET() {
             ? (row.output as Record<string, unknown>)
             : {};
         const safeError = sanitizeJobError(row.error);
-        const audioPath = normalizePreviewPath(output.audioPath);
-        const audioBucket =
-          typeof output.audioBucket === "string" && output.audioBucket.trim().length > 0
-            ? output.audioBucket.trim()
-            : defaultBucket;
-        const manifestPath = normalizePreviewPath(output.manifestPath);
-        const manifestBucket =
-          typeof output.manifestBucket === "string" && output.manifestBucket.trim().length > 0
-            ? output.manifestBucket.trim()
-            : defaultBucket;
-        const generatedChapterAudioPath = normalizePreviewPath(output.generatedChapterAudioPath);
-        const generatedChapterAudioBucket =
-          typeof output.generatedChapterAudioBucket === "string" &&
-          output.generatedChapterAudioBucket.trim().length > 0
-            ? output.generatedChapterAudioBucket.trim()
-            : defaultBucket;
+        const audioBucket = defaultBucket;
+        const manifestBucket = defaultBucket;
+        const generatedChapterAudioBucket = defaultBucket;
+        const audioPath = validateAudiobookStoragePath(output.audioPath, output.audioBucket, bookId, "[author jobs]");
+        const manifestPath = validateAudiobookStoragePath(output.manifestPath, output.manifestBucket, bookId, "[author jobs]");
+        const generatedChapterAudioPath = validateAudiobookStoragePath(
+          output.generatedChapterAudioPath, output.generatedChapterAudioBucket, bookId, "[author jobs]"
+        );
         const [audioUrl, manifestUrl, generatedChapterAudioUrl] = await Promise.all([
           signStoragePath(admin, audioPath, audioBucket, "[author jobs] output audio sign failed", {
             bookId,
@@ -293,8 +274,7 @@ export async function GET() {
           previewUrl:
             generatedChapterAudioUrl ??
             audioUrl ??
-            assetPreview.audioUrl ??
-            (typeof output.audioUrl === "string" ? output.audioUrl : null),
+            assetPreview.audioUrl,
           logSummary: getAudiobookLogSummary(status, output, safeError),
           createdAt: row.created_at ?? null,
           startedAt: row.started_at ?? null,
@@ -305,6 +285,12 @@ export async function GET() {
               ? (row.input as Record<string, unknown>)
               : {}),
             ...output,
+            audioPath,
+            audioBucket,
+            manifestPath,
+            manifestBucket,
+            generatedChapterAudioPath,
+            generatedChapterAudioBucket,
             audioUrl,
             manifestUrl: manifestUrl ?? assetPreview.manifestUrl,
             generatedChapterAudioUrl,

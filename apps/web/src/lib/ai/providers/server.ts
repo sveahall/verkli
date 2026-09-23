@@ -26,6 +26,7 @@ export { AIProviderError } from "./types";
 // Provider instances
 import { opusTranslator } from "./opus-translator";
 import { nvidiaRivaTranslator } from "./nvidia-riva-translator";
+import { anthropicTranslator } from "./anthropic-translator";
 import { ChainTranslator } from "./chain-translator";
 import { getProviderForPair } from "@/lib/translation-pairs";
 import type { TranslatorProvider } from "./types";
@@ -52,6 +53,7 @@ export function getTranslatorForPair(source: string, target: string): Translator
   const provider = getProviderForPair(source, target);
   if (provider === "opus") return opusTranslator;
   if (provider === "nvidia-riva") return nvidiaRivaTranslator;
+  if (provider === "anthropic") return anthropicTranslator;
   if (provider === "chain") {
     const src = source.toLowerCase();
     // sv → target: Opus (sv→en) then Riva (en→target)

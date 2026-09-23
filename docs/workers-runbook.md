@@ -15,7 +15,7 @@ redis-cli -u redis://localhost:6379 ping
 
 ## 2. Required Environment Variables
 
-All workers read from `apps/web/.env.local`:
+Local workers load `apps/web/.env.local`; production receives its environment from the deployment service. Never copy credentials into logs or this document.
 
 | Variable | Required by | Notes |
 |----------|------------|-------|
@@ -29,12 +29,11 @@ All workers read from `apps/web/.env.local`:
 
 ## 3. Start Workers
 
-From repo root:
+Production runs one worker per Railway service; see the dated inventory in
+[railway-deployment.md](./railway-deployment.md). Restart or deploy the intended
+service only. From repo root, isolate a queue locally with:
 
 ```bash
-npm run start-workers      # canonical unified runtime
-
-# or start a single worker when debugging one queue
 npm run import-worker      # book-import-extract queue
 npm run translate-worker   # book-translation queue
 npm run audiobook-worker   # audiobook-generation queue
@@ -43,9 +42,11 @@ npm run audiobook-worker   # audiobook-generation queue
 Additional single-worker scripts are available for `marketing`, `social-publish`,
 `recommendations`, and `notifications`.
 
-The canonical production path is the unified runtime in
-`apps/web/scripts/start-workers.ts`; single-worker scripts are primarily for
-local isolation and debugging.
+`npm run start-workers` imports all seven consumers unconditionally. It can
+start paid marketing generation and external social publishing, including
+already queued work; it also duplicates consumers if the separate services are
+running. Do not use it as a production health repair. A currently empty queue
+does not make starting an additional consumer a read-only operation.
 
 ## 4. Worker Hardening Config (Beta)
 
@@ -53,31 +54,42 @@ local isolation and debugging.
 |--------|------------|-----------------|--------------|-----------------|---------|---------|
 | Import | 3 | 30s | default | 2 | 2 | 2s exp |
 | Translation | 2 | 30s | default | 2 | 3 | 5s exp |
-| Audiobook | 2 | 120s | 600s | 2 | 3 | 10s exp |
+| Audiobook | 1 by default (`TTS_CONCURRENCY`, bounded 1–4) | 120s | 3,660s | 2 | 3 | 10s exp |
 
 ### Safety features per worker
 
 - **All workers**: Idempotent job IDs at enqueue, processor-level dedupe before work
-- **Translation**: Budget gate (100k tokens/day, 3M/month per user), `UnrecoverableError` for bad input
-- **Audiobook**: Budget gate, hard timeout (5min/chapter), `UnrecoverableError` for auth failures
+- **Translation**: Redis daily budget and per-job size cap, `UnrecoverableError` for bad input
+- **Audiobook**: Redis daily budget, per-job size cap and bounded chapter timeout (`TTS_TIMEOUT_MS`), `UnrecoverableError` for auth failures
 
 ## 5. Budget Tracking
 
-Budget counters are **in-memory per process**. Restarting a worker resets counters.
-This is acceptable for Beta (single-instance). For production, migrate to Redis INCRBY
-with TTL-based keys (see `src/lib/workers/budget.ts` header comment).
+The shared guard in `apps/web/src/lib/workers/budget.ts` reserves units atomically in Redis per user, pipeline and UTC day. Restarting a worker does **not** reset usage. The next UTC day uses a new key; old keys live one extra hour for diagnosis. A stable job reservation marker prevents charging that same reservation twice on retry. Actual provider retries can still cost money; the caller must reserve all intended calls appropriately.
 
-Defaults: 100 000 tokens/day, 3 000 000 tokens/month per userId.
+| Pipeline | Daily allowance | Per-job cap |
+|----------|-----------------|-------------|
+| Translation | `TRANSLATION_DAILY_BUDGET` (default 500,000 units) | `TRANSLATION_JOB_CAP_CHARS` (default 1,000,000 characters) |
+| TTS | `TTS_DAILY_BUDGET` (default 500,000 units) | `TTS_JOB_CAP_CHARS` (default 50,000 characters) |
+| Video | `VIDEO_DAILY_BUDGET` (default 100 units) | `VIDEO_JOB_CAP_UNITS` (default 5) |
+| Editorial review | `EDITORIAL_DAILY_BUDGET`, explicit positive safe integer required | Editorial request/size validation also applies |
+| Marketing | `MARKETING_DAILY_BUDGET`, explicit positive safe integer required | `MARKETING_JOB_CAP_UNITS`, explicit positive safe integer required |
+
+These are technical units selected by callers, **not SEK, invoices, a monthly budget or a platform-wide spending ceiling**. Editorial/marketing use conservative token bounds. Missing editorial/marketing configuration fails closed. Redis must be reachable; do not bypass the guard or delete budget keys to make a failed job run. Set approved limits consistently on web and worker services before enabling those features. Provider limits, concurrency and actual usage require separate monitoring.
+
+Editorial review and single marketing drafts run synchronously in the web
+service. Editorial has no separate worker. Campaign generation additionally
+requires the marketing consumer and its budget configuration. Budget limits
+apply per user, pipeline and UTC day, so enabling an allowance in production
+affects every eligible user rather than one internal test account.
 
 ## 6. Stalled Jobs — How It Works
 
-A job is **stalled** when the worker stops sending heartbeats to Redis. BullMQ checks
-every `stalledInterval` ms. If a job has no heartbeat, it is marked stalled.
+A job becomes eligible for **stalled** recovery when its BullMQ job lock is missing or expires. BullMQ checks periodically using `stalledInterval`; the separate health heartbeat is not that job lock. Lock expiry and the next stalled check both affect recovery time.
 
 **`maxStalledCount`** controls how many times a job can stall before it moves to `failed`:
 
 ```
-Job starts → worker crashes → no heartbeat for stalledInterval
+Job starts → worker crashes → its job lock expires → a stalled check detects it
   → BullMQ marks job stalled (stall count = 1)
   → If stall count <= maxStalledCount: job is retried automatically
   → If stall count > maxStalledCount: job moves to failed permanently
@@ -85,9 +97,9 @@ Job starts → worker crashes → no heartbeat for stalledInterval
 
 | Worker | stalledInterval | maxStalledCount | Meaning |
 |--------|----------------|-----------------|---------|
-| Import | 30s | 2 | Retried up to 2x after 30s silence |
-| Translation | 30s | 2 | Same |
-| Audiobook | 120s | 2 | Retried up to 2x after 2min silence (longer because TTS is slow) |
+| Import | 30s | 2 | Periodic check; recovery also waits for lock expiry |
+| Translation | 30s | 2 | Periodic check; recovery also waits for lock expiry |
+| Audiobook | 120s | 2 | Periodic check with a 3,660s job lock; not a promise of recovery in two minutes |
 
 This is separate from `attempts` (retry on thrown errors). A job can exhaust both
 stall retries AND error retries independently.
@@ -112,10 +124,11 @@ HGETALL bull:book-import-extract:{job-id}
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
-| Jobs stuck in `active` | Worker crashed mid-job | Restart worker. BullMQ auto-retries after `stalledInterval` |
+| Jobs stuck in `active` | Worker crashed mid-job | Restart worker. BullMQ recovery requires the old lock to expire and a subsequent stalled check |
 | Jobs move to `failed` after stall | `maxStalledCount` exceeded | Check worker logs for OOM/crash. Increase memory or reduce concurrency |
-| Audiobook job stalls after 5min | Chapter TTS timeout | Check TTS binary. Reduce chapter length or increase timeout |
-| `BudgetExceededError` in logs | User hit daily/monthly limit | Wait for reset (midnight UTC / month rollover) or restart worker to clear in-memory counters |
+| Audiobook generation times out | Bounded chapter TTS timeout | Check provider/worker logs and chapter size before changing the approved timeout |
+| `BudgetExceededError` in logs | User/pipeline daily allowance exhausted | Wait until the next UTC day or obtain an approved allowance change; restart does not clear Redis usage |
+| `BudgetConfigurationError` in logs | Required editorial/marketing allowance missing or invalid | Configure the named positive integer on the service that makes the reservation |
 | `UnrecoverableError` in logs | Bad input data (wrong book ID, auth mismatch) | Job will NOT retry. Fix the input data and re-enqueue |
 
 ### Manually re-enqueue a failed job
@@ -132,33 +145,20 @@ curl -X POST http://localhost:3000/api/books/{bookId}/translate \
   -d '{"targetLanguage":"en"}'
 ```
 
-### Clear a single hung job
+### Recover a single hung job or stop new work
 
-```bash
-redis-cli -u $REDIS_URL
+Record the job ID, queue state, matching `ai_jobs` status, reservation and error first. Check whether its worker still holds the lock. Restart a failed worker and allow BullMQ's configured stall recovery to run; do not edit the `active`/`wait` lists or delete a job hash directly. These keys form a coordinated data structure, and deleting only some of them can orphan work and lose its recovery evidence.
 
-# 1. Find the job ID (from logs or DB ai_jobs table)
-# 2. Remove it from the active set
-LREM bull:audiobook-generation:active 0 {job-id}
+Before a terminal job is retried, verify whether it already wrote chapters or audio and whether it owns the current database claim. Use the application's explicit retry action once that state is understood. A new job ID may reserve a new allowance and invoke a paid provider again.
 
-# 3. Delete the job hash
-DEL bull:audiobook-generation:{job-id}
-
-# 4. Optionally move it to failed for tracking
-# (or just delete — it won't be retried)
-```
-
-Alternatively, re-deploy the worker. On startup BullMQ reclaims orphaned active
-jobs and processes them through the stall mechanism normally.
-
-### Drain a queue (emergency)
-
-```bash
-redis-cli -u $REDIS_URL
-DEL bull:book-import-extract:wait bull:book-import-extract:active
-# Repeat for other queues as needed
-```
+For an incident, stop new submissions through the appropriate feature control, retain queue/job data, and have the release operator pause or recover the specific queue using BullMQ's supported operations. Changing concurrency, deleting jobs, or clearing budgets is not a routine recovery step.
 
 ## 7. Monitoring
 
-Worker health is exposed at `GET /api/health/queue`. Returns Redis connectivity and queue sizes.
+Use `GET /api/health/workers` with an admin session or the configured `x-ops-health-token`. Inspect `redis.connected`, `queueDepths`, `heartbeats` and `crashed`; `queueDepths[name]=null` means that queue could not be read (inspect service logs). The aggregate metrics can still contain zeros in that case. HTTP 200 alone only establishes Redis availability here, not successful jobs. The public `/api/health` only proves the web process/version. A completed import/translation/audio journey needs its own job and output evidence. See [INCIDENT_RUNBOOK.md](./INCIDENT_RUNBOOK.md).
+
+The notifications queue currently has no producer (`scripts/check-queue-consumers.ts`,
+`NO_PRODUCER`). Follow/comment notifications are inserted directly by
+`src/lib/notifications/server.ts`; starting the queue consumer does not verify
+that path or deliver email/push. Assess intentionally inactive queues separately
+from a missing consumer for an enabled feature.

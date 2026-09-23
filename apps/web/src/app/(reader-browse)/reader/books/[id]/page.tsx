@@ -72,6 +72,8 @@ const getBookVersions = cache(async (bookId: string) => {
     .from("book_versions")
     .select("id, language_code, published_at")
     .eq("book_id", bookId)
+    // Owners can also see drafts through RLS; they must not shadow a live translation.
+    .not("published_at", "is", null)
     .order("created_at", { ascending: true });
   return data ?? [];
 });

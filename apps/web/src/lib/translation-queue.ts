@@ -11,6 +11,8 @@
  */
 
 import { Queue } from "bullmq";
+import { randomUUID } from "node:crypto";
+import { REVIEWED_TRANSLATION_PROTOCOL } from "./translation-commit";
 import { getRedisConnectionOptions, getRedisUrl } from "@/lib/env";
 import { QUEUE_NAMES } from "@/lib/queue-names";
 
@@ -60,6 +62,9 @@ export function getTranslationQueue(): Queue | null {
 }
 
 export type TranslationJobData = {
+  /** Service-generated recovery identity, persisted atomically with the queue entry. */
+  reviewedRunId?: string;
+  reviewedQueueProtocol?: string;
   bookId: string;
   sourceLanguage?: string | null;
   sourceVersionId: string;
@@ -133,7 +138,7 @@ export async function enqueueTranslationJob(data: TranslationJobData): Promise<s
     }
   }
   try {
-    const job = await q.add("translate", data, { jobId });
+    const job = await q.add("translate", { ...data, reviewedRunId: randomUUID(), reviewedQueueProtocol: REVIEWED_TRANSLATION_PROTOCOL }, { jobId });
     const id = job.id ?? null;
     if (id) {
       console.info(

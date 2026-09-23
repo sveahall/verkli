@@ -58,13 +58,13 @@ Alert definitions live in `infra/alerting/alerts.yml`. The deprecated endpoints 
 
 3. **Investigate failed jobs**
    - Check application logs for the failing queue (e.g. `[import worker] job failed`, `BudgetExceededError`, `UnrecoverableError`).
-   - **BudgetExceededError:** User hit daily/monthly token limit. See [AI budget breach](#ai-budget-breach). Jobs will not succeed until reset or limit change.
+   - **BudgetExceededError:** The user/pipeline exhausted its daily allowance. See [AI budget breach](#ai-budget-breach). Jobs will not succeed until the next UTC day or an approved limit change.
    - **UnrecoverableError:** Bad input or auth; job will not retry. Fix data or re-enqueue a corrected job via the API (e.g. re-trigger import or translation from the app).
    - **Transient errors:** Failed jobs may be retried automatically (BullMQ `attempts`). If jobs are already in `failed` and should be retried, re-trigger the operation from the API (e.g. re-upload, re-request translation/audiobook).
 
 4. **Drain or pause (optional)**
    - If you need to stop accepting new work temporarily, disable or rate-limit the API routes that enqueue jobs. Existing queued jobs will still be processed by running workers.
-   - Emergency drain: see `docs/workers-runbook.md` (e.g. Redis DEL of wait/active sets). Use only when you understand the impact.
+   - Preserve queue/job state. Use BullMQ's supported pause/recovery operations through the release operator; do not delete Redis wait/active sets or job hashes directly. See `docs/workers-runbook.md`.
 
 5. **Monitor**
    - Watch `queueMetrics.totals.queueDepth` and `queueMetrics.totals.failedJobs` (or per-queue in `queueMetrics.queues`) until they return to normal. Alerting should fire if thresholds are exceeded (see `infra/alerting/alerts.yml`).
@@ -73,10 +73,10 @@ Alert definitions live in `infra/alerting/alerts.yml`. The deprecated endpoints 
 
 ## Redis outage handling
 
-**When:** `GET /api/health/workers` returns `redis: false` or HTTP 503.
+**When:** `GET /api/health/workers` returns `redis.connected: false` or HTTP 503.
 
 **Symptoms:**
-- All queue metrics show zeros or errors; `redis` is false.
+- Inspect `redis.connected` and `queueDepths`: a null queue depth indicates a failed read; consult service logs for the error. Aggregate metrics may still show zero, which is not proof of an empty queue.
 - Workers cannot connect to Redis; logs show connection timeouts or "Redis not reachable".
 - Enqueue operations fail; jobs are not processed.
 
@@ -104,21 +104,22 @@ Alert definitions live in `infra/alerting/alerts.yml`. The deprecated endpoints 
 
 ## AI budget breach
 
-**When:** Users hit daily or monthly token limits; jobs fail with `BudgetExceededError`; or you see an unexpected spike in AI usage/cost.
+**When:** A user/pipeline exhausts its daily allowance, configuration is missing, or provider usage/cost increases unexpectedly.
 
 **Symptoms:**
-- Translation or audiobook jobs failing; logs show `BudgetExceededError` and message like "Budget exceeded for … daily usage X >= limit Y".
+- Translation or audiobook jobs fail with `BudgetExceededError`, or editorial/marketing reports `BudgetConfigurationError` before invoking a provider.
    - `GET /api/health/workers` may show elevated `queueMetrics.queues["book-translation"].failedJobs` or `queueMetrics.queues["audiobook-generation"].failedJobs`.
 - Unusual cost or usage on OpenAI/Anthropic (or other provider) dashboard.
 
 **Steps:**
 
 1. **Confirm budget breach**
-   - Check logs for `BudgetExceededError` and the key (e.g. userId/authorId) and period (daily/monthly).
-   - Budget is enforced in-memory per worker (see `apps/web/src/lib/workers/budget.ts`). Restarting a worker resets its in-memory counters; limits are per key per day/month.
+   - Check the feature-prefixed error, pipeline, job ID, UTC day and configured limit. Keep user IDs and manuscript text out of shared incident reports.
+   - The shared guard uses atomic Redis reservations per user/pipeline/UTC day (`apps/web/src/lib/workers/budget.ts`). Restarting a worker does not reset them.
 
 2. **Immediate mitigation**
-   - **Expected limit:** Limits are in place to control cost. Users must wait until daily (midnight UTC) or monthly rollover, or you can increase limits via env `AI_BUDGET_DAILY_TOKENS` / `AI_BUDGET_MONTHLY_TOKENS` and restart workers.
+   - **Expected limit:** Wait until the next UTC day or obtain an approved limit change. Use the actual pipeline environment variables in the [worker budget table](./workers-runbook.md#5-budget-tracking); the shared guard has no monthly or global monetary cap.
+   - **Missing configuration:** Set the required approved editorial/marketing limits consistently on web and worker services. Do not fall back to an invented allowance.
    - **Runaway usage:** If one key is consuming far more than intended, consider temporarily blocking that key in application logic or disabling the feature for that user until investigated.
 
 3. **Cost spike (no single user breach)**
@@ -126,7 +127,7 @@ Alert definitions live in `infra/alerting/alerts.yml`. The deprecated endpoints 
    - Check provider dashboard for rate limits or errors. Scale workers or concurrency only if Redis and downstream services can handle it; otherwise use rate limiting or backpressure at the API.
 
 4. **Production note**
-   - Budget counters are currently in-memory per process. For multi-instance production, migrate to Redis-backed counters (e.g. `budget:{userId}:{YYYY-MM-DD}` with TTL) as noted in `budget.ts` and `docs/workers-runbook.md`.
+   - Counters are already shared in Redis. Inspect provider billing separately: reservation units are not currency, and a retry can invoke a provider again. Never clear reservation keys to bypass a limit.
 
 5. **Document**
    - Note the key, limit, and time window. Update runbook or alerting if you change thresholds or add new limits.
@@ -141,7 +142,15 @@ Alert definitions live in `infra/alerting/alerts.yml`. The deprecated endpoints 
 | `GET /api/health/metrics/queue` | Queue metrics only (deprecated; use `/api/health/workers`) |
 | `GET /api/health/workers/crashes` | Heartbeats and crashed list only (deprecated; use `/api/health/workers`) |
 
+HTTP 200 from the canonical endpoint does not mean every worker is healthy. Inspect null `queueDepths` entries, service logs, stale/crashed heartbeats and expected worker presence. Record a job ID and its verified output for each end-to-end smoke test.
+
 Heartbeat thresholds (env): `HEARTBEAT_INTERVAL_MS` (default 30000), `HEARTBEAT_STALE_MS` (default 180000). See `apps/web/src/lib/health/worker-heartbeat.ts`.
+
+## Backup and restore evidence
+
+No restore drill is certified by this runbook. Before a launch owner marks recovery ready, record the actual backup timestamp and retention, database **and Storage object** coverage, an isolated restore destination, and the operator. A database snapshot or Storage metadata listing alone does not prove recovery of manuscript/cover/audio bytes.
+
+Restore only into the agreed isolated destination. Capture row counts and selected content hashes, a restored object's byte hash, access-control checks for two distinct test users, and a read/listen check on designated test content. Record elapsed recovery time and the data gap since the snapshot. Keep backup archives and credentials private; retain only redacted evidence in the release report. Do not restore over production to conduct this drill.
 
 Alert definitions: `infra/alerting/alerts.yml`.  
 Worker operations: `docs/workers-runbook.md`, `docs/workers-local.md`.

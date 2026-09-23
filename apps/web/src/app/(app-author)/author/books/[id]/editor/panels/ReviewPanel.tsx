@@ -1,12 +1,17 @@
 "use client";
 
 import Image from "next/image";
+import { ArrowRight, ChevronDown } from "lucide-react";
+import styles from "./ReviewPanel.module.css";
+import WholeBookAnalysisPanel from "./WholeBookAnalysisPanel";
+import EditorialReviewPanel, { type ApplyReview } from "./EditorialReviewPanel";
 import { useMemo, useState } from "react";
 import { getLanguageLabel } from "@/lib/languages";
 import { getAudiobookStatusLabel } from "../bookEditor.shared";
 import { countWordsInContent } from "@/lib/tiptap-content";
 import type { Tool } from "../BookEditorView.types";
 import { requiresUnoptimizedImage } from "@/lib/images/optimizable";
+import { getMarketingEnabled } from "@/lib/flags";
 
 type Chapter = {
   id: string;
@@ -55,21 +60,31 @@ export type ReviewPanelProps = {
   marketingCampaigns: MarketingCampaignRow[];
   onNavigate: (panel: Tool) => void;
   onPublish?: () => void;
+  onApplyReview: ApplyReview;
+  saveBlocked: boolean;
 };
 
 /* ── Copy-to-clipboard helper ── */
 
 function CopyLinkButton({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
 
   return (
     <button
       type="button"
-      onClick={() => {
-        void navigator.clipboard.writeText(url);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(url);
+          setCopied(true);
+          setCopyError(false);
+          setTimeout(() => setCopied(false), 2000);
+        } catch {
+          setCopied(false);
+          setCopyError(true);
+        }
       }}
+      aria-live="polite"
       className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors duration-150 ease-out hover:bg-background active:scale-[0.97] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
     >
       {copied ? (
@@ -84,7 +99,7 @@ function CopyLinkButton({ url }: { url: string }) {
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
           </svg>
-          Copy link
+          {copyError ? "Could not copy · try again" : "Copy link"}
         </>
       )}
     </button>
@@ -114,7 +129,7 @@ function Section({
   action?: { label: string; onClick: () => void };
 }) {
   return (
-    <div className="rounded-2xl border border-black/[0.05] bg-white/60 backdrop-blur-sm dark:border-border dark:bg-card">
+    <div className="rounded-2xl border border-border bg-card dark:border-border dark:bg-card">
       <div className="flex items-center justify-between border-b border-black/[0.05] px-5 py-3 dark:border-border">
         <div className="flex items-center gap-2.5">
           {status && (
@@ -187,6 +202,8 @@ export default function ReviewPanel({
   marketingCampaigns,
   onNavigate,
   onPublish,
+  onApplyReview,
+  saveBlocked,
 }: ReviewPanelProps) {
   const totalWords = useMemo(
     () => chapters.reduce((sum, ch) => sum + countWords(ch.content), 0),
@@ -214,6 +231,7 @@ export default function ReviewPanel({
   const hasCover = Boolean(coverImageUrl);
   const hasContent = totalWords > 0 && chapters.length > 0;
   const campaignCount = marketingCampaigns.filter((c) => c.status === "generated" || c.status === "published").length;
+  const marketingEnabled = getMarketingEnabled();
 
   /* ── Issues ── */
   const issues: Array<{ text: string; panel: Tool }> = [];
@@ -221,13 +239,21 @@ export default function ReviewPanel({
   if (emptyChapters.length > 0 && hasContent)
     issues.push({ text: `${emptyChapters.length} empty chapter${emptyChapters.length > 1 ? "s" : ""}`, panel: "edit" });
   if (!hasCover) issues.push({ text: "No cover image", panel: "cover" });
-  if (priceAmountMinor === 0 && pricingModel === "book_only")
-    issues.push({ text: "Book is set to free \u2014 set a price if you want to earn", panel: "publish" });
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className={`mx-auto max-w-4xl space-y-6 ${styles.panel}`}>
+      <header className={styles.heading}>
+        <h2 className="font-display text-[clamp(24px,3vw,32px)] font-medium tracking-tight">Give your manuscript a fresh eye.</h2>
+        <p>Review your writing, consider each suggestion, and keep your own voice. You decide when the story is ready.</p>
+      </header>
+      <WholeBookAnalysisPanel key={`whole-${activeVersion?.id ?? bookId}`} bookId={bookId} versionId={activeVersion?.id ?? null} chapters={chapters} saveBlocked={saveBlocked} />
+      <EditorialReviewPanel key={activeVersion?.id ?? bookId} bookId={bookId} chapters={chapters} activeVersionId={activeVersion?.id ?? null} bookVersions={bookVersions} onApplyReview={onApplyReview} saveBlocked={saveBlocked} />
+      {!hasContent && <button type="button" className={styles.continueButton} onClick={() => onNavigate("edit")}>Return to your manuscript <ArrowRight size={16} aria-hidden /></button>}
+      <details className={styles.overview}>
+        <summary><span><strong>Book overview</strong><span>Manuscript, formats and release preparation</span></span><ChevronDown size={18} aria-hidden /></summary>
+        <div className="space-y-5 pt-5">
       {/* ── Hero: Book identity ── */}
-      <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-border dark:bg-card sm:grid-cols-[140px_1fr]">
+      <div className="grid items-start gap-6 rounded-2xl border border-border bg-card p-6 dark:border-border dark:bg-card @min-[600px]/book-panel:grid-cols-[140px_1fr]">
         <div className="relative mx-auto aspect-[3/4] w-[140px] overflow-hidden rounded-xl border border-black/[0.06] bg-background shadow-sm dark:border-border dark:bg-card sm:mx-0">
           {coverImageUrl ? (
             <Image src={coverImageUrl} alt="Book cover" fill sizes="140px" className="object-cover" unoptimized={requiresUnoptimizedImage(coverImageUrl)} />
@@ -255,7 +281,7 @@ export default function ReviewPanel({
           <h2 className="author-section-title mt-2 text-xl font-medium tracking-tight text-foreground dark:text-foreground">
             {bookTitle}
           </h2>
-          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-3">
+          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-xs @min-[600px]/book-panel:grid-cols-3">
             <div>
               <span className="text-muted-foreground dark:text-muted-foreground">Chapters</span>
               <p className="font-semibold text-foreground dark:text-foreground">{chapters.length}</p>
@@ -270,7 +296,7 @@ export default function ReviewPanel({
             </div>
             <div>
               <span className="text-muted-foreground dark:text-muted-foreground">Price</span>
-              <p className="font-semibold text-foreground dark:text-foreground">{formatPrice(priceAmountMinor, priceCurrency)}</p>
+              <button type="button" onClick={() => onNavigate("pricing")} className="text-left font-semibold text-accent-foreground">{formatPrice(priceAmountMinor, priceCurrency)}{priceAmountMinor > 0 && pricingModel === "per_chapter" ? " / chapter" : ""}</button>
             </div>
             <div>
               <span className="text-muted-foreground dark:text-muted-foreground">Audio</span>
@@ -281,7 +307,7 @@ export default function ReviewPanel({
             <div>
               <span className="text-muted-foreground dark:text-muted-foreground">Print</span>
               <p className="font-semibold text-foreground dark:text-foreground">
-                {podSettings.enabled ? podSettings.formats.join(", ") : "Off"}
+                {podSettings.enabled ? "Settings saved" : "Not configured"}
               </p>
             </div>
           </div>
@@ -304,7 +330,7 @@ export default function ReviewPanel({
             Preview as reader
           </a>
           <CopyLinkButton url={`${typeof window !== "undefined" ? window.location.origin : ""}/reader/books/${bookId}`} />
-          <button
+          {marketingEnabled && <button
             type="button"
             onClick={() => onNavigate("market")}
             className="flex items-center gap-2 rounded-xl border border-black/[0.06] bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors duration-150 ease-out hover:bg-background active:scale-[0.97] dark:border-border dark:bg-card dark:text-foreground dark:hover:bg-accent"
@@ -313,13 +339,14 @@ export default function ReviewPanel({
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 0 8.835-2.535m0 0A23.74 23.74 0 0 0 18.795 3m.38 1.125a23.91 23.91 0 0 1 1.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 0 0 1.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 0 1 0 3.46" />
             </svg>
             Promote
-          </button>
+          </button>}
         </div>
       )}
 
       {/* ── Issues ── */}
       {issues.length > 0 && (
         <div className="space-y-2">
+          <h3 className="text-sm font-semibold">Things to check before release</h3>
           {issues.map((issue) => (
             <Issue key={issue.text} text={issue.text} onFix={() => onNavigate(issue.panel)} />
           ))}
@@ -333,6 +360,7 @@ export default function ReviewPanel({
         action={{ label: "Edit", onClick: () => onNavigate("edit") }}
       >
         <div className="max-h-[260px] overflow-y-auto">
+          {chapters.length === 0 && <p className="text-sm text-muted-foreground">Your chapter list will appear here. Start in Write to add your first chapter.</p>}
           {chapters.map((ch, i) => {
             const words = countWords(ch.content);
             return (
@@ -362,15 +390,15 @@ export default function ReviewPanel({
         >
           <div className="space-y-2">
             {bookVersions.map((v) => {
-              const isOriginal = v.id === activeVersion?.id;
+              const isActive = v.id === activeVersion?.id;
               return (
                 <div key={v.id} className="flex items-center justify-between text-[13px]">
-                  <span className={isOriginal ? "font-semibold text-accent-foreground" : "text-foreground dark:text-foreground"}>
+                  <span className={isActive ? "font-semibold text-accent-foreground" : "text-foreground dark:text-foreground"}>
                     {getLanguageLabel(v.language_code)}
-                    {isOriginal && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground dark:text-muted-foreground">(original)</span>}
+                    {isActive && <span className="ml-1.5 text-[10px] font-normal text-muted-foreground dark:text-muted-foreground">(current edition)</span>}
                   </span>
                   <div className="flex items-center gap-2">
-                    {v.error_message && (
+                    {v.error_message && !v.error_message.startsWith("translation-claim:") && (
                       <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:bg-rose-500/20 dark:text-rose-400">Error</span>
                     )}
                     <span
@@ -392,7 +420,7 @@ export default function ReviewPanel({
 
       {/* ── Assets ── */}
       <Section title="Assets">
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 @min-[600px]/book-panel:grid-cols-3">
           <button
             type="button"
             onClick={() => onNavigate("cover")}
@@ -433,18 +461,18 @@ export default function ReviewPanel({
 
           <button
             type="button"
-            onClick={() => onNavigate("publish")}
+            onClick={() => onNavigate("print")}
             className="flex items-center gap-3 rounded-xl border border-black/[0.04] bg-background/50 px-3 py-3 text-left transition-[border-color,transform] duration-150 ease-out hover:border-black/[0.08] active:scale-[0.97] dark:border-border dark:bg-card dark:hover:border-border"
           >
-            <div className={`flex h-10 w-7 items-center justify-center rounded ${podSettings.enabled ? "bg-blue-100/50 dark:bg-blue-900/20" : "bg-muted/50 dark:bg-card"}`}>
-              <svg className={`h-3.5 w-3.5 ${podSettings.enabled ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground dark:text-muted-foreground"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className={`flex h-10 w-7 items-center justify-center rounded ${podSettings.enabled ? "bg-accent" : "bg-muted/50 dark:bg-card"}`}>
+              <svg className={`h-3.5 w-3.5 ${podSettings.enabled ? "text-accent-foreground" : "text-muted-foreground dark:text-muted-foreground"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
               </svg>
             </div>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-foreground dark:text-foreground">Print</p>
               <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">
-                {podSettings.enabled ? podSettings.formats.join(", ") : "Not configured"}
+                {podSettings.enabled ? `${podSettings.formats.join(", ")} settings saved` : "Not configured"}
               </p>
             </div>
           </button>
@@ -452,9 +480,9 @@ export default function ReviewPanel({
       </Section>
 
       {/* ── Marketing ── */}
-      <Section
-        title="Marketing"
-        status={campaignCount > 0 ? "ok" : "missing"}
+      {marketingEnabled && <Section
+        title="Marketing · optional"
+        status={campaignCount > 0 ? "ok" : undefined}
         action={{ label: campaignCount > 0 ? "Manage" : "Create", onClick: () => onNavigate("market") }}
       >
         {campaignCount > 0 ? (
@@ -487,21 +515,16 @@ export default function ReviewPanel({
             </button>
           </div>
         )}
-      </Section>
+      </Section>}
 
-      {/* ── Primary action ── */}
-      {!isPublished && (
-        <div className="pt-2">
-          <button
-            type="button"
-            onClick={onPublish ?? (() => onNavigate("publish"))}
-            disabled={!hasContent}
-            className="w-full rounded-2xl bg-primary px-6 py-4 text-base font-bold text-primary-foreground shadow-[0_4px_20px_rgba(15,23,42,0.30),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[transform,background-color,box-shadow] duration-150 ease-out hover:bg-primary/90 hover:shadow-[0_6px_28px_rgba(15,23,42,0.40)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Publish book
-          </button>
         </div>
-      )}
+      </details>
+
+      <div className={styles.nextStep}>
+        <div><p className="text-sm font-semibold">Ready to shape the book?</p><p className="mt-1 text-sm text-muted-foreground">Move to your cover when you’re ready. You can return to review at any time.</p></div>
+        <button type="button" className={styles.continueButton} onClick={() => onNavigate("cover")}>Continue to cover <ArrowRight size={16} aria-hidden /></button>
+      </div>
+      {!isPublished && <button type="button" className="min-h-11 text-sm font-medium text-accent-foreground" onClick={() => { onPublish?.(); onNavigate("publish"); }}>Review publication options <ArrowRight size={15} className="ml-2 inline" aria-hidden /></button>}
     </div>
   );
 }

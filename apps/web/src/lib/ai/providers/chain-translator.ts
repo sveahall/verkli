@@ -26,6 +26,11 @@ export class ChainTranslator implements TranslatorProvider {
         targetLanguage: INTERMEDIATE_LANGUAGE,
       });
 
+      if (options.maxIntermediateBytes !== undefined &&
+          (!Number.isSafeInteger(options.maxIntermediateBytes) || options.maxIntermediateBytes < 1 ||
+            new TextEncoder().encode(intermediate.translatedText).length > options.maxIntermediateBytes)) {
+        throw new AIProviderError("The intermediate preview exceeds its reserved size limit.", "INVALID_INPUT", this.name);
+      }
       return this.second.translate({
         text: intermediate.translatedText,
         sourceLanguage: INTERMEDIATE_LANGUAGE,

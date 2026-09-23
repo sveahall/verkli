@@ -2,8 +2,7 @@
  * BullMQ worker: process "marketing-generate" jobs for campaign content generation.
  * Run from apps/web: npm run marketing-worker (requires REDIS_URL, Supabase env)
  *
- * Template-based copy generation per channel. No AI calls yet — budget gate
- * protects future AI integration.
+ * AI-generated drafts per scheduled day and channel, awaiting author review.
  */
 
 import "./load-dotenv";
@@ -23,7 +22,9 @@ import {
   validateJobCost,
 } from "../src/lib/workers/budget";
 import { expandSchedule } from "../src/lib/marketing/expand-schedule";
-import { buildPostCopy } from "../src/lib/marketing/post-templates";
+import { createMarketingWork } from "../src/lib/marketing/model-work";
+import { generateLaunchCopy } from "../src/lib/marketing/launch-copy-provider";
+import { createHash } from "node:crypto";
 import type {
   CampaignPlanContentType,
   CampaignPlanTemplate,
@@ -48,8 +49,11 @@ type CampaignPlan = {
   weekly_schedule: Record<string, string[]>;
 };
 
+type ModelCheckpoint = (scope: string | null) => Promise<void>;
+
 async function processCampaignPlanJob(
   payload: MarketingJobData,
+  checkpoint: ModelCheckpoint,
   workerJobId?: string
 ): Promise<void> {
   if (!payload.campaignPlanId) {
@@ -84,13 +88,18 @@ async function processCampaignPlanJob(
 
   const { data: book, error: bookErr } = await supabase
     .from("books")
-    .select("id, title, author_id")
+    .select("id, title, description, author_id")
     .eq("id", plan.book_id)
     .single();
 
   if (bookErr || !book) {
     await markPlanFailed(supabase, planId, "book_not_found");
     throw new UnrecoverableError(`Book missing: ${bookErr?.message ?? plan.book_id}`);
+  }
+
+  if (book.author_id !== plan.author_id) {
+    await markPlanFailed(supabase, planId, "book_ownership_mismatch");
+    throw new UnrecoverableError("Ownership mismatch on campaign book");
   }
 
   const expanded = expandSchedule({
@@ -130,82 +139,119 @@ async function processCampaignPlanJob(
     throw err;
   }
 
-  // Skip if posts already exist for this plan (re-run protection)
-  const alreadyDone = await isDuplicate(async () => {
-    const { count } = await supabase
-      .from("marketing_posts")
-      .select("id", { count: "exact", head: true })
-      .eq("campaign_plan_id", planId);
-    return (count ?? 0) > 0;
-  }, `marketing-plan:${planId}`);
+  // Read every saved slot so a retry resumes partial work without replacing edits.
+  type SavedPost = {
+    scheduled_for: string; channel: string; language: string;
+    content_type: string; caption: string | null;
+  };
+  const saved: SavedPost[] = [];
+  const slotKey = (date: string, channel: string, language: string, contentType: string) =>
+    JSON.stringify([new Date(date).toISOString(), channel, language, contentType]);
 
-  if (alreadyDone) {
-    console.log("[marketing worker] plan already expanded, skipping:", planId);
-    await supabase
+  try {
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await supabase
+        .from("marketing_posts")
+        .select("scheduled_for, channel, language, content_type, caption")
+        .eq("campaign_plan_id", planId)
+        .order("id")
+        .range(offset, offset + 999);
+      if (error) throw new Error(`Could not read existing campaign posts: ${error.message}`);
+      saved.push(...(data ?? []));
+      if ((data?.length ?? 0) < 1000) break;
+    }
+    const completed = new Set(saved.map((post) =>
+      slotKey(post.scheduled_for, post.channel, post.language, post.content_type)
+    ));
+    const normalizeCopy = (text: string) => text.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+    const angles = [
+      "Introduce the book using one detail from its description.",
+      "Invite a reader question grounded in the book description.",
+      "Highlight a different supplied detail without inventing quotes or reviews.",
+      "Invite readers to discover the book with a fresh opening and call to action.",
+    ];
+    let generated = 0;
+    for (const post of expanded) {
+      const scheduledFor = post.scheduledFor.toISOString();
+      const key = slotKey(scheduledFor, post.channel, post.language, post.contentType);
+      if (completed.has(key)) continue;
+      const day = Math.floor((post.scheduledFor.getTime() - new Date(`${plan.start_date}T00:00:00Z`).getTime()) / 86_400_000) + 1;
+      const previousBodies = saved
+        .filter((row) => row.channel === post.channel && row.language === post.language)
+        .map((row) => row.caption ?? "").filter(Boolean);
+      const copyInput = {
+        authorId: payload.authorId,
+        meter: {
+          userId: plan.author_id,
+          pipeline: "marketing" as const,
+          bookId: plan.book_id,
+        },
+        title: book.title ?? "Untitled",
+        description: book.description,
+        language: post.language,
+        channel: post.channel,
+        campaign: {
+          goal: plan.template,
+          scheduledFor: scheduledFor.slice(0, 10),
+          day,
+          contentType: post.contentType,
+          angle: angles[(day - 1) % angles.length],
+          previousBodies: previousBodies.slice(-4),
+        },
+      };
+      // Persist the unresolved scope before any model work. A stalled/retried job
+      // must stop here for reconciliation rather than reset its in-memory cap.
+      await checkpoint(key);
+      const work = createMarketingWork(payload.authorId);
+      let copy = await generateLaunchCopy(copyInput, work);
+      const repeated = () => previousBodies.some((body) => normalizeCopy(body) === normalizeCopy(copy.body));
+      if (repeated()) copy = await generateLaunchCopy(copyInput, work);
+      if (repeated()) throw new Error("AI returned repeated campaign copy. Retry generation to create a distinct draft.");
+
+      // A deterministic ID protects against an uncertain insert result on retry.
+      // Ignore conflicts so saved edits and author approvals are never overwritten.
+      const hash = createHash("sha256").update(`${planId}:${key}`).digest("hex");
+      const id = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+      const row = {
+        id,
+        campaign_plan_id: planId,
+        book_id: plan.book_id,
+        author_id: plan.author_id,
+        scheduled_for: scheduledFor,
+        channel: post.channel,
+        language: post.language,
+        content_type: post.contentType,
+        status: "draft",
+        headline: copy.headline,
+        caption: copy.body,
+        hashtags: copy.hashtags,
+        cta: copy.cta,
+        share_url: `/reader/books/${plan.book_id}`,
+        mode: "organic",
+        paid_config: {},
+        metadata: { variantIndex: post.variantIndex, langLabel: getLanguageLabel(post.language), campaignDay: day, goal: plan.template },
+      };
+      const { error: insertErr } = await supabase.from("marketing_posts").upsert(row, { onConflict: "id", ignoreDuplicates: true });
+      if (insertErr) throw new Error(`Could not save campaign draft: ${insertErr.message}`);
+      await checkpoint(null);
+      saved.push(row);
+      completed.add(key);
+      generated++;
+    }
+
+    const { error: statusError } = await supabase
       .from("marketing_campaign_plans")
       .update({ status: "active", generation_error: null })
       .eq("id", planId);
-    return;
+    if (statusError) throw new Error(`Could not finish campaign generation: ${statusError.message}`);
+
+    console.log("[marketing worker] plan drafts generated", { planId, generated, total: expanded.length });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Campaign generation failed";
+    console.error("[marketing worker] plan generation failed", { planId, error: message });
+    await markPlanFailed(supabase, planId, message);
+    throw error;
   }
-
-  const rows = expanded.map((post) => {
-    const copy = buildPostCopy({
-      bookId: plan.book_id,
-      bookTitle: book.title ?? "Untitled",
-      language: post.language,
-      channel: post.channel,
-      contentType: post.contentType,
-      template: plan.template,
-      variantIndex: post.variantIndex,
-    });
-
-    // Trailer + podcast posts start as draft (need on-demand asset generation).
-    // Text posts are immediately ready.
-    const status: string = post.contentType === "text" ? "ready" : "draft";
-
-    return {
-      campaign_plan_id: planId,
-      book_id: plan.book_id,
-      author_id: plan.author_id,
-      scheduled_for: post.scheduledFor.toISOString(),
-      channel: post.channel,
-      language: post.language,
-      content_type: post.contentType,
-      status,
-      headline: copy.headline,
-      caption: copy.caption,
-      hashtags: copy.hashtags,
-      cta: copy.cta,
-      share_url: copy.shareUrl,
-      mode: "organic",
-      paid_config: {},
-      metadata: { variantIndex: post.variantIndex, langLabel: getLanguageLabel(post.language) },
-    };
-  });
-
-  // Insert in chunks to avoid payload limits
-  const CHUNK = 200;
-  for (let i = 0; i < rows.length; i += CHUNK) {
-    const slice = rows.slice(i, i + CHUNK);
-    const { error: insertErr } = await supabase.from("marketing_posts").insert(slice);
-    if (insertErr) {
-      console.error("[marketing worker] insert failed:", insertErr.message);
-      await markPlanFailed(supabase, planId, insertErr.message);
-      throw new Error(insertErr.message);
-    }
-  }
-
-  await supabase
-    .from("marketing_campaign_plans")
-    .update({ status: "active", generation_error: null })
-    .eq("id", planId);
-
-  console.log(
-    "[marketing worker] plan expanded — planId:",
-    planId,
-    "posts:",
-    rows.length
-  );
 }
 
 async function markPlanFailed(
@@ -213,10 +259,11 @@ async function markPlanFailed(
   planId: string,
   error: string
 ): Promise<void> {
-  await supabase
+  const { error: updateError } = await supabase
     .from("marketing_campaign_plans")
     .update({ status: "failed", generation_error: error.slice(0, 500) })
     .eq("id", planId);
+  if (updateError) console.error("[marketing worker] could not mark plan failed", { planId, error: updateError.message });
 }
 
 const CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
@@ -224,43 +271,6 @@ type Channel = (typeof CHANNELS)[number];
 
 function isChannel(s: string): s is Channel {
   return CHANNELS.includes(s as Channel);
-}
-
-function generateCopy(
-  bookTitle: string,
-  bookId: string,
-  language: string,
-  channel: Channel
-) {
-  const langLabel = getLanguageLabel(language);
-  const readerPath = `/reader/books/${bookId}`;
-
-  const headline = `${bookTitle} – now in ${langLabel}`;
-  const cta = "Read on Verkli";
-
-  let caption: string;
-  let hashtags: string | null;
-
-  switch (channel) {
-    case "tiktok":
-      caption = `Just dropped: ${bookTitle} in ${langLabel} on Verkli. Link in bio!`;
-      hashtags = "#Verkli #BookTok #reading #newrelease";
-      break;
-    case "instagram":
-      caption = `New release: ${bookTitle} is now available in ${langLabel}. Tap the link to start reading on Verkli.`;
-      hashtags = "#Verkli #bookstagram #reading #translation";
-      break;
-    case "x":
-      caption = `Just published: ${bookTitle} in ${langLabel} on Verkli. Read it here: ${readerPath}`;
-      hashtags = "#Verkli #translation #read";
-      break;
-    default:
-      caption = `Just published: ${bookTitle} in ${langLabel} on Verkli. Read it here: ${readerPath}`;
-      hashtags = null;
-      break;
-  }
-
-  return { headline, caption, cta, hashtags, share_url: readerPath };
 }
 
 function assertWorkerEnv(): void {
@@ -273,7 +283,7 @@ function assertWorkerEnv(): void {
   }
 }
 
-async function processJob(payload: MarketingJobData, workerJobId?: string) {
+async function processJob(payload: MarketingJobData, checkpoint: ModelCheckpoint, workerJobId?: string) {
   const { bookId, authorId, channels, language } = payload;
   const supabase = createAdminClient();
 
@@ -291,7 +301,7 @@ async function processJob(payload: MarketingJobData, workerJobId?: string) {
   // Fetch book
   const { data: book, error: bookFetchError } = await supabase
     .from("books")
-    .select("id, title, author_id")
+    .select("id, title, description, author_id")
     .eq("id", bookId)
     .single();
 
@@ -351,7 +361,12 @@ async function processJob(payload: MarketingJobData, workerJobId?: string) {
       continue;
     }
 
-    const copy = generateCopy(book.title, bookId, language, channel);
+    await checkpoint(JSON.stringify([bookId, language, channel]));
+    const copy = await generateLaunchCopy({
+      authorId,
+      title: book.title, description: book.description, language, channel,
+      meter: { userId: authorId, pipeline: "marketing", bookId },
+    });
 
     const campaign = {
       book_id: bookId,
@@ -359,10 +374,10 @@ async function processJob(payload: MarketingJobData, workerJobId?: string) {
       channel,
       status: "generated" as const,
       headline: copy.headline,
-      caption: copy.caption,
+      caption: copy.body,
       cta: copy.cta,
       hashtags: copy.hashtags,
-      share_url: copy.share_url,
+      share_url: `/reader/books/${bookId}`,
     };
 
     const { error: upsertError } = await supabase
@@ -376,6 +391,7 @@ async function processJob(payload: MarketingJobData, workerJobId?: string) {
       throw new Error(`Failed to upsert campaign for channel ${channel}: ${upsertError.message}`);
     }
 
+    await checkpoint(null);
     console.log("[marketing worker] campaign upserted — channel:", channel);
     generated++;
   }
@@ -415,10 +431,33 @@ function main() {
       const workerJobId = job.id != null ? String(job.id) : undefined;
       const data = job.data as MarketingJobData;
 
-      if (data.campaignPlanId) {
-        await processCampaignPlanJob(data, workerJobId);
-      } else {
-        await processJob(data, workerJobId);
+      if (data.modelWorkPending) {
+        const message = "Unresolved marketing model work. Review saved drafts and usage before requesting a new generation.";
+        console.error("[marketing worker] automatic model replay blocked", { jobId: workerJobId });
+        if (data.campaignPlanId) await markPlanFailed(createAdminClient(), data.campaignPlanId, message);
+        throw new UnrecoverableError(message);
+      }
+      const checkpoint: ModelCheckpoint = async scope => {
+        // Set the local fence first; even an uncertain Redis write is terminal.
+        if (scope !== null) data.modelWorkPending = scope;
+        try {
+          await job.updateData({ ...data, modelWorkPending: scope });
+          data.modelWorkPending = scope;
+        } catch {
+          throw new UnrecoverableError("Marketing model checkpoint could not be saved. Automatic generation stopped.");
+        }
+      };
+      try {
+        if (data.campaignPlanId) {
+          await processCampaignPlanJob(data, checkpoint, workerJobId);
+        } else {
+          await processJob(data, checkpoint, workerJobId);
+        }
+      } catch (error) {
+        // Budget/usage failures, unknown results and uncertain draft writes cannot
+        // restart paid work with a fresh cap on BullMQ's next attempt.
+        if (data.modelWorkPending) throw new UnrecoverableError(error instanceof Error ? error.message : "Marketing model work stopped");
+        throw error;
       }
     },
     {

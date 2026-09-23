@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getRequestBaseUrl } from "./request-url";
+import { getRequestBaseUrl, isBrowserOriginAllowed } from "./request-url";
 
 function req(url: string, headers: Record<string, string> = {}): Request {
   return new Request(url, { headers });
@@ -58,5 +58,34 @@ describe("getRequestBaseUrl", () => {
     expect(
       getRequestBaseUrl(req("https://internal/api/x", { host: "fallback.example" }))
     ).toBe("https://fallback.example");
+  });
+});
+
+describe("isBrowserOriginAllowed", () => {
+  const saved = process.env.NEXT_PUBLIC_SITE_URL;
+  afterEach(() => {
+    if (saved === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+    else process.env.NEXT_PUBLIC_SITE_URL = saved;
+  });
+
+  it("accepts www when the proxy rewrote the request onto the container", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://verkli.com";
+    const request = new Request("http://0.0.0.0:8080/api/books/x/editorial/book-analysis", {
+      method: "POST",
+      headers: {
+        origin: "https://www.verkli.com",
+        "x-forwarded-host": "www.verkli.com",
+      },
+    });
+    expect(isBrowserOriginAllowed(request)).toBe(true);
+  });
+
+  it("rejects a different site", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://verkli.com";
+    const request = new Request("http://0.0.0.0:8080/api/books/x/editorial/review", {
+      method: "POST",
+      headers: { origin: "https://evil.example", host: "0.0.0.0:8080" },
+    });
+    expect(isBrowserOriginAllowed(request)).toBe(false);
   });
 });

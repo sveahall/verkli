@@ -1,7 +1,8 @@
 /**
  * Beta gating: isBetaUser(supabase, userId) reads user_flags.beta_enabled.
  *
- * Source of truth for cohort membership: `public.reader_waitlist`.
+ * Cohort membership is persisted in `public.user_flags`.
+ * Author and reader waitlists authorize the first verified signup only.
  *   - admin invites a user by setting `reader_waitlist.invited_at`
  *   - the admin grant flow (see `grantBetaAccess`) upserts
  *     `user_flags.beta_enabled = true` and invalidates this cache
@@ -173,6 +174,54 @@ export async function grantBetaAccess(
   return { ok: true };
 }
 
+/** Prepare beta access for an author selected by an administrator. */
+export async function ensureBetaAuthorAccess(
+  adminSupabase: SupabaseClient,
+  userId: string,
+  options: { grantBeta?: boolean } = {}
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { data: profile, error: profileError } = await adminSupabase
+    .from("profiles")
+    .select("user_id, role")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (profileError) return { ok: false, error: profileError.message };
+  if (!profile) {
+    return { ok: false, error: "Author profile is missing. Retry after account setup completes." };
+  }
+  if (!["reader", "author", "admin"].includes(profile.role)) {
+    return { ok: false, error: "Author profile has an unsupported role. Review the account before granting access." };
+  }
+
+  const { error: applicationError } = await adminSupabase
+    .from("author_applications")
+    .upsert({ user_id: userId, status: "approved" }, { onConflict: "user_id" });
+  if (applicationError) return { ok: false, error: applicationError.message };
+
+  if (profile.role === "reader") {
+    // Compare the role as well as the ID so a concurrent admin promotion can
+    // never be overwritten by this approval. Selecting the changed row also
+    // detects a missing/deleted profile instead of reporting false success.
+    const { data: updated, error: roleError } = await adminSupabase
+      .from("profiles")
+      .update({ role: "author" })
+      .eq("user_id", userId)
+      .eq("role", "reader")
+      .select("user_id, role")
+      .maybeSingle();
+    if (roleError) return { ok: false, error: roleError.message };
+    if (!updated) {
+      return { ok: false, error: "Author role changed during approval. Reload and retry." };
+    }
+  }
+
+  // Verified signup uses an insert-only claim below so it cannot overwrite
+  // an administrator's revocation. An explicit admin invitation may regrant.
+  return options.grantBeta === false
+    ? { ok: true }
+    : grantBetaAccess(adminSupabase, userId);
+}
+
 /**
  * Admin revoke — symmetric counterpart to grantBetaAccess. Sets
  * `user_flags.beta_enabled = false` (does not delete the row, so audit history
@@ -200,12 +249,9 @@ export async function revokeBetaAccess(
 /**
  * Self-service grant: let an invited person in without an admin clicking.
  *
- * Why this exists
- * ---------------
- * 101 of the 104 people on `public.waitlist` have no account. Inviting them
- * means each one signs up and then needs `user_flags.beta_enabled` set, which
- * until now was 101 manual toggles in /admin/beta — so the invitation would
- * either sit unanswered or the lock would have to come off for everyone.
+ * A selected author receives author approval as well as beta membership;
+ * a selected reader receives beta membership only. Subsequent callbacks
+ * preserve explicit grants/revocations instead of replaying an old invite.
  *
  * Why it is safe to key on the email address
  * ------------------------------------------
@@ -219,8 +265,8 @@ export async function revokeBetaAccess(
  * Deliberately gated on `beta_invited_at` (and `reader_waitlist.invited_at`),
  * NOT on mere waitlist membership. The waitlist form is open to anyone, so
  * granting on membership alone would make BETA_LOCK a formality that any
- * stranger could walk through by filling in the form. Only rows an invitation
- * was actually sent to auto-grant.
+ * stranger could walk through by filling in the form. Only rows an administrator
+ * selected for invitation auto-grant.
  *
  * Kill switch: `BETA_AUTOGRANT_FROM_WAITLIST=false` disables it. Unset means
  * ON, on purpose — a feature that is silently off when an env var is missing
@@ -235,7 +281,7 @@ export async function grantBetaAccessIfInvited(
   params: { userId: string; email: string | null | undefined }
 ): Promise<
   | { granted: true }
-  | { granted: false; reason: "disabled" | "no_email" | "not_invited" | "error"; error?: string }
+  | { granted: false; reason: "disabled" | "no_email" | "not_invited" | "revoked" | "error"; error?: string }
 > {
   if (process.env.BETA_AUTOGRANT_FROM_WAITLIST === "false") {
     return { granted: false, reason: "disabled" };
@@ -244,22 +290,21 @@ export async function grantBetaAccessIfInvited(
   const email = params.email?.trim().toLowerCase();
   if (!email) return { granted: false, reason: "no_email" };
 
-  // Two lists, two column names for the same idea. `waitlist` is the author
-  // side (104 rows, the ones being invited now); `reader_waitlist` is the
-  // reader side (35 rows) and already had `invited_at` before this flow
-  // existed. Checking both means one code path covers whichever list an
-  // invitation was sent from.
+  // SQL LIKE wildcards can be valid mailbox characters. Escape them so an
+  // invited a_b@example.com never authorizes axb@example.com (or vice versa).
+  const emailPattern = email.replace(/[\\%_]/g, "\\$&");
+  // Both lists require an explicit invitation, never public membership alone.
   const [authorSide, readerSide] = await Promise.all([
     adminSupabase
       .from("waitlist")
-      .select("id")
-      .ilike("email", email)
+      .select("id, email")
+      .ilike("email", emailPattern)
       .not("beta_invited_at", "is", null)
       .limit(1),
     adminSupabase
       .from("reader_waitlist")
-      .select("id")
-      .ilike("email", email)
+      .select("id, email")
+      .ilike("email", emailPattern)
       .not("invited_at", "is", null)
       .limit(1),
   ]);
@@ -271,12 +316,46 @@ export async function grantBetaAccessIfInvited(
     return { granted: false, reason: "error", error: lookupError.message };
   }
 
-  const invited =
-    (authorSide.data?.length ?? 0) > 0 || (readerSide.data?.length ?? 0) > 0;
-  if (!invited) return { granted: false, reason: "not_invited" };
+  // Verify the actual returned mailbox too; a provider's filter syntax must
+  // never turn a mailbox containing wildcard characters into broader access.
+  const authorInvited = authorSide.data?.some((row) => row.email?.trim().toLowerCase() === email) ?? false;
+  const readerInvited = readerSide.data?.some((row) => row.email?.trim().toLowerCase() === email) ?? false;
+  if (!authorInvited && !readerInvited) return { granted: false, reason: "not_invited" };
 
-  const result = await grantBetaAccess(adminSupabase, params.userId);
-  if (!result.ok) return { granted: false, reason: "error", error: result.error };
+  // Signup does not create user_flags. A persisted false is an explicit
+  // decision by an administrator; the audit record is best-effort, so relying
+  // on beta_disable events alone could resurrect a revoked account.
+  const { data: flag, error: flagError } = await adminSupabase
+    .from("user_flags")
+    .select("beta_enabled")
+    .eq("user_id", params.userId)
+    .maybeSingle();
+  if (flagError) return { granted: false, reason: "error", error: flagError.message };
+  if (flag?.beta_enabled === false) return { granted: false, reason: "revoked" };
+  if (flag?.beta_enabled === true) return { granted: true };
 
+  if (authorInvited) {
+    const authorAccess = await ensureBetaAuthorAccess(adminSupabase, params.userId, { grantBeta: false });
+    if (!authorAccess.ok) return { granted: false, reason: "error", error: authorAccess.error };
+  }
+
+  // ON CONFLICT DO NOTHING preserves a revoke that arrives after the read.
+  // Unconditional upsert here would silently undo that administrator action.
+  const { error: claimError } = await adminSupabase
+    .from("user_flags")
+    .upsert(
+      { user_id: params.userId, beta_enabled: true },
+      { onConflict: "user_id", ignoreDuplicates: true }
+    );
+  if (claimError) return { granted: false, reason: "error", error: claimError.message };
+
+  const { data: claimed, error: verifyError } = await adminSupabase
+    .from("user_flags")
+    .select("beta_enabled")
+    .eq("user_id", params.userId)
+    .maybeSingle();
+  invalidateBetaCache(params.userId);
+  if (verifyError) return { granted: false, reason: "error", error: verifyError.message };
+  if (claimed?.beta_enabled !== true) return { granted: false, reason: "revoked" };
   return { granted: true };
 }

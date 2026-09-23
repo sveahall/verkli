@@ -1,3 +1,9 @@
+import { randomUUID } from "node:crypto"
+import { estimateTranslationPreviewCost, PREVIEW_MAX_INTERMEDIATE_BYTES } from "@/lib/translation-preview-budget"
+import { isTranslationsEnabled } from "@/lib/flags"
+import { reviewedTranslationActivationReady } from "@/lib/translation-commit"
+import { createPerUserRateLimiter } from "@/lib/rate-limit"
+import { checkBudget, validateJobCost, BudgetExceededError, JobCostExceededError } from "@/lib/workers/budget"
 import { NextResponse } from "next/server"
 import { getTranslatorForPair } from "@/lib/ai/providers/server"
 import { AIProviderError } from "@/lib/ai/providers/types"
@@ -19,7 +25,11 @@ import {
   E_SAME_SOURCE_TARGET_LANGUAGE,
   E_SOURCE_LANGUAGE_MISSING,
   E_TRANSLATION_SERVICE_UNAVAILABLE,
+  E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors"
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
+
+const previewLimiter = createPerUserRateLimiter({ name: "translation-preview", maxPerMinute: 2 })
 
 export async function GET(
   request: Request,
@@ -30,8 +40,27 @@ export async function GET(
   const { user, response } = await requireAuthorRoleForApi()
   if (response) return response
 
+  // Account master AI switch. Server-side, so turning AI off is a real
+
+  // setting and not just a hidden button.
+
+  const aiOff = await aiDisabledResponse(user.id);
+
+  if (aiOff) return aiOff;
+  if (!isTranslationsEnabled() || !reviewedTranslationActivationReady()) {
+    return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
+  }
+  const limit = await previewLimiter.check(user.id)
+  if (!limit.allowed) {
+    return NextResponse.json({ error: E_RATE_LIMIT_EXCEEDED }, {
+      status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds ?? 60) },
+    })
+  }
+
   const { id: bookId } = await params
-  const targetLanguage = new URL(request.url).searchParams.get("targetLanguage")?.trim().toLowerCase() ?? ""
+  const requestUrl = new URL(request.url)
+  const targetLanguage = requestUrl.searchParams.get("targetLanguage")?.trim().toLowerCase() ?? ""
+  const requestedSourceLanguage = requestUrl.searchParams.get("sourceLanguage")
 
   if (!targetLanguage || !isSupportedLanguage(targetLanguage)) {
     return apiError(E_INVALID_TARGET_LANGUAGE, 400)
@@ -59,11 +88,23 @@ export async function GET(
     return apiError(E_FORBIDDEN, 403)
   }
 
-  const sourceContext = await resolveTranslationSourceContext({
-    supabase,
-    bookId,
-    book,
-  })
+  let sourceContext: Awaited<ReturnType<typeof resolveTranslationSourceContext>>
+  try {
+    sourceContext = await resolveTranslationSourceContext({
+      supabase,
+      bookId,
+      book,
+      requestedSourceVersionId: requestUrl.searchParams.get("sourceVersionId"),
+      requestedSourceLanguage,
+    })
+  } catch (error) {
+    console.error("[book translation preview] source text lookup failed", {
+      bookId,
+      userId: user.id,
+      message: error instanceof Error ? error.message : String(error),
+    })
+    return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
+  }
 
   if (!sourceContext.sourceVersionId) {
     return apiError(E_NO_SOURCE_VERSION, 400)
@@ -86,7 +127,8 @@ export async function GET(
   // Always collect source text so the "Original text" panel is populated
   // even when the translation pair is unsupported.
   // Use shorter preview for API-based translation (Riva 8K context limit).
-  const previewWordLimit = getProviderForPair(sourceContext.sourceLanguage, targetLanguage) === "opus" ? 1000 : 300
+  const previewProvider = getProviderForPair(sourceContext.sourceLanguage, targetLanguage)
+  const previewWordLimit = previewProvider === "opus" ? 1000 : 300
   let originalText = ""
   try {
     originalText = await collectTranslationPreviewText(supabase, sourceContext.sourceVersionId, previewWordLimit)
@@ -129,10 +171,17 @@ export async function GET(
         pairUnsupported: true,
       })
     }
+    const reservationKey = `translation-preview:${randomUUID()}`
+    validateJobCost({ userId: user.id, pipeline: "translation", jobId: reservationKey, jobSize: originalText.length })
+    await checkBudget({ userId: user.id, pipeline: "translation", jobId: reservationKey, units: estimateTranslationPreviewCost(originalText, previewProvider) })
+    // Every request owns a fresh reservation. Once the provider is invoked its
+    // cost may be incurred even if its response is lost, so retain the allowance.
     const result = await translator.translate({
+      ...(previewProvider === "chain" ? { maxIntermediateBytes: PREVIEW_MAX_INTERMEDIATE_BYTES } : {}),
       text: originalText,
       sourceLanguage: sourceContext.sourceLanguage,
       targetLanguage,
+      meter: { userId: user.id, pipeline: "translation", bookId },
     })
 
     return NextResponse.json({
@@ -141,7 +190,12 @@ export async function GET(
       previewText: result.translatedText,
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    if (error instanceof BudgetExceededError) {
+      return NextResponse.json({ error: "This preview exceeds the remaining daily AI allowance. Try again after the daily reset." }, { status: 429 })
+    }
+    if (error instanceof JobCostExceededError) {
+      return NextResponse.json({ error: "This preview exceeds the translation size limit. Choose a shorter chapter." }, { status: 422 })
+    }
 
     if (error instanceof AIProviderError && error.code === "PROVIDER_UNAVAILABLE") {
       console.warn("[book translation preview] local preview unavailable", {
@@ -152,7 +206,6 @@ export async function GET(
         userId: user.id,
         provider: error.provider,
         code: error.code,
-        message,
       })
 
       return NextResponse.json({
@@ -169,7 +222,7 @@ export async function GET(
       sourceLanguage: sourceContext.sourceLanguage,
       targetLanguage,
       userId: user.id,
-      message,
+      errorType: error instanceof Error ? error.name : "UnknownError",
     })
     return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
   }

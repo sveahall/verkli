@@ -1,8 +1,13 @@
 "use client";
 
+import type { ApplyReview } from "./panels/EditorialReviewPanel";
+
 import dynamic from "next/dynamic";
 import GenreSelector from "@/components/books/GenreSelector";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
+import AgentCompanion from "@/features/ai-team/AgentCompanion";
+import { useAiEnabled } from "@/features/ai-team/settings/availability";
+import { getAgent, getAgentForPanel } from "@/features/ai-team/agents";
 import { getMarketingEnabled, getTranslationsEnabled } from "@/lib/flags";
 import { type SupportedLanguage } from "@/lib/languages";
 import BookWorkflowHeader from "../BookWorkflowHeader";
@@ -30,6 +35,7 @@ const MarketPanel = dynamic(() => import("./panels/MarketPanel"));
 const TrailerPanel = dynamic(() => import("./panels/TrailerPanel"));
 const StatisticsPanel = dynamic(() => import("./panels/StatisticsPanel"));
 const AudiobookPanel = dynamic(() => import("./panels/AudiobookPanel"));
+const BookCoverWorkspace = dynamic(() => import("@/features/book-production/BookCoverWorkspace"));
 const CoverPanel = dynamic(() => import("./panels/CoverPanel"));
 const PricingPanel = dynamic(() => import("./panels/PricingPanel"));
 const ProductionFacade = dynamic(() => import("./panels/ProductionFacade"));
@@ -37,6 +43,10 @@ const DistributionFacade = dynamic(() => import("./panels/DistributionFacade"));
 
 interface BookEditorPanelContentProps {
   bookId: string;
+  savedPriceAmountMinor?: number;
+  savedPriceCurrency?: string;
+  savedPricingModel?: string;
+  bookOwnerId?: string;
   bookTitle: string;
   bookDescription: string | null;
   bookOriginalUrl: string | null;
@@ -59,6 +69,7 @@ interface BookEditorPanelContentProps {
   printOnDemandSettings: PrintOnDemandSettings;
   onSavePrintOnDemandSettings: (settings: PrintOnDemandSettings) => Promise<{ ok: true } | { ok: false; message: string }>;
   onNavigateToPanel: (panel: Tool) => void;
+  onTalkToAgent?: () => void;
   onSetSelectedChapterId: (id: string) => void;
   onResetSessionWords: () => void;
   cover: ReturnType<typeof useBookCover>;
@@ -71,11 +82,17 @@ interface BookEditorPanelContentProps {
   refetchBookJob: () => Promise<void>;
   /** True when the parent (BookEditorView) detected demo mode via effectiveTools. */
   demoMode?: boolean;
+  onApplyReview: ApplyReview;
+  reviewSaveBlocked: boolean;
   /** Set when an editor bubble-menu action routed the author to the AI panel. */
 }
 
 export default function BookEditorPanelContent({
   bookId,
+  savedPriceAmountMinor,
+  savedPriceCurrency,
+  savedPricingModel,
+  bookOwnerId,
   bookTitle,
   bookDescription,
   bookOriginalUrl,
@@ -95,6 +112,7 @@ export default function BookEditorPanelContent({
   printOnDemandSettings,
   onSavePrintOnDemandSettings,
   onNavigateToPanel,
+  onTalkToAgent,
   onSetSelectedChapterId,
   onResetSessionWords,
   cover,
@@ -109,19 +127,35 @@ export default function BookEditorPanelContent({
   bookTrailerStatus,
   bookTrailerUrl,
   demoMode = false,
+  onApplyReview,
+  reviewSaveBlocked,
 }: BookEditorPanelContentProps) {
+  const aiEnabled = useAiEnabled();
+  const companion = tool === "cover" ? getAgent("stella") : tool === "review" || tool === "publish" ? getAgent("edith") : getAgentForPanel(tool);
   return (
-    <div className="w-full overflow-hidden rounded-2xl border border-black/[0.04] bg-card shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-border dark:bg-card dark:shadow-none">
+    <div className="@container/book-panel w-full min-w-0 rounded-2xl border border-border bg-card shadow-surface-sm">
       <BookWorkflowHeader
         bookId={bookId}
+        language={activeLanguage}
         activeTool={tool}
         tools={tools}
         bare
         compact
       />
-      <div className="min-h-[calc(100vh-14rem)] px-6 pb-10 pt-4 sm:px-10">
+      <div className="min-w-0 px-4 pb-8 pt-6 @min-[680px]/book-panel:px-8 @min-[680px]/book-panel:pt-8">
+        {aiEnabled && companion && <AgentCompanion agent={companion.id} onTalk={onTalkToAgent} role={tool === "cover" ? "Cover collaborator" : undefined} note={tool === "cover" ? "Describe your idea. Explore new cover options together." : undefined} />}
 
         {tool === "cover" && (
+          <BookCoverWorkspace
+            key={`${bookId}:${activeVersion?.id ?? "none"}`}
+            bookId={bookId}
+            ownerId={bookOwnerId}
+            versionId={activeVersion?.id ?? null}
+            title={bookTitle}
+            author={authorDisplayName}
+            chapters={chapters}
+            onOpenWriting={() => onNavigateToPanel("edit")}
+          >
           <CoverPanel
             coverInputRef={cover.coverInputRef}
             coverUploading={cover.coverUploading}
@@ -163,6 +197,7 @@ export default function BookEditorPanelContent({
             bookTitle={bookTitle}
             authorName={authorDisplayName}
           />
+          </BookCoverWorkspace>
         )}
 
         {tool === "production" && <ProductionFacade bookId={bookId} />}
@@ -254,6 +289,10 @@ export default function BookEditorPanelContent({
         {tool === "publish" && (
           <div className="space-y-8">
             <PublishPanel
+              onNavigate={onNavigateToPanel}
+              priceAmountMinor={savedPriceAmountMinor}
+              priceCurrency={savedPriceCurrency}
+              pricingModel={savedPricingModel}
               bookId={bookId}
               bookTitle={bookTitle}
               bookDescription={bookDescription}
@@ -286,6 +325,9 @@ export default function BookEditorPanelContent({
               onOpenCover={() => onNavigateToPanel("cover")}
               genreSelector={<GenreSelector bookId={bookId} />}
             />
+            <details className="rounded-2xl border border-border bg-card">
+              <summary className="min-h-14 cursor-pointer px-5 py-4 text-sm font-medium">Adjust pricing</summary>
+              <div className="border-t border-border p-4">
             <PricingPanel
               chapters={chapters}
               priceAmountMinor={pricing.priceAmountMinor}
@@ -303,6 +345,11 @@ export default function BookEditorPanelContent({
               stripeConfigured={stripeConfigured}
               currentVisibility={publishing.currentVisibility}
             />
+              </div>
+            </details>
+            <details className="rounded-2xl border border-border bg-card">
+              <summary className="min-h-14 cursor-pointer px-5 py-4 text-sm font-medium">Printed editions & distribution</summary>
+              <div className="border-t border-border p-4">
             <PrintPanel
               bookId={bookId}
               title={bookTitle}
@@ -322,6 +369,10 @@ export default function BookEditorPanelContent({
               onSavePrintOnDemandSettings={onSavePrintOnDemandSettings}
             />
 
+              </div>
+            </details>
+            <details className="rounded-2xl border border-border bg-card">
+              <summary className="min-h-14 cursor-pointer px-5 py-4 text-sm font-medium text-muted-foreground">Manage this book</summary>
             {/* Danger zone */}
             <div className="rounded-2xl border border-red-200/60 bg-red-50/30 px-6 py-5 dark:border-red-900/30 dark:bg-red-950/10">
               <h3 className="text-[14px] font-semibold text-red-800 dark:text-red-300">Danger zone</h3>
@@ -338,11 +389,14 @@ export default function BookEditorPanelContent({
                 />
               </div>
             </div>
+            </details>
           </div>
         )}
 
         {tool === "review" && (
           <ReviewPanel
+            onApplyReview={onApplyReview}
+            saveBlocked={reviewSaveBlocked}
             bookId={bookId}
             bookTitle={bookTitle}
             chapters={chapters}
@@ -357,7 +411,7 @@ export default function BookEditorPanelContent({
             priceCurrency={pricing.priceCurrency}
             marketingCampaigns={marketingCampaigns}
             onNavigate={onNavigateToPanel}
-            onPublish={() => publishing.setConfirmPublishAction("publish")}
+            onPublish={() => onNavigateToPanel("publish")}
           />
         )}
 
@@ -417,7 +471,7 @@ export default function BookEditorPanelContent({
               if (marketing.isGeneratingMarketing) return;
               marketing.setMarketingChannel(channel);
               marketing.setMarketingLanguage(lang as SupportedLanguage);
-              await marketing.handleGenerateMarketingCopy();
+              await marketing.handleGenerateMarketingCopy(channel, lang as SupportedLanguage);
             }}
             isGenerating={marketing.isGeneratingMarketing}
             trailerStatus={bookTrailerStatus}

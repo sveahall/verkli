@@ -17,7 +17,7 @@ import {
 import { createNotification } from "@/lib/notifications/server";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 
-const followRateLimiter = createPerUserRateLimiter({ maxPerMinute: 30 });
+const followRateLimiter = createPerUserRateLimiter({ name: "follows", maxPerMinute: 30 });
 
 const followBodySchema = z.object({
   followeeId: z.string().uuid("Invalid followee ID"),

@@ -1,11 +1,17 @@
 import { ImageResponse } from "next/og";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-export default function OgImage() {
+export default async function OgImage() {
+  // Use the raster wordmark directly. Importing a native image processor here
+  // also loads it for every page that resolves this root metadata module.
+  const wordmark = await readFile(join(process.cwd(), "public/logo-verkli-light.png"));
+  const logo = `data:image/png;base64,${wordmark.toString("base64")}`;
   return new ImageResponse(
     (
       <div
@@ -46,44 +52,8 @@ export default function OgImage() {
           }}
         />
 
-        {/* Logo mark */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 96,
-            height: 96,
-            borderRadius: 28,
-            background: "linear-gradient(135deg, #907AFF 0%, #E29ED5 100%)",
-            marginBottom: 32,
-            boxShadow: "0 20px 60px rgba(144,122,255,0.35)",
-          }}
-        >
-          <span
-            style={{
-              fontSize: 48,
-              fontWeight: 800,
-              color: "white",
-              letterSpacing: "-2px",
-            }}
-          >
-            V
-          </span>
-        </div>
-
-        {/* Wordmark */}
-        <div
-          style={{
-            fontSize: 88,
-            fontWeight: 700,
-            color: "white",
-            letterSpacing: "-4px",
-            lineHeight: 1,
-          }}
-        >
-          verkli
-        </div>
+        {/* Supplied wordmark; ImageResponse renders this image directly. */}
+        <img src={logo} alt="Verkli" width={438} height={(438 * 397) / 2143} />
 
         {/* Tagline */}
         <div

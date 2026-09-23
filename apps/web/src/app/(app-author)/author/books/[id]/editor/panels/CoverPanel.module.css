@@ -1,0 +1,49 @@
+.panel { container-type: inline-size; }
+.root :is(button, a) { min-height: 44px; }
+.root :is(button, a, input, select, textarea):focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+.heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-items: start; }
+.preview {
+  min-width: 0; padding: 24px; border: 1px solid var(--border); border-radius: 20px;
+  background: linear-gradient(145deg, #907aff12, #e29ed511 55%, #fcc9971a), var(--background);
+}
+.previewLabel { display: flex; justify-content: space-between; margin-bottom: 24px; font-size: 12px; color: var(--muted-foreground); }
+.currentCover { width: min(100%, 288px); margin-inline: auto; }
+.artwork { background: var(--card); border-radius: 4px 12px 12px 4px; box-shadow: -5px 0 0 -2px #7456bd33, 0 18px 28px -12px #24182f40; }
+.upload { aspect-ratio: 3 / 4; width: min(100%, 260px); margin-inline: auto; min-height: 260px; background: var(--card); }
+.previewHint { margin-top: 16px; color: var(--muted-foreground); text-align: center; font-size: 12px; line-height: 1.8; }
+.coverCaption { margin-top: 24px; text-align: center; }
+.coverCaption p { color: var(--foreground); font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.coverCaption span { display: block; margin-top: 5px; color: var(--muted-foreground); font-size: 12px; }
+.briefModes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 24px; padding: 4px; border: 1px solid var(--border); border-radius: 16px; background: var(--background); }
+.briefModes button { flex: 1; padding: 10px 14px; border-radius: 12px; color: var(--muted-foreground); font-size: 13px; font-weight: 500; transition: background-color 150ms, color 150ms; }
+.briefModes button[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); }
+.variationLabel { position: absolute; bottom: 8px; left: 8px; display: flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 999px; color: var(--foreground); background: var(--card); font-size: 11px; font-weight: 500; }
+.coverActions { margin-top: 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.coverActions button { min-height: 44px; }
+.generator { min-width: 0; padding: 4px 0; }
+.generator input, .generator select, .generator textarea {
+  min-width: 0; max-width: 100%; min-height: 46px; border-radius: 12px; font-size: 16px;
+}
+.generator textarea { display: block; resize: vertical; line-height: 1.6; }
+.generator select { text-overflow: ellipsis; }
+.generateActions { margin-top: 24px; display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; }
+.generateActions > div { flex: 1; min-width: 140px; }
+.generateActions select { width: 100%; }
+@container (min-width: 700px) {
+  .layout { grid-template-columns: minmax(240px, .8fr) minmax(0, 1.2fr); gap: 36px; }
+  .generator { padding: 8px 0; }
+}
+@media (min-width: 640px) {
+  .generator input, .generator select, .generator textarea { font-size: 14px; }
+}
+
+.generateActions > div > svg { top: auto; bottom: 14px; transform: none; }
+
+@container (max-width: 699px) {
+  .upload { aspect-ratio: auto; min-height: 180px; }
+  .heading > span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .root *, .root *::before, .root *::after { animation: none !important; transition: none !important; }
+}

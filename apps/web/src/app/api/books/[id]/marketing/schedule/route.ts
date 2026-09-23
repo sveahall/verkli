@@ -1,3 +1,4 @@
+import { getMarketingQueueReadiness } from "@/lib/marketing/queue-readiness";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
@@ -61,19 +62,17 @@ export async function POST(
     );
   }
 
-  // Service call
-  const jobId = await enqueueMarketingJob({
-    bookId,
-    authorId: user.id,
-    channels,
-    language,
-  });
+  const readiness = await getMarketingQueueReadiness();
+  if (!readiness.ok) return apiError(readiness.code, 503, { detail: readiness.detail });
 
+  let jobId: string | null = null;
+  try {
+    jobId = await enqueueMarketingJob({ bookId, authorId: user.id, channels, language });
+  } catch {
+    console.error("[marketing schedule] queueing failed", { bookId });
+  }
   if (!jobId) {
-    return NextResponse.json(
-      { error: "Could not enqueue job — Redis may be unavailable" },
-      { status: 503 }
-    );
+    return apiError("QUEUE_UNAVAILABLE", 503, { detail: "Campaign generation is temporarily unavailable. Please try again later or contact support." });
   }
 
   // Response

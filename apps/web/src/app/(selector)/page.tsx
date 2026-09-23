@@ -65,7 +65,7 @@ export default function RoleSelection() {
 
   return (
     <main className={styles.page}>
-      <header className={styles.header}><Link href="/" aria-label="Verkli home"><Image src="/logo-dark.svg" alt="Verkli" width={140} height={32} className="h-8 w-auto dark:hidden" priority /><Image src="/favicon.svg" alt="Verkli" width={140} height={32} className="hidden h-8 w-auto dark:block" priority /></Link><Link href="/pricing">Pricing <ArrowUpRight size={15} /></Link></header>
+      <header className={styles.header}><Link href="/" aria-label="Verkli home"><Image src="/logo-dark.svg?v=20260916" alt="Verkli" width={1429} height={265} className="h-auto w-[104px] sm:w-28 dark:hidden" priority /><Image src="/favicon.svg?v=20260916" alt="Verkli" width={1429} height={265} className="hidden h-auto w-[104px] sm:w-28 dark:block" priority /></Link><Link href="/pricing">Pricing <ArrowUpRight size={15} /></Link></header>
       <div className={styles.content}>
         <div className={styles.intro}><h1>Every story<br />starts somewhere.</h1><p>Are you here to write or to read?<br />Make yourself at home. You can switch anytime.</p></div>
         <div className={styles.choices}>

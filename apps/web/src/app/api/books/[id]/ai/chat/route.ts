@@ -1,19 +1,30 @@
+import { recordUsage } from "@/lib/usage/meter";
 import { NextRequest, NextResponse } from "next/server";
+import { conversationInputSchema, type Memory } from "@/features/ai-team/memory/contracts";
+import { completeTurn, getPreferences, loadHistory, memoryErrorResponse, requireEditionScope, reserveTurn, type Reservation } from "@/features/ai-team/memory/server";
+import { aiSettingsErrorResponse, requireAiEnabled } from "@/features/ai-team/settings/server";
+import { buildAuthorProfile, buildPersonalityLines } from "@/features/ai-team/settings/prompt";
+import type { AiSettings } from "@/features/ai-team/settings/contracts";
 import { z } from "zod";
+import { getLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
-import { isAiChatEnabled } from "@/lib/flags";
+import { isAiChatEnabled, isAudiobookEnabled, isMarketingEnabled, isTranslationsEnabled } from "@/lib/flags";
 import { contentToPlainText } from "@/lib/tiptap-content";
+import { assistantToolSchema, extractAgentChapterText, parseAgentReply, type AgentAction } from "@/lib/ai/agent-actions";
 import {
   generateWritingAssistantReply,
   WritingAssistantError,
+  type WritingAssistantInput,
+  type WritingAssistantResult,
 } from "@/lib/ai/writing-assistant";
 import {
   apiError,
   E_BOOK_NOT_FOUND,
   E_FORBIDDEN,
   E_INVALID_JSON,
+  E_INVALID_CHAPTER_ID,
   E_INVALID_REQUEST_BODY,
   E_RATE_LIMIT_EXCEEDED,
   E_VALIDATION_FAILED,
@@ -29,11 +40,31 @@ const bodySchema = z.object({
   message: z.string().trim().min(1).max(2000),
   chapterId: z.string().uuid().optional().nullable(),
   selectedText: z.string().max(4000).optional().nullable(),
-  // history is accepted for forward-compatibility but ignored for now
-  history: z.array(z.unknown()).max(50).optional(),
+  mode: z.enum(["advice", "actions"]).default("advice"),
+  tool: assistantToolSchema.default("edit"),
+  history: z.array(z.object({
+    role: z.enum(["user", "assistant"]),
+    content: z.string().trim().min(1).max(4000),
+  })).max(12).optional(),
+  draftText: z.string().max(60000).optional(),
+  conversation: conversationInputSchema.optional(),
+}).refine((body) => body.draftText === undefined || Boolean(body.chapterId), {
+  message: "A chapterId is required for draftText.", path: ["chapterId"],
 });
 
-const chatLimiter = createPerUserRateLimiter({ maxPerMinute: 20 });
+const chatLimiter = createPerUserRateLimiter({ name: "books-ai-chat", maxPerMinute: 20 });
+const VALIDATION_RETRY_WINDOW_MS = 8000;
+
+function combineUsage(first: WritingAssistantResult["usage"], second: WritingAssistantResult["usage"]): WritingAssistantResult["usage"] {
+  if (!first) return second;
+  if (!second) return first;
+  const sum = (a?: number, b?: number) => a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0);
+  return {
+    promptTokens: sum(first.promptTokens, second.promptTokens),
+    completionTokens: sum(first.completionTokens, second.completionTokens),
+    totalTokens: sum(first.totalTokens, second.totalTokens),
+  };
+}
 
 export async function POST(
   request: NextRequest,
@@ -63,9 +94,11 @@ export async function POST(
 
   const parsedBody = bodySchema.safeParse(rawBody);
   if (!parsedBody.success) {
+    console.warn("[ai.chat] invalid request body", { bookId, fields: parsedBody.error.issues.map((issue) => issue.path.join(".")) });
     return apiError(E_INVALID_REQUEST_BODY, 400);
   }
-  const { message, chapterId, selectedText } = parsedBody.data;
+  const { message, chapterId, selectedText, mode, tool, history, draftText, conversation } = parsedBody.data;
+  const actionMode = mode === "actions";
 
   // Verify the book exists AND the caller owns it (RLS normally enforces this,
   // but an explicit check returns a clean error and defends against policy drift).
@@ -75,15 +108,28 @@ export async function POST(
     // `author_id`, not `user_id` — books has no such column, so this select
     // errored and every request answered BOOK_NOT_FOUND. The route had never
     // worked for anyone; an E2E account signing in as an author found it.
-    .select("id, author_id, title")
+    .select("id, author_id, title, deleted_at")
     .eq("id", bookId)
     .maybeSingle();
 
-  if (bookError || !book) {
+  if (bookError || !book || book.deleted_at) {
+    console.warn("[ai.chat] book unavailable", { bookId, reason: bookError?.code ?? "not found" });
     return apiError(E_BOOK_NOT_FOUND, 404);
   }
   if (book.author_id !== user.id) {
     return apiError(E_FORBIDDEN, 403);
+  }
+
+  // The account's master AI switch. Placed before the conversation reservation
+  // and before any provider call: an author who turned AI off must not have a
+  // stale tab, a retried request or a direct POST produce a reply.
+  let aiSettings: AiSettings;
+  try { aiSettings = await requireAiEnabled(supabase, user.id); }
+  catch (error) { return aiSettingsErrorResponse(error); }
+
+  if (conversation) {
+    try { await requireEditionScope(supabase, bookId, conversation.editionId ?? null); }
+    catch (error) { return memoryErrorResponse(error); }
   }
 
   const bookTitle =
@@ -98,11 +144,12 @@ export async function POST(
   // beside the panel. Reported 2026-09-02.
   let chapterTitle: string | null = null;
   let chapterText: string | null = null;
+  let resolvedChapterId: string | null = null;
 
   if (chapterId) {
     const { data: chapter, error: chapterError } = await supabase
       .from("chapters")
-      .select("id, book_id, title, content")
+      .select("id, book_id, book_version_id, title, content")
       .eq("id", chapterId)
       // Scoped to the book in the URL, which was already checked for ownership.
       // Without this, a chapterId from someone else's book could be pulled into
@@ -111,64 +158,151 @@ export async function POST(
       .maybeSingle();
 
     if (chapterError || !chapter) {
-      // Not fatal — the assistant still answers, just without the manuscript.
-      // Logged because silently losing this context is the bug being fixed.
       console.warn("[ai.chat] chapter context unavailable", {
         bookId,
         chapterId,
-        reason: chapterError?.message ?? "not found for this book",
+        reason: chapterError?.code ?? "not found for this book",
       });
+      if (actionMode || conversation) {
+        return apiError(E_INVALID_CHAPTER_ID, 404, { detail: "The chapter is not available in this book. Reopen the chapter before asking for changes." });
+      }
     } else {
+      if (conversation && (chapter.book_version_id ?? null) !== (conversation.editionId ?? null)) {
+        console.warn("[ai memory] chapter edition mismatch", { bookId, chapterId });
+        return apiError(E_INVALID_CHAPTER_ID, 404, { detail: "The chapter does not belong to the selected edition. Reopen the chapter before sending your message." });
+      }
+      resolvedChapterId = chapter.id;
       const title = (chapter as { title?: unknown }).title;
       chapterTitle = typeof title === "string" && title.trim() ? title : null;
-      const text = contentToPlainText(
-        (chapter as { content?: string | null }).content ?? null
-      );
-      chapterText = text.trim() ? text : null;
+      const storedContent = (chapter as { content?: string | null }).content ?? null;
+      if (actionMode) {
+        chapterText = draftText ?? extractAgentChapterText(storedContent);
+      } else {
+        const text = contentToPlainText(storedContent);
+        chapterText = text.trim() ? text : null;
+      }
     }
   }
+
+  const context = { chapterId: resolvedChapterId, chapterText };
+  const actionContext = {
+    tool, chapterText,
+    marketingEnabled: isMarketingEnabled(),
+    audiobookEnabled: isAudiobookEnabled(),
+    translationsEnabled: isTranslationsEnabled(),
+  };
+  let reservation: Reservation | undefined;
+  let savedHistory = history;
+  let preferences: Memory[] | undefined;
+  if (conversation && !conversation.temporary) {
+    try {
+      reservation = await reserveTurn(supabase, { bookId, editionId: conversation.editionId ?? null, tool, threadId: conversation.threadId, requestId: conversation.requestId, message });
+      if (reservation.status === "completed") {
+        return NextResponse.json({ id: reservation.replyId, role: "assistant", content: reservation.content, actions: [], context, bookId, chapterId: chapterId ?? null, source: "history", provider: null, threadId: reservation.threadId, persistence: "saved" });
+      }
+      savedHistory = await loadHistory(supabase, user.id, reservation.threadId);
+      preferences = await getPreferences(supabase, user.id, bookId, conversation.editionId ?? null);
+    } catch (error) { return memoryErrorResponse(error); }
+  }
+  async function respond(payload: Record<string, unknown> & { content: string; actions?: AgentAction[] }) {
+    if (!conversation) return NextResponse.json({ ...payload, id: crypto.randomUUID() });
+    if (conversation.temporary) return NextResponse.json({ ...payload, id: crypto.randomUUID(), persistence: "temporary" });
+    let saved = false;
+    if (reservation) {
+      try { saved = await completeTurn(supabase, reservation.threadId, conversation.requestId, payload.content, payload.actions ?? []); }
+      catch { console.warn("[ai memory] reply persistence failed", { code: "unexpected" }); }
+    }
+    return NextResponse.json({ ...payload, id: reservation?.replyId ?? crypto.randomUUID(), threadId: reservation?.threadId, persistence: saved ? "saved" : "failed" });
+  }
+  let fallbackMessage = "The AI conversation is unavailable right now. No changes have been made. You can continue using the workspace tools or try again later.";
+  let failureReason: "invalid_proposal" | "unavailable" = "unavailable";
 
   // Try LLM when enabled and at least one provider key is set (Anthropic
   // primary, NVIDIA NIM fallback). Fall back to templates on any provider
   // failure so the editor never breaks on a transient outage.
   if (isAiChatEnabled()) {
     try {
-      const llm = await generateWritingAssistantReply({
+      const input: WritingAssistantInput = {
         message,
         selectedText: selectedText ?? null,
         bookTitle,
         chapterTitle,
         chapterText,
-      });
-      return NextResponse.json({
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: llm.content,
-        bookId,
-        chapterId: chapterId ?? null,
-        source: "llm",
-        provider: llm.provider,
-        model: llm.model,
-        usage: llm.usage ?? null,
-      });
+        mode,
+        ...(actionMode ? { replyLanguage: (await getLocale()) === "sv" ? "sv" : "en" } : {}),
+        tool,
+        history: savedHistory,
+        preferences,
+        personality: buildPersonalityLines(aiSettings),
+        authorProfile: buildAuthorProfile(aiSettings),
+        marketingEnabled: actionContext.marketingEnabled,
+        audiobookEnabled: actionContext.audiobookEnabled,
+        translationsEnabled: actionContext.translationsEnabled,
+      };
+      const startedAt = Date.now();
+      let usage: WritingAssistantResult["usage"];
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        // Only rejected proposals reach the second attempt. Provider failures escape immediately.
+        const llm = await generateWritingAssistantReply({ ...input, ...(attempt === 2 ? { validationRetry: true } : {}) });
+        usage = combineUsage(usage, llm.usage);
+
+        // Metered per attempt, not on the combined total: a validation retry is
+        // a second real request that was really paid for. The assistant already
+        // returns its own usage block and both the Anthropic and NIM paths fill
+        // it in, so recording here covers both without threading a context
+        // through either provider.
+        if (llm.usage) {
+          await recordUsage({ userId: user.id, pipeline: "assistant", bookId }, [
+            { kind: "ai_call", provider: llm.provider, model: llm.model,
+              quantity: llm.usage.promptTokens ?? 0, unit: "input_tokens" },
+            { kind: "ai_call", provider: llm.provider, model: llm.model,
+              quantity: llm.usage.completionTokens ?? 0, unit: "output_tokens" },
+          ]);
+        }
+        let proposal;
+        if (actionMode) {
+          try {
+            proposal = parseAgentReply(llm.content, actionContext);
+          } catch (err) {
+            const reason = err instanceof SyntaxError ? "invalid_json" : err instanceof z.ZodError ? "invalid_structure" : "invalid_context";
+            // Syntax and schema error messages can contain manuscript/model text. Log codes only.
+            console.warn("[ai.chat] invalid action proposal", { reason, provider: llm.provider, model: llm.model, tool, attempt });
+            if (attempt === 1 && Date.now() - startedAt < VALIDATION_RETRY_WINDOW_MS) continue;
+            fallbackMessage = "I could not validate the assistant's suggestion. No changes have been made. Please try the request again.";
+            failureReason = "invalid_proposal";
+            throw new WritingAssistantError("Assistant returned an invalid action proposal", "PROVIDER_FAILED");
+          }
+        }
+        return respond({
+          role: "assistant",
+          content: proposal?.content ?? llm.content,
+          ...(actionMode ? { actions: proposal?.actions ?? [], context } : {}),
+          bookId,
+          chapterId: chapterId ?? null,
+          source: "llm",
+          provider: llm.provider,
+          model: llm.model,
+          usage: usage ?? null,
+        });
+      }
+
     } catch (err) {
       const code = err instanceof WritingAssistantError ? err.code : "PROVIDER_FAILED";
       console.warn("[ai.chat] LLM fallback to templates", {
         bookId,
         userId: user.id,
         code,
-        message: err instanceof Error ? err.message : String(err),
       });
       // fall through to templates
     }
   }
 
-  const response = buildTemplateReply(message, selectedText);
+  const response = actionMode ? fallbackMessage : `${fallbackMessage}\n\n${buildTemplateReply(message, selectedText)}`;
 
-  return NextResponse.json({
-    id: crypto.randomUUID(),
+  return respond({
     role: "assistant",
     content: response,
+    ...(actionMode ? { actions: [], context, provider: null, failureReason } : {}),
     bookId,
     chapterId: chapterId ?? null,
     source: "template",

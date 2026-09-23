@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useToastHelpers } from "@/components/ui/toast";
-import { normalizeLanguage } from "@/lib/languages";
+import { normalizeLanguageOrNull } from "@/lib/languages";
 import type { Book, BookVersion, Chapter } from "../BookEditorView.types";
 import { drainPendingSaves, type PersistChapter } from "./useChapterCrud.autosave";
+import { assertReviewCanApply, persistReviewedChapterContent, persistAutosavedChapterContent } from "./useChapterCrud.review";
 
 interface UseChapterCrudOptions {
   book: Book;
+  /** Local preview transport; production uses authenticated compare-and-swap. */
+  persistContent?: typeof persistReviewedChapterContent;
   activeVersion: BookVersion | null;
   chapters: Chapter[];
   selectedChapterId: string | null;
@@ -21,44 +24,9 @@ interface UseChapterCrudOptions {
   getBookWorkspaceHref: (language?: string | null) => string;
 }
 
-/**
- * Write one chapter's content and report whether a row was actually touched.
- *
- * `.select("id")` is the point. Without it PostgREST answers `return=minimal`,
- * so an UPDATE that matched NOTHING — the row deleted underneath by an
- * `overwrite_draft` import, or an RLS refusal — came back as `error: null`, the
- * caller saw success, and the status bar said "Saved" over prose that was gone.
- *
- * This depends on the author being able to SELECT their own chapters. They can:
- * `handleCreateChapter` below does `.insert(...).select(...).single()` on this
- * same browser client and surfaces an error otherwise, so chapter creation
- * would already be broken if that were not true. Worth knowing that the repo
- * migrations do NOT grant it — `20260203000000_book_versions.sql:166` drops
- * "Authors can read own chapters" and never recreates it — so this rests on the
- * live database differing from the migrations. If autosave ever starts
- * reporting a failure on every keystroke, that policy is the first thing to
- * check, not this function.
- */
-const persistChapterContent: PersistChapter = async (chapterId, payload) => {
-  const serialized = JSON.stringify(payload);
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("chapters")
-    .update({ content: serialized })
-    .eq("id", chapterId)
-    .select("id");
-  if (error) return { outcome: "transient", serialized };
-  // Zero rows means the row is gone OR this caller cannot see it, and those are
-  // indistinguishable here. Reported as `missing` so the message can say which
-  // is more likely, but the payload is still kept queued — see the drain module.
-  // Classifying it as permanent and discarding the content would lose prose over
-  // a recoverable access problem, which is the opposite of the point.
-  if ((data?.length ?? 0) === 0) return { outcome: "missing", serialized };
-  return { outcome: "written", serialized };
-};
-
 export function useChapterCrud({
   book,
+  persistContent = persistReviewedChapterContent,
   activeVersion,
   chapters,
   selectedChapterId,
@@ -73,10 +41,18 @@ export function useChapterCrud({
   const toast = useToastHelpers();
   // True while a drain is in flight. One writer at a time; everyone else queues.
   const savingRef = useRef(false);
+  const applyingReviewRef = useRef(false);
+  // Never silently move a mounted draft's baseline to newer server props.
+  const expectedContentRef = useRef(new Map(chapters.map((chapter) => [chapter.id, chapter.content])));
+  const dirtyRevisionsRef = useRef(new Map<string, number>());
+  const queuedRevisionsRef = useRef(new Map<string, number>());
+  const revisionRef = useRef(0);
+  const conflictIdsRef = useRef(new Set<string>());
   // The write queue: latest unsaved content per chapter id. Every autosave call
   // enqueues here, including the one that goes on to drain it, so a payload can
   // never be written out of order with a newer one for the same chapter.
   const pendingSavesRef = useRef<Map<string, Record<string, unknown>>>(new Map());
+  const inFlightSavesRef = useRef<Map<string, Record<string, unknown>>>(new Map());
   // Chapters this tab deleted. An autosave still arrives for them: deleting the
   // selected chapter unmounts the editor, and its cleanup flushes the pending
   // debounce after the row is already gone. Without this the resulting zero-row
@@ -85,6 +61,8 @@ export function useChapterCrud({
   const deletedChapterIdsRef = useRef<Set<string>>(new Set());
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isApplyingReview, setIsApplyingReview] = useState(false);
+  const [hasSaveConflict, setHasSaveConflict] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [tempTitle, setTempTitle] = useState("");
@@ -93,17 +71,42 @@ export function useChapterCrud({
   const [saveError, setSaveError] = useState(false);
   const [deletingChapterId, setDeletingChapterId] = useState<string | null>(null);
 
-  const handleAutoSave = useCallback(async (chapterId: string, jsonContent: Record<string, unknown>) => {
-    // Nothing to save to a row we deleted. This is the unmount-flush case, and
-    // it is normal rather than an error, so it is dropped silently.
-    if (deletedChapterIdsRef.current.has(chapterId)) return;
-
-    // Always enqueue, never write directly. The queue is the single source of
-    // truth for what still needs persisting, and keying by chapter id makes a
-    // later payload replace an earlier one instead of queueing behind it.
-    pendingSavesRef.current.set(chapterId, jsonContent);
+  const markChapterDirty = useCallback((chapterId: string | null) => {
+    if (!chapterId) return;
+    dirtyRevisionsRef.current.set(chapterId, ++revisionRef.current);
     setHasUnsavedChanges(true);
+  }, []);
 
+  useEffect(() => {
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      if (!savingRef.current && !applyingReviewRef.current && !dirtyRevisionsRef.current.size && !pendingSavesRef.current.size) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+  }, []);
+
+  const downloadUnsavedDrafts = useCallback(() => {
+    if (Array.from(dirtyRevisionsRef.current).some(([id, revision]) => revision !== queuedRevisionsRef.current.get(id))) {
+      toast.error("Your latest typing is still being captured. Pause briefly, then download again.");
+      return;
+    }
+    // The drain removes a queued entry before awaiting its write. Include that
+    // in-flight draft too; a newer queued snapshot takes precedence.
+    const recoverable = new Map([...inFlightSavesRef.current, ...pendingSavesRef.current]);
+    const drafts = Array.from(recoverable, ([id, content]) => ({
+      id, title: chapters.find((chapter) => chapter.id === id)?.title ?? "Chapter", content,
+    }));
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ bookId: book.id, drafts }, null, 2)], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "verkli-unsaved-drafts.json";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, [book.id, chapters, toast]);
+
+  const flushPendingSaves = useCallback(async () => {
     // A drain is already running and will pick this up. Returning here is what
     // keeps exactly one writer in flight.
     if (savingRef.current) return;
@@ -115,10 +118,28 @@ export function useChapterCrud({
     // Drains the WHOLE queue, not just this chapter's key. See the module
     // comment in ./useChapterCrud.autosave for the ordering rules and the
     // older-over-newer overwrite they replace.
-    const { saved, transientFailures, missingChapters } = await drainPendingSaves(
+    const persistChapterContent: PersistChapter = async (id, payload) => {
+      const queuedRevision = queuedRevisionsRef.current.get(id) ?? 0;
+      if (!expectedContentRef.current.has(id)) return { outcome: "missing", serialized: JSON.stringify(payload) };
+      inFlightSavesRef.current.set(id, payload);
+      const result = await persistAutosavedChapterContent(book.id, id, expectedContentRef.current.get(id) ?? null, payload, persistContent)
+        .finally(() => inFlightSavesRef.current.delete(id));
+      if (result.outcome === "written") {
+        expectedContentRef.current.set(id, result.serialized);
+        conflictIdsRef.current.delete(id);
+        if ((dirtyRevisionsRef.current.get(id) ?? 0) === queuedRevision) dirtyRevisionsRef.current.delete(id);
+      }
+      return result;
+    };
+    const { saved, transientFailures, missingChapters, conflictedChapters } = await drainPendingSaves(
       pendingSavesRef.current,
       persistChapterContent,
-      deletedChapterIdsRef.current
+      deletedChapterIdsRef.current,
+      (id) => {
+        conflictIdsRef.current.add(id);
+        setHasSaveConflict(true);
+        setSaveError(true);
+      },
     );
 
     savingRef.current = false;
@@ -132,6 +153,15 @@ export function useChapterCrud({
         })
       );
       setLastSaved(new Date());
+    }
+
+    conflictedChapters.forEach((id) => conflictIdsRef.current.add(id));
+    setHasSaveConflict(conflictIdsRef.current.size > 0);
+    if (conflictIdsRef.current.size > 0) {
+      setSaveError(true);
+      setHasUnsavedChanges(true);
+      toast.error("This chapter changed elsewhere. Your unsaved draft is kept in this tab. Download it before reloading.");
+      return;
     }
 
     // Missing first: it is the more serious of the two, and checking transient
@@ -162,8 +192,67 @@ export function useChapterCrud({
     // Only claim saved if the queue is genuinely empty. A keystroke that landed
     // after the drain's last check is still outstanding, and clearing the flag
     // here would show "Saved" over it.
-    if (pendingSavesRef.current.size === 0) setHasUnsavedChanges(false);
-  }, [setChapters, toast]);
+    if (pendingSavesRef.current.size === 0 && dirtyRevisionsRef.current.size === 0) setHasUnsavedChanges(false);
+  }, [book.id, persistContent, setChapters, toast]);
+
+  const handleAutoSave = useCallback(async (chapterId: string, jsonContent: Record<string, unknown>) => {
+    if (deletedChapterIdsRef.current.has(chapterId)) return;
+    if (!expectedContentRef.current.has(chapterId)) {
+      const chapter = chapters.find((item) => item.id === chapterId);
+      if (chapter) expectedContentRef.current.set(chapterId, chapter.content);
+    }
+    pendingSavesRef.current.set(chapterId, jsonContent);
+    queuedRevisionsRef.current.set(chapterId, dirtyRevisionsRef.current.get(chapterId) ?? 0);
+    setHasUnsavedChanges(true);
+    await flushPendingSaves();
+  }, [chapters, flushPendingSaves]);
+
+  const handleApplyReview = useCallback(async (
+    chapterId: string,
+    expectedContent: string | null,
+    nextContent: Record<string, unknown> | string,
+  ): Promise<string> => {
+    assertReviewCanApply({
+      chapter: chapters.find((chapter) => chapter.id === chapterId),
+      expectedContent,
+      hasUnsavedChanges: hasUnsavedChanges || dirtyRevisionsRef.current.size > 0,
+      isSaving,
+      isDraining: savingRef.current,
+      pendingCount: pendingSavesRef.current.size,
+      isApplying: applyingReviewRef.current,
+    });
+    applyingReviewRef.current = true;
+    savingRef.current = true;
+    setIsApplyingReview(true);
+    setIsSaving(true);
+    try {
+      const content = await persistContent(book.id, chapterId, expectedContent, nextContent);
+      // An edit that arrived during review still belongs to the old baseline.
+      // Keep that baseline so its delayed autosave becomes a recoverable conflict.
+      if (!dirtyRevisionsRef.current.has(chapterId) && !pendingSavesRef.current.has(chapterId)) {
+        expectedContentRef.current.set(chapterId, content);
+      }
+      setChapters((current) => current.map((chapter) => (
+        chapter.id === chapterId && chapter.content === expectedContent
+          ? { ...chapter, content }
+          : chapter
+      )));
+      setLastSaved(new Date());
+      // A newly mounted editor may have queued an edit while the request was in flight.
+      // Its autosave retains ownership of the pending/saved flags in that case.
+      // This operation starts with no unsaved changes, so never clear newer edits.
+      if (dirtyRevisionsRef.current.size === 0 && pendingSavesRef.current.size === 0) {
+        setSaveError(false);
+      }
+      return content;
+    } finally {
+      applyingReviewRef.current = false;
+      savingRef.current = false;
+      setIsApplyingReview(false);
+      setIsSaving(false);
+      if (pendingSavesRef.current.size) void flushPendingSaves();
+    }
+  }, [book.id, chapters, hasUnsavedChanges, isSaving, persistContent, setChapters, flushPendingSaves]);
 
   const handleCreateChapter = useCallback(async () => {
     setIsCreating(true);
@@ -171,7 +260,7 @@ export function useChapterCrud({
     let targetVersionId = activeVersion?.id ?? null;
     let targetVersionLanguage = activeVersion?.language_code ?? null;
     if (!targetVersionId) {
-      const fallbackLanguage = normalizeLanguage(book.original_language ?? book.language);
+      const fallbackLanguage = normalizeLanguageOrNull(book.original_language ?? book.language) ?? "und";
       const { data: createdVersion, error: versionError } = await supabase
         .from("book_versions")
         .insert({
@@ -298,6 +387,10 @@ export function useChapterCrud({
     // in place first.
     deletedChapterIdsRef.current.add(chapterId);
     pendingSavesRef.current.delete(chapterId);
+    dirtyRevisionsRef.current.delete(chapterId);
+    queuedRevisionsRef.current.delete(chapterId);
+    conflictIdsRef.current.delete(chapterId);
+    setHasSaveConflict(conflictIdsRef.current.size > 0);
     // If that was the last outstanding work, stop reporting it. The unmount
     // flush that follows is refused by the guard above, so no drain runs to
     // reset these — the editor would otherwise sit on "Unsaved changes" or an
@@ -306,7 +399,7 @@ export function useChapterCrud({
     // entry before writing it, so an in-flight write is not in the map. Clearing
     // on that alone told the author everything was saved while a write was still
     // going, and if it then failed the status bar kept saying "Saved".
-    if (pendingSavesRef.current.size === 0 && !savingRef.current) {
+    if (pendingSavesRef.current.size === 0 && dirtyRevisionsRef.current.size === 0 && !savingRef.current) {
       setHasUnsavedChanges(false);
       setSaveError(false);
     }
@@ -396,11 +489,15 @@ export function useChapterCrud({
     setTempTitle,
     lastSaved,
     hasUnsavedChanges,
-    setHasUnsavedChanges,
+    markChapterDirty,
+    isApplyingReview,
+    hasSaveConflict,
+    downloadUnsavedDrafts,
     saveError,
     deletingChapterId,
     setDeletingChapterId,
     handleAutoSave,
+    handleApplyReview,
     handleCreateChapter,
     handleStartEditTitle,
     handleSaveTitle,

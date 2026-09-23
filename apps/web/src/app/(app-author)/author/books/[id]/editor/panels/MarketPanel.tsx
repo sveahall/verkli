@@ -580,11 +580,14 @@ export default function MarketPanel({
                 ? "Generating..."
                 : isProLocked
                   ? billingLoading ? "Checking subscription..." : "Generate copy (Pro)"
-                  : "Generate launch copy"}
+                  : "Generate AI draft"}
             </button>
           </div>
         )}
 
+        <p className="mt-3 text-xs text-muted-foreground">
+          New drafts use AI and your book description. Review the facts and wording before sharing. Nothing is posted automatically.
+        </p>
         {isProLocked && (
           <div className="mt-4 rounded-xl border border-amber-200/60 bg-amber-50/60 px-4 py-3 dark:border-amber-500/20 dark:bg-amber-500/5">
             <p className="text-xs text-amber-700 dark:text-amber-400">

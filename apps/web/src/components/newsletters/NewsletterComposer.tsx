@@ -5,6 +5,8 @@ import DOMPurify from "dompurify";
 import { Button } from "@/components/ui/button";
 import { resolveErrorMessage } from "@/lib/error-messages";
 
+const UNCERTAIN_DELIVERY_MESSAGE = "Delivery could not be confirmed. Some subscribers may have received the newsletter. Check delivery status before sending again.";
+
 type NewsletterData = {
   id: string;
   subject: string;
@@ -32,7 +34,8 @@ export default function NewsletterComposer({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const isDraft = newsletter.status === "draft";
+  const [sent, setSent] = useState(false);
+  const isDraft = newsletter.status === "draft" && !sent;
 
   const sanitizedHtml = useMemo(() => DOMPurify.sanitize(bodyHtml), [bodyHtml]);
 
@@ -78,9 +81,10 @@ export default function NewsletterComposer({
     setError(null);
     setSuccess(null);
 
+    let sendRequested = false;
     try {
       // Save draft first
-      await fetch(`/api/newsletters/${newsletter.id}`, {
+      const saveResponse = await fetch(`/api/newsletters/${newsletter.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -91,7 +95,14 @@ export default function NewsletterComposer({
         }),
       });
 
+      if (!saveResponse.ok) {
+        const saveBody = await saveResponse.json().catch(() => ({}));
+        setError(resolveErrorMessage(saveBody.error));
+        return;
+      }
+
       // Then send
+      sendRequested = true;
       const res = await fetch(`/api/newsletters/${newsletter.id}/send`, {
         method: "POST",
         credentials: "include",
@@ -103,14 +114,15 @@ export default function NewsletterComposer({
       };
 
       if (!res.ok) {
-        setError(resolveErrorMessage(body.error));
+        setError(res.status >= 500 ? UNCERTAIN_DELIVERY_MESSAGE : resolveErrorMessage(body.error));
         return;
       }
 
-      setSuccess(`Newsletter sent to ${body.recipientCount ?? 0} subscribers`);
+      setSent(true);
+      setSuccess(`Newsletter accepted for delivery to ${body.recipientCount ?? 0} subscribers`);
       onSent?.();
     } catch {
-      setError(resolveErrorMessage(null));
+      setError(sendRequested ? UNCERTAIN_DELIVERY_MESSAGE : resolveErrorMessage(null));
     } finally {
       setSending(false);
     }
@@ -119,10 +131,10 @@ export default function NewsletterComposer({
   return (
     <div className="space-y-6">
       {error && (
-        <p className="text-[13px] text-red-600 dark:text-red-400">{error}</p>
+        <p role="alert" className="text-[13px] text-red-600 dark:text-red-400">{error}</p>
       )}
       {success && (
-        <p className="text-[13px] text-green-600 dark:text-green-400">{success}</p>
+        <p role="status" className="text-[13px] text-green-600 dark:text-green-400">{success}</p>
       )}
 
       <div className="space-y-1.5">
@@ -137,7 +149,7 @@ export default function NewsletterComposer({
           type="text"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
-          disabled={!isDraft}
+          disabled={!isDraft || saving || sending}
           placeholder="Subject line for the newsletter..."
           className="min-h-[44px] w-full rounded-xl border border-border/80 bg-card px-4 text-[14px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-60 dark:border-border dark:bg-card dark:text-foreground dark:focus-visible:ring-offset-[#0b0b12]"
         />
@@ -145,7 +157,7 @@ export default function NewsletterComposer({
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <label className="text-[13px] font-medium text-foreground dark:text-foreground">
+          <label htmlFor="nl-content" className="text-[13px] font-medium text-foreground dark:text-foreground">
             Content (HTML)
           </label>
           <button
@@ -164,9 +176,10 @@ export default function NewsletterComposer({
           />
         ) : (
           <textarea
+            id="nl-content"
             value={bodyHtml}
             onChange={(e) => setBodyHtml(e.target.value)}
-            disabled={!isDraft}
+            disabled={!isDraft || saving || sending}
             rows={15}
             placeholder="<h1>Hello!</h1><p>Here's the latest news...</p>"
             className="w-full rounded-xl border border-border/80 bg-card px-4 py-3 font-mono text-[13px] text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#907AFF]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-60 dark:border-border dark:bg-card dark:text-foreground dark:focus-visible:ring-offset-[#0b0b12]"
@@ -181,7 +194,7 @@ export default function NewsletterComposer({
             onClick={handleSave}
             isLoading={saving}
             loadingText="Saving..."
-            disabled={!subject.trim()}
+            disabled={!subject.trim() || saving || sending}
           >
             Save draft
           </Button>
@@ -189,7 +202,7 @@ export default function NewsletterComposer({
             onClick={handleSend}
             isLoading={sending}
             loadingText="Sending..."
-            disabled={!subject.trim()}
+            disabled={!subject.trim() || saving || sending}
           >
             Send newsletter
           </Button>

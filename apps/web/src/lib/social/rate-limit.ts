@@ -1,7 +1,7 @@
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 
-const connectLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
-const publishLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const connectLimiter = createPerUserRateLimiter({ name: "social-connect", maxPerMinute: 5 });
+const publishLimiter = createPerUserRateLimiter({ name: "social-publish", maxPerMinute: 5 });
 
 export async function checkConnectRateLimit(userId: string): Promise<{ allowed: boolean; retryAfterSeconds?: number }> {
   return connectLimiter.check(userId);

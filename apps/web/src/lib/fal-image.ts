@@ -1,3 +1,5 @@
+import { recordUsage } from "@/lib/usage/meter";
+import type { MeterContext } from "@/lib/usage/types";
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -26,6 +28,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 
 const FAL_ENDPOINT = "https://fal.run/fal-ai/flux/schnell";
+
+/**
+ * The billed model, derived from the endpoint so the two cannot drift apart.
+ * fal prices per render per model, so this is the key the price book needs.
+ */
+export const FAL_MODEL_ID = FAL_ENDPOINT.replace("https://fal.run/", "");
 
 /**
  * Comfortably inside Vercel's function limit, so a slow provider surfaces as
@@ -60,11 +68,13 @@ export const FAL_STORAGE_HEADROOM_MS = 15_000;
 const IMAGE_WIDTH = 1024;
 const IMAGE_HEIGHT = 1536;
 
-const COVER_COUNT = 4;
+export const COVER_COUNT = 4;
 const BOOK_COVERS_BUCKET = "book_covers";
 
 type GenerateCoverImagesInput = {
   prompt: string;
+  /** When present, render spend is billed to this user. Absent = not measured. */
+  meter?: MeterContext;
 };
 
 type GenerateCoverImagesResult = {
@@ -173,6 +183,7 @@ async function downloadImage(url: string): Promise<Buffer> {
  */
 export async function generateCoverImages({
   prompt,
+  meter,
 }: GenerateCoverImagesInput): Promise<GenerateCoverImagesResult> {
   const trimmedPrompt = prompt.trim();
   if (!trimmedPrompt) {
@@ -233,6 +244,23 @@ export async function generateCoverImages({
     `[fal] stored ${imageUrls.length} images in ${Date.now() - downloadedAt}ms ` +
       `(total ${Date.now() - phaseStart}ms)`
   );
+
+  // One row for the whole batch: fal bills per render, and COVER_COUNT renders
+  // were issued together. `requestId` is OUR correlation id — the same one the
+  // storage path uses — not fal's. fal's sync endpoint returns nothing we keep,
+  // so this reconciles against an invoice by render COUNT, not per request.
+  if (meter) {
+    await recordUsage(meter, [
+      {
+        kind: "ai_call",
+        provider: "fal",
+        model: FAL_MODEL_ID,
+        quantity: COVER_COUNT,
+        unit: "renders",
+        requestId,
+      },
+    ]);
+  }
 
   return { requestId, imageUrls };
 }

@@ -1,7 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useRef, useState, useCallback } from "react";
+import Link from "next/link";
+import { ArrowRight, Check, ChevronDown } from "lucide-react";
+import type { Tool } from "../BookEditorView.types";
+import styles from "./PublishPanel.module.css";
+import { useId, useMemo, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getLanguageLabel } from "@/lib/languages";
 import { useToastHelpers } from "@/components/ui/toast";
@@ -96,6 +100,11 @@ export type PublishPanelProps = {
   onSelectChapter: (id: string) => void;
   onOpenCover: () => void;
   genreSelector?: React.ReactNode;
+  onNavigate?: (panel: Tool) => void;
+  priceAmountMinor?: number;
+  priceCurrency?: string;
+  pricingModel?: string;
+  onSaveDescription?: (description: string | null) => Promise<void>;
 };
 
 
@@ -131,10 +140,16 @@ export default function PublishPanel({
   onSelectChapter,
   onOpenCover,
   genreSelector,
+  onNavigate,
+  priceAmountMinor,
+  priceCurrency,
+  pricingModel,
+  onSaveDescription,
 }: PublishPanelProps) {
   const router = useRouter();
   const toast = useToastHelpers();
   const requirementsRef = useRef<HTMLDivElement>(null);
+  const descriptionId = useId();
   const liveCount = publishedChapterCount ?? (isPublished ? chapters.length : 0);
   const totalCount = chapters.length;
   const livePercent = totalCount > 0 ? Math.round((liveCount / totalCount) * 100) : 0;
@@ -147,23 +162,36 @@ export default function PublishPanel({
   // ── Description inline editor ──────────────────────────────────────────────
   const [descDraft, setDescDraft] = useState(bookDescription ?? "");
   const [descSaving, setDescSaving] = useState(false);
+  const [descError, setDescError] = useState<string | null>(null);
+  const [savedDescription, setSavedDescription] = useState<string | null>(null);
+  const descriptionSavingRef = useRef(false);
 
   const handleSaveDescription = useCallback(async () => {
     const trimmed = descDraft.trim() || null;
     const current = (bookDescription ?? "").trim() || null;
-    if (trimmed === current) return;
+    if (trimmed === current || descriptionSavingRef.current) return;
+    descriptionSavingRef.current = true;
     setDescSaving(true);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("books")
-      .update({ description: trimmed })
-      .eq("id", bookId);
-    if (error) {
+    setDescError(null);
+    setSavedDescription(null);
+    try {
+      if (onSaveDescription) {
+        await onSaveDescription(trimmed);
+      } else {
+        const supabase = createClient();
+        const { error } = await supabase.from("books").update({ description: trimmed }).eq("id", bookId);
+        if (error) throw error;
+      }
+      setSavedDescription(trimmed ?? "");
+      router.refresh();
+    } catch {
+      setDescError("Could not save the description. Your text is still here. Try saving again.");
       toast.error("Could not save description. Try again.");
+    } finally {
+      descriptionSavingRef.current = false;
+      setDescSaving(false);
     }
-    setDescSaving(false);
-    router.refresh();
-  }, [descDraft, bookDescription, bookId, router, toast]);
+  }, [descDraft, bookDescription, bookId, router, toast, onSaveDescription]);
 
   const handleDisabledPublishClick = () => {
     if (missingPublishRequirements.length > 0) {
@@ -173,9 +201,13 @@ export default function PublishPanel({
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className={`mx-auto max-w-4xl space-y-6 ${styles.panel}`}>
+      <header className={styles.heading}>
+        <h2 className="font-display text-[clamp(24px,3vw,32px)] font-medium tracking-tight">{isPublished ? "Your story, in readers’ hands." : "One last look before release."}</h2>
+        <p>{isPublished ? "Manage your audience and choose when each chapter goes live." : "Review your book details, choose your audience, and decide what to release."}</p>
+      </header>
       {/* ── Hero card: book info + status ── */}
-      <div className="grid items-start gap-6 rounded-2xl border border-black/[0.05] bg-white/60 p-6 backdrop-blur-sm dark:border-border dark:bg-card sm:grid-cols-[120px_1fr]">
+      <div className="grid items-start gap-6 rounded-2xl border border-border bg-card p-6 dark:border-border dark:bg-card @min-[600px]/book-panel:grid-cols-[120px_1fr]">
         {/* Cover thumbnail */}
         <div className="relative mx-auto aspect-[3/4] w-[120px] overflow-hidden rounded-xl border border-black/[0.06] bg-background shadow-sm dark:border-border dark:bg-card sm:mx-0">
           {coverImageUrl ? (
@@ -223,17 +255,25 @@ export default function PublishPanel({
           <p className="text-sm text-muted-foreground dark:text-muted-foreground">{authorDisplayName}</p>
           {/* Description */}
           <div className="mt-3">
-            <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
+            <label htmlFor={descriptionId} className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
               Description
             </label>
             <div className="relative">
               <textarea
+                id={descriptionId}
                 value={descDraft}
-                onChange={(e) => setDescDraft(e.target.value)}
+                onChange={(e) => {
+                  if (descriptionSavingRef.current) return;
+                  setDescDraft(e.target.value);
+                  setSavedDescription(null);
+                }}
                 onBlur={() => void handleSaveDescription()}
+                readOnly={descSaving}
                 placeholder="A short description shown to readers…"
                 rows={3}
-                className="w-full resize-none rounded-xl border border-black/[0.07] bg-background/60 px-3 py-2.5 text-[13px] leading-relaxed text-foreground placeholder-muted-foreground outline-none transition-all focus:border-[#907AFF]/40 focus:bg-card dark:border-border dark:bg-card dark:text-foreground dark:placeholder-white/20 dark:focus:border-[#907AFF]/30 dark:focus:bg-card"
+                aria-describedby={`${descriptionId}-status`}
+                aria-invalid={Boolean(descError)}
+                className="w-full resize-none rounded-xl border border-black/[0.07] bg-background/60 px-3 py-2.5 text-[16px] sm:text-[13px] leading-relaxed text-foreground placeholder-muted-foreground outline-none transition-all focus:border-[#907AFF]/40 focus:bg-card dark:border-border dark:bg-card dark:text-foreground dark:placeholder-muted-foreground dark:focus:border-[#907AFF]/30 dark:focus:bg-card"
               />
               {descSaving && (
                 <span className="absolute bottom-2.5 right-3 text-[11px] text-muted-foreground dark:text-muted-foreground">
@@ -241,9 +281,13 @@ export default function PublishPanel({
                 </span>
               )}
             </div>
+            <div className={styles.descriptionStatus} id={`${descriptionId}-status`}>
+              <p role={descError ? "alert" : "status"} className={descError ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>{descError ?? (descSaving ? "Saving description…" : savedDescription !== null && savedDescription === descDraft.trim() ? "Description saved." : "Saves when you leave the field.")}</p>
+              {descError && <button type="button" onClick={() => void handleSaveDescription()} disabled={descSaving}>Retry save</button>}
+            </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground dark:text-muted-foreground">
-            <span>{totalCount} chapters</span>
+            <span>{totalCount} {totalCount === 1 ? "chapter" : "chapters"}</span>
             {isPublished && <span>{liveCount}/{totalCount} live</span>}
             {versionLanguages.length > 0 && <span>{versionLanguages.join(", ")}</span>}
           </div>
@@ -252,7 +296,7 @@ export default function PublishPanel({
 
       {/* ── Publish progress (when published) ── */}
       {isPublished && totalCount > 0 && (
-        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
+        <div className="rounded-2xl border border-border bg-card p-5 dark:border-border dark:bg-card">
           <div className="mb-2 flex items-center justify-between text-xs">
             <span className="font-semibold text-foreground dark:text-foreground">Chapters live</span>
             <span className="tabular-nums text-muted-foreground dark:text-muted-foreground">{liveCount} of {totalCount} ({livePercent}%)</span>
@@ -266,27 +310,33 @@ export default function PublishPanel({
         </div>
       )}
 
-      {/* ── Requirements warning ── */}
-      {!isPublished && missingPublishRequirements.length > 0 && (
-        <div ref={requirementsRef} className="rounded-2xl border border-amber-200/60 bg-amber-50/60 p-5 dark:border-amber-500/20 dark:bg-amber-500/5">
-          <h3 className="mb-2 text-sm font-semibold text-amber-800 dark:text-amber-300">Before you can publish</h3>
-          <ul className="space-y-1.5">
-            {missingPublishRequirements.map((item) => (
-              <li key={item} className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400">
-                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-                </svg>
-                {item}
-              </li>
-            ))}
-          </ul>
+      <section ref={requirementsRef} className={styles.readiness} aria-labelledby="publish-readiness-heading">
+        <div className={styles.sectionHeading}>
+          <h3 id="publish-readiness-heading">{missingPublishRequirements.length ? "A few things to finish" : "Ready for your release decision"}</h3>
+          <span>{missingPublishRequirements.length ? `${missingPublishRequirements.length} to finish` : <><Check size={15} aria-hidden /> Required details complete</>}</span>
         </div>
-      )}
+        {missingPublishRequirements.length ? <ul className={styles.requirements}>
+          {missingPublishRequirements.map((item) => {
+            const coverMissing = /cover|omslag/i.test(item);
+            const profileMissing = /profile|display name/i.test(item);
+            const label = coverMissing ? "Add a cover image" : item;
+            const action = coverMissing ? "Open cover" : profileMissing ? "Open profile" : "Open manuscript";
+            return <li key={item}>
+              <span>{label}</span>
+              {profileMissing ? <Link href="/author/profile">{action}<ArrowRight size={15} aria-hidden /></Link>
+                : coverMissing ? <button type="button" onClick={onOpenCover}>{action}<ArrowRight size={15} aria-hidden /></button>
+                : onNavigate ? <button type="button" onClick={() => onNavigate("edit")}>{action}<ArrowRight size={15} aria-hidden /></button>
+                : <Link href={`/author/books/${bookId}?panel=edit`}>{action}<ArrowRight size={15} aria-hidden /></Link>}
+            </li>;
+          })}
+        </ul> : <p className="mt-2 text-sm text-muted-foreground">Your title, cover, author profile and manuscript meet the publishing requirements.</p>}
+      </section>
 
       {/* ── Visibility selector ── */}
-      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
-        <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">Visibility</h3>
-        <div className="grid gap-3 sm:grid-cols-3">
+      <div className="rounded-2xl border border-border bg-card p-5 dark:border-border dark:bg-card">
+        <h3 className="mb-1 text-sm font-semibold">Who can discover this book?</h3>
+        <p className="mb-4 text-sm text-muted-foreground">Visibility controls your audience. Your saved price controls access.</p>
+        <div className="grid gap-3 @min-[600px]/book-panel:grid-cols-3">
           {VISIBILITY_OPTIONS.map((option) => {
             const selected = publishVisibility === option.value;
             return (
@@ -294,6 +344,7 @@ export default function PublishPanel({
                 key={option.value}
                 type="button"
                 onClick={() => onVisibilityChange(option.value)}
+                aria-pressed={selected}
                 className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition ${
                   selected
                     ? "border-[#907AFF] bg-[#907AFF]/[0.06] dark:bg-[#907AFF]/10"
@@ -317,17 +368,15 @@ export default function PublishPanel({
 
       {/* ── Genre selector (if enabled) ── */}
       {genreSelector && (
-        <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
+        <div className="rounded-2xl border border-border bg-card p-5 dark:border-border dark:bg-card">
           {genreSelector}
         </div>
       )}
 
       {/* ── Chapter release control ── */}
       {isPublished && (
-        <div className="rounded-2xl border border-black/[0.05] bg-white/60 backdrop-blur-sm dark:border-border dark:bg-card">
-          <div className="border-b border-black/[0.05] px-5 py-3 dark:border-border">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">Chapter release</h3>
-          </div>
+        <details className={styles.chapterRelease} open>
+          <summary>Chapter release <span>{liveCount} of {totalCount} live</span><ChevronDown size={17} aria-hidden /></summary>
           <div className="max-h-[360px] overflow-y-auto">
             {chapters.map((chapter, idx) => {
               const chapterOrder = typeof chapter.order === "number" ? chapter.order : -1;
@@ -388,8 +437,22 @@ export default function PublishPanel({
               );
             })}
           </div>
-        </div>
+        </details>
       )}
+
+      <section className={styles.releaseSummary} aria-labelledby="release-summary-heading">
+        <h3 id="release-summary-heading">Release overview</h3>
+        <dl>
+          <div><dt>Audience</dt><dd>{VISIBILITY_OPTIONS.find((option) => option.value === publishVisibility)?.label}</dd></div>
+          <div><dt>Manuscript</dt><dd>{totalCount} {totalCount === 1 ? "chapter" : "chapters"}</dd></div>
+          {typeof priceAmountMinor === "number" && <div><dt>Saved price</dt><dd>{priceAmountMinor <= 0 ? "Free to read" : `${(priceAmountMinor / 100).toFixed(2)} ${priceCurrency ?? ""}${pricingModel === "per_chapter" ? " per chapter" : " for the full book"}`}</dd></div>}
+        </dl>
+        <div className={styles.summaryActions}>
+          {onNavigate && <button type="button" onClick={() => onNavigate("pricing")}>Review pricing <ArrowRight size={15} aria-hidden /></button>}
+          {isPublished && <Link href={`/reader/books/${bookId}`} target="_blank" rel="noopener noreferrer">Open reader page <ArrowRight size={15} aria-hidden /></Link>}
+        </div>
+        {!isPublished && <p>You can publish the complete book or begin with the selected chapter.</p>}
+      </section>
 
       {/* ── Error ── */}
       {publishError && (
@@ -401,7 +464,7 @@ export default function PublishPanel({
       {/* ── Confirm dialog ── */}
       {confirmPublishAction && confirmCopy && (
         <div className="rounded-2xl border border-black/[0.06] bg-card p-5 shadow-lg dark:border-border dark:bg-card">
-          <h3 className="mb-1 text-sm font-semibold text-foreground dark:text-foreground">Confirm action</h3>
+          <h3 className="mb-1 text-sm font-semibold text-foreground dark:text-foreground">{confirmPublishAction === "unpublish" ? "Unpublish this book?" : confirmPublishAction === "update" ? "Update your audience?" : "Ready to publish?"}</h3>
           <p className="mb-4 text-sm text-muted-foreground dark:text-muted-foreground">{confirmCopy}</p>
           <div className="flex gap-3">
             <button
@@ -410,11 +473,12 @@ export default function PublishPanel({
               disabled={isPublishing}
               className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
             >
-              {isPublishing ? "Working..." : "Confirm"}
+              {isPublishing ? "Working…" : confirmPublishAction === "unpublish" ? "Confirm unpublish" : confirmPublishAction === "update" ? "Confirm update" : "Confirm publication"}
             </button>
             <button
               type="button"
               onClick={onCancelConfirm}
+              disabled={isPublishing}
               className="rounded-xl border border-black/[0.08] px-5 py-2.5 text-sm font-medium text-foreground transition hover:bg-background dark:border-border dark:text-foreground dark:hover:bg-accent"
             >
               Cancel
@@ -431,6 +495,8 @@ export default function PublishPanel({
               <button
                 type="button"
                 onClick={publishDisabled ? handleDisabledPublishClick : onPublishFull}
+                aria-disabled={publishDisabled}
+                disabled={isPublishing}
                 className={`rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(15,23,42,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:bg-primary/90 hover:shadow-[0_4px_12px_rgba(15,23,42,0.35)] ${publishDisabled ? "cursor-not-allowed opacity-50" : ""}`}
               >
                 {isPublishing ? "Publishing..." : "Publish book"}

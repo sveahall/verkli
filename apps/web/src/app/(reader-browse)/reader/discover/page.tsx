@@ -15,11 +15,11 @@ import ReaderDiscoverPageView from "@/features/reader/reader-discover/ReaderDisc
 /* ── Search param types ── */
 
 type SearchParams = {
-  lang?: string;
-  q?: string;
-  genre?: string; // comma-separated slugs, e.g. "fiction,romance"
-  format?: string;
-  sort?: string;
+  lang?: string | string[];
+  q?: string | string[];
+  genre?: string | string[]; // comma-separated slugs, e.g. "fiction,romance"
+  format?: string | string[];
+  sort?: string | string[];
 };
 
 export const revalidate = 300;
@@ -54,7 +54,19 @@ function parseSort(raw: string | undefined): Sort {
   return "newest";
 }
 
+// Next.js returns arrays for repeated query keys. Scalar filters use the first
+// value; genres combine repeated keys and comma-separated selections.
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 /* ── Data fetching ── */
+
+function checkDiscoveryError(operation: string, error: { message: string } | null) {
+  if (!error) return;
+  console.error(`[reader discover] ${operation} failed`, error.message);
+  throw new Error("Could not load Discover. Please try again.");
+}
 
 async function fetchFilteredBooks(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -72,18 +84,22 @@ async function fetchFilteredBooks(
   // If filtering by genres, get all matching book IDs (union across selected genres)
   let genreBookIds: string[] | null = null;
   if (genreSlugs.length > 0) {
-    const { data: genreRows } = await supabase
+    const { data: genreRows, error: genreError } = await supabase
       .from("genres")
       .select("id")
       .in("slug", genreSlugs);
 
+    checkDiscoveryError("genre filter lookup", genreError);
+
     if (genreRows && genreRows.length > 0) {
       const genreIds = genreRows.map((r) => r.id);
-      const { data: junctionRows } = await supabase
+      const { data: junctionRows, error: junctionError } = await supabase
         .from("book_genres")
         .select("book_id")
         .in("genre_id", genreIds)
         .limit(500);
+
+      checkDiscoveryError("genre books lookup", junctionError);
 
       // Deduplicate — a book tagged with multiple selected genres appears once
       genreBookIds = [...new Set((junctionRows ?? []).map((r) => r.book_id))];
@@ -113,7 +129,7 @@ async function fetchFilteredBooks(
 
   // Text search
   if (query) {
-    base = base.ilike("title", `%${query}%`);
+    base = base.ilike("title", `%${query.replace(/[\\%_]/g, "\\$&")}%`);
   }
 
   // Genre filter (restrict to matched book IDs)
@@ -124,11 +140,8 @@ async function fetchFilteredBooks(
   // Format filter
   if (format === "audiobook") {
     base = base.eq("audiobook_status", "published");
-  } else if (format === "ebook") {
-    base = base.or(
-      "audiobook_status.is.null,audiobook_status.eq.not_started"
-    );
   }
+  // Published books are ebooks even when they also have an audiobook.
 
   // Sort
   if (sort === "popular") {
@@ -142,7 +155,8 @@ async function fetchFilteredBooks(
     base = base.order("published_at", { ascending: false });
   }
 
-  const { data } = await base.limit(limit);
+  const { data, error } = await base.limit(limit);
+  checkDiscoveryError("books lookup", error);
   return data ?? [];
 }
 
@@ -188,6 +202,8 @@ async function enrichBooksWithAuthor(
     })
   );
 
+  checkDiscoveryError("book genres lookup", genreJunctionRes.error);
+
   // Pick the first genre per book as the display genre
   const genreMap = new Map<string, string>();
   for (const row of genreJunctionRes.data ?? []) {
@@ -215,10 +231,12 @@ async function enrichBooksWithAuthor(
 async function fetchGenres(
   supabase: Awaited<ReturnType<typeof createClient>>
 ) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("genres")
     .select("id, slug, name_en, name_sv, icon, display_order")
     .order("display_order", { ascending: true });
+
+  checkDiscoveryError("genres lookup", error);
 
   return (data ?? []).map((g) => ({
     id: g.id,
@@ -231,12 +249,14 @@ async function fetchGenres(
 async function fetchAuthors(
   supabase: Awaited<ReturnType<typeof createClient>>
 ) {
-  const { data: profiles } = await supabase
+  const { data: profiles, error } = await supabase
     .from("profiles")
     .select("user_id, display_name, username, avatar_url, bio")
     .eq("role", "author")
     .eq("is_public", true)
     .limit(6);
+
+  checkDiscoveryError("authors lookup", error);
 
   const avatarBucket = supabase.storage.from("avatars");
 
@@ -279,15 +299,15 @@ export default async function ReaderDiscoverPage({
   }
 
   const params = await searchParams;
-  const language = normalizeLanguage(params?.lang);
+  const language = normalizeLanguage(firstParam(params?.lang));
   const langLabel = getLanguageLabel(language);
-  const query = (params?.q ?? "").trim();
-  const genreSlugs = (params?.genre ?? "")
-    .split(",")
+  const query = (firstParam(params?.q) ?? "").trim();
+  const genreSlugs = [...new Set([params?.genre ?? ""].flat()
+    .flatMap((value) => value.split(","))
     .map((s) => s.trim())
-    .filter(Boolean);
-  const format = parseFormat(params?.format);
-  const sort = parseSort(params?.sort);
+    .filter(Boolean))];
+  const format = parseFormat(firstParam(params?.format));
+  const sort = parseSort(firstParam(params?.sort));
 
   const supabase = await createClient();
 

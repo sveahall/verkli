@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
 import { isMarketingEnabled } from "@/lib/flags";
-import { getLanguageLabel, normalizeLanguage } from "@/lib/languages";
+import { normalizeLanguage } from "@/lib/languages";
+import { generateLaunchCopy, LaunchCopyError } from "@/lib/marketing/generate-launch-copy";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { requireProBillingForApi } from "@/lib/billing/server";
 import {
@@ -12,10 +14,12 @@ import {
   E_DATABASE_ERROR,
   E_INVALID_BOOK_ID,
   E_MARKETING_FEATURE_DISABLED,
+  E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
 
 const CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
 type Channel = (typeof CHANNELS)[number];
+const rateLimiter = createPerUserRateLimiter({ name: "books-marketing-generate", maxPerMinute: 3 });
 
 function isChannel(s: string): s is Channel {
   return CHANNELS.includes(s as Channel);
@@ -46,7 +50,7 @@ export async function POST(
 
   const { data: book, error: bookFetchError } = await supabase
     .from("books")
-    .select("id, title, author_id, language, original_url")
+    .select("id, title, description, author_id, language, original_url")
     .eq("id", bookId)
     .maybeSingle();
 
@@ -58,28 +62,30 @@ export async function POST(
     return apiError(E_BOOK_NOT_FOUND, 404);
   }
 
-  const langLabel = getLanguageLabel(language);
-  const readerPath = `/reader/books/${bookId}`;
-  const shareUrl = readerPath;
-
-  const headline = `${book.title} – now in ${langLabel}`;
-  const caption = `Just published: ${book.title} in ${langLabel} on Verkli. Read it here: ${readerPath}`;
-  const cta = "Read on Verkli";
-  const hashtags =
-    channel === "x" || channel === "instagram" || channel === "tiktok"
-      ? "#Verkli #translation #read"
-      : "";
+  const limit = await rateLimiter.check(user.id);
+  if (!limit.allowed) {
+    return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: limit.retryAfterSeconds });
+  }
+  let copy;
+  try {
+    copy = await generateLaunchCopy({ authorId: user.id, title: book.title, description: book.description, language, channel,
+      meter: { userId: user.id, pipeline: "marketing", bookId } });
+  } catch (error) {
+    const code = error instanceof LaunchCopyError ? error.code : "MARKETING_AI_FAILED";
+    console.error("[marketing generate] draft failed:", code);
+    return apiError(code, code === "MARKETING_BUDGET_EXCEEDED" ? 429 : code.endsWith("UNAVAILABLE") ? 503 : 502);
+  }
 
   const campaign = {
     book_id: bookId,
     language,
     channel,
     status: "generated",
-    headline,
-    caption,
-    cta,
-    hashtags: hashtags || null,
-    share_url: shareUrl,
+    headline: copy.headline,
+    caption: copy.body,
+    cta: copy.cta,
+    hashtags: copy.hashtags || null,
+    share_url: `/reader/books/${bookId}`,
   };
 
   const { data: upserted, error: upsertError } = await supabase

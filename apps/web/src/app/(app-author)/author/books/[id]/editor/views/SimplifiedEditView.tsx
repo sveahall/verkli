@@ -2,6 +2,8 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { Check, ChevronLeft, ChevronRight, Maximize2, MoreHorizontal, PanelRight, Pencil, Plus, Trash2 } from "lucide-react";
+import styles from "./SimplifiedEditView.module.css";
 import type { Editor } from "@tiptap/react";
 import BookWorkflowHeader from "../../BookWorkflowHeader";
 import { countWordsInContent } from "../BookEditorView.helpers";
@@ -32,8 +34,10 @@ const TiptapEditor = dynamic(editorImport, {
   ),
 });
 
+
 type SimplifiedEditViewProps = {
   bookId: string;
+  activeLanguage?: string;
   bookTitle: string;
   chapters: Chapter[];
   visibleChapters: Chapter[];
@@ -43,6 +47,8 @@ type SimplifiedEditViewProps = {
   selectedChapterId: string | null;
   selectedChapter: Chapter | null;
   preset: string;
+  onAgentEditorReady?: (editor: Editor | null, chapterId: string) => void;
+  onPresetChange?: (value: string) => void;
   focusMode: boolean;
   isPublished?: boolean;
   activeTool: Tool;
@@ -82,6 +88,7 @@ type SimplifiedEditViewProps = {
 
 export default function SimplifiedEditView({
   bookId,
+  activeLanguage,
   bookTitle,
   chapters,
   visibleChapters,
@@ -91,6 +98,8 @@ export default function SimplifiedEditView({
   selectedChapterId,
   selectedChapter,
   preset,
+  onPresetChange,
+  onAgentEditorReady,
   focusMode,
   isPublished = false,
   activeTool,
@@ -109,6 +118,7 @@ export default function SimplifiedEditView({
   isSaving = false,
   hasUnsavedChanges = false,
   lastSaved = null,
+  saveError = false,
   isRenamingBook = false,
   bookTitleDraft = "",
   onStartRenameBook,
@@ -129,10 +139,56 @@ export default function SimplifiedEditView({
 
   const [toolbarTarget, setToolbarTarget] = useState<HTMLElement | null>(null);
   const toolbarRefCb = useCallback((el: HTMLElement | null) => setToolbarTarget(el), []);
-  const [sidePanelOpen, setSidePanelOpen] = useState(true);
+  const toolsButtonRef = useRef<HTMLButtonElement>(null);
+  const chapterScrollerRef = useRef<HTMLDivElement>(null);
+  const chapterActionsRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const scroller = chapterScrollerRef.current;
+    if (!scroller) return;
+    const revealChapter = () => {
+      const active = scroller.querySelector<HTMLElement>('[aria-current="true"]');
+      if (!active) return;
+      const rail = scroller.getBoundingClientRect();
+      const bounds = active.getBoundingClientRect();
+      if (bounds.left < rail.left || bounds.right > rail.right) {
+        // Move only the chapter rail, never the manuscript or its selection.
+        scroller.scrollLeft += bounds.left - rail.left - (rail.width - bounds.width) / 2;
+      }
+    };
+    revealChapter();
+    const observer = new ResizeObserver(revealChapter);
+    observer.observe(scroller);
+    return () => observer.disconnect();
+  }, [selectedChapterId, chapterPage]);
+  useEffect(() => {
+    const closeOutside = (event: PointerEvent) => {
+      if (chapterActionsRef.current && event.target instanceof Node && !chapterActionsRef.current.contains(event.target)) {
+        chapterActionsRef.current.open = false;
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !chapterActionsRef.current?.open) return;
+      chapterActionsRef.current.open = false;
+      chapterActionsRef.current.querySelector("summary")?.focus();
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+  const [sidePanelOpen, setSidePanelOpen] = useState(false);
+  const toggleSidePanel = () => setSidePanelOpen((open) => !open);
   const [tiptapEditor, setTiptapEditor] = useState<Editor | null>(null);
   const [liveWordCount, setLiveWordCount] = useState(0);
-  const handleEditorReady = useCallback((ed: Editor) => setTiptapEditor(ed), []);
+  const handleEditorReady = useCallback((ed: Editor) => {
+    setTiptapEditor(ed);
+    if (selectedChapterId) onAgentEditorReady?.(ed, selectedChapterId);
+  }, [selectedChapterId, onAgentEditorReady]);
+  useEffect(() => () => {
+    if (selectedChapterId) onAgentEditorReady?.(null, selectedChapterId);
+  }, [selectedChapterId, onAgentEditorReady]);
   const handleWordCountWrapped = useCallback((count: number) => { setLiveWordCount(count); onWordCount(count); }, [onWordCount]);
 
   // Stable ref for onAutoSave to prevent TiptapEditor re-renders
@@ -206,254 +262,180 @@ export default function SimplifiedEditView({
     );
   }, [selectedChapter, handleAutoSave, onDirty, bookId, preset, handleWordCountWrapped, onToggleFocusMode, focusMode, toolbarTarget, handleEditorReady, handleInlineAiActionWithFlush]);
 
+  const saveLabel = saveError
+    ? "Changes not saved"
+    : isSaving
+      ? "Saving…"
+      : hasUnsavedChanges
+        ? "Unsaved changes"
+        : lastSaved
+          ? "All changes saved"
+          : "";
+
   return (
-    <div className="w-full rounded-2xl border border-black/[0.04] bg-card shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-border dark:bg-card dark:shadow-none">
-
-      {/* ── Workflow stepper (scrolls away) ── */}
-      <div className="rounded-t-2xl bg-card dark:bg-card">
-      <BookWorkflowHeader
-        bookId={bookId}
-        activeTool={activeTool}
-        tools={tools}
-        bare
-        compact
-      />
-
-      {/* ── CHAPTERS / title / badge ── */}
-      <div className="flex items-center gap-2 px-3 pb-4 pt-5 sm:gap-4 sm:px-6">
-        <div className="hidden h-9 w-9 shrink-0 sm:block" aria-hidden="true" />
-        <div className="min-w-0 flex-1">
-          <div className="mx-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-y-3 sm:mx-6 sm:grid-cols-[auto_minmax(0,1fr)_auto] lg:mx-16 xl:mx-20">
-            <div className="min-w-0">
-              <span className="shrink-0 text-xs font-semibold uppercase tracking-widest text-muted-foreground dark:text-muted-foreground">
-                Chapters
-              </span>
-            </div>
-
-            <div className="col-span-2 row-start-2 w-full min-w-0 max-w-[36rem] text-left sm:col-span-1 sm:row-start-auto sm:px-2 sm:text-center">
-              {isRenamingBook && onSaveRenameBook && onCancelRenameBook && onBookTitleDraftChange ? (
-                <input
-                  type="text"
-                  value={bookTitleDraft}
-                  onChange={(e) => onBookTitleDraftChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") onSaveRenameBook();
-                    if (e.key === "Escape") onCancelRenameBook();
-                  }}
-                  onBlur={onSaveRenameBook}
-                  autoFocus
-                  className="w-full min-w-0 truncate rounded-md border border-[#907AFF]/40 bg-card px-2 py-0.5 text-center text-sm font-semibold text-foreground outline-none focus:ring-1 focus:ring-[#907AFF]/50 dark:border-border dark:bg-card dark:text-foreground"
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={onStartRenameBook}
-                  className="block w-full min-w-0 truncate text-left text-sm font-semibold text-foreground transition hover:text-accent-foreground sm:text-center dark:text-foreground dark:hover:text-accent-foreground"
-                  title="Click to rename book"
-                >
-                  {bookTitle}
-                </button>
-              )}
-            </div>
-
-            <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-end gap-3 sm:col-start-auto sm:row-start-auto">
-              <span
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold ${
-                  isPublished
-                    ? "border-emerald-200 text-emerald-600 dark:border-emerald-800/30 dark:text-emerald-400"
-                    : "border-border text-muted-foreground dark:border-border dark:text-muted-foreground"
-                }`}
-              >
-                <span className={`h-2 w-2 rounded-full ${isPublished ? "bg-emerald-500" : "bg-[#907AFF]"}`} />
-                {isPublished ? "Published" : "Draft"}
-              </span>
-            </div>
+    <section className={styles.workspace} aria-label="Book editor">
+      <header className={styles.bookHeader}>
+        <div className={styles.bookIdentity}>
+          <div className={styles.bookMeta}>
+            <span className={styles.stateDot} data-published={isPublished} aria-hidden="true" />
+            <span>{isPublished ? "Published" : "Draft"}</span>
+            <span aria-hidden="true">·</span>
+            <span>{chapters.length} {chapters.length === 1 ? "chapter" : "chapters"}</span>
           </div>
-        </div>
-        <div className="hidden h-9 w-9 shrink-0 sm:block" aria-hidden="true" />
-      </div>
-      </div>{/* end non-sticky section */}
-
-      {/* ── Sticky: chapter numbers + toolbar ── */}
-      <div className="sticky top-0 z-20 border-b border-black/[0.04] bg-card dark:border-border dark:bg-card">
-
-      {/* ── Chapter numbers ── */}
-      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 py-3 sm:px-8">
-        <div className="flex items-center" aria-hidden="true" />
-        <div className="min-w-0">
-          <div className="flex items-center justify-center gap-1 sm:gap-2">
-        {totalPages > 1 && (
-          <button
-            type="button"
-            onClick={() => onSetChapterPage(Math.max(0, chapterPage - 1))}
-            disabled={chapterPage === 0}
-            className="flex h-8 w-8 items-center justify-center text-base text-muted-foreground hover:text-muted-foreground disabled:opacity-30 dark:text-muted-foreground"
-            aria-label="Previous chapters"
-          >
-            &laquo;
-          </button>
-        )}
-        {visibleChapters.map((chapter, index) => {
-          const globalIndex = startIndex + index;
-          const isActive = chapter.id === selectedChapterId;
-          const chapterWords = wordCounts.get(chapter.id) ?? 0;
-          const isEmpty = chapterWords === 0;
-          return (
-            <div key={chapter.id} className="group/ch relative">
-              <button
-                type="button"
-                onClick={() => {
-                  onSelectChapter(chapter.id);
-                  onResetSessionWords();
-                }}
-                className={`flex h-8 min-w-[2.4rem] items-center justify-center rounded text-sm tabular-nums transition-colors duration-150 ${
-                  isActive
-                    ? "bg-primary font-bold text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground dark:text-muted-foreground dark:hover:bg-accent"
-                } ${!isActive && isEmpty ? "opacity-40" : ""}`}
-                aria-label={`Chapter ${globalIndex + 1}${isEmpty ? " (empty)" : ""}`}
-                aria-current={isActive ? "true" : undefined}
-                title={isEmpty ? "Empty chapter" : `${chapterWords.toLocaleString()} words`}
-              >
-                {globalIndex + 1}
-              </button>
-              {onDeleteChapter && chapters.length > 1 && isActive && (
-                <button
-                  type="button"
-                  onClick={() => setConfirmDeleteId(chapter.id)}
-                  className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold leading-none text-white opacity-0 transition-opacity group-hover/ch:opacity-100"
-                  aria-label={`Delete chapter ${globalIndex + 1}`}
-                  title="Delete chapter"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-          );
-        })}
-        {totalPages > 1 && chapterPage < totalPages - 1 && (
-          <span className="px-1 text-sm text-muted-foreground dark:text-muted-foreground">&hellip;</span>
-        )}
-        {totalPages > 1 && (
-          <button
-            type="button"
-            onClick={() => onSetChapterPage(Math.min(totalPages - 1, chapterPage + 1))}
-            disabled={chapterPage >= totalPages - 1}
-            className="flex h-8 w-8 items-center justify-center text-base text-muted-foreground hover:text-muted-foreground disabled:opacity-30 dark:text-muted-foreground"
-            aria-label="Next chapters"
-          >
-            &raquo;
-          </button>
-        )}
-
-          </div>
-        </div>
-      </div>
-
-      {/* ── Selected chapter title (editable) ── */}
-      {selectedChapter && onStartEditTitle && (
-        <div className="mx-auto max-w-7xl px-5 pb-1 pt-4 sm:px-12">
-          {editingTitleId === selectedChapter.id && onSaveTitle && onCancelEditTitle && onTempTitleChange ? (
+          {isRenamingBook && onSaveRenameBook && onCancelRenameBook && onBookTitleDraftChange ? (
             <input
-              type="text"
-              value={tempTitle}
-              onChange={(e) => onTempTitleChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") onSaveTitle(selectedChapter.id);
-                if (e.key === "Escape") onCancelEditTitle();
+              aria-label="Book title"
+              value={bookTitleDraft}
+              onChange={(event) => onBookTitleDraftChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") onSaveRenameBook();
+                if (event.key === "Escape") onCancelRenameBook();
               }}
-              onBlur={() => onSaveTitle(selectedChapter.id)}
+              onBlur={onSaveRenameBook}
               autoFocus
-              className="w-full rounded-md border border-[#907AFF]/40 bg-card px-2 py-1 text-[13px] font-medium text-foreground outline-none focus:ring-1 focus:ring-[#907AFF]/50 dark:border-border dark:bg-card dark:text-foreground"
+              className={styles.bookTitleInput}
             />
           ) : (
-            <button
-              type="button"
-              onClick={() => onStartEditTitle(selectedChapter.id, selectedChapter.title)}
-              className="text-[13px] font-medium text-muted-foreground transition hover:text-accent-foreground dark:text-muted-foreground dark:hover:text-accent-foreground"
-              title="Click to rename chapter"
-            >
-              {selectedChapter.title || "Untitled chapter"} &#8203;
-              <span className="text-[11px] text-muted-foreground dark:text-muted-foreground">&#9998;</span>
-            </button>
+            <h1 className={styles.bookTitle} aria-label={bookTitle}>
+              {onStartRenameBook ? (
+                <button type="button" onClick={onStartRenameBook} aria-label="Rename book" title="Rename book">
+                  <span>{bookTitle}</span>
+                  <Pencil size={15} aria-hidden="true" />
+                </button>
+              ) : bookTitle}
+            </h1>
           )}
         </div>
-      )}
-
-
-      {/* ── Toolbar row: portal target + actions ── */}
-      <div className="mx-auto flex max-w-7xl items-center gap-1 px-3 pb-4 sm:gap-2 sm:px-8">
-        <div ref={toolbarRefCb} className="min-w-0 flex-1" />
-        {onCreateChapter && (
-          <button
-            type="button"
-            onClick={onCreateChapter}
-            disabled={isCreating}
-            className="flex flex-col shrink-0 items-left justify-center gap-1 rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-[#907AFF]/5 hover:text-accent-foreground disabled:opacity-40 dark:text-muted-foreground dark:hover:text-accent-foreground"
-            aria-label="Add chapter"
-            title={isCreating ? "Creating..." : "Add chapter"}
-          >
-            <span className="text-base leading-none">+</span>
-            <span className="text-[10px] leading-none">add chapter</span>
+        <div className={styles.headerActions}>
+          <span className={styles.saveLabel} data-error={saveError}>
+            {lastSaved && !saveError && !isSaving && !hasUnsavedChanges && <Check size={14} aria-hidden="true" />}
+            {saveLabel}
+          </span>
+          <button type="button" className={styles.focusButton} onClick={onToggleFocusMode} aria-label="Focus mode">
+            <Maximize2 size={16} aria-hidden="true" />
+            <span>Focus</span>
           </button>
-        )}
-        <button
-          type="button"
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="flex flex-col shrink-0 items-center justify-center gap-1 rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:border-[#907AFF]/30 hover:bg-[#907AFF]/5 hover:text-accent-foreground dark:border-border dark:text-muted-foreground dark:hover:border-[#907AFF]/30 dark:hover:text-accent-foreground"
-          aria-label="Scroll to top"
-          title="Scroll to top"
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M8 12.5V3.5M8 3.5L3.5 8M8 3.5L12.5 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span className="text-[11px] text-muted-foreground dark:text-muted-foreground">scroll to top</span>
-        </button>
+        </div>
+      </header>
+
+      <div className={styles.workflow}>
+        <BookWorkflowHeader bookId={bookId} language={activeLanguage} activeTool={activeTool} tools={tools} bare compact />
       </div>
 
-      </div>{/* end sticky header */}
+      <div className={styles.canvas}>
+        <div className={styles.editingHeader}>
+          <div className={styles.chapterBar}>
+            <nav className={styles.chapterNavigation} aria-label="Chapters">
+              {totalPages > 1 && (
+                <button type="button" onClick={() => onSetChapterPage(Math.max(0, chapterPage - 1))}
+                  disabled={chapterPage === 0} className={styles.iconButton} aria-label="Previous chapters">
+                  <ChevronLeft size={16} aria-hidden="true" />
+                </button>
+              )}
+              <div ref={chapterScrollerRef} className={styles.chapterScroller}>
+                {visibleChapters.map((chapter, index) => {
+                  const globalIndex = startIndex + index;
+                  const isActive = chapter.id === selectedChapterId;
+                  const chapterWords = wordCounts.get(chapter.id) ?? 0;
+                  const isEmpty = chapterWords === 0;
+                  return (
+                    <button key={chapter.id} type="button" onClick={() => {
+                      onSelectChapter(chapter.id);
+                      onResetSessionWords();
+                    }} className={styles.chapterTab}
+                      aria-label={`Chapter ${globalIndex + 1}: ${chapter.title || "Untitled chapter"}${isEmpty ? " (empty)" : ""}`}
+                      aria-current={isActive ? "true" : undefined}
+                      title={`${chapter.title || "Untitled chapter"} · ${chapterWords.toLocaleString()} words`}>
+                      <span className={styles.chapterNumber}>{String(globalIndex + 1).padStart(2, "0")}</span>
+                      <span className={styles.chapterName}>{chapter.title || "Untitled chapter"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {totalPages > 1 && (
+                <button type="button" onClick={() => onSetChapterPage(Math.min(totalPages - 1, chapterPage + 1))}
+                  disabled={chapterPage >= totalPages - 1} className={styles.iconButton} aria-label="Next chapters">
+                  <ChevronRight size={16} aria-hidden="true" />
+                </button>
+              )}
+            </nav>
+            {selectedChapter && (onStartEditTitle || (onDeleteChapter && chapters.length > 1)) && (
+              <details ref={chapterActionsRef} className={styles.chapterActions}>
+                <summary role="button" aria-label="Chapter actions" title="Chapter actions"><MoreHorizontal size={18} aria-hidden="true" /></summary>
+                <div className={styles.chapterActionMenu}>
+                  {onStartEditTitle && (
+                    <button type="button" onClick={() => {
+                      if (chapterActionsRef.current) chapterActionsRef.current.open = false;
+                      onStartEditTitle(selectedChapter.id, selectedChapter.title);
+                    }}><Pencil size={15} aria-hidden="true" />Rename chapter</button>
+                  )}
+                  {onDeleteChapter && chapters.length > 1 && (
+                    <button type="button" onClick={() => {
+                      if (chapterActionsRef.current) chapterActionsRef.current.open = false;
+                      chapterActionsRef.current?.querySelector("summary")?.focus();
+                      setConfirmDeleteId(selectedChapter.id);
+                    }}><Trash2 size={15} aria-hidden="true" />Delete chapter</button>
+                  )}
+                </div>
+              </details>
+            )}
+            {onCreateChapter && (
+              <button type="button" onClick={onCreateChapter} disabled={isCreating}
+                className={styles.addChapter} aria-label="Add chapter" title={isCreating ? "Creating…" : "Add chapter"}>
+                <Plus size={17} aria-hidden="true" /><span>{isCreating ? "Creating…" : "Chapter"}</span>
+              </button>
+            )}
+          </div>
+          <div className={styles.toolbarRow}>
+            <div ref={toolbarRefCb} className={styles.toolbarTarget} />
+            <button ref={toolsButtonRef} type="button" onClick={toggleSidePanel}
+              className={styles.toolsButton} aria-label="Writing tools" aria-expanded={sidePanelOpen} aria-controls={tiptapEditor ? `writing-tools-${bookId}` : undefined}>
+              <PanelRight size={17} aria-hidden="true" /><span>Tools</span>
+            </button>
+          </div>
+        </div>
 
-      {/* ── Editor content + side panel (inside white card) ── */}
-      <div className="flex min-h-[520px] flex-col lg:flex-row">
-        {/* Main writing surface */}
-        <div className="min-w-0 flex-1">
-          <div className="mx-auto max-w-7xl px-6 py-0 sm:px-10 sm:py-10">
+        <div className={styles.writingLayout}>
+          <div className={styles.manuscript}>
+            {selectedChapter && editingTitleId === selectedChapter.id && onSaveTitle && onCancelEditTitle && onTempTitleChange && (
+              <div className={styles.chapterHeading}>
+                <label className={styles.renameLabel} htmlFor={`chapter-title-${bookId}`}>Chapter title</label>
+                <input id={`chapter-title-${bookId}`} value={tempTitle}
+                  onChange={(event) => onTempTitleChange(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") onSaveTitle(selectedChapter.id);
+                    if (event.key === "Escape") onCancelEditTitle();
+                  }}
+                  onBlur={() => onSaveTitle(selectedChapter.id)} autoFocus className={styles.chapterTitleInput} />
+              </div>
+            )}
             {editorElement ?? (
-              <div className="flex h-[500px] items-center justify-center">
-                <p className="text-sm text-muted-foreground dark:text-muted-foreground">
-                  {chapters.length === 0
-                    ? "Create your first chapter to start writing"
-                    : "Select a chapter above to edit"}
-                </p>
+              <div className={styles.emptyState}>
+                <h2>{chapters.length === 0 ? "Your first chapter starts here." : "Choose a chapter."}</h2>
+                <p>{chapters.length === 0 ? "Add a chapter and make room for your story." : "Select a chapter above to keep writing."}</p>
+                {chapters.length === 0 && onCreateChapter && (
+                  <button type="button" onClick={onCreateChapter} disabled={isCreating} className={styles.focusButton}>
+                    <Plus size={16} aria-hidden="true" />{isCreating ? "Creating…" : "Add your first chapter"}
+                  </button>
+                )}
               </div>
             )}
           </div>
+          {tiptapEditor && (
+            <div id={`writing-tools-${bookId}`} className={styles.sidePanel} data-open={sidePanelOpen}>
+              <EditorSidePanel editor={tiptapEditor} preset={preset} onPresetChange={onPresetChange ?? (() => {})}
+                open={sidePanelOpen} onToggle={() => {
+                  toggleSidePanel();
+                  toolsButtonRef.current?.focus();
+                }} />
+            </div>
+          )}
         </div>
-
-        {/* Side panel — inside the card, right edge */}
-        {tiptapEditor && (
-          <EditorSidePanel
-            editor={tiptapEditor}
-            preset={preset}
-            onPresetChange={() => {}}
-            open={sidePanelOpen}
-            onToggle={() => setSidePanelOpen((v) => !v)}
-          />
-        )}
-      </div>
-
-      {/* ── Status bar (inside card, at bottom) ── */}
-      <div className="rounded-b-2xl border-t border-black/[0.04] dark:border-border">
-        <EditorStatusBar
-          wordCount={liveWordCount}
-          isSaving={isSaving}
-          hasUnsavedChanges={hasUnsavedChanges}
-          lastSaved={lastSaved}
-          focusMode={focusMode}
-          sidePanelOpen={sidePanelOpen}
-          onToggleFocusMode={onToggleFocusMode}
-          onToggleSidePanel={() => setSidePanelOpen((v) => !v)}
-        />
+        <div className={styles.statusBar}>
+          <EditorStatusBar wordCount={liveWordCount} isSaving={isSaving} hasUnsavedChanges={hasUnsavedChanges}
+            lastSaved={lastSaved} saveError={saveError} focusMode={focusMode} sidePanelOpen={sidePanelOpen}
+            onToggleFocusMode={onToggleFocusMode} onToggleSidePanel={toggleSidePanel} />
+        </div>
       </div>
 
       {/* Delete chapter confirmation */}
@@ -471,7 +453,7 @@ export default function SimplifiedEditView({
             <button
               type="button"
               onClick={() => setConfirmDeleteId(null)}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background dark:border-border dark:text-foreground dark:hover:bg-accent"
+              className="min-h-11 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-background dark:border-border dark:text-foreground dark:hover:bg-accent"
             >
               Cancel
             </button>
@@ -483,7 +465,7 @@ export default function SimplifiedEditView({
                   setConfirmDeleteId(null);
                 }
               }}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+              className="min-h-11 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
             >
               Delete
             </button>
@@ -491,6 +473,6 @@ export default function SimplifiedEditView({
         </Dialog>
       )}
 
-    </div>
+    </section>
   );
 }

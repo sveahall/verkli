@@ -7,6 +7,7 @@ import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import AuthorLandingSections from "./AuthorLandingSections";
+import AgentTeam from "@/features/ai-team/AgentTeam";
 import { AuthorStoryProvider, AuthorStudioExperience } from "./AuthorStoryExperience";
 import styles from "./AuthorLandingSections.module.css";
 
@@ -22,6 +23,7 @@ function LandingPage() {
         </div>
         <AuthorStudioExperience />
       </section>
+      <div className="mx-auto max-w-[1560px] px-5 sm:px-8 lg:px-14"><AgentTeam /></div>
       <AuthorLandingSections />
     </main>
   </AuthorStoryProvider>;
@@ -42,7 +44,7 @@ export default function AuthorPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-[#050508]"><div className="h-8 w-8 animate-spin rounded-full border-2 border-black/20 border-t-[#907AFF] dark:border-white/20"></div></div>;
+  if (loading) return <LandingPage />;
 
   return user ? <AuthorDashboard /> : <LandingPage />;
 }

@@ -13,8 +13,6 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_REQUEST_BODY: "Invalid request.",
   DATABASE_ERROR: "A database error occurred. Try again.",
   GENERIC_ERROR: "Something went wrong. Try again.",
-  MARKETING_AI_UNAVAILABLE: "AI marketing drafts are not configured yet. Contact support. Your existing copy has been kept.",
-  MARKETING_AI_FAILED: "Could not generate a usable AI draft. Please try again. Your existing copy has been kept.",
   VALIDATION_FAILED: "Validation failed. Please check the fields.",
 
   // Books
@@ -66,7 +64,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_TARGET_LANGUAGE: "Invalid target language.",
   NO_SOURCE_VERSION: "No source version found.",
   INVALID_SOURCE_VERSION: "Invalid source version.",
-  SOURCE_LANGUAGE_MISSING: "Source language is missing. Please set a language for the version.",
+  SOURCE_LANGUAGE_MISSING: "We couldn’t identify this edition’s language. Check that its saved chapters contain text, then retry. If it still fails, contact support.",
   SAME_SOURCE_TARGET_LANGUAGE: "The target language must differ from the source language.",
   TRANSLATION_PAIR_UNSUPPORTED: "This language pair is not supported by the translation model.",
   VERSION_ALREADY_EXISTS: "A version in that language already exists.",
@@ -174,6 +172,16 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_ROLE: "Invalid role.",
 
   // Marketing
+  MARKETING_BUDGET_UNAVAILABLE: "AI draft generation needs an available, configured budget. Contact support. Generation stopped before the next AI request.",
+  MARKETING_BUDGET_EXCEEDED: "This AI draft exceeds the configured request or daily limit. Try a smaller campaign or contact support.",
+  // AI
+  AI_DISABLED:
+    "AI is turned off for your account. Turn it back on under Settings \u2192 AI to use this feature.",
+  AI_SETTINGS_UNAVAILABLE:
+    "Your AI settings could not be read, so nothing was sent to the assistant. Try again.",
+
+  MARKETING_AI_UNAVAILABLE: "AI marketing drafts are not configured yet. Contact support. Your existing copy has been kept.",
+  MARKETING_AI_FAILED: "Could not generate a usable AI draft. Please try again. Your existing copy has been kept.",
   MARKETING_FEATURE_DISABLED: "The marketing feature is not enabled.",
 
   // Social

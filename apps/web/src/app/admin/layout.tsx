@@ -21,7 +21,8 @@ export default async function AdminLayout({
               href="/admin"
               className="flex min-h-11 items-center rounded-xl px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <Image src="/logo-dark.svg" alt="Verkli admin" width={120} height={32} className="h-8 w-auto dark:brightness-0 dark:invert" priority />
+              <Image src="/logo-dark.svg?v=20260916" alt="Verkli admin" width={1429} height={265} className="h-auto w-28 dark:hidden" priority />
+              <Image src="/favicon.svg?v=20260916" alt="Verkli admin" width={1429} height={265} className="hidden h-auto w-28 dark:block" priority />
             </Link>
             <p className="mb-7 mt-3 px-3 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Platform administration</p>
             <AdminNav />
@@ -35,7 +36,8 @@ export default async function AdminLayout({
         <div className="min-w-0 border-b border-border bg-card px-5 py-4 lg:hidden">
           <div className="flex items-center justify-between">
             <Link href="/admin" className="flex min-h-11 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <Image src="/logo-dark.svg" alt="Verkli" width={100} height={28} className="h-7 w-auto dark:brightness-0 dark:invert" />
+              <Image src="/logo-dark.svg?v=20260916" alt="Verkli" width={1429} height={265} className="h-auto w-[100px] dark:hidden" />
+              <Image src="/favicon.svg?v=20260916" alt="Verkli" width={1429} height={265} className="hidden h-auto w-[100px] dark:block" />
               <span className="border-l border-border pl-3 text-xs text-muted-foreground">Admin</span>
             </Link>
           </div>

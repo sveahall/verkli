@@ -1,8 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
-import { cn } from "@/lib/utils";
-import type { AnalyticsData, BookRow, ChapterSignal, DailyPoint, MarketingCampaign, Period } from "./AnalyticsWorkspace";
+import { useMemo, type ReactNode } from "react";
+import Link from "next/link";
+import { getMarketingEnabled } from "@/lib/flags";
+import { stripeAmountFractionDigits } from "@/lib/payments/stripe-currency";
+import type { AnalyticsData, BookRow, ChapterSignal, DailyPoint, MarketingCampaign, Period, RevenueData } from "./AnalyticsWorkspace";
+import styles from "./AnalyticsWorkspace.module.css";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -11,9 +14,16 @@ function fmtNum(n: number) {
 }
 
 function fmtCurrency(n: number, currency = "SEK") {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M ${currency}`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K ${currency}`;
-  return `${fmtNum(n)} ${currency}`;
+  return `${n.toLocaleString("en-GB", { maximumFractionDigits: stripeAmountFractionDigits(currency) })} ${currency}`;
+}
+
+function SalesValue({ revenue }: { revenue: RevenueData | null }) {
+  if (!revenue?.byCurrency) return <>Unavailable</>;
+  const amounts = Object.entries(revenue.byCurrency);
+  if (amounts.length === 0) return <>No paid orders</>;
+  return <>{amounts.map(([currency, value]) => (
+    <span className="block break-words tabular-nums" key={currency}>{fmtCurrency(value, currency)}</span>
+  ))}</>;
 }
 
 function smoothPath(pts: Array<[number, number]>): string {
@@ -50,41 +60,16 @@ function KPICard({
   label,
   value,
   sub,
-  accent,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   sub?: string;
-  accent?: "purple" | "green" | "amber" | "blue" | "pink";
 }) {
-  const dot: Record<string, string> = {
-    purple: "bg-[#907AFF]",
-    green: "bg-emerald-400",
-    amber: "bg-amber-400",
-    blue: "bg-blue-400",
-    pink: "bg-pink-400",
-  };
   return (
-    <div className="flex flex-col justify-between rounded-2xl border border-border/80 bg-card p-5 dark:border-border dark:bg-card">
-      <div className="flex items-center gap-2">
-        <span
-          className={cn(
-            "h-2 w-2 rounded-full",
-            dot[accent ?? "purple"] ?? dot.purple
-          )}
-        />
-        <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
-          {label}
-        </span>
-      </div>
-      <div className="mt-4">
-        <p className="text-[28px] font-semibold leading-none tracking-tight text-foreground dark:text-foreground">
-          {value}
-        </p>
-        {sub ? (
-          <p className="mt-1.5 text-[13px] text-muted-foreground dark:text-muted-foreground">{sub}</p>
-        ) : null}
-      </div>
+    <div className={styles.metric}>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+      {sub ? <p>{sub}</p> : null}
     </div>
   );
 }
@@ -128,25 +113,26 @@ function AreaChart({ dailyChart }: { dailyChart: DailyPoint[] }) {
     }
   }
 
-  if (dailyChart.length === 0) {
+  if (!dailyChart.some((point) => point.views > 0 || point.reads > 0 || point.purchases > 0)) {
     return (
-      <div className="flex h-[200px] items-center justify-center rounded-xl border border-dashed border-border dark:border-border">
-        <p className="text-sm text-muted-foreground dark:text-muted-foreground">No data for this time window</p>
+      <div className={styles.chartEmpty}>
+        <p>No reading activity in this period</p>
+        <span>Try a longer period, or return after readers start exploring your book.</span>
       </div>
     );
   }
 
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-[200px] w-full overflow-visible" preserveAspectRatio="none">
+      <svg role="img" aria-label="Daily views, reading events and purchases" viewBox={`0 0 ${W} ${H}`} className="h-[200px] w-full overflow-visible" preserveAspectRatio="none">
         <defs>
           <linearGradient id="grad-reach" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#907AFF" stopOpacity="0.18" />
             <stop offset="100%" stopColor="#907AFF" stopOpacity="0" />
           </linearGradient>
           <linearGradient id="grad-readers" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#1E293B" stopOpacity="0.14" />
-            <stop offset="100%" stopColor="#1E293B" stopOpacity="0" />
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.14" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
           </linearGradient>
         </defs>
 
@@ -175,7 +161,7 @@ function AreaChart({ dailyChart }: { dailyChart: DailyPoint[] }) {
           <path d={reachLine} fill="none" stroke="#907AFF" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" opacity={0.7} />
         ) : null}
         {readerLine ? (
-          <path d={readerLine} fill="none" stroke="#1E293B" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="dark:stroke-white" />
+          <path d={readerLine} fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
         ) : null}
         {purchaseLine ? (
           <path d={purchaseLine} fill="none" stroke="#f59e0b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -190,7 +176,7 @@ function AreaChart({ dailyChart }: { dailyChart: DailyPoint[] }) {
       </svg>
 
       {/* X-axis labels */}
-      <div className="relative mt-2 h-5">
+      <div className="relative mx-4 mt-2 h-5">
         {labelIndices.map((idx) => {
           const point = dailyChart[idx];
           const pct = dailyChart.length === 1 ? 50 : (idx / (dailyChart.length - 1)) * 100;
@@ -265,22 +251,22 @@ function BooksTable({ rows }: { rows: BookRow[] }) {
   }
   const maxViews = Math.max(...rows.map((r) => r.views), 1);
   return (
-    <div className="divide-y divide-border dark:divide-border">
-      <div className="grid grid-cols-[minmax(0,1fr)_80px_80px_80px] gap-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground dark:text-muted-foreground">
+    <div className={styles.bookTable}>
+      <div className={styles.bookTableHeader}>
         <span>Book</span>
         <span className="text-right">Views</span>
-        <span className="text-right">Readers</span>
+        <span className="text-right" title="Reading events">Reads</span>
         <span className="text-right">Sales</span>
       </div>
       {rows.map((row) => (
         <div
           key={row.id}
-          className="grid grid-cols-[minmax(0,1fr)_80px_80px_80px] items-center gap-3 py-3"
+          className={styles.bookTableRow}
         >
           <div className="min-w-0">
-            <p className="truncate text-[13px] font-medium text-foreground dark:text-foreground">
+            <Link className={styles.bookLink} href={`/author/analytics?bookId=${encodeURIComponent(row.id)}`}>
               {row.title}
-            </p>
+            </Link>
             <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted dark:bg-card">
               <div
                 className="h-full rounded-full bg-[#907AFF]/50"
@@ -299,56 +285,41 @@ function BooksTable({ rows }: { rows: BookRow[] }) {
 
 // ─── Revenue Breakdown ────────────────────────────────────────────────────────
 
-function RevenueBreakdown({
-  orderRevenue,
-  donationRevenue,
-  subscriptionMRR,
-  activeSubscriberCount,
-  currency,
-}: {
-  orderRevenue: number;
-  donationRevenue: number;
-  subscriptionMRR: number;
-  activeSubscriberCount: number;
-  currency: string;
-}) {
-  const total = orderRevenue + donationRevenue + subscriptionMRR;
-
-  const streams = [
-    { label: "Book sales", value: orderRevenue, color: "bg-[#907AFF]", sub: null },
-    { label: "Subscriptions", value: subscriptionMRR, color: "bg-emerald-400", sub: activeSubscriberCount > 0 ? `${activeSubscriberCount} active subscriber${activeSubscriberCount !== 1 ? "s" : ""} · MRR` : "No active subscribers" },
-    { label: "Donations", value: donationRevenue, color: "bg-pink-400", sub: null },
-  ];
-
+export function RevenueBreakdown({ revenue }: { revenue: RevenueData | null }) {
   return (
-    <div className="space-y-4">
-      {streams.map(({ label, value, color, sub }) => {
-        const pct = total > 0 ? Math.round((value / total) * 100) : 0;
-        return (
-          <div key={label}>
-            <div className="flex items-center justify-between text-[13px]">
-              <div className="flex items-center gap-2">
-                <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
-                <div>
-                  <span className="text-muted-foreground dark:text-muted-foreground">{label}</span>
-                  {sub ? (
-                    <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">{sub}</p>
-                  ) : null}
-                </div>
+    <div className="space-y-5 text-sm">
+      <div>
+        <p className="font-medium text-foreground">Paid book orders</p>
+        {!revenue?.byCurrency ? (
+          <p role="alert" className="mt-2 text-muted-foreground">Sales data unavailable. Please retry.</p>
+        ) : (
+          <p className="mt-2 font-semibold text-foreground"><SalesValue revenue={revenue} /></p>
+        )}
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+          Selected period, by order creation date. Order amounts before fee and royalty allocation; not your payout balance.
+        </p>
+      </div>
+      <div className="border-t border-border pt-4">
+        <p className="font-medium text-foreground">Current subscriptions <span className="font-normal text-muted-foreground">· All books</span></p>
+        {!revenue?.subscriptionByCurrency ? (
+          <p role="alert" className="mt-2 text-muted-foreground">Subscription data unavailable. Please retry.</p>
+        ) : (
+          <>
+            {Object.keys(revenue.subscriptionByCurrency).length === 0 ? (
+              <p className="mt-2 text-muted-foreground">No active subscriptions</p>
+            ) : (
+              <div className="mt-2 space-y-1 font-semibold tabular-nums text-foreground">
+                {Object.entries(revenue.subscriptionByCurrency).map(([currency, value]) => (
+                  <p key={currency}>{fmtCurrency(value, currency)} / month</p>
+                ))}
               </div>
-              <div className="text-right">
-                <span className="font-semibold text-foreground dark:text-foreground">
-                  {fmtCurrency(value, currency)}
-                </span>
-                <span className="ml-2 text-[12px] text-muted-foreground dark:text-muted-foreground">{pct}%</span>
-              </div>
-            </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted dark:bg-card">
-              <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
-            </div>
-          </div>
-        );
-      })}
+            )}
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              {revenue.activeSubscriberCount} active subscribers. Monthly recurring amount (MRR), separate from period sales and collected payments.
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -356,6 +327,7 @@ function RevenueBreakdown({
 // ─── Marketing Panel ─────────────────────────────────────────────────────────
 
 function MarketingPanel({ campaigns }: { campaigns: MarketingCampaign[] }) {
+  const marketingEnabled = getMarketingEnabled();
   const channelCounts = useMemo(() => {
     const map = new Map<string, number>();
     for (const c of campaigns) {
@@ -414,14 +386,12 @@ function MarketingPanel({ campaigns }: { campaigns: MarketingCampaign[] }) {
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-dashed border-border px-4 py-3 dark:border-border">
-        <p className="text-[12px] font-medium text-muted-foreground dark:text-muted-foreground">
-          Ad spend tracking
-        </p>
-        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground dark:text-muted-foreground">
-          Connect ad accounts to track spend, CPR, and ROAS automatically.
-        </p>
-      </div>
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        {marketingEnabled
+          ? campaigns.length === 0 ? "No campaigns yet. Plan how you will introduce your story to readers." : "Campaign activity across your books. Open marketing to manage your campaigns."
+          : campaigns.length === 0 ? "No recorded campaigns." : "Recorded campaign activity across your books."}
+      </p>
+      {marketingEnabled && <Link href="/author/marketing" className={styles.textLink}>Open marketing <span aria-hidden="true">↗</span></Link>}
     </div>
   );
 }
@@ -439,213 +409,104 @@ type AnalyticsDashboardProps = {
 export default function AnalyticsDashboard({
   bookId,
   selectedBook,
+  period,
   data,
   loading,
 }: AnalyticsDashboardProps) {
   const isAllBooks = bookId === "all";
-
-  // Derive KPI values
-  const reads = isAllBooks
-    ? (data.overviewStats?.reads ?? 0)
-    : (data.bookDetail?.readers.total ?? 0);
-  const views = isAllBooks
-    ? (data.overviewStats?.views ?? 0)
-    : (data.bookDetail?.overview.views ?? 0);
-  const purchases = isAllBooks
-    ? (data.overviewStats?.purchases ?? 0)
-    : (data.bookDetail?.overview.purchases ?? 0);
-  const bookmarks = isAllBooks
-    ? (data.engagement?.bookmarks ?? 0)
-    : (data.bookDetail?.overview.bookmarks ?? 0);
-  // Per-book view must show that book's revenue, not the whole catalogue's.
-  // Every other figure beside it already switches on isAllBooks; revenue did
-  // not, which was invisible only while it was always zero.
-  const totalRevenue = isAllBooks
-    ? (data.revenue?.totalRevenue ?? 0)
-    : (data.bookDetail?.overview.revenue ?? 0);
-  const currency = isAllBooks
-    ? (data.revenue?.currency ?? "SEK")
-    : (data.bookDetail?.overview.currency ?? data.revenue?.currency ?? "SEK");
+  const readingAvailable = isAllBooks ? Boolean(data.overviewStats) : Boolean(data.bookDetail);
+  const engagementAvailable = Boolean(data.engagement);
+  const reads = isAllBooks ? (data.overviewStats?.reads ?? 0) : (data.bookDetail?.readers.total ?? 0);
+  const periodReads = isAllBooks ? (data.overviewStats?.reads ?? 0) : (data.bookDetail?.overview.reads ?? 0);
+  const views = isAllBooks ? (data.overviewStats?.views ?? 0) : (data.bookDetail?.overview.views ?? 0);
+  const purchases = isAllBooks ? (data.overviewStats?.purchases ?? 0) : (data.bookDetail?.overview.purchases ?? 0);
+  const bookmarks = isAllBooks ? (data.engagement?.bookmarks ?? 0) : (data.bookDetail?.overview.bookmarks ?? 0);
   const avgRating = data.engagement?.averageRating ?? 0;
   const reviews = data.engagement?.reviews ?? 0;
-  const completionRate = isAllBooks
-    ? (data.bookDetail?.readers.completionRate ?? 0)
-    : (data.bookDetail?.readers.completionRate ?? 0);
+  const completionRate = data.bookDetail?.readers.completionRate ?? 0;
   const activeReaders = data.bookDetail?.readers.active ?? 0;
   const avgProgress = data.bookDetail?.readers.avgProgress ?? 0;
-
-  const dailyChart = isAllBooks
-    ? (data.overviewStats?.dailyChart ?? [])
-    : (data.bookDetail?.dailyChart ?? []);
+  const dailyChart = isAllBooks ? (data.overviewStats?.dailyChart ?? []) : (data.bookDetail?.dailyChart ?? []);
   const chapterSignals = data.bookDetail?.chapterSignals ?? [];
+  const periodLabel = period === "all" ? "All time" : period === "7d" ? "Last 7 days" : "Last 30 days";
+  const hasActivity = periodReads > 0 || views > 0 || purchases > 0;
+  const summaryTitle = !readingAvailable ? "Reading activity is unavailable"
+    : periodReads > 0 ? "Your stories are finding readers"
+    : hasActivity ? "Your stories are being discovered"
+    : "Your next reader starts with a story";
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[...Array<number>(4)].map((_, i) => (
-            <div key={i} className="h-[110px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
-          ))}
-        </div>
-        <div className="h-[280px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="h-[260px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
-          <div className="h-[260px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
-        </div>
+      <div className={styles.loading} role="status" aria-live="polite">
+        <p>Loading analytics…</p>
+        <div aria-hidden="true" className="h-40 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
+        <div aria-hidden="true" className="h-24 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* ── KPI Row ── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        <KPICard
-          label="Readers"
-          value={fmtNum(reads)}
-          sub={!isAllBooks && activeReaders > 0 ? `${activeReaders} active this week` : undefined}
-          accent="purple"
-        />
-        <KPICard
-          label="Views"
-          value={fmtNum(views)}
-          accent="blue"
-        />
-        <KPICard
-          label="Revenue"
-          value={fmtCurrency(totalRevenue, currency)}
-          sub={
-            (data.revenue?.activeSubscriberCount ?? 0) > 0
-              ? `${data.revenue?.activeSubscriberCount} subscriber${(data.revenue?.activeSubscriberCount ?? 0) !== 1 ? "s" : ""} · ${purchases} sales`
-              : purchases > 0 ? `${purchases} sales` : "No sales yet"
-          }
-          accent="green"
-        />
-        <KPICard
-          label={isAllBooks ? "Bookmarks" : "Avg progress"}
-          value={isAllBooks ? fmtNum(bookmarks) : `${avgProgress}%`}
-          sub={!isAllBooks && completionRate > 0 ? `${completionRate}% completed` : undefined}
-          accent="amber"
-        />
-        <KPICard
-          label={isAllBooks ? "Rating" : "Completion"}
-          value={
-            isAllBooks
-              ? avgRating > 0
-                ? `${avgRating.toFixed(1)} / 5`
-                : "No reviews"
-              : `${completionRate}%`
-          }
-          sub={isAllBooks && reviews > 0 ? `${reviews} reviews` : undefined}
-          accent="pink"
-        />
-      </div>
-
-      {/* ── Main Chart ── */}
-      <div className="rounded-2xl border border-border/80 bg-card p-6 dark:border-border dark:bg-card">
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
-              {isAllBooks ? "All books" : selectedBook?.title}
-            </p>
-            <h2 className="author-section-title mt-1.5 text-[18px] font-medium tracking-tight text-foreground dark:text-foreground">
-              Reading over time
-            </h2>
-          </div>
-          <div className="flex flex-wrap gap-4 text-[12px] text-muted-foreground dark:text-muted-foreground">
-            <span className="inline-flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-[#907AFF]/70" />
-              Reach
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-[#1E293B] dark:bg-white" />
-              Readers
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-amber-400" />
-              Revenue events
-            </span>
-          </div>
+    <div className={styles.dashboard}>
+      <section className={styles.summary} aria-labelledby="analytics-summary-title">
+        <div>
+          <p className={styles.summaryScope}>{selectedBook?.title ?? "All books"} <span aria-hidden="true">·</span> {periodLabel}</p>
+          <h2 id="analytics-summary-title">{summaryTitle}</h2>
+          <p className={styles.summaryCopy}>
+            {!readingAvailable ? "Retry statistics to see this period. Sales and subscriptions remain available below when their data loads."
+              : hasActivity ? `${fmtNum(periodReads)} ${periodReads === 1 ? "reading event" : "reading events"}, ${fmtNum(views)} ${views === 1 ? "view" : "views"} and ${fmtNum(purchases)} ${purchases === 1 ? "purchase" : "purchases"} in this period. Explore the details to see how your stories are doing.`
+              : "There is no recorded reading activity for this selection yet. Open your library to continue a story, check its publishing details, or choose a longer period."}
+          </p>
         </div>
-        <AreaChart dailyChart={dailyChart} />
-      </div>
+        <Link href={selectedBook ? `/author/books/${selectedBook.id}` : "/author/library"} className={styles.summaryAction}>
+          {selectedBook ? "Open book" : "Open library"}<span aria-hidden="true">↗</span>
+        </Link>
+      </section>
 
-      {/* ── Second Row ── */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Left: Chapter funnel (single book) or Books table (all) */}
-        <div className="rounded-2xl border border-border/80 bg-card p-6 dark:border-border dark:bg-card">
-          {isAllBooks ? (
-            <>
-              <div className="mb-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
-                  Performance
-                </p>
-                <h3 className="mt-1.5 text-[16px] font-semibold tracking-tight text-foreground dark:text-foreground">
-                  Books breakdown
-                </h3>
-              </div>
-              <BooksTable rows={data.booksTable} />
-            </>
-          ) : (
-            <>
-              <div className="mb-5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
-                  Reading behavior
-                </p>
-                <h3 className="mt-1.5 text-[16px] font-semibold tracking-tight text-foreground dark:text-foreground">
-                  Chapter funnel
-                </h3>
-              </div>
-              {chapterSignals.length === 0 ? (
-                <p className="py-4 text-sm text-muted-foreground dark:text-muted-foreground">
-                  Chapter data appears once readers start reading.
-                </p>
-              ) : (
-                <ChapterFunnel signals={chapterSignals} />
-              )}
-            </>
-          )}
+      <dl className={styles.metrics} aria-label="Key statistics">
+        <KPICard label={isAllBooks ? "Reading events" : "Readers"} value={readingAvailable ? fmtNum(reads) : "Unavailable"}
+          sub={isAllBooks ? "Selected period" : readingAvailable ? `All time · ${activeReaders} active this week` : "All time"} />
+        <KPICard label="Views" value={readingAvailable ? fmtNum(views) : "Unavailable"} />
+        <KPICard label="Book sales" value={<SalesValue revenue={data.revenue} />} sub="Paid orders in selected period" />
+        <KPICard label={isAllBooks ? "Bookmarks" : "Avg progress"}
+          value={isAllBooks ? (engagementAvailable ? fmtNum(bookmarks) : "Unavailable") : (readingAvailable ? `${avgProgress}%` : "Unavailable")}
+          sub="All time" />
+        <KPICard label={isAllBooks ? "Rating" : "Completion"}
+          value={isAllBooks ? (!engagementAvailable ? "Unavailable" : avgRating > 0 ? `${avgRating.toFixed(1)} / 5` : "No reviews") : (readingAvailable ? `${completionRate}%` : "Unavailable")}
+          sub={isAllBooks && reviews > 0 ? `${reviews} reviews · All time` : "All time"} />
+      </dl>
+
+      <section className={styles.panel} aria-labelledby="analytics-reading-title">
+        <div className={styles.panelHeading}>
+          <div><h2 id="analytics-reading-title">Reading over time</h2><p>Daily activity · {periodLabel}</p></div>
+          {hasActivity && <div className={styles.legend}>
+            <span><i className="bg-[#907AFF]" />Views</span>
+            <span><i className="bg-foreground" />Reading events</span>
+            <span><i className="bg-amber-500" />Purchases</span>
+          </div>}
         </div>
+        {readingAvailable ? <AreaChart dailyChart={dailyChart} /> : <p className={styles.unavailable}>Reading data could not be loaded for this selection.</p>}
+      </section>
 
-        {/* Right: Revenue + Marketing */}
-        <div className="space-y-4">
-          {/* Revenue breakdown */}
-          <div className="rounded-2xl border border-border/80 bg-card p-6 dark:border-border dark:bg-card">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
-                  Revenue
-                </p>
-                <h3 className="mt-1.5 text-[16px] font-semibold tracking-tight text-foreground dark:text-foreground">
-                  Income breakdown
-                </h3>
-              </div>
-              <span className="text-[22px] font-semibold tracking-tight text-foreground dark:text-foreground">
-                {fmtCurrency(totalRevenue, currency)}
-              </span>
+      <div className={styles.detailsGrid}>
+        <div className={styles.detailColumn}>
+          <section className={styles.panel} aria-labelledby="analytics-breakdown-title">
+            <div className={styles.panelHeading}>
+              <div><h2 id="analytics-breakdown-title">{isAllBooks ? "Books breakdown" : "Chapter funnel"}</h2><p>{isAllBooks ? "Explore a book’s reader activity." : "Where readers continue and where they pause."}</p></div>
             </div>
-            <RevenueBreakdown
-              orderRevenue={data.revenue?.orderRevenue ?? 0}
-              donationRevenue={data.revenue?.donationRevenue ?? 0}
-              subscriptionMRR={data.revenue?.subscriptionMRR ?? 0}
-              activeSubscriberCount={data.revenue?.activeSubscriberCount ?? 0}
-              currency={currency}
-            />
-          </div>
-
-          {/* Marketing activity */}
-          <div className="rounded-2xl border border-border/80 bg-card p-6 dark:border-border dark:bg-card">
-            <div className="mb-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground dark:text-muted-foreground">
-                Marketing
-              </p>
-              <h3 className="mt-1.5 text-[16px] font-semibold tracking-tight text-foreground dark:text-foreground">
-                Campaigns &amp; spend
-              </h3>
-            </div>
-            <MarketingPanel campaigns={data.marketingCampaigns} />
-          </div>
+            {isAllBooks ? (data.booksFailed ? <p role="alert" className={styles.unavailable}>Book statistics unavailable. Please retry.</p> : <BooksTable rows={data.booksTable} />)
+              : !readingAvailable ? <p className={styles.unavailable}>Chapter data could not be loaded.</p>
+              : chapterSignals.length === 0 ? <p className={styles.unavailable}>Chapter data appears once readers start reading.</p>
+              : <ChapterFunnel signals={chapterSignals} />}
+          </section>
+          {(getMarketingEnabled() || data.marketingCampaigns.length > 0) && <section className={styles.panel} aria-labelledby="analytics-marketing-title">
+            <div className={styles.panelHeading}><div><h2 id="analytics-marketing-title">Marketing activity</h2><p>Campaigns across all books · All time</p></div></div>
+            {data.marketingFailed ? <p role="alert" className={styles.unavailable}>Campaign data unavailable. Please retry.</p> : <MarketingPanel campaigns={data.marketingCampaigns} />}
+          </section>}
         </div>
+        <section className={styles.panel} aria-labelledby="analytics-sales-title">
+          <div className={styles.panelHeading}><div><h2 id="analytics-sales-title">Sales and subscriptions</h2><p>Order amounts and current recurring subscriptions.</p></div></div>
+          <RevenueBreakdown revenue={data.revenue} />
+        </section>
       </div>
     </div>
   );

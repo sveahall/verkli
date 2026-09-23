@@ -16,7 +16,7 @@ import {
 } from "@/lib/api-errors";
 import { sendNewsletter } from "@/lib/newsletters/send";
 
-const sendLimiter = createPerUserRateLimiter({ maxPerMinute: 2 });
+const sendLimiter = createPerUserRateLimiter({ name: "newsletters-send", maxPerMinute: 2 });
 
 const paramsSchema = z.object({
   id: z.string().uuid("Invalid newsletter ID"),

@@ -1,9 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import { useRef } from "react";
+import { Button } from "@/components/ui/button";
+import styles from "./CoverPanel.module.css";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowRight, ImageIcon, PenLine, Sparkles, Upload } from "lucide-react";
+import { ArrowRight, Check, ImageIcon, PenLine, Sparkles, Upload } from "lucide-react";
 import { ACCEPTED_COVER_TYPES, COVER_AI_STYLES, COVER_TEMPLATES } from "../BookEditorView.helpers";
 import { requiresUnoptimizedImage } from "@/lib/images/optimizable";
 
@@ -98,29 +101,24 @@ export default function CoverPanel({
   bookTitle,
   authorName,
 }: CoverPanelProps) {
+  const previousTemplateRef = useRef(coverAITemplate ?? COVER_TEMPLATES[0]?.id ?? null);
   const selectedTemplate = coverAITemplate
     ? COVER_TEMPLATES.find((t) => t.id === coverAITemplate) ?? null
     : null;
 
   return (
-    <div className={`mx-auto w-full max-w-[1080px] px-6 ${demoMode ? "mt-6 space-y-5 sm:mt-8" : "mt-10 space-y-8 sm:px-12"}`}>
+    <div className={`mx-auto w-full max-w-[1120px] ${styles.root} ${demoMode ? "mt-6 space-y-5 px-6 sm:mt-8" : styles.panel}`}>
       {/* Step number/name dropped — the workflow stepper above already shows
           step position; keep only the pacing badge inside the hero copy. */}
       {/* ── Header (real-mode only — demo mode lets the panels speak for themselves) ── */}
       {!demoMode && (
-        <div>
-          <div className="flex items-center justify-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#907AFF]/10 dark:bg-[#907AFF]/15">
-              <ImageIcon className="h-4 w-4 text-accent-foreground" />
-            </div>
-            <h2 className="author-section-title text-lg font-medium text-foreground dark:text-foreground">
-              Book Cover
-            </h2>
+        <header className={styles.heading}>
+          <div>
+            <h2 className="font-display text-[clamp(24px,3vw,32px)] font-medium tracking-tight text-foreground">Give your story a cover.</h2>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">Upload your artwork or explore a new direction with AI. You choose what makes the final cut.</p>
           </div>
-          <p className="my-6 text-sm text-muted-foreground justify-center text-center mx-auto dark:text-muted-foreground">
-            Upload your own cover image or generate one with AI. Recommended size: 1600 &times; 2400px (3:4 ratio).
-          </p>
-        </div>
+          <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground"><ImageIcon size={15} aria-hidden /> Cover studio</span>
+        </header>
       )}
 
       <input
@@ -138,35 +136,36 @@ export default function CoverPanel({
         </p>
       )}
 
-      <div className={`grid items-stretch ${demoMode ? "gap-6 pt-2 lg:grid-cols-[minmax(260px,320px)_1fr]" : "gap-8 pt-10 lg:grid-cols-[300px_1fr]"}`}>
+      <div className={demoMode ? "grid items-stretch gap-6 pt-2 lg:grid-cols-[minmax(260px,320px)_1fr]" : styles.layout}>
         {/* ── Cover preview ── */}
-        <div className={demoMode ? "flex flex-col" : ""}>
+        <div className={demoMode ? "flex flex-col" : styles.preview}>
+          {!demoMode && <div className={styles.previewLabel}><span>Digital cover</span><span>{displayCoverUrl ? "In use" : "Your canvas"}</span></div>}
           {/* Demo pitch: the cover is driven by a local asset (decoupled from
               Supabase for wifi-resilience). demoCoverUrl carries the seeded
               fallback, any local edit/upload, or null once the presenter
               removes it — which surfaces the upload + Generate empty state. */}
           {(demoMode ? demoCoverUrl : displayCoverUrl) ? (
-            <div className={demoMode ? "flex h-full flex-col" : "space-y-4"}>
+            <div className={demoMode ? "flex h-full flex-col" : styles.currentCover}>
               <div
                 className={`relative overflow-hidden ${
                   demoMode
                     ? "rounded-3xl ring-1 ring-border/70 dark:ring-white/[0.08]"
-                    : "rounded-2xl border border-black/[0.06] dark:border-border"
+                    : styles.artwork
                 }`}
                 style={{ aspectRatio: "3/4" }}
               >
                 <Image
                   src={demoMode ? demoCoverUrl ?? "" : displayCoverUrl ?? ""}
-                  alt="Book cover"
+                  alt={`Cover of ${bookTitle}`}
                   fill
                   sizes="320px"
-                  className="object-cover"
+                  className="object-contain"
                   unoptimized={requiresUnoptimizedImage(demoMode ? demoCoverUrl ?? "" : displayCoverUrl ?? "")}
                   priority={demoMode}
                 />
               </div>
               {!demoMode && (
-              <div className="flex gap-2">
+              <div className={styles.coverActions}>
                 <button
                   type="button"
                   onClick={() => coverInputRef.current?.click()}
@@ -250,12 +249,14 @@ export default function CoverPanel({
                   coverInputRef.current?.click();
                 }
               }}
-              className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-colors ${
+              aria-disabled={coverUploading}
+              aria-label={coverUploading ? "Saving cover" : "Upload cover"}
+              className={`${!demoMode ? styles.upload : ""} flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring ${
                 coverDropActive
                   ? "border-[#907AFF]/60 bg-[#907AFF]/5 dark:bg-[#907AFF]/10"
                   : "border-border bg-background/50 hover:border-[#907AFF]/40 hover:bg-[#907AFF]/[0.03] dark:border-border dark:bg-card dark:hover:border-[#907AFF]/30"
               } ${coverUploading ? "cursor-wait opacity-70" : ""}`}
-              style={{ aspectRatio: "3/4" }}
+              style={demoMode ? { aspectRatio: "3/4" } : undefined}
               onDragOver={(e) => {
                 e.preventDefault();
                 if (!coverUploading) setCoverDropActive(true);
@@ -266,7 +267,10 @@ export default function CoverPanel({
                   setCoverDropActive(false);
                 }
               }}
-              onDrop={handleCoverDrop}
+              onDrop={(event) => {
+                if (coverUploading) { event.preventDefault(); setCoverDropActive(false); return; }
+                handleCoverDrop(event);
+              }}
             >
               <div className="flex flex-col items-center gap-3 px-6">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted dark:bg-card">
@@ -277,7 +281,7 @@ export default function CoverPanel({
                     Upload cover
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground">
-                    Click or drag &amp; drop
+                    Choose a file or drop it here
                   </p>
                 </div>
                 {coverUploading && (
@@ -286,6 +290,11 @@ export default function CoverPanel({
               </div>
             </div>
           )}
+          {!demoMode && <div className={styles.coverCaption}>
+            <p>{bookTitle || "Your book title"}</p>
+            {authorName && <span>{authorName}</span>}
+          </div>}
+          {!demoMode && <p className={styles.previewHint}>JPG or PNG · 3:4 portrait<br />Recommended: 1800 × 2400 px</p>}
         </div>
 
         {/* ── AI generation ── */}
@@ -302,9 +311,9 @@ export default function CoverPanel({
                 <h2
                   className="text-[40px] font-semibold leading-[0.98] tracking-[-0.028em] text-foreground sm:text-[52px]"
                 >
-                  Cover, in
+                  A new look
                   <br />
-                  eight seconds.
+                  for your story.
                 </h2>
                 <p className="max-w-[34ch] text-[14px] leading-relaxed text-muted-foreground">
                   Four variations from your title, synopsis, and genre.
@@ -371,14 +380,26 @@ export default function CoverPanel({
           ) : null}
 
           {!demoMode ? (
-          <div className="rounded-2xl border border-border bg-background/50 p-8 dark:border-border dark:bg-card">
+          <div className={styles.generator} aria-busy={coverAIGenerating}>
             <div className="flex items-center gap-2.5">
               <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-[#907AFF]/10 dark:bg-[#907AFF]/15">
                 <Sparkles className="h-3.5 w-3.5 text-accent-foreground" />
               </div>
               <h3 className="text-sm font-semibold text-foreground dark:text-foreground">
-                Generate with AI
+                Explore a cover direction
               </h3>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Build a visual brief, then compare the AI variations. Your current cover stays in place until you choose a new one.</p>
+            <div className={styles.briefModes} aria-label="Cover brief type">
+              <button type="button" aria-pressed={coverAITemplate !== null} onClick={() => {
+                if (coverAITemplate === null) setCoverAITemplate(previousTemplateRef.current);
+                if (coverAIError) setCoverAIError(null);
+              }}>Guided brief</button>
+              <button type="button" aria-pressed={coverAITemplate === null} onClick={() => {
+                if (coverAITemplate) previousTemplateRef.current = coverAITemplate;
+                setCoverAITemplate(null);
+                if (coverAIError) setCoverAIError(null);
+              }}>My own prompt</button>
             </div>
 
             {/* Real (non-demo) AI form: template dropdown */}
@@ -391,6 +412,7 @@ export default function CoverPanel({
                   <div className="relative">
                     <select
                       id="cover-template"
+                      aria-describedby="cover-template-description"
                       value={coverAITemplate}
                       onChange={(e) => {
                         setCoverAITemplate(e.target.value);
@@ -400,13 +422,14 @@ export default function CoverPanel({
                       className="w-full appearance-none rounded-xl border border-border bg-card px-4 py-2.5 pr-9 text-sm font-medium text-foreground focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/10 dark:border-border dark:bg-card dark:text-foreground"
                     >
                       {COVER_TEMPLATES.map((t) => (
-                        <option key={t.id} value={t.id}>{t.label} — {t.description}</option>
+                        <option key={t.id} value={t.id}>{t.label}</option>
                       ))}
                     </select>
                     <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground dark:text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
                     </svg>
                   </div>
+                  <p id="cover-template-description" className="mt-2 text-xs leading-relaxed text-muted-foreground">{selectedTemplate?.description}</p>
                 </div>
 
                 {/* Template fields */}
@@ -415,9 +438,9 @@ export default function CoverPanel({
                     <label htmlFor={`cover-field-${field.id}`} className="mb-1.5 block text-xs font-medium text-muted-foreground dark:text-muted-foreground">
                       {field.label}
                     </label>
-                    <input
+                    <textarea
                       id={`cover-field-${field.id}`}
-                      type="text"
+                      rows={field.id === "colors" ? 2 : 3}
                       value={coverAITemplateFields[field.id] ?? ""}
                       onChange={(e) => {
                         setCoverAITemplateFields({ ...coverAITemplateFields, [field.id]: e.target.value });
@@ -449,37 +472,16 @@ export default function CoverPanel({
                   className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-[#907AFF]/40 focus:outline-none focus:ring-2 focus:ring-[#907AFF]/10 dark:border-border dark:bg-card dark:text-foreground dark:placeholder:text-muted-foreground"
                 />
                 <p className="mt-1.5 text-[11px] text-muted-foreground dark:text-muted-foreground">
-                  Tip: focus on the visual scene, not text or layout — we handle typography automatically.
+                  Focus on the visual scene. You can add your title and author name in the cover editor.
                 </p>
               </div>
             )}
 
-            {/* Toggle between template and custom (real mode only) */}
-            {!demoMode && (
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  if (coverAITemplate) {
-                    setCoverAITemplate(null);
-                  } else {
-                    setCoverAITemplate(COVER_TEMPLATES[0]?.id ?? null);
-                    setCoverAITemplateFields({});
-                  }
-                  if (coverAIError) setCoverAIError(null);
-                }}
-                className="text-xs font-medium text-muted-foreground underline decoration-slate-300 underline-offset-2 transition-colors hover:text-accent-foreground dark:text-muted-foreground dark:decoration-white/20 dark:hover:text-accent-foreground"
-              >
-                {coverAITemplate ? "Write a custom prompt instead" : "Use a template instead"}
-              </button>
-            </div>
-            )}
-
             {/* Style + Generate (real mode only) */}
             {!demoMode && (
-            <div className="mt-6 flex flex-wrap items-center gap-3">
+            <div className={styles.generateActions}>
               <div className="relative">
-                <label htmlFor="cover-ai-style" className="sr-only">Style</label>
+                <label htmlFor="cover-ai-style" className="mb-1.5 block text-xs font-medium text-muted-foreground">Visual style</label>
                 <select
                   id="cover-ai-style"
                   value={coverAIStyle}
@@ -497,15 +499,9 @@ export default function CoverPanel({
                   <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
                 </svg>
               </div>
-              <button
-                type="button"
-                onClick={handleCoverAIGenerate}
-                disabled={coverAIGenerating}
-                className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 hover:shadow-md active:scale-[0.97] disabled:opacity-50"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                {coverAIGenerating ? "Generating..." : "Generate"}
-              </button>
+              <Button type="button" onClick={handleCoverAIGenerate} isLoading={coverAIGenerating} loadingText="Generating covers" disabled={coverUploading} size="sm">
+                <Sparkles className="h-4 w-4" aria-hidden /> Generate covers
+              </Button>
             </div>
             )}
 
@@ -571,7 +567,7 @@ export default function CoverPanel({
                     alt="AI cover preview"
                     fill
                     sizes="200px"
-                    className="object-cover"
+                    className="object-contain"
                     unoptimized={requiresUnoptimizedImage(coverAIPreviewUrl)}
                   />
                 </div>
@@ -610,21 +606,22 @@ export default function CoverPanel({
               `}</style>
               <div className="mb-4 flex items-center justify-between">
                 <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">
-                  Generated covers — click to preview
+                  Choose a direction to preview
                 </p>
                 {coverAIGeneratedSource ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-[var(--brand-violet)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--brand-violet)]">
                     <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--brand-violet)]" aria-hidden />
-                    Generated just now
+                    {coverAIGeneratedSource === "fallback" ? "Example variations" : "Generated just now"}
                   </span>
                 ) : null}
               </div>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-4 @min-[900px]/book-panel:grid-cols-4">
                 {coverAIGeneratedUrls.map((url, i) => (
                   <button
                     key={`${url}-${i}`}
                     type="button"
                     onClick={() => setCoverAIPreviewUrl(url)}
+                    aria-label={`Preview cover variation ${i + 1}`}
                     disabled={coverUploading}
                     // Demo: staggered entry, 250ms apart per index, only
                     // when the source is "fallback" (live results land all
@@ -647,6 +644,7 @@ export default function CoverPanel({
                       className="object-cover transition-transform duration-200 group-hover:scale-[1.03]"
                       unoptimized={requiresUnoptimizedImage(url)}
                     />
+                    <span className={styles.variationLabel}>{(demoMode ? demoCoverUrl : displayCoverUrl) === url ? <><Check size={13} aria-hidden /> In use</> : `Variation ${i + 1}`}</span>
                   </button>
                 ))}
               </div>

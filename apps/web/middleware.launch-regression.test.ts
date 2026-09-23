@@ -33,6 +33,12 @@ describe.each([
     vi.stubEnv("NEXT_PUBLIC_WAITLIST_ONLY", waitlist);
   });
 
+  it("serves the public brand preview image while the platform is locked", async () => {
+    const response = await middleware(new NextRequest("https://www.verkli.com/opengraph-image?v=20260915"));
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    expect(response.headers.get("location")).toBeNull();
+  });
+
   it("lets Stripe POST reach its signature verifier without browser auth", async () => {
     mocks.getUser.mockRejectedValue(new Error("Auth service unavailable"));
     const response = await middleware(new NextRequest("https://www.verkli.com/api/stripe/webhook", {
@@ -71,7 +77,7 @@ describe.each([
     expect(response.headers.get("x-middleware-next")).toBeNull();
   });
 
-  it.each(["/api/stripe/webhook/private", "/api/stripe/webhooks", "/api/health/private", "/api/health/workers/private", "/api/feedback", "/privacy/private", "/author/home"])(
+  it.each(["/opengraph-image/private", "/opengraph-images", "/api/stripe/webhook/private", "/api/stripe/webhooks", "/api/health/private", "/api/health/workers/private", "/api/feedback", "/privacy/private", "/author/home"])(
     "does not exempt the lookalike or workspace route %s", async (path) => {
       const response = await middleware(new NextRequest(`https://www.verkli.com${path}`));
       expect(response.headers.get("x-middleware-next")).toBeNull();
@@ -87,4 +93,36 @@ it("explains a signed-in user's missing invitation without opening the platform"
   const response = await middleware(new NextRequest("https://www.verkli.com/author/home"));
   expect(response.status).toBe(307);
   expect(response.headers.get("location")).toBe("https://www.verkli.com/waitlist?access=pending");
+});
+
+it("allows a www author to POST when the configured site is the apex", async () => {
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://verkli.com");
+  vi.stubEnv("BETA_LOCK", "false");
+  vi.stubEnv("NEXT_PUBLIC_WAITLIST_ONLY", "false");
+  const response = await middleware(new NextRequest("https://www.verkli.com/api/books/x/editorial/review", {
+    method: "POST",
+    body: "{}",
+    headers: {
+      origin: "https://www.verkli.com",
+      "sec-fetch-site": "same-site",
+      host: "www.verkli.com",
+    },
+  }));
+  expect(response.status).not.toBe(403);
+});
+
+it("rejects a lookalike host that is not the www twin", async () => {
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://verkli.com");
+  vi.stubEnv("BETA_LOCK", "false");
+  vi.stubEnv("NEXT_PUBLIC_WAITLIST_ONLY", "false");
+  const response = await middleware(new NextRequest("https://verkli.com/api/books/x/editorial/review", {
+    method: "POST",
+    body: "{}",
+    headers: {
+      origin: "https://evil.verkli.com",
+      "sec-fetch-site": "same-site",
+      host: "verkli.com",
+    },
+  }));
+  expect(response.status).toBe(403);
 });

@@ -12,6 +12,8 @@ import {
   E_APPLICATION_CREATION_FAILED,
 } from "@/lib/api-errors";
 import { requireAdminRoleForApi } from "@/lib/admin-auth";
+import { ensureBetaAuthorAccess } from "@/lib/auth/beta";
+import { sendBetaWelcome, type BetaDeliveryResult } from "@/lib/emails/beta-delivery";
 import {
   buildApplicationStatusSubject,
   buildApplicationStatusHtml,
@@ -80,11 +82,34 @@ export async function PATCH(request: Request) {
 
   const admin = createAdminClient();
 
-  const { data: existing } = await admin
-    .from("author_applications")
-    .select("user_id")
-    .eq("user_id", userId)
-    .maybeSingle();
+  let existing: Pick<ApplicationRow, "user_id" | "first_name"> | null;
+  try {
+    const { data, error: lookupError } = await admin
+      .from("author_applications")
+      .select("user_id, first_name")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (lookupError) throw new Error(lookupError.message);
+    existing = data;
+  } catch (error) {
+    console.error("[author applications admin] application lookup failed", { userId, message: error instanceof Error ? error.message : String(error) });
+    return apiError(E_APPLICATIONS_LOAD_FAILED, 500, { detail: "Could not verify the application. No decision was saved or email sent. Please retry." });
+  }
+
+  // Application contact details are editable; send account access only to the
+  // canonical address attached to the authenticated account.
+  let recipientEmail: string;
+  try {
+    const { data, error: userError } = await admin.auth.admin.getUserById(userId);
+    if (userError || !data.user?.email?.trim()) {
+      console.error("[author applications admin] account email lookup failed", { userId, message: userError?.message ?? "Account email missing" });
+      return apiError(E_APPLICATION_UPDATE_FAILED, 500, { detail: "Could not verify the account email. No decision was saved or email sent. Please retry." });
+    }
+    recipientEmail = data.user.email.trim();
+  } catch (error) {
+    console.error("[author applications admin] account email lookup threw", { userId, message: error instanceof Error ? error.message : String(error) });
+    return apiError(E_APPLICATION_UPDATE_FAILED, 500, { detail: "Could not verify the account email. No decision was saved or email sent. Please retry." });
+  }
 
   if (existing) {
     const { error } = await admin
@@ -115,20 +140,15 @@ export async function PATCH(request: Request) {
     }
   }
 
-  // Keep profiles.role in sync so downstream queries that filter on role (the
-  // discover page, reader/authors/[id], etc.) include the newly approved user
-  // without a second manual promotion step.
+  // A saved decision alone does not establish author access or pass BETA_LOCK.
+  // Do not announce approval until both grants are confirmed.
   if (status === "approved") {
-    const { error: roleSyncError } = await admin
-      .from("profiles")
-      .update({ role: "author" })
-      .eq("user_id", userId)
-      .neq("role", "admin");
-    if (roleSyncError) {
-      console.error("[author applications admin] profile role sync failed", {
-        userId,
-        message: roleSyncError.message,
-      });
+    try {
+      const access = await ensureBetaAuthorAccess(admin, userId);
+      if (!access.ok) throw new Error(access.error);
+    } catch (error) {
+      console.error("[author applications admin] author beta access failed", { userId, message: error instanceof Error ? error.message : String(error) });
+      return apiError(E_APPLICATION_UPDATE_FAILED, 500, { detail: "The approval was saved, but author beta access could not be enabled. No welcome email was sent. Please retry approval." });
     }
   }
 
@@ -163,43 +183,43 @@ export async function PATCH(request: Request) {
     });
   }
 
-  // Send notification email (best-effort, don't fail the request)
+  if (status === "approved") {
+    const email = await sendBetaWelcome(admin, {
+      actorId: adminUser.id,
+      entityId: userId,
+      email: recipientEmail,
+      name: existing?.first_name,
+      accountExists: true,
+      audience: "author",
+    });
+    return NextResponse.json({ ok: true, userId, status, emailSent: email.status === "sent" || email.status === "already_sent", email });
+  }
+
+  // Rejections retain their existing notification, using the account address.
   let emailSent = false;
+  let email: BetaDeliveryResult = { status: "unavailable", message: "The rejection was saved, but its notification email could not be sent." };
   try {
-    const { data: application } = await admin
-      .from("author_applications")
-      .select("email, first_name")
-      .eq("user_id", userId)
-      .maybeSingle();
+    const env = getServerEnv();
+    const subject = buildApplicationStatusSubject({ decision: "rejected", firstName: existing?.first_name });
+    const html = buildApplicationStatusHtml({ decision: "rejected", firstName: existing?.first_name });
 
-    const app = application as { email?: string | null; first_name?: string | null } | null;
-    const recipientEmail = app?.email;
+    const resend = new Resend(env.RESEND_API_KEY);
+    const { error: sendError } = await resend.emails.send({
+      from: env.RESEND_FROM_EMAIL,
+      to: recipientEmail,
+      subject,
+      html,
+    });
 
-    if (recipientEmail) {
-      const env = getServerEnv();
-      const decision = status as "approved" | "rejected";
-      const subject = buildApplicationStatusSubject({ decision, firstName: app?.first_name });
-      const html = buildApplicationStatusHtml({ decision, firstName: app?.first_name });
-
-      const resend = new Resend(env.RESEND_API_KEY);
-      const { error: sendError } = await resend.emails.send({
-        from: env.RESEND_FROM_EMAIL,
-        to: recipientEmail,
-        subject,
-        html,
+    if (sendError) {
+      console.error("[author applications admin] email send failed", {
+        userId,
+        email: recipientEmail,
+        error: sendError.message,
       });
-
-      if (sendError) {
-        console.error("[author applications admin] email send failed", {
-          userId,
-          email: recipientEmail,
-          error: sendError.message,
-        });
-      } else {
-        emailSent = true;
-      }
     } else {
-      console.warn("[author applications admin] no email on application, skipping notification", { userId });
+      emailSent = true;
+      email = { status: "sent", message: "The rejection was saved and its notification email was accepted by the mail provider." };
     }
   } catch (err) {
     console.error("[author applications admin] email send exception", {
@@ -208,5 +228,5 @@ export async function PATCH(request: Request) {
     });
   }
 
-  return NextResponse.json({ ok: true, userId, status, emailSent });
+  return NextResponse.json({ ok: true, userId, status, emailSent, email });
 }

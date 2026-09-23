@@ -22,7 +22,7 @@ import {
 import { createNotification } from "@/lib/notifications/server";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 
-const commentLimiter = createPerUserRateLimiter({ maxPerMinute: 10 });
+const commentLimiter = createPerUserRateLimiter({ name: "books-comments", maxPerMinute: 10 });
 
 const paramsSchema = z.object({
   id: z.string().uuid("Invalid book ID"),

@@ -238,8 +238,8 @@ export type Tool =
   | "ai";
 
 /**
- * The linear production flow:
- * Write → Cover → Audio → Translate → Pricing → Publish → Review.
+ * Task groups: manuscript, optional editions, then release.
+ * Review belongs beside writing; audio and translation are optional formats.
  *
  * `pricing` sits immediately before `publish` on purpose: you set a price
  * before you release the book. Leaving it out of this list was a money bug —
@@ -251,12 +251,18 @@ export type Tool =
  */
 export const TOOL_ORDER: Tool[] = [
   "edit",
+  "review",
   "cover",
-  "audiobook",
   "translate",
+  "audiobook",
   "pricing",
   "publish",
-  "review",
+];
+
+export const BOOK_WORKFLOW_GROUPS: ReadonlyArray<{ label: string; tools: readonly Tool[] }> = [
+  { label: "Manuscript", tools: ["edit", "review"] },
+  { label: "Editions", tools: ["cover", "translate", "audiobook"] },
+  { label: "Release", tools: ["pricing", "publish"] },
 ];
 
 /**
@@ -366,10 +372,11 @@ export const TOOL_META: Record<
   },
 };
 
-export function getToolHref(bookId: string, tool: Tool): string {
-  if (tool === "edit") return `/author/books/${bookId}`;
-  if (tool === "dashboard") return `/author/books/${bookId}?panel=dashboard`;
-  return `/author/books/${bookId}?panel=${tool}`;
+export function getToolHref(bookId: string, tool: Tool, language?: string): string {
+  const query = new URLSearchParams();
+  if (tool !== "edit") query.set("panel", tool);
+  if (language) query.set("lang", language);
+  return `/author/books/${bookId}${query.size ? `?${query}` : ""}`;
 }
 
 export type BookEditorProps = {

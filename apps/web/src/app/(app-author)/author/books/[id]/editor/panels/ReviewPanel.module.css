@@ -1,0 +1,20 @@
+.panel { color: var(--foreground); }
+.heading p { margin-top: 10px; max-width: 64ch; color: var(--muted-foreground); font-size: 14px; line-height: 1.7; }
+.panel button, .panel a { min-height: 44px; }
+.panel :is(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+.panel > section[aria-label="Editorial review"] { border: 0; border-radius: 0; padding: 8px 0 20px; background: transparent; }
+.panel > section[aria-label="Editorial review"] > div:first-child > h2 { font-size: 16px; font-weight: 600; }
+.panel > section[aria-label="Editorial review"] select { background: var(--card); color: var(--foreground); border-radius: 12px; }
+.panel > section[aria-label="Editorial review"] button { border-radius: 999px; }
+.overview { border-block: 1px solid var(--border); padding-block: 8px 20px; }
+.overview > summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 68px; padding-block: 12px; cursor: pointer; }
+.overview > summary::-webkit-details-marker { display: none; }
+.overview > summary strong { display: block; font-size: 15px; font-weight: 600; }
+.overview > summary span span { display: block; margin-top: 6px; font-size: 13px; color: var(--muted-foreground); }
+.overview > summary svg { flex-shrink: 0; }
+.overview[open] > summary svg { transform: rotate(180deg); }
+.nextStep { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; }
+.nextStep > div { flex: 1; min-width: 220px; }
+.continueButton { display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 22px; border-radius: 999px; background: var(--primary); color: var(--primary-foreground); font-size: 14px; font-weight: 500; }
+.continueButton:hover { opacity: .9; }
+@media (max-width: 639px) { .panel :is(select, input, textarea) { font-size: 16px; } }

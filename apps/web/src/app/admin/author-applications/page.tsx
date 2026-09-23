@@ -64,6 +64,7 @@ function LongText({ value }: { value: string | null }) {
 export default function AdminAuthorApplicationsPage() {
   const [applications, setApplications] = useState<AuthorApplication[]>([]);
   const [error, setError] = useState("");
+  const [deliveryMessage, setDeliveryMessage] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
@@ -125,6 +126,7 @@ export default function AdminAuthorApplicationsPage() {
 
   const updateStatus = async (userId: string, status: AuthorApplicationStatus) => {
     setError("");
+    setDeliveryMessage("");
     setSavingUserId(userId);
 
     try {
@@ -135,12 +137,16 @@ export default function AdminAuthorApplicationsPage() {
         },
         body: JSON.stringify({ userId, status }),
       });
+      const payload = await response.json().catch(() => null);
 
       if (!response.ok) {
-        setError(response.status === 403 ? "Access denied." : "Could not update application status.");
+        setError(response.status === 403 ? "Access denied." : typeof payload?.detail === "string" ? payload.detail : "Could not update application status.");
         return;
       }
 
+      const recipient = applications.find((application) => application.user_id === userId)?.auth_email;
+      const message = typeof payload?.email?.message === "string" ? payload.email.message : "Application status saved. Email delivery could not be confirmed.";
+      setDeliveryMessage(recipient ? `${recipient}: ${message}` : message);
       setApplications((current) =>
         current.map((application) =>
           application.user_id === userId ? { ...application, status } : application
@@ -173,8 +179,14 @@ export default function AdminAuthorApplicationsPage() {
       <PageHeader
         eyebrow="Operations"
         title="Author applications"
-        description="Review reader applications and approve author access."
+        description="Review applications, enable author beta access and track welcome email delivery."
       />
+
+      {deliveryMessage && (
+        <p role="status" className="mt-5 rounded-xl border border-border bg-card px-4 py-3 text-sm leading-6 text-foreground">
+          {deliveryMessage}
+        </p>
+      )}
 
       {error ? (
         <ErrorState
@@ -269,7 +281,7 @@ export default function AdminAuthorApplicationsPage() {
                             {name || "No name provided"}
                           </p>
                           <p className="truncate text-xs text-muted-foreground">
-                            {application.email ?? application.auth_email ?? "No email"}
+                            {application.auth_email ?? application.email ?? "No email"}
                           </p>
                         </div>
                       </button>
@@ -283,11 +295,11 @@ export default function AdminAuthorApplicationsPage() {
                           <Button
                             size="sm"
                             isLoading={isSaving}
-                            disabled={isSaving || application.status === "approved"}
+                            disabled={isSaving}
                             onClick={() => updateStatus(application.user_id, "approved")}
                           >
                             <Check className="h-4 w-4" />
-                            Approve
+                            {application.status === "approved" ? "Retry welcome email" : "Approve and welcome"}
                           </Button>
                           <Button
                             variant="destructive"
@@ -302,6 +314,12 @@ export default function AdminAuthorApplicationsPage() {
                         </div>
                       </div>
                     </div>
+
+                    {application.status === "approved" && (
+                      <p className="px-4 pb-4 text-xs leading-5 text-muted-foreground">
+                        Welcome email retries are protected against duplicates. An already accepted welcome email will not be sent again.
+                      </p>
+                    )}
 
                     {/* Expanded details */}
                     {isExpanded && (

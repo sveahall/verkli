@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import { ArrowRight, BookOpen, Check, Layers3 } from "lucide-react";
+import styles from "./PricingPanel.module.css";
 import type { Chapter } from "../BookEditorView.types";
 
 interface PricingPanelProps {
@@ -37,163 +40,140 @@ export default function PricingPanel({
   stripeConfigured,
   currentVisibility,
 }: PricingPanelProps) {
+  const [paid, setPaid] = useState(priceAmountMinor > 0);
+  const [priceDraft, setPriceDraft] = useState(String(priceAmountMinor / 100));
+  const [lastAmount, setLastAmount] = useState(priceAmountMinor);
+  // Match the pricing hook's prop reset, without replacing our own input echo.
+  if (lastAmount !== priceAmountMinor) {
+    setLastAmount(priceAmountMinor);
+    setPriceDraft(String(priceAmountMinor / 100));
+    setPaid(priceAmountMinor > 0);
+  }
+  const draftNumber = /^(?:\d+(?:[.,]\d*)?|[.,]\d+)$/.test(priceDraft) ? Number(priceDraft.replace(",", ".")) : NaN;
+  const draftMinor = Math.round(draftNumber * 100);
+  const draftInvalid = paid && (!Number.isFinite(draftMinor) || draftMinor <= 0);
+
+  function updateAmount(amount: number) {
+    setLastAmount(amount);
+    setPriceAmountMinor(amount);
+  }
+
+  const displayPrice = `${(priceAmountMinor / 100).toFixed(priceAmountMinor % 100 === 0 ? 0 : 2)} ${priceCurrency}`;
+
+  function chooseAccess(nextPaid: boolean) {
+    if (nextPaid === paid) return;
+    const amount = nextPaid ? 4900 : 0;
+    setPaid(nextPaid);
+    setPriceDraft(String(amount / 100));
+    updateAmount(amount);
+  }
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <h2 className="author-section-title text-[clamp(20px,2.5vw,24px)] font-medium tracking-[-0.02em] text-foreground dark:text-foreground">Pricing and distribution</h2>
+    <div className={`mx-auto max-w-4xl ${styles.panel}`}>
+      <header className={styles.heading}>
+        <h2 className="font-display text-[clamp(24px,3vw,32px)] font-medium tracking-tight">Set the terms for your story.</h2>
+        <p>Choose how readers get access. Save your price before moving on to publication.</p>
+      </header>
 
-      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-border dark:bg-card dark:shadow-none space-y-4">
-        <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Price and currency</h3>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm text-foreground dark:text-foreground">Free</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={priceAmountMinor > 0}
-            aria-label="Book free or paid"
-            onClick={() => setPriceAmountMinor(priceAmountMinor > 0 ? 0 : 4900)}
-            className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[#907AFF]/50 ${
-              priceAmountMinor > 0 ? "bg-[#907AFF]" : "bg-muted dark:bg-muted"
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                priceAmountMinor > 0 ? "translate-x-5" : "translate-x-1"
-              }`}
-            />
-          </button>
-          <span className="text-sm text-foreground dark:text-foreground">Paid</span>
-        </div>
-        {priceAmountMinor > 0 && (
-          <div className="flex flex-wrap gap-4 pt-2">
-            <div>
-              <label htmlFor="price-amount" className="mb-1 block text-xs text-muted-foreground dark:text-muted-foreground">{pricingModel === "per_chapter" ? "Price per chapter" : "Price (shown to readers)"}</label>
-              <input
-                id="price-amount"
-                type="number"
-                min={0}
-                step={1}
-                value={priceAmountMinor / 100}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  if (!Number.isFinite(v) || v < 0) return;
-                  setPriceAmountMinor(Math.round(v * 100));
-                }}
-                aria-label="Price in currency"
-                className="w-28 rounded-xl border border-black/[0.08] bg-card px-3 py-2 text-sm text-foreground focus:border-border focus:outline-none dark:border-border dark:bg-card dark:text-foreground"
-              />
+      <div className={styles.layout}>
+        <div className={styles.settings}>
+          <fieldset>
+            <legend className={styles.legend}>Reader access</legend>
+            <div className={styles.choices}>
+              {[
+                { value: false, label: "Free", description: "Let readers explore at no cost." },
+                { value: true, label: "Paid", description: "Set a price for your work." },
+              ].map((option) => (
+                <button key={option.label} type="button" aria-pressed={paid === option.value} onClick={() => chooseAccess(option.value)} className={styles.choice}>
+                  <span className={styles.choiceTitle}>{option.label}{paid === option.value && <Check size={16} aria-hidden />}</span>
+                  <span>{option.description}</span>
+                </button>
+              ))}
             </div>
-            <div>
-              <label htmlFor="price-currency" className="mb-1 block text-xs text-muted-foreground dark:text-muted-foreground">Currency</label>
-              <select
-                id="price-currency"
-                value={priceCurrency}
-                onChange={(e) => setPriceCurrency(e.target.value)}
-                aria-label="Currency"
-                className="rounded-xl border border-black/[0.08] bg-card px-3 py-2 text-sm text-foreground focus:border-border focus:outline-none dark:border-border dark:bg-card dark:text-foreground"
-              >
-                <option value="SEK">SEK</option>
-                <option value="EUR">EUR</option>
-                <option value="USD">USD</option>
-              </select>
-            </div>
-          </div>
-        )}
-        <p className="text-xs text-muted-foreground dark:text-muted-foreground">Price is stored in minor units (cents/ore). Here it is shown as whole currency units.</p>
-      </div>
+          </fieldset>
 
-      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-border dark:bg-card dark:shadow-none space-y-3">
-        <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Sales model</h3>
-        <button
-          type="button"
-          onClick={() => setPricingModel("book_only")}
-          className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition ${
-            pricingModel === "book_only"
-              ? "border-[#907AFF]/30 bg-[#907AFF]/10 dark:bg-[#907AFF]/15"
-              : "border-black/[0.06] bg-background/50 hover:border-black/[0.12] dark:border-border dark:bg-card dark:hover:border-border"
-          }`}
-        >
-          <span className={`text-sm ${pricingModel === "book_only" ? "font-medium text-foreground dark:text-foreground" : "text-muted-foreground dark:text-muted-foreground"}`}>Full book</span>
-          {pricingModel === "book_only" && (
-            <span className="rounded-full bg-[#907AFF]/20 px-2 py-0.5 text-xs font-medium text-accent-foreground dark:text-accent-foreground">Selected</span>
+          {paid && (
+            <div className={styles.amountFields}>
+              <div>
+                <label htmlFor="price-amount">{pricingModel === "per_chapter" ? "Price per chapter" : "Full book price"}</label>
+                <input id="price-amount" type="text" inputMode="decimal" value={priceDraft}
+                  onChange={(e) => {
+                    const draft = e.target.value;
+                    setPriceDraft(draft);
+                    const amount = /^(?:\d+(?:[.,]\d*)?|[.,]\d+)$/.test(draft) ? Math.round(Number(draft.replace(",", ".")) * 100) : NaN;
+                    if (Number.isFinite(amount) && amount > 0) updateAmount(amount);
+                  }}
+                  aria-invalid={draftInvalid} aria-describedby={draftInvalid ? "price-draft-error" : "price-amount-hint"}
+                />
+              </div>
+              <div>
+                <label htmlFor="price-currency">Currency</label>
+                <select id="price-currency" value={priceCurrency} onChange={(e) => setPriceCurrency(e.target.value)}>
+                  <option value="SEK">SEK</option><option value="EUR">EUR</option><option value="USD">USD</option>
+                </select>
+              </div>
+              <p id="price-amount-hint" className={styles.fieldHint}>The price readers see when purchasing.</p>
+            </div>
           )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setPricingModel("per_chapter")}
-          className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left transition ${
-            pricingModel === "per_chapter"
-              ? "border-[#907AFF]/30 bg-[#907AFF]/10 dark:bg-[#907AFF]/15"
-              : "border-black/[0.06] bg-background/50 hover:border-black/[0.12] dark:border-border dark:bg-card dark:hover:border-border"
-          }`}
-        >
-          <span className={`text-sm ${pricingModel === "per_chapter" ? "font-medium text-foreground dark:text-foreground" : "text-muted-foreground dark:text-muted-foreground"}`}>Chapter</span>
+          {draftInvalid && <p id="price-draft-error" role="alert" className="text-sm text-red-600 dark:text-red-400">Enter a price greater than 0, or choose Free.</p>}
+
+          <fieldset className={styles.salesModel}>
+            <legend className={styles.legend}>Sales model</legend>
+            <div className={styles.choices}>
+              <button type="button" aria-pressed={pricingModel === "book_only"} onClick={() => setPricingModel("book_only")} className={styles.choice}>
+                <BookOpen size={20} aria-hidden />
+                <span className={styles.choiceTitle}>Full book{pricingModel === "book_only" && <Check size={16} aria-hidden />}</span>
+                <span>One purchase for the complete book.</span>
+              </button>
+              <button type="button" aria-pressed={pricingModel === "per_chapter"} onClick={() => setPricingModel("per_chapter")} className={styles.choice}>
+                <Layers3 size={20} aria-hidden />
+                <span className={styles.choiceTitle}>Per chapter{pricingModel === "per_chapter" && <Check size={16} aria-hidden />}</span>
+                <span>Individual chapters. The first is always free.</span>
+              </button>
+            </div>
+            {!paid && <p className={styles.fieldHint}>Your book stays free with either sales model.</p>}
+          </fieldset>
+
           {pricingModel === "per_chapter" && (
-            <span className="rounded-full bg-[#907AFF]/20 px-2 py-0.5 text-xs font-medium text-accent-foreground dark:text-accent-foreground">Selected</span>
+            <details className={styles.chapterPreview}>
+              <summary>Chapter price preview <span>{chapters.length} chapters</span></summary>
+              {chapters.length > 0 ? <div className={styles.chapterList}>
+                {chapters.map((chapter, index) => (
+                  <div key={chapter.id}><span>{chapter.title || `Chapter ${index + 1}`}</span><strong>{index === 0 || !paid ? "Free" : draftInvalid ? "Enter a price" : displayPrice}</strong></div>
+                ))}
+              </div> : <p className={styles.fieldHint}>Add chapters in Write to preview their prices here. The first chapter will be free.</p>}
+            </details>
           )}
-        </button>
-        <p className="text-xs text-muted-foreground dark:text-muted-foreground">
-          {pricingModel === "book_only"
-            ? "Readers buy the complete book at the price above."
-            : "Readers buy chapters individually at the price above. First chapter is always free."}
-        </p>
-        {pricingModel === "per_chapter" && chapters.length > 0 && (
-          <div className="mt-2 space-y-1">
-            <p className="text-xs font-medium text-muted-foreground dark:text-muted-foreground">Chapter pricing preview</p>
-            <div className="max-h-48 overflow-y-auto rounded-lg border border-black/[0.06] dark:border-border">
-              {chapters.map((ch, i) => {
-                const isFree = i === 0;
-                const displayPrice = priceAmountMinor > 0 ? `${(priceAmountMinor / 100).toFixed(priceAmountMinor % 100 === 0 ? 0 : 2)} ${priceCurrency}` : "Free";
-                return (
-                  <div key={ch.id} className={`flex items-center justify-between px-3 py-1.5 text-xs ${i > 0 ? "border-t border-black/[0.04] dark:border-border" : ""}`}>
-                    <span className="truncate text-foreground dark:text-foreground">{ch.title || `Chapter ${i + 1}`}</span>
-                    <span className={`ml-2 shrink-0 ${isFree ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground dark:text-muted-foreground"}`}>
-                      {isFree ? "Free" : displayPrice}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+        </div>
+
+        <aside className={styles.summary} aria-label="Reader price summary">
+          <p className={styles.summaryLabel}>For your readers</p>
+          <p className={styles.summaryPrice}>{!paid ? "Free to read" : draftInvalid ? "Set your price" : displayPrice}</p>
+          <p>{!paid ? "Readers can read the book without a purchase." : pricingModel === "per_chapter" ? "Per chapter, with a free first chapter to begin the story." : "One purchase unlocks the full book."}</p>
+          <div className={styles.summaryNote}>
+            <ArrowRight size={17} aria-hidden />
+            <span>{isPublished ? "Saved price changes apply to your published book." : "Save now. Your book becomes available when you publish it."}</span>
           </div>
-        )}
+          {currentVisibility === "followers" && <p className={styles.visibilityNote}>Followers-only controls who can discover your book. Your price still applies.</p>}
+        </aside>
       </div>
 
-      <div className="rounded-2xl border border-black/[0.05] bg-white/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)] backdrop-blur-sm dark:border-border dark:bg-card dark:shadow-none">
-        <h3 className="text-sm font-semibold text-foreground dark:text-foreground mb-2">Visibility and access</h3>
-        <p className="text-sm text-foreground dark:text-foreground">
-          {priceAmountMinor <= 0
-            ? "Free - everyone can read the book."
-            : pricingModel === "per_chapter"
-              ? "Paid per chapter - readers purchase chapters individually. First chapter is free."
-              : "Paid - readers need to purchase the book or have access via entitlement to read."}
-          {" "}
-          {currentVisibility === "followers" && "Followers-only affects discoverability, not the paywall."}
-        </p>
-      </div>
-
-      {!isPublished && (
+      {paid && !stripeConfigured && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30" role="status">
-          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Publish the book before selling it.</p>
-        </div>
-      )}
-      {priceAmountMinor > 0 && !stripeConfigured && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30" role="status">
-          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Payment configuration is missing. Contact us to enable purchases.</p>
+          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Purchases need payment configuration. Contact us to enable purchases.</p>
         </div>
       )}
 
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={handleSavePricing}
-          disabled={pricingSaving || !pricingDirty}
-          aria-label="Save pricing"
-          className="rounded-xl bg-primary px-4 py-2.5 text-[13px] font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {pricingSaving ? "Saving..." : "Save"}
+      <footer className={styles.saveBar}>
+        <button type="button" onClick={() => { if (!draftInvalid) handleSavePricing(); }} disabled={pricingSaving || !pricingDirty || draftInvalid} aria-label="Save pricing" className="min-h-11 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50">
+          {pricingSaving ? "Saving…" : "Save pricing"}
         </button>
-        {pricingError && <p className="text-sm text-red-600 dark:text-red-400" role="alert">{pricingError}</p>}
-        {pricingSaved && <p className="text-sm text-emerald-600 dark:text-emerald-400" role="status">Saved.</p>}
-      </div>
+        <div aria-live="polite">
+          {pricingError ? <p className="text-sm text-red-600 dark:text-red-400" role="alert">{pricingError}</p>
+            : pricingSaved && !pricingDirty && !draftInvalid ? <p className="text-sm text-emerald-700 dark:text-emerald-400">Pricing saved.</p>
+            : <p className="text-sm text-muted-foreground">{pricingDirty || draftInvalid ? "You have unsaved changes." : "Your current pricing is saved."}</p>}
+        </div>
+      </footer>
     </div>
   );
 }

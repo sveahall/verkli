@@ -23,7 +23,7 @@ import {
 export const runtime = "nodejs";
 
 // Anonymous public endpoint — rate-limit by client IP to deter abuse.
-const orderLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const orderLimiter = createPerUserRateLimiter({ name: "order-ta-for-er", maxPerMinute: 5 });
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

@@ -23,6 +23,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // budget is shared across serverless instances; falls back to in-memory only
 // when Redis is unavailable.
 const waitlistLimiter = createPerUserRateLimiter({
+  name: "waitlist",
   maxPerMinute: 10,
   windowMs: 15 * 60 * 1000,
 });

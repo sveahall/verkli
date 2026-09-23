@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getConfirmedEmail } from "@/lib/auth/verified-email";
 import {
   getBillingAccountByUserIdAndRole,
   upsertBillingAccount,
@@ -25,7 +26,7 @@ import {
 
 export const runtime = "nodejs";
 
-const portalLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const portalLimiter = createPerUserRateLimiter({ name: "billing-portal", maxPerMinute: 5 });
 
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 
@@ -56,7 +57,14 @@ async function ensureStripeCustomerId(
   admin: ReturnType<typeof createAdminClient>,
   userId: string,
   role: "reader" | "author",
-  email: string | null | undefined
+  email: string | null | undefined,
+  /**
+   * The same address, but only if Supabase has confirmed it. Two different
+   * jobs: `confirmedEmail` is the KEY used to adopt an existing Stripe customer
+   * and its subscription, so it has to be proven; `email` only labels a new
+   * customer we create for this user, where an unproven address costs nothing.
+   */
+  confirmedEmail: string | null
 ): Promise<string> {
   const { row, error } = await getBillingAccountByUserIdAndRole(admin, userId, role);
   if (error) {
@@ -68,8 +76,10 @@ async function ensureStripeCustomerId(
     return existingCustomerId;
   }
 
-  // Try to find existing Stripe customer by email with active subscription for this role.
-  const emailTrimmed = (email ?? "").trim();
+  // Try to find existing Stripe customer by email with active subscription for
+  // this role. Email narrows the search; server-written subscription metadata
+  // must prove ownership before adopting a customer and opening its portal.
+  const emailTrimmed = (confirmedEmail ?? "").trim();
   if (emailTrimmed) {
     try {
       const customers = await listStripeCustomersByEmail(emailTrimmed);
@@ -79,6 +89,10 @@ async function ensureStripeCustomerId(
           (s) => s.status && ACTIVE_STATUSES.has(s.status.toLowerCase())
         );
         for (const sub of active) {
+          if (sub.metadata.user_id !== userId) {
+            console.warn("[billing.portal] skipped recovery without matching subscription owner", { userId, subscriptionId: sub.id });
+            continue;
+          }
           const resolved = await resolveRolePlanFromPriceIds(sub.price_ids);
           if (resolved && resolved.role === role) {
             const plan = planToPersist(
@@ -158,7 +172,13 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
 
   try {
-    const stripeCustomerId = await ensureStripeCustomerId(admin, user.id, role, user.email);
+    const stripeCustomerId = await ensureStripeCustomerId(
+      admin,
+      user.id,
+      role,
+      user.email,
+      getConfirmedEmail(user)
+    );
     // Do not pass subscriptionId: Stripe requires "Subscription update" to be enabled in
     // Customer portal settings. Opening without it shows the default billing overview; user can click into the subscription there.
     const portalSession = await createStripeCustomerPortalSession({

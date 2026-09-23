@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { Tool } from "./editor/bookEditor.shared";
-import { TOOL_META, getToolHref } from "./editor/bookEditor.shared";
+import { BOOK_WORKFLOW_GROUPS, TOOL_META, getToolHref } from "./editor/bookEditor.shared";
+import styles from "./BookWorkflowHeader.module.css";
 
 /**
  * Tools that should never appear in the stepper, regardless of which tools
@@ -25,6 +28,7 @@ const NON_STEPPER_TOOLS: ReadonlySet<Tool> = new Set([
 
 type Props = {
   bookId: string;
+  language?: string;
   activeTool: Tool;
   tools: Tool[];
   /** When true, renders without the card wrapper (for embedding inside another card) */
@@ -35,130 +39,74 @@ type Props = {
   mini?: boolean;
 };
 
-function StepperContent({ bookId, activeTool, tools, compact = false, mini = false }: Omit<Props, "bare">) {
+function StepperContent({ bookId, language, activeTool, tools, mini = false }: Omit<Props, "bare">) {
   // Order comes from the `tools` prop so demo-only entries like 'production'
   // appear in the position the parent inserts them at (between cover and
   // audiobook for the investor pitch). We then strip non-stepper tools.
   const orderedTools = tools.filter((t) => !NON_STEPPER_TOOLS.has(t));
-  const currentIndex = Math.max(0, orderedTools.indexOf(activeTool));
+  const currentIndex = orderedTools.indexOf(activeTool);
+  const groups: Array<{ label: string; tools: Tool[] }> = [];
+  for (const tool of orderedTools) {
+    const label = BOOK_WORKFLOW_GROUPS.find((group) => group.tools.includes(tool))?.label ?? "Production";
+    const previous = groups[groups.length - 1];
+    if (previous?.label === label) previous.tools.push(tool);
+    else groups.push({ label, tools: [tool] });
+  }
   const prevTool = currentIndex > 0 ? orderedTools[currentIndex - 1] : null;
   const nextTool =
-    currentIndex < orderedTools.length - 1
+    currentIndex >= 0 && currentIndex < orderedTools.length - 1
       ? orderedTools[currentIndex + 1]
       : null;
-  const stepCount = orderedTools.length;
-  const stepperInsetClass = "mx-2 sm:mx-6 lg:mx-16 xl:mx-20";
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    const active = scroller?.querySelector<HTMLElement>('[aria-current="step"]');
+    if (!scroller || !active) return;
+    // Only scroll the step rail; scrollIntoView would also move the manuscript.
+    const railBounds = scroller.getBoundingClientRect();
+    const bounds = active.getBoundingClientRect();
+    if (bounds.left < railBounds.left || bounds.right > railBounds.right) {
+      scroller.scrollLeft += bounds.left - railBounds.left - (railBounds.width - bounds.width) / 2;
+    }
+  }, [activeTool]);
 
   return (
-    <>
-      <div className={`flex items-center ${mini ? "gap-2" : "gap-4"} ${mini ? "mt-0" : compact ? "mt-0" : "mt-4"}`}>
-        {prevTool ? (
-          <Link
-            href={getToolHref(bookId, prevTool)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#907AFF]/20 text-accent-foreground transition-colors hover:border-[#907AFF]/40 hover:bg-[#907AFF]/[0.06] dark:border-[#907AFF]/25 dark:hover:bg-[#907AFF]/10"
-            aria-label={`Back to ${TOOL_META[prevTool].label}`}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M10 3.5L5.5 8L10 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
-        ) : (
-          <div className="h-9 w-9 shrink-0" aria-hidden="true" />
-        )}
-
-        <div className="min-w-0 flex-1 overflow-x-auto px-1 py-2">
-          <div className={`flex min-w-[440px] justify-between gap-4 ${mini ? "" : stepperInsetClass}`}>
-            {orderedTools.map((t, idx) => {
-              const isActive = t === activeTool;
-              const isDone = idx < currentIndex;
-              return (
-                <Link
-                  key={t}
-                  href={getToolHref(bookId, t)}
-                  aria-current={isActive ? "step" : undefined}
-                  className={`inline-flex min-h-9 items-center whitespace-nowrap text-xs font-medium transition-colors ${
-                    isActive
-                      ? "font-semibold text-foreground dark:text-foreground"
-                      : isDone
-                        ? "text-muted-foreground hover:text-foreground dark:text-muted-foreground"
-                        : "text-muted-foreground hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-muted-foreground"
-                  }`}
-                >
-                  {TOOL_META[t].label}
-                </Link>
-              );
-            })}
-          </div>
-
-          <div className={`relative min-w-[440px] ${mini ? "mt-1.5" : "mt-3"} h-[2px] ${mini ? "" : stepperInsetClass}`}>
-            <div className="absolute inset-0 rounded-full bg-muted/70 dark:bg-card" />
-            {stepCount > 1 && (
-              <div
-                className="absolute left-0 top-0 h-full rounded-full bg-[#907AFF]"
-                style={{
-                  width: `${(currentIndex / (stepCount - 1)) * 100}%`,
-                  transition: "width 500ms cubic-bezier(0.4, 0, 0.2, 1)",
-                }}
-              />
-            )}
-            {orderedTools.map((t, idx) => {
-              const isActive = t === activeTool;
-              const isDone = idx < currentIndex;
-              const left = stepCount > 1 ? (idx / (stepCount - 1)) * 100 : 50;
-              return (
-                <Link
-                  key={t}
-                  href={getToolHref(bookId, t)}
-                  className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
-                  style={{ left: `${left}%` }}
-                  aria-label={`${TOOL_META[t].label}${isActive ? " (current)" : ""}`}
-                  aria-current={isActive ? "step" : undefined}
-                >
-                  <span
-                    className={`block rounded-full transition-all duration-300 ${
-                      isActive
-                        ? "h-3 w-3 bg-[#907AFF] ring-[3px] ring-[#907AFF]/15"
-                        : isDone
-                          ? "h-2.5 w-2.5 bg-[#907AFF]"
-                          : "h-2.5 w-2.5 bg-muted dark:bg-card"
-                    }`}
-                  />
-                </Link>
-              );
-            })}
+    <nav aria-label="Book workflow" className={styles.navigation}>
+      <div className={styles.rail}>
+        {prevTool && <Link href={getToolHref(bookId, prevTool, language)} aria-label={`Back to ${TOOL_META[prevTool].label}`} className={styles.arrow}><ArrowLeft size={16} aria-hidden /></Link>}
+        <div ref={scrollRef} className={styles.scroller}>
+          <div className={styles.groups}>
+            {groups.map((group, index) => (
+              <div key={`${group.label}-${index}`} className={styles.group}>
+                {!mini && <span className={styles.label}>{group.label}</span>}
+                <ol className={styles.list} aria-label={group.label}>
+                  {group.tools.map((t) => (
+                    <li key={t}><Link href={getToolHref(bookId, t, language)} aria-current={t === activeTool ? "step" : undefined} className={styles.link}>{TOOL_META[t].label}</Link></li>
+                  ))}
+                </ol>
+              </div>
+            ))}
           </div>
         </div>
-
-        {nextTool ? (
-          <Link
-            href={getToolHref(bookId, nextTool)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#907AFF]/20 text-accent-foreground transition-colors hover:border-[#907AFF]/40 hover:bg-[#907AFF]/[0.06] dark:border-[#907AFF]/25 dark:hover:bg-[#907AFF]/10"
-            aria-label={`Continue to ${TOOL_META[nextTool].label}`}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M6 3.5L10.5 8L6 12.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
-        ) : (
-          <div className="h-9 w-9 shrink-0" aria-hidden="true" />
-        )}
+        {nextTool && <Link href={getToolHref(bookId, nextTool, language)} aria-label={`Continue to ${TOOL_META[nextTool].label}`} className={styles.arrow}><ArrowRight size={16} aria-hidden /></Link>}
       </div>
-    </>
+      {!mini && (activeTool === "translate" || activeTool === "audiobook") && <p className={styles.note}>Optional edition. You can publish your written book without creating audio or translations.</p>}
+    </nav>
   );
 }
 
-export default function BookWorkflowHeader({ bookId, activeTool, tools, bare = false, compact = false, mini = false }: Props) {
+export default function BookWorkflowHeader({ bookId, language, activeTool, tools, bare = false, compact = false, mini = false }: Props) {
   if (bare) {
     return (
-      <div className={mini ? "px-4 py-1" : compact ? "px-8 pb-2 pt-2" : "px-8 pb-8 pt-8"}>
-        <StepperContent bookId={bookId} activeTool={activeTool} tools={tools} compact={compact} mini={mini} />
+      <div className={mini ? "px-2 py-2" : compact ? "border-b border-border bg-background/50 px-3 py-3 sm:px-5" : "border-b border-border px-3 py-4 sm:px-5"}>
+        <StepperContent bookId={bookId} language={language} activeTool={activeTool} tools={tools} compact={compact} mini={mini} />
       </div>
     );
   }
 
   return (
     <header className="rounded-2xl border border-black/[0.04] bg-card px-6 pb-6 pt-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-border dark:bg-card dark:shadow-none">
-      <StepperContent bookId={bookId} activeTool={activeTool} tools={tools} />
+      <StepperContent bookId={bookId} language={language} activeTool={activeTool} tools={tools} />
     </header>
   );
 }

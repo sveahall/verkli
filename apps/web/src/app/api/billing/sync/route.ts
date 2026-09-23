@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getConfirmedEmail } from "@/lib/auth/verified-email";
 import {
   getCheckoutSessionWithLineItems,
   getStripeCustomerSubscriptions,
@@ -25,7 +26,7 @@ import {
 
 export const runtime = "nodejs";
 
-const syncLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const syncLimiter = createPerUserRateLimiter({ name: "billing-sync", maxPerMinute: 5 });
 
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 
@@ -181,11 +182,14 @@ export async function GET(request: Request) {
   const { row, error } = await getBillingAccountByUserIdAndRole(admin, user.id, role);
 
   let customerIdsToTry: string[] = [];
+  const recoveringCustomer = Boolean(error || !row?.stripe_customer_id?.trim());
   if (!error && row?.stripe_customer_id?.trim()) {
     customerIdsToTry = [row.stripe_customer_id.trim()];
   } else {
-    // No row or no customer_id: try to find Stripe customer(s) by email (recover from Stripe).
-    const email = (user.email ?? "").trim();
+    // No row or no customer_id: try to find Stripe customer(s) by email
+    // (recover from Stripe). Email narrows the search; subscription ownership
+    // is checked below before any billing state is adopted.
+    const email = (getConfirmedEmail(user) ?? "").trim();
     if (email) {
       try {
         const customers = await listStripeCustomersByEmail(email);
@@ -229,6 +233,10 @@ export async function GET(request: Request) {
       });
     }
     for (const sub of active) {
+      if (recoveringCustomer && sub.metadata.user_id !== user.id) {
+        console.warn("[billing.sync] skipped recovery without matching subscription owner", { userId: user.id, subscriptionId: sub.id });
+        continue;
+      }
       const resolved = await resolveRolePlanFromPriceIds(sub.price_ids);
       if (resolved && resolved.role === role) {
         const plan = planToPersist(

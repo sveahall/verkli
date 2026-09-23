@@ -7,6 +7,7 @@ import { requireAuthorRoleForApi } from "@/lib/auth/require-author"
 import { evaluateDemoGuard } from "@/lib/demo-guard"
 import { requireProBillingForApi } from "@/lib/billing/server"
 import { isTranslationsEnabled } from "@/lib/flags"
+import { reviewedTranslationActivationReady } from "@/lib/translation-commit"
 import { getStripeCheckoutSession } from "@/lib/payments/stripe"
 import {
   claimStripeSessionRedemption,
@@ -14,11 +15,7 @@ import {
 } from "@/lib/payments/session-redemption"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isTranslationPairSupported } from "@/lib/translation-pairs"
-import {
-  deleteBookTranslationState,
-  resolveTranslationSourceContext,
-  upsertBookTranslationState,
-} from "@/lib/book-translation"
+import { resolveTranslationSourceContext } from "@/lib/book-translation"
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -39,8 +36,9 @@ import {
   isValidUuid,
 } from "@/lib/api-errors"
 import { createPerUserRateLimiter } from "@/lib/rate-limit"
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
-const translateLimiter = createPerUserRateLimiter({ maxPerMinute: 5 })
+const translateLimiter = createPerUserRateLimiter({ name: "books-translate", maxPerMinute: 5 })
 
 type TranslationStartSuccess = {
   ok: true
@@ -173,31 +171,6 @@ async function queueTranslationTarget({
     }
   }
 
-  if (!requestedChapterId) {
-    try {
-      await upsertBookTranslationState(supabase, {
-        bookId,
-        language: targetLanguage,
-        status: "queued",
-        progress: 0,
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      console.error("[book translate] failed to upsert queued translation state", {
-        bookId,
-        targetLanguage,
-        userId,
-        message,
-      })
-      return {
-        ok: false,
-        targetLanguage,
-        error: E_DATABASE_ERROR,
-        status: 500,
-      }
-    }
-  }
-
   const targetVersionId = typeof existingVersion?.id === "string" ? existingVersion.id : null
   const jobId = await enqueueTranslationJob({
     bookId,
@@ -211,20 +184,6 @@ async function queueTranslationTarget({
   })
 
   if (!jobId) {
-    if (!requestedChapterId) {
-      try {
-        await deleteBookTranslationState(supabase, bookId, targetLanguage)
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        console.error("[book translate] failed to clean queued translation state", {
-          bookId,
-          targetLanguage,
-          userId,
-          message,
-        })
-      }
-    }
-
     return {
       ok: false,
       targetLanguage,
@@ -251,6 +210,9 @@ export async function POST(
   if (!isTranslationsEnabled()) {
     return apiError(E_TRANSLATION_FEATURE_DISABLED, 403)
   }
+  if (!reviewedTranslationActivationReady()) {
+    return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
+  }
 
   const body = await request.json().catch(() => ({}))
   const { requestedLanguages, isBatchRequest } = parseRequestedLanguages(body)
@@ -262,6 +224,10 @@ export async function POST(
   const bodySourceVersionId =
     body?.sourceVersionId != null && String(body.sourceVersionId).trim() !== ""
       ? String(body.sourceVersionId).trim()
+      : null
+  const requestedSourceLanguage =
+    body?.sourceLanguage != null && String(body.sourceLanguage).trim() !== ""
+      ? String(body.sourceLanguage).trim()
       : null
 
   if (requestedLanguages.length === 0) {
@@ -281,6 +247,14 @@ export async function POST(
 
   const { user, response } = await requireAuthorRoleForApi()
   if (response) return response
+
+  // Account master AI switch. Server-side, so turning AI off is a real
+
+  // setting and not just a hidden button.
+
+  const aiOff = await aiDisabledResponse(user.id);
+
+  if (aiOff) return aiOff;
 
   const rl = await translateLimiter.check(user.id)
   if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429, { retryAfterSeconds: rl.retryAfterSeconds })
@@ -379,12 +353,23 @@ export async function POST(
     return await failAfterPaidClaim(apiError(E_FORBIDDEN, 403))
   }
 
-  const sourceContext = await resolveTranslationSourceContext({
-    supabase,
-    bookId,
-    book,
-    requestedSourceVersionId: bodySourceVersionId,
-  })
+  let sourceContext: Awaited<ReturnType<typeof resolveTranslationSourceContext>>
+  try {
+    sourceContext = await resolveTranslationSourceContext({
+      supabase,
+      bookId,
+      book,
+      requestedSourceVersionId: bodySourceVersionId,
+      requestedSourceLanguage,
+    })
+  } catch (error) {
+    console.error("[book translate] source text lookup failed", {
+      bookId,
+      userId: user.id,
+      message: error instanceof Error ? error.message : String(error),
+    })
+    return await failAfterPaidClaim(apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503))
+  }
 
   if (!sourceContext.sourceVersionId) {
     return await failAfterPaidClaim(apiError(E_NO_SOURCE_VERSION, 400))

@@ -7,13 +7,14 @@ import {
   E_UNAUTHORIZED,
   E_DONATION_CHECKOUT_FAILED,
   E_INVALID_DONATION_AMOUNT,
+  E_INVALID_PRICE_CURRENCY,
   E_RATE_LIMIT_EXCEEDED,
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { getRequestBaseUrl } from "@/lib/request-url";
 import { isDonationsEnabled } from "@/lib/flags";
 
-const checkoutLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const checkoutLimiter = createPerUserRateLimiter({ name: "donations-checkout", maxPerMinute: 5 });
 
 export const runtime = "nodejs";
 
@@ -29,14 +30,40 @@ function isDonationCheckoutMockModeEnabled(): boolean {
   return process.env.DONATION_CHECKOUT_MOCK_MODE === "true";
 }
 
+/**
+ * Credits granted by a donation.
+ *
+ * Zero, deliberately. A donation having a client-chosen *amount* is correct by
+ * definition; a donation having a client-chosen *credit payout* is not. This
+ * route used to read `creditsDelta` straight off the request body and never
+ * validate it at all, and `finalize_donation_checkout_session` grants whatever
+ * lands in `donations.credits_delta`. If donations should ever pay out credits,
+ * derive the figure here from `amountMinor` — never accept it from the caller.
+ */
+const DONATION_CREDITS_DELTA = 0;
+
+/**
+ * ISO 4217 codes this route will charge in.
+ *
+ * An unsupported code is REJECTED, never coerced. Currency is the one field on
+ * a payment where a silent fallback changes what the payer is charged: quietly
+ * reading "GBP" as SEK turns an intended 50 GBP into 5000 SEK. `amountMinor`
+ * already 400s when it is bad; this has to behave the same way.
+ */
+const ALLOWED_CURRENCIES = new Set(["SEK", "EUR", "USD"]);
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const amountMinor = toPositiveInt(body?.amountMinor ?? body?.amount);
-  const creditsDelta = toPositiveInt(body?.creditsDelta ?? body?.creditDelta);
+  const creditsDelta = DONATION_CREDITS_DELTA;
   const currency =
     typeof body?.currency === "string" && body.currency.trim()
       ? body.currency.trim().toUpperCase()
       : "SEK";
+
+  if (!ALLOWED_CURRENCIES.has(currency)) {
+    return apiError(E_INVALID_PRICE_CURRENCY, 400);
+  }
 
   const baseUrl = getRequestBaseUrl(request);
 

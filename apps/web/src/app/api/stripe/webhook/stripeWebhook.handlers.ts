@@ -429,7 +429,7 @@ async function processPaymentKindCheckoutSession(
     if (isPaidCheckoutSession(session)) {
       const orderMetadata = extractMetadata(session.metadata);
       if (orderMetadata.order_variant === "ebook") {
-        await sendBookDownloadEmail(session);
+        await sendBookDownloadEmail(admin, session);
       }
       console.info("[stripe.webhook] book_order payment completed", {
         sessionId: trimToNull(session.id),

@@ -103,13 +103,14 @@ export default function ReaderAppShell({
         <div className="px-7 pb-8 pt-8">
           <Link href="/reader/home" className="inline-flex min-h-11 items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Verkli reader home">
             <Image
-              src="/logo-dark.svg"
+              src="/logo-dark.svg?v=20260916"
               alt="Verkli"
-              width={120}
-              height={26}
-              className="h-8 w-auto dark:brightness-0 dark:invert"
+              width={1429}
+              height={265}
+              className="h-auto w-28 dark:hidden"
               priority
             />
+            <Image src="/favicon.svg?v=20260916" alt="Verkli" width={1429} height={265} className="hidden h-auto w-28 dark:block" priority />
           </Link>
           <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Your reading space</p>
         </div>

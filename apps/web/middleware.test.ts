@@ -81,7 +81,7 @@ describe("middleware beta lock", () => {
     }
   );
 
-  it.each(["/author/home", "/author/books", "/authoring", "/how-it-works/private"])(
+  it.each(["/authoring", "/how-it-works/private"])(
     "keeps %s behind beta access when public marketing pages are open",
     async (path) => {
       mockGetUser.mockResolvedValue({ data: { user: null } });
@@ -91,6 +91,23 @@ describe("middleware beta lock", () => {
       expect(res.headers.get("location")).toBe("http://localhost/waitlist");
     }
   );
+
+  it.each(["true", "false"])("keeps the workspace destination when an expired session signs in (beta=%s)", async (betaLock) => {
+    process.env.BETA_LOCK = betaLock;
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    const { middleware } = await import("./middleware");
+    for (const [path, signIn] of [
+      ["/author/books/book-1?panel=cover&layout=print", "/author/signin"],
+      ["/reader/library?tab=audiobooks", "/reader/signin"],
+    ]) {
+      const res = await middleware(new NextRequest(`http://localhost${path}`));
+      expect(res.status).toBe(307);
+      const location = new URL(res.headers.get("location")!);
+      expect(location.pathname).toBe(signIn);
+      expect([...location.searchParams.keys()]).toEqual(["next"]);
+      expect(location.searchParams.get("next")).toBe(path);
+    }
+  });
 
   // The dead end this guards: the lock allowed /auth, which is only the OAuth
   // callback and the reset-password screen. Every sign-in form sits elsewhere,
@@ -221,7 +238,7 @@ describe("middleware order paths survive the site locks", () => {
       process.env.BETA_LOCK = "false";
     });
 
-    it.each(["/api/order/ta-for-er", "/order/ta-for-er/success"])(
+    it.each(["/api/order/ta-for-er", "/order/ta-for-er/success", "/apply", "/api/apply"])(
       "lets %s through instead of redirecting it to /waitlist",
       async (path) => {
         const { middleware } = await import("./middleware");
@@ -312,6 +329,16 @@ describe("middleware order paths survive the site locks", () => {
       expect(res.status).not.toBe(403);
     });
 
+    it.each(["/apply", "/api/apply"])(
+      "does not lock the invitation form %s",
+      async (path) => {
+        const { middleware } = await import("./middleware");
+        const res = await middleware(new NextRequest(`http://localhost${path}`));
+        expect(res.status).not.toBe(403);
+        expect(res.headers.get("location") ?? "").not.toContain("/waitlist");
+      }
+    );
+
     it("does not bounce the Stripe return page to /waitlist", async () => {
       const { middleware } = await import("./middleware");
       const res = await middleware(
@@ -352,7 +379,7 @@ describe("middleware order paths survive the site locks", () => {
         mockIsBetaUser.mockImplementation(() => Promise.resolve(false));
       });
 
-      it.each(["/api/order/ta-for-er", "/order/ta-for-er/success"])(
+      it.each(["/api/order/ta-for-er", "/order/ta-for-er/success", "/apply", "/api/apply"])(
         "does not 503 %s, because the lookup cannot change the outcome",
         async (path) => {
           const { middleware } = await import("./middleware");

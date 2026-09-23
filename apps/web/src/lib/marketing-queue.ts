@@ -1,3 +1,4 @@
+import { getMarketingQueueReadiness } from "@/lib/marketing/queue-readiness";
 /**
  * BullMQ marketing queue. Uses same REDIS_URL as other queues.
  * If REDIS_URL is missing, enqueue is skipped and null is returned.
@@ -54,9 +55,13 @@ export type MarketingJobData = {
   campaignId?: string;
   /** When set, the worker expands a marketing_campaign_plans row into marketing_posts. */
   campaignPlanId?: string;
+  /** Worker checkpoint: unresolved paid work blocks automatic queue recovery. */
+  modelWorkPending?: string | null;
 };
 
 export async function enqueueMarketingJob(data: MarketingJobData): Promise<string | null> {
+  const readiness = await getMarketingQueueReadiness();
+  if (!readiness.ok) return null;
   const url = getRedisUrl();
   if (!url || url.trim() === "") {
     console.warn("[marketing queue] REDIS_URL not set — job not enqueued.");

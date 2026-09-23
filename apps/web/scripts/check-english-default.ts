@@ -41,6 +41,16 @@ const ALLOWED_EXACT = new Set([
   "sv",
 ]);
 
+// Reviewed book excerpts, not interface copy. Keep scanning this file so new
+// non-English UI strings still fail the gate. Changes to excerpts need review.
+const SAMPLE_CONTENT_PATH = "features/author/author-experience-data.ts";
+const ALLOWED_SAMPLE_CONTENT = new Set([
+  "Den hemsökta dagboken",
+  "Jag försökte stänga den. Pärmen vägrade.",
+  "Den första gången jag öppnade dagboken var det inte mitt eget bläck som rörde sig över sidan. Orden formade sig långsamt, som om någon på andra sidan väggen skrev medan jag tittade på. Jag försökte stänga den. Pärmen vägrade.",
+  "Beim ersten Öffnen des Tagebuchs war es nicht meine eigene Tinte, die über die Seite glitt. Die Wörter bildeten sich langsam, als schriebe jemand auf der anderen Seite der Wand, während ich zusah. Ich versuchte, es zu schließen. Der Deckel weigerte sich.",
+]);
+
 const SWEDISH_CHARS = /[ÅÄÖåäö]/;
 const SWEDISH_WORDS =
   /\b(?:författ\w*|ansök\w*|väntar|laddar|skicka\w*|öppna|böcker?|meddel\w*|nyhetsbrev|klubb\w*|abonnemang|inställ\w*|föregående|nästa|något|försök|logga(?:\s+ut)?|utforska|offentlig|privat|ägare|läsare|översätt\w*|språk|kapitel)\b/i;
@@ -117,6 +127,10 @@ function addViolation(
   violations: Violation[]
 ): void {
   if (!isSwedishCopyCandidate(rawText)) return;
+  if (
+    path.relative(SRC_ROOT, sourceFile.fileName).split(path.sep).join("/") === SAMPLE_CONTENT_PATH &&
+    ALLOWED_SAMPLE_CONTENT.has(rawText)
+  ) return;
   const { line } = sourceFile.getLineAndCharacterOfPosition(position);
   violations.push({
     file: path.relative(PROJECT_ROOT, sourceFile.fileName),

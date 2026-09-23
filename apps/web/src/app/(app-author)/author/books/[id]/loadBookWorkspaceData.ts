@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizeLanguage } from "@/lib/languages";
+import { normalizeLanguage, normalizeLanguageOrNull } from "@/lib/languages";
 import { isStripeConfigured } from "@/lib/payments/stripe";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
+import { validateAudiobookStoragePath } from "@/lib/tts/validate-storage-path";
 
 function normalizeDefaultPublishVisibility(
   value: unknown
@@ -81,10 +82,11 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
   }
 
   if (!bookVersionsError && versions.length === 0) {
-    const fallbackLanguage = normalizeLanguage(
-      (book as { original_language?: string | null; language?: string | null }).original_language ??
-        book.language
-    );
+    const fallbackLanguage =
+      normalizeLanguageOrNull(
+        (book as { original_language?: string | null; language?: string | null }).original_language ??
+          book.language
+      ) ?? "und";
     const { data: createdVersion, error: createVersionError } = await supabase
       .from("book_versions")
       .insert({ book_id: book.id, language_code: fallbackLanguage, status: "draft" })
@@ -143,7 +145,7 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
   ] = await Promise.all([
     supabase
       .from("audiobook_assets")
-      .select("id, audio_path, status, created_at")
+      .select("id, audio_path, audio_bucket, status, created_at")
       .eq("book_id", book.id)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -166,20 +168,28 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
       .maybeSingle(),
   ]);
 
-  const latestAudioPath =
-    typeof latestAudiobookAsset?.audio_path === "string" &&
-    latestAudiobookAsset.audio_path.trim().length > 0
-      ? latestAudiobookAsset.audio_path.trim()
-      : null;
+  const latestAudioPath = validateAudiobookStoragePath(
+    latestAudiobookAsset?.audio_path,
+    latestAudiobookAsset?.audio_bucket,
+    book.id,
+    "[book workspace]"
+  );
 
   let latestAudiobookSignedUrl: string | null = null;
   if (latestAudioPath) {
     const bucket = getAudiobookStorageBucket();
     const admin = createAdminClient();
-    const { data: signed } = await admin.storage
+    const { data: signed, error: signedError } = await admin.storage
       .from(bucket)
       .createSignedUrl(latestAudioPath, 60 * 15);
-    latestAudiobookSignedUrl = signed?.signedUrl ?? null;
+    if (signedError || !signed?.signedUrl) {
+      console.error("[book workspace] audiobook signing failed", {
+        bookId: book.id,
+        message: signedError ? "Storage signing failed" : "Storage response missing signed URL",
+      });
+    } else {
+      latestAudiobookSignedUrl = signed.signedUrl;
+    }
   }
 
   const trimmedDisplayName = authorProfile?.display_name?.trim() ?? "";

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   requireAuthorRoleForApi: vi.fn(),
   createClient: vi.fn(),
   isTranslationsEnabled: vi.fn(),
+  activation: vi.fn(),
   isSupportedLanguage: vi.fn(),
   isTranslationPairSupported: vi.fn(),
   createTranslationCheckoutSession: vi.fn(),
@@ -28,9 +29,13 @@ vi.mock("@/lib/flags", () => ({
   isTranslationsEnabled: mocks.isTranslationsEnabled,
 }));
 
-vi.mock("@/lib/languages", () => ({
-  isSupportedLanguage: (...args: unknown[]) => mocks.isSupportedLanguage(...args),
-}));
+vi.mock("@/lib/languages", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/languages")>();
+  return {
+    ...actual,
+    isSupportedLanguage: (...args: unknown[]) => mocks.isSupportedLanguage(...args),
+  };
+});
 
 vi.mock("@/lib/translation-pairs", () => ({
   isTranslationPairSupported: (...args: unknown[]) => mocks.isTranslationPairSupported(...args),
@@ -51,6 +56,8 @@ vi.mock("@/lib/env", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/env")>();
   return { ...actual, getRedisUrl: () => null, getRedisConnectionOptions: () => undefined, getRedisClientOptions: () => undefined };
 });
+
+vi.mock("@/lib/translation-commit", () => ({ reviewedTranslationActivationReady: mocks.activation }));
 
 const { POST } = await import("./route");
 
@@ -99,9 +106,21 @@ describe("POST /api/books/[id]/translate/checkout", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.isTranslationsEnabled.mockReturnValue(true);
+    mocks.activation.mockReturnValue(true);
     mocks.rateLimitCheck.mockResolvedValue({ allowed: true });
     mocks.isSupportedLanguage.mockReturnValue(true);
     mocks.isTranslationPairSupported.mockReturnValue(true);
+  });
+
+  it("does not create checkout while the reviewed rollout is held", async () => {
+    mocks.activation.mockReturnValue(false);
+    mockAuthedUser();
+    mockBookLookup({ found: true });
+    const res = await POST(makeRequest({ languages: ["en"], sourceVersionId: "v1" }), {
+      params: Promise.resolve({ id: VALID_UUID }),
+    });
+    expect(res.status).toBe(503);
+    expect(mocks.createTranslationCheckoutSession).not.toHaveBeenCalled();
   });
 
   it("returns 401 when not authenticated", async () => {

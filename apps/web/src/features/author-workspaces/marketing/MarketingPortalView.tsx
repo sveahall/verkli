@@ -53,7 +53,7 @@ type Props = {
 const STATUS_LABEL: Record<string, string> = {
   pending: "Pending",
   generating: "Generating…",
-  active: "Active",
+  active: "Drafts generated",
   paused: "Paused",
   finished: "Finished",
   failed: "Failed",
@@ -120,10 +120,11 @@ export default function MarketingPortalView({
     const body = (await res.json().catch(() => ({}))) as {
       campaign?: { id: string };
       error?: string;
+      detail?: unknown;
     };
 
     if (!res.ok || !body.campaign) {
-      const msg = body.error ?? "Could not create campaign.";
+      const msg = typeof body.detail === "string" ? body.detail : body.error ?? "Could not create campaign.";
       setError(msg);
       throw new Error(msg);
     }
@@ -207,8 +208,8 @@ export default function MarketingPortalView({
               One wizard. Trailers, clips, captions — every language.
             </h2>
             <p className="mt-2 max-w-2xl text-[15px] text-muted-foreground dark:text-muted-foreground">
-              Pick a book, pick languages, pick what to publish. We build a
-              week-by-week plan you can post yourself with one click.
+              Choose a book, languages and formats. We generate a calendar of
+              drafts for you to review and share manually.
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <Button
@@ -232,8 +233,8 @@ export default function MarketingPortalView({
           {campaigns.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-white/40 p-8 text-center dark:border-border dark:bg-card">
               <p className="text-[14px] text-muted-foreground dark:text-muted-foreground">
-                No campaigns yet — start one above and we&apos;ll generate the
-                weekly content drop.
+                No campaigns yet — create one above to generate your first
+                drafts for review.
               </p>
             </div>
           ) : (

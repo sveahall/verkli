@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import type { MarketingWork } from "./model-work";
 import { canRunLaunchCopyCritic, generateLaunchCopyWithCritic } from "./critique";
 
 const { callOpenAi, isOpenAiConfigured, create } = vi.hoisted(() => ({
@@ -7,7 +8,7 @@ const { callOpenAi, isOpenAiConfigured, create } = vi.hoisted(() => ({
   isOpenAiConfigured: vi.fn(),
   create: vi.fn(),
 }));
-vi.mock("@/lib/ai/providers/openai", () => ({ callOpenAi, isOpenAiConfigured }));
+vi.mock("@/lib/ai/providers/openai", () => ({ callOpenAi, isOpenAiConfigured, estimateOpenAiUnits: (request: object) => JSON.stringify(request).length + 4096 + 2400 }));
 vi.mock("@anthropic-ai/sdk", () => ({ default: class { messages = { create }; } }));
 
 const schema = z.object({
@@ -19,9 +20,11 @@ const schema = z.object({
 const parse = (raw: string) => schema.parse(JSON.parse(raw));
 const good = { headline: "Ocean", body: "A family crosses the sea.", cta: "Read it", hashtags: "#Ocean" };
 const better = { ...good, body: "A family risks everything to cross the sea." };
-const args = { system: "rules go here", content: JSON.stringify({ title: "Ocean" }), parse };
+const work: MarketingWork = { run: async input => input.call(async () => {}) };
+const args = { work, system: "rules go here", content: JSON.stringify({ title: "Ocean" }), parse };
 
 const critiqueReply = (issues: string[]) => ({
+  id: "anthropic-receipt", model: "actual-critic-model", usage: { input_tokens: 9, output_tokens: 4 },
   content: [{ type: "text", text: JSON.stringify({ issues }) }],
 });
 

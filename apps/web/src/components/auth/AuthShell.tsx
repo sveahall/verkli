@@ -23,8 +23,8 @@ export default function AuthShell({
     <main className={styles.shell}>
       <header className={styles.header}>
         <Link href={backHref} aria-label="Verkli home" className={styles.logo}>
-          <Image src="/logo-dark.svg" alt="Verkli" width={122} height={28} className="h-7 w-auto dark:hidden" priority />
-          <Image src="/favicon.svg" alt="Verkli" width={122} height={28} className="hidden h-7 w-auto dark:block" priority />
+          <Image src="/logo-dark.svg?v=20260916" alt="Verkli" width={1429} height={265} className="h-auto w-28 dark:hidden" priority />
+          <Image src="/favicon.svg?v=20260916" alt="Verkli" width={1429} height={265} className="hidden h-auto w-28 dark:block" priority />
         </Link>
         <Link href={backHref} className={styles.back}><ArrowLeft size={15} />{backLabel}</Link>
       </header>

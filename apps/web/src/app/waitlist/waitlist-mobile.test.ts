@@ -51,7 +51,7 @@ function baseFontSizePx(className: string): number | null {
 }
 
 describe("waitlist page on mobile", () => {
-  const files = ["page.tsx", "BookOrderSection.tsx"];
+  const files = ["WaitlistPageClient.tsx", "BookOrderSection.tsx"];
 
   it.each(files)("keeps every input at 16px or more on phones (%s)", (file) => {
     const classNames = inputClassNames(source(file));
@@ -66,7 +66,7 @@ describe("waitlist page on mobile", () => {
   });
 
   it("does not hide the way to the book on small screens", () => {
-    const src = source("page.tsx");
+    const src = source("WaitlistPageClient.tsx");
 
     // The control that scrolls to the order card. It must not be desktop-only:
     // the hero is min-h-dvh, so without it a phone shows no sign of the book.
@@ -79,7 +79,7 @@ describe("waitlist page on mobile", () => {
 
   it("still renders the order section for a phone to scroll to", () => {
     expect(source("BookOrderSection.tsx")).toContain('id="book-order"');
-    expect(source("page.tsx")).toContain('getElementById("book-order")');
+    expect(source("WaitlistPageClient.tsx")).toContain('getElementById("book-order")');
   });
 
   // The card sells a physical book. It shipped without a picture of it, and the

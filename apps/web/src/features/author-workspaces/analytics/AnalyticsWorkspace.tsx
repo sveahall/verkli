@@ -3,28 +3,22 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 import { cn } from "@/lib/utils";
+import { getMarketingEnabled } from "@/lib/flags";
+import styles from "./AnalyticsWorkspace.module.css";
 
 const AnalyticsDashboard = dynamic(
   () => import("@/features/author-workspaces/analytics/AnalyticsCharts"),
   {
     ssr: false,
     loading: () => (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[...Array<number>(4)].map((_, i) => (
-            <div key={i} className="h-[110px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
-          ))}
-        </div>
-        <div className="h-[320px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="h-[260px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
-          <div className="h-[260px] animate-pulse rounded-2xl bg-muted dark:bg-card" />
-        </div>
+      <div role="status" aria-live="polite" className="space-y-4">
+        <p className="text-sm text-muted-foreground">Loading analytics…</p>
+        <div aria-hidden="true" className="h-40 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
       </div>
     ),
   }
@@ -57,6 +51,19 @@ export type BookRow = {
   purchases: number;
 };
 
+export type RevenueData = {
+  partial?: boolean;
+  totalRevenue: number | null;
+  orderRevenue: number | null;
+  donationRevenue: number;
+  subscriptionMRR: number | null;
+  activeSubscriberCount: number | null;
+  currency: string | null;
+  byCurrency: Record<string, number> | null;
+  subscriptionByCurrency: Record<string, number> | null;
+  subscriptionScope: "author";
+};
+
 export type AnalyticsData = {
   overviewStats: {
     views: number;
@@ -65,14 +72,9 @@ export type AnalyticsData = {
     bookmarks: number;
     dailyChart: DailyPoint[];
   } | null;
-  revenue: {
-    totalRevenue: number;
-    orderRevenue: number;
-    donationRevenue: number;
-    subscriptionMRR: number;
-    activeSubscriberCount: number;
-    currency: string;
-  } | null;
+  revenue: RevenueData | null;
+  booksFailed?: boolean;
+  marketingFailed?: boolean;
   engagement: {
     reviews: number;
     averageRating: number;
@@ -116,31 +118,6 @@ type AnalyticsWorkspaceProps = {
   books: Array<{ id: string; title: string }>;
 };
 
-function BookTab({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "min-h-11 shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition-all",
-        active
-          ? "bg-primary text-primary-foreground"
-          : "bg-card text-muted-foreground ring-1 ring-border hover:text-foreground dark:bg-card dark:text-muted-foreground dark:ring-white/10 dark:hover:text-foreground"
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
 function PeriodSelector({
   period,
   onChange,
@@ -149,20 +126,21 @@ function PeriodSelector({
   onChange: (p: Period) => void;
 }) {
   return (
-    <div className="flex shrink-0 gap-1 rounded-xl bg-muted p-1 dark:bg-card">
+    <div role="group" aria-label="Analytics period" className="flex shrink-0 gap-1 rounded-xl border border-border bg-muted/50 p-1">
       {(["7d", "30d", "all"] as Period[]).map((p) => (
         <button
           key={p}
           type="button"
           onClick={() => onChange(p)}
+          aria-pressed={period === p}
           className={cn(
-            "min-h-10 rounded-lg px-3 py-1.5 text-[12px] font-semibold tracking-wide transition-all",
+            "min-h-11 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors",
             period === p
               ? "bg-card text-foreground shadow-sm dark:bg-card dark:text-foreground"
               : "text-muted-foreground hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground"
           )}
         >
-          {p === "all" ? "All time" : p.toUpperCase()}
+          {p === "all" ? "All time" : p === "7d" ? "7 days" : "30 days"}
         </button>
       ))}
     </div>
@@ -171,11 +149,14 @@ function PeriodSelector({
 
 export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { setCurrentBookId } = useAuthorWorkspace();
 
   const [period, setPeriod] = useState<Period>("30d");
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
   const [data, setData] = useState<AnalyticsData>({
     overviewStats: null,
     revenue: null,
@@ -194,17 +175,21 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    const marketingEnabled = getMarketingEnabled();
     setLoading(true);
+    const read = (url: string) => fetch(url, { signal: controller.signal });
+    const revenueUrl = `/api/author/stats/revenue?period=${period}${bookId === "all" ? "" : `&bookId=${encodeURIComponent(bookId)}`}`;
 
     const run = async () => {
       try {
         if (bookId === "all") {
           const [statsRes, revenueRes, booksRes, engRes, campaignsRes] = await Promise.all([
-            fetch(`/api/author/stats?period=${period}`),
-            fetch("/api/author/stats/revenue"),
-            fetch(`/api/author/stats/books?period=${period}`),
-            fetch("/api/author/stats/engagement"),
-            fetch("/api/author/marketing/campaigns"),
+            read(`/api/author/stats?period=${period}`),
+            read(revenueUrl),
+            read(`/api/author/stats/books?period=${period}`),
+            read("/api/author/stats/engagement"),
+            marketingEnabled ? read("/api/author/marketing/campaigns") : null,
           ]);
 
           const [stats, revenue, booksData, engagement, campaigns] = await Promise.all([
@@ -212,35 +197,39 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
             revenueRes.ok ? revenueRes.json() : null,
             booksRes.ok ? booksRes.json() : null,
             engRes.ok ? engRes.json() : null,
-            campaignsRes.ok ? campaignsRes.json() : null,
+            campaignsRes?.ok ? campaignsRes.json() : null,
           ]);
 
           if (!cancelled) {
+            setLoadFailed(!stats || stats.partial || !revenue || revenue.partial || !booksData || booksData.partial || !engagement || (marketingEnabled && !campaigns));
             setData({
               overviewStats: stats,
               revenue,
               engagement,
               booksTable: (booksData?.books as BookRow[]) ?? [],
+              booksFailed: !booksData || Boolean(booksData.partial),
               bookDetail: null,
               marketingCampaigns: (campaigns?.campaigns as MarketingCampaign[]) ?? [],
+              marketingFailed: marketingEnabled && !campaigns,
             });
           }
         } else {
           const [bookRes, revenueRes, engRes, campaignsRes] = await Promise.all([
-            fetch(`/api/books/${bookId}/stats?period=${period}`),
-            fetch("/api/author/stats/revenue"),
-            fetch("/api/author/stats/engagement"),
-            fetch("/api/author/marketing/campaigns"),
+            read(`/api/books/${bookId}/stats?period=${period}`),
+            read(revenueUrl),
+            read("/api/author/stats/engagement"),
+            marketingEnabled ? read("/api/author/marketing/campaigns") : null,
           ]);
 
           const [bookDetail, revenue, engagement, campaigns] = await Promise.all([
             bookRes.ok ? bookRes.json() : null,
             revenueRes.ok ? revenueRes.json() : null,
             engRes.ok ? engRes.json() : null,
-            campaignsRes.ok ? campaignsRes.json() : null,
+            campaignsRes?.ok ? campaignsRes.json() : null,
           ]);
 
           if (!cancelled) {
+            setLoadFailed(!bookDetail || bookDetail.partial || !revenue || revenue.partial || !engagement || (marketingEnabled && !campaigns));
             setData({
               overviewStats: null,
               revenue,
@@ -248,11 +237,17 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
               booksTable: [],
               bookDetail,
               marketingCampaigns: (campaigns?.campaigns as MarketingCampaign[]) ?? [],
+              marketingFailed: marketingEnabled && !campaigns,
             });
           }
         }
       } catch {
-        // continue with empty data
+        if (!cancelled) {
+          setLoadFailed(true);
+          // Never retain another book's or period's figures after a failed load.
+          setData({ overviewStats: null, revenue: null, engagement: null, booksTable: [],
+            booksFailed: true, bookDetail: null, marketingCampaigns: [], marketingFailed: marketingEnabled });
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -261,8 +256,9 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
     void run();
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [bookId, period]);
+  }, [bookId, period, retry]);
 
   const updateBookId = (id: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -272,38 +268,41 @@ export default function AnalyticsWorkspace({ books }: AnalyticsWorkspaceProps) {
       params.set("bookId", id);
     }
     const query = params.toString();
-    router.replace(query ? `/author/analytics?${query}` : "/author/analytics", { scroll: false });
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
 
   return (
     <WorkspaceLayout
+      className={styles.workspace}
       header={
-        <h1 className="author-page-title">
-          Analytics
-        </h1>
+        <header>
+          <h1 className="author-page-title">Analytics</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Understand how readers discover and follow your stories.</p>
+        </header>
       }
       headerRight={<WorkspaceHeaderActions />}
       main={
         <>
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 max-w-full items-center gap-2 overflow-x-auto pb-1">
-              <BookTab
-                label="All books"
-                active={bookId === "all"}
-                onClick={() => updateBookId("all")}
-              />
-              {books.map((book) => (
-                <BookTab
-                  key={book.id}
-                  label={book.title}
-                  active={bookId === book.id}
-                  onClick={() => updateBookId(book.id)}
-                />
-              ))}
+          <div className={styles.filters}>
+            <label className={styles.bookFilter}>
+              Book
+              <select value={bookId} onChange={(event) => updateBookId(event.target.value)} aria-label="Analytics book">
+                <option value="all">All books</option>
+                {books.map((book) => <option key={book.id} value={book.id}>{book.title}</option>)}
+              </select>
+            </label>
+            <div className={styles.periodFilter}>
+              <p>Time period</p>
+              <PeriodSelector period={period} onChange={setPeriod} />
             </div>
-            <PeriodSelector period={period} onChange={setPeriod} />
           </div>
 
+          {!loading && loadFailed && (
+            <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 text-sm">
+              <p>Some statistics could not be loaded. Unavailable figures are not zero activity.</p>
+              <button type="button" className="btn-secondary min-h-11" onClick={() => setRetry((value) => value + 1)}>Retry statistics</button>
+            </div>
+          )}
           {books.length === 0 ? (
             <div className="rounded-2xl border border-border bg-card px-6 py-14 text-center">
               <h2 className="author-section-title text-[26px] font-medium tracking-tight text-foreground dark:text-foreground">

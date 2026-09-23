@@ -1,4 +1,4 @@
-import { detectLanguageFromText } from "@/lib/language-detect";
+import { detectLanguageFromParts } from "@/lib/language-detect";
 import { normalizeLanguageOrNull } from "@/lib/languages";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -10,7 +10,7 @@ type TranslationBookRow = {
   language?: string | null;
 };
 
-type SourceLanguageOrigin = "version" | "book" | "heuristic" | null;
+type SourceLanguageOrigin = "version" | "book" | "heuristic" | "request" | null;
 
 export type TranslationSourceContext = {
   sourceVersionId: string | null;
@@ -84,8 +84,9 @@ export async function collectTranslationPreviewText(
 ): Promise<string> {
   const { data: chapters, error } = await supabase
     .from("chapters")
-    .select("content, source_text")
+    .select("content")
     .eq("book_version_id", sourceVersionId)
+    .is("deleted_at", null)
     .order("order", { ascending: true });
 
   if (error) {
@@ -97,9 +98,8 @@ export async function collectTranslationPreviewText(
 
   for (const chapter of chapters ?? []) {
     if (remainingWords <= 0) break;
-    const plainText = extractPlainText(
-      (chapter.source_text as string | null) ?? (chapter.content as string | null) ?? null
-    );
+    // Match the worker: source_text is an import/translation snapshot, not the saved manuscript.
+    const plainText = extractPlainText(chapter.content as string | null);
     if (!plainText) continue;
 
     const excerpt = takeWords(plainText, remainingWords);
@@ -117,11 +117,14 @@ export async function resolveTranslationSourceContext({
   bookId,
   book,
   requestedSourceVersionId,
+  requestedSourceLanguage,
 }: {
   supabase: SupabaseLikeClient;
   bookId: string;
   book: TranslationBookRow;
   requestedSourceVersionId?: string | null;
+  /** Used only when the stored language is missing. Never overrides a real language. */
+  requestedSourceLanguage?: string | null;
 }): Promise<TranslationSourceContext> {
   let sourceVersionId = requestedSourceVersionId?.trim() || null;
 
@@ -190,27 +193,43 @@ export async function resolveTranslationSourceContext({
   }
 
   if (!sourceLanguage) {
-    const { data: firstChapter } = await supabase
+    const { data: chapters, error } = await supabase
       .from("chapters")
-      .select("content, source_text")
+      .select("content")
       .eq("book_version_id", sourceVersionId)
+      .is("deleted_at", null)
       .order("order", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .limit(12);
 
-    const sample = extractPlainText(
-      (firstChapter?.source_text as string | null) ?? (firstChapter?.content as string | null) ?? null
+    if (error) throw new Error(error.message);
+
+    const detected = detectLanguageFromParts(
+      (chapters ?? []).map((chapter: { content?: unknown }) => extractPlainText(chapter.content as string | null))
     );
-    const detected = detectLanguageFromText(sample);
-
     if (detected) {
       sourceLanguage = detected;
       sourceLanguageOrigin = "heuristic";
     }
   }
 
+  if (!sourceLanguage) {
+    const hinted = normalizeLanguageOrNull(requestedSourceLanguage);
+    if (hinted) {
+      sourceLanguage = hinted;
+      sourceLanguageOrigin = "request";
+    }
+  }
+
   if (sourceLanguage && !versionLanguage) {
     await supabase.from("book_versions").update({ language_code: sourceLanguage }).eq("id", sourceVersionId);
+    const bookLanguageKnown =
+      normalizeLanguageOrNull(book.original_language) ?? normalizeLanguageOrNull(book.language);
+    if (!bookLanguageKnown) {
+      await supabase
+        .from("books")
+        .update({ original_language: sourceLanguage, language: sourceLanguage })
+        .eq("id", bookId);
+    }
   }
 
   return {

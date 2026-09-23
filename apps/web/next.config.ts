@@ -86,7 +86,7 @@ const cspDirectives = [
   "img-src 'self' data: blob: https:",
   `connect-src ${connectSrc.join(" ")}`,
   "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://billing.stripe.com https://platform.twitter.com https://syndication.twitter.com https://www.instagram.com https://*.instagram.com https://www.tiktok.com https://*.tiktok.com https://*.supabase.co https://runwayml.com https://*.runwayml.com",
-  "form-action 'self' https://checkout.stripe.com https://billing.stripe.com https://*.supabase.co",
+  "form-action 'self' https://checkout.stripe.com https://billing.stripe.com https://connect.stripe.com https://*.supabase.co",
   "worker-src 'self' blob:",
   "media-src 'self' blob: data: https://*.supabase.co https://runwayml.com https://*.runwayml.com",
 ];
@@ -172,7 +172,10 @@ const nextConfig: NextConfig = {
   // Keep heavy/native-binding parsers out of the route bundle. `cheerio`
   // (~500 KB) and `mammoth` (~1 MB) were previously being bundled into the
   // chapter-repair route via `import-extract.ts`.
-  serverExternalPackages: ["epub", "pdf-parse", "bullmq", "cheerio", "mammoth"],
+  serverExternalPackages: ["epub", "pdf-parse", "pdfkit", "bullmq", "cheerio", "mammoth"],
+  outputFileTracingIncludes: {
+    "/api/author/books/*/production/export": ["./src/features/book-production/pdf-fonts/**/*"],
+  },
   experimental: {
     // Tree-shake barrel imports for large UI/animation libs.
     optimizePackageImports: ["lucide-react", "@tiptap/core", "motion"],
@@ -227,9 +230,13 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
+      // Pinned to this project's host, not "**.supabase.co". The wildcard let
+      // anyone point the optimizer at a bucket in a Supabase project they
+      // control, which is how GHSA-2xp9-vwfh-vxw4 was reachable here: the
+      // middleware matcher excludes /_next/image, so BETA_LOCK never covered it.
       {
         protocol: "https",
-        hostname: "**.supabase.co",
+        hostname: "glfipbnsyxowqsmcuzcm.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
     ],

@@ -57,3 +57,42 @@ function normalizeConfiguredUrl(value: string | undefined): string | null {
 
   return trimmed.endsWith("/") ? trimmed.slice(0, -1) : trimmed;
 }
+
+function hostsEquivalent(left: string, right: string): boolean {
+  const normalize = (host: string) => host.trim().toLowerCase().replace(/\.$/, "").replace(/^www\./, "");
+  return normalize(left) === normalize(right);
+}
+
+/**
+ * A browser POST from https://www.verkli.com must still count when the
+ * platform rewrites the request URL to the container. Missing Origin stays
+ * allowed: a non-browser caller has no CSRF context to forge.
+ */
+export function isBrowserOriginAllowed(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+  let originHost: string;
+  try {
+    originHost = new URL(origin).host;
+  } catch {
+    return false;
+  }
+  const candidates = [
+    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim(),
+    request.headers.get("host")?.trim(),
+  ];
+  const site = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (site) {
+    try {
+      candidates.push(new URL(site).host);
+    } catch {
+      /* ignore a malformed site URL */
+    }
+  }
+  try {
+    candidates.push(new URL(request.url).host);
+  } catch {
+    /* ignore */
+  }
+  return candidates.some((candidate) => !!candidate && hostsEquivalent(originHost, candidate));
+}

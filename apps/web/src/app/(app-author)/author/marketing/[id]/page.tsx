@@ -77,6 +77,7 @@ export default async function MarketingCampaignPage({
     posted_url: string | null;
     mode: string;
     metadata: Record<string, unknown>;
+    updated_at: string;
   };
 
   const { data: postsRaw } = await supabase
@@ -84,7 +85,7 @@ export default async function MarketingCampaignPage({
     .select(
       `id, scheduled_for, channel, language, content_type, status, headline,
        caption, hashtags, cta, share_url, media_asset_id, media_asset_url,
-       asset_error, posted_at, posted_url, mode, metadata`
+       asset_error, posted_at, posted_url, mode, metadata, updated_at`
     )
     .eq("campaign_plan_id", id)
     .order("scheduled_for", { ascending: true });
@@ -107,6 +108,8 @@ export default async function MarketingCampaignPage({
     postedAt: p.posted_at,
     postedUrl: p.posted_url,
     mode: p.mode,
+    metadata: p.metadata,
+    updatedAt: p.updated_at,
   }));
 
   return (

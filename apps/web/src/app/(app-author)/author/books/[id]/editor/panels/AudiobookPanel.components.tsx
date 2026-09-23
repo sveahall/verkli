@@ -1,75 +1,89 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LANGUAGE_OPTIONS, normalizeLanguage } from "@/lib/languages";
+import { ArrowRight, Headphones, Loader2, Pause, Play, RotateCcw, RotateCw, X } from "lucide-react";
+import { Dialog, DialogBody, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatPlayerTime } from "../BookEditorView.helpers";
-
-// ── AudiobookPreviewPlayer ────────────────────────────────────────────────────
+import styles from "./AudiobookPanel.module.css";
 
 interface AudiobookPreviewPlayerProps {
   audioUrl: string | null;
   bookId: string;
-  /**
-   * Re-signs `audioUrl`. Storage URLs are signed for 15 minutes, so a page
-   * left open outlives them: the browser buffers a second or two while the
-   * signature is alive, then the next range request comes back 400 InvalidJWT
-   * and playback dies mid-sentence. Calling this mints a fresh URL.
-   */
+  versionId?: string;
+  previewEnabled?: boolean;
+  /** Re-signs storage URLs after their fifteen-minute expiry. */
   onRefreshAudioUrl?: () => Promise<void>;
 }
 
-/** Give up after this many re-signs per playback, so a genuinely dead URL cannot loop. */
 const MAX_REFRESH_ATTEMPTS = 2;
 
-export function AudiobookPreviewPlayer({ audioUrl, bookId, onRefreshAudioUrl }: AudiobookPreviewPlayerProps) {
+export function AudiobookPreviewPlayer({ audioUrl, bookId, versionId, onRefreshAudioUrl, previewEnabled = true }: AudiobookPreviewPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [speed, setSpeed] = useState(1.0);
+  const [speed, setSpeed] = useState(1);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
-
-  /** Where to seek back to once a re-signed URL has loaded. */
   const resumeAtRef = useRef<number | null>(null);
   const refreshAttemptsRef = useRef(0);
   const refreshingRef = useRef(false);
-
+  const autoplayRef = useRef(false);
+  const previewRequestRef = useRef<AbortController | null>(null);
+  const [previewScope, setPreviewScope] = useState({ bookId, versionId });
+  // Reset before rendering a different edition, including callers without a React key.
+  if (previewScope.bookId !== bookId || previewScope.versionId !== versionId) {
+    setPreviewScope({ bookId, versionId });
+    setPreviewUrl(null);
+    setPreviewLoading(false);
+    setPreviewError(null);
+    setPlaybackError(null);
+    setPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+  }
   const effectiveAudioUrl = previewUrl ?? audioUrl;
 
-  /**
-   * The media element failed. The overwhelmingly likely cause is an expired
-   * signature rather than a broken file, so re-sign once and pick up where the
-   * listener was. Preview audio is a blob URL and never expires, so it is
-   * excluded — refreshing there would replace a working preview with the
-   * generated audiobook.
-   */
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+  useEffect(() => () => {
+    previewRequestRef.current?.abort();
+    autoplayRef.current = false;
+    resumeAtRef.current = null;
+    refreshAttemptsRef.current = 0;
+  }, [bookId, versionId]);
+
+  const play = useCallback(async () => {
+    if (!audioRef.current) return;
+    try {
+      await audioRef.current.play();
+      setPlaybackError(null);
+    } catch {
+      setPlaying(false);
+      setPlaybackError("Could not play the audio. Try Play again, or reload the page.");
+    }
+  }, []);
+
   const handleAudioFailure = useCallback(async () => {
     const el = audioRef.current;
+    setPlaying(false);
     if (!el || previewUrl || !onRefreshAudioUrl) {
-      setPlaying(false);
       setPlaybackError("Playback failed. Reload the page and try again.");
       return;
     }
     if (refreshingRef.current) return;
     if (refreshAttemptsRef.current >= MAX_REFRESH_ATTEMPTS) {
-      setPlaying(false);
       setPlaybackError("Could not load the audio. Reload the page and try again.");
       return;
     }
-
     refreshingRef.current = true;
     refreshAttemptsRef.current += 1;
-    // currentTime survives the error; the reload below restores it.
     resumeAtRef.current = el.currentTime;
-
     try {
       await onRefreshAudioUrl();
     } catch {
-      setPlaying(false);
       setPlaybackError("Could not refresh the audio link. Reload the page.");
     } finally {
       refreshingRef.current = false;
@@ -77,193 +91,77 @@ export function AudiobookPreviewPlayer({ audioUrl, bookId, onRefreshAudioUrl }: 
   }, [onRefreshAudioUrl, previewUrl]);
 
   const handleGeneratePreview = async () => {
+    if (previewLoading || !previewEnabled) return;
+    const controller = new AbortController();
+    previewRequestRef.current = controller;
     setPreviewLoading(true);
     setPreviewError(null);
     try {
       const res = await fetch(`/api/books/${bookId}/audiobook/preview`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ versionId }), signal: controller.signal,
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setPreviewError(body?.detail ?? "Preview unavailable");
+        if (controller.signal.aborted) return;
+        setPreviewError(body?.detail ?? "Could not create a preview. Please try again.");
         return;
       }
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      setPreviewUrl(url);
-      // Auto-play after loading
-      setTimeout(() => {
-        if (audioRef.current) {
-          audioRef.current.src = url;
-          void audioRef.current.play().then(() => setPlaying(true));
-        }
-      }, 100);
+      if (controller.signal.aborted) return;
+      autoplayRef.current = true;
+      setPreviewUrl(URL.createObjectURL(blob));
     } catch {
-      setPreviewError("Could not generate preview");
+      if (!controller.signal.aborted) setPreviewError("Could not create a preview. Check your connection and try again.");
     } finally {
-      setPreviewLoading(false);
+      if (!controller.signal.aborted) setPreviewLoading(false);
     }
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-card px-6 py-5 dark:border-border dark:bg-card">
-      {effectiveAudioUrl && (
-        <audio
-          ref={audioRef}
-          src={effectiveAudioUrl}
-          onTimeUpdate={() => {
-            if (!audioRef.current) return;
-            setCurrentTime(audioRef.current.currentTime);
-            // Audio is flowing again, so allow the full retry budget next time.
-            refreshAttemptsRef.current = 0;
-          }}
-          onLoadedMetadata={() => {
-            const el = audioRef.current;
-            if (!el) return;
-            setDuration(el.duration);
-
-            // A re-signed URL just loaded: return to where playback died.
-            const resumeAt = resumeAtRef.current;
-            if (resumeAt !== null) {
-              resumeAtRef.current = null;
-              setPlaybackError(null);
-              if (Number.isFinite(resumeAt) && resumeAt > 0) el.currentTime = resumeAt;
-              void el.play().catch(() => setPlaying(false));
-            }
-          }}
-          onError={() => void handleAudioFailure()}
-          onEnded={() => setPlaying(false)}
-        />
-      )}
-
-      {/* Progress bar */}
-      <div className="mb-5">
-        <div
-          className="relative h-1 cursor-pointer rounded-full bg-muted/80 dark:bg-card"
-          onClick={(e) => {
-            if (!audioRef.current || !duration) return;
-            const rect = e.currentTarget.getBoundingClientRect();
-            const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-            audioRef.current.currentTime = ratio * duration;
-          }}
-        >
-          <div
-            className="h-full rounded-full bg-[#907AFF]/40 transition-all"
-            style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : "0%" }}
-          />
-          <div
-            className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#907AFF] shadow-sm transition-all"
-            style={{ left: duration > 0 ? `calc(${(currentTime / duration) * 100}% - 6px)` : "0" }}
-          />
-        </div>
+    <section className={styles.player} aria-label="Audiobook listening">
+      {effectiveAudioUrl && <audio ref={audioRef} src={effectiveAudioUrl} preload="metadata"
+        onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}
+        onEmptied={() => { setCurrentTime(0); setDuration(0); setPlaying(false); }}
+        onTimeUpdate={() => { if (audioRef.current) { setCurrentTime(audioRef.current.currentTime); if (!audioRef.current.paused) refreshAttemptsRef.current = 0; } }}
+        onLoadedMetadata={() => {
+          const el = audioRef.current;
+          if (!el) return;
+          setDuration(Number.isFinite(el.duration) ? el.duration : 0);
+          el.playbackRate = speed;
+          const resumeAt = resumeAtRef.current;
+          resumeAtRef.current = null;
+          if (resumeAt !== null && Number.isFinite(resumeAt)) el.currentTime = Math.min(resumeAt, Number.isFinite(el.duration) ? el.duration : resumeAt);
+          if (resumeAt !== null || autoplayRef.current) { autoplayRef.current = false; void play(); }
+        }}
+        onError={() => void handleAudioFailure()}
+      />}
+      <div className={styles.playerHeading}>
+        <span className={styles.listeningIcon}><Headphones size={24} aria-hidden /></span>
+        <div><h3>{effectiveAudioUrl ? previewUrl ? "Your voice preview" : "Your audio edition" : "Hear it first."}</h3><p>{effectiveAudioUrl ? "Listen closely. Your story sets the pace." : "Try a short voice sample before creating your audiobook."}</p></div>
+        {!effectiveAudioUrl && <button type="button" onClick={() => void handleGeneratePreview()} disabled={previewLoading || !previewEnabled} className={styles.previewButton}>
+          {previewLoading ? <Loader2 size={17} className={styles.spin} aria-hidden /> : <Play size={16} aria-hidden />}
+          {previewLoading ? "Creating preview…" : "Preview voice"}
+        </button>}
       </div>
-
-      {/* Controls */}
-      <div className="flex items-center justify-between">
-        <span className="min-w-[90px] text-[15px] tabular-nums text-muted-foreground dark:text-muted-foreground">
-          {formatPlayerTime(currentTime)} / {formatPlayerTime(duration)}
-        </span>
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => {
-              if (audioRef.current) {
-                audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 30);
-              }
-            }}
-            className="text-muted-foreground transition hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-foreground"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm12 0v12l-8.5-6z" /></svg>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (!audioRef.current) return;
-              if (playing) {
-                audioRef.current.pause();
-                setPlaying(false);
-              } else {
-                void audioRef.current.play();
-                setPlaying(true);
-              }
-            }}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-primary-foreground transition hover:bg-primary/90"
-          >
-            {playing ? (
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
-            ) : (
-              <svg className="ml-0.5 h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (audioRef.current) {
-                audioRef.current.currentTime = Math.min(
-                  audioRef.current.duration || 0,
-                  audioRef.current.currentTime + 30
-                );
-              }
-            }}
-            className="text-muted-foreground transition hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-foreground"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
-          </button>
+      {previewLoading && <p role="status" className={styles.playerNote}>Preparing your sample. This can take a moment.</p>}
+      {!previewEnabled && !effectiveAudioUrl && <p className={styles.playerNote}>Voice previews are temporarily unavailable.</p>}
+      {effectiveAudioUrl && <div className={styles.playback}>
+        <input type="range" aria-label="Audio position" min={0} max={duration || 0} step={0.1} value={Math.min(currentTime, duration)} disabled={!duration} onChange={(event) => { const value = Number(event.target.value); if (audioRef.current) { audioRef.current.currentTime = value; setCurrentTime(value); } }} />
+        <div className={styles.playbackControls}>
+          <span className={styles.time}>{formatPlayerTime(currentTime)} / {formatPlayerTime(duration)}</span>
+          <div className={styles.transport}>
+            <button type="button" aria-label="Back 30 seconds" disabled={!duration} onClick={() => { if (audioRef.current) audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 30); }}><RotateCcw size={19} aria-hidden /><span>30</span></button>
+            <button type="button" aria-label={playing ? "Pause audio" : "Play audio"} className={styles.playButton} onClick={() => { if (playing) audioRef.current?.pause(); else void play(); }}>{playing ? <Pause size={20} aria-hidden /> : <Play size={20} aria-hidden />}</button>
+            <button type="button" aria-label="Forward 30 seconds" disabled={!duration} onClick={() => { if (audioRef.current) audioRef.current.currentTime = Math.min(duration, audioRef.current.currentTime + 30); }}><RotateCw size={19} aria-hidden /><span>30</span></button>
+          </div>
+          <button type="button" aria-label="Playback speed" title="Change playback speed" onClick={() => { const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2]; const next = speeds[(speeds.indexOf(speed) + 1) % speeds.length]; setSpeed(next); if (audioRef.current) audioRef.current.playbackRate = next; }}>{speed === 1 ? "1.0" : speed}×</button>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
-            const idx = speeds.indexOf(speed);
-            const next = speeds[(idx + 1) % speeds.length];
-            setSpeed(next);
-            if (audioRef.current) audioRef.current.playbackRate = next;
-          }}
-          className="min-w-[40px] text-right text-[15px] font-medium tabular-nums text-muted-foreground transition hover:text-foreground dark:text-muted-foreground dark:hover:text-foreground"
-        >
-          {speed === 1 ? "1.0" : speed}x
-        </button>
-      </div>
-
-      {/* Preview voice button */}
-      {!effectiveAudioUrl && (
-        <div className="mt-4 text-center">
-          <button
-            type="button"
-            onClick={handleGeneratePreview}
-            disabled={previewLoading}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#907AFF]/20 bg-[#907AFF]/5 px-4 py-2.5 text-[13px] font-semibold text-accent-foreground transition hover:bg-[#907AFF]/10 active:scale-[0.97] disabled:opacity-50"
-          >
-            {previewLoading ? (
-              <>
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#907AFF]/30 border-t-[#907AFF]" />
-                Generating preview...
-              </>
-            ) : (
-              <>
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                Preview voice
-              </>
-            )}
-          </button>
-          <p className="mt-2 text-[11px] text-muted-foreground dark:text-muted-foreground">
-            Generates a short sample from your first chapter
-          </p>
-          {playbackError && (
-            <p className="mt-2 text-[12px] text-red-500">{playbackError}</p>
-          )}
-          {previewError && (
-            <p className="mt-2 text-[12px] text-red-500">{previewError}</p>
-          )}
-        </div>
-      )}
-    </div>
+        {previewUrl && audioUrl && <button className={styles.fullAudioLink} type="button" onClick={() => { audioRef.current?.pause(); autoplayRef.current = false; setPreviewUrl(null); setPlaybackError(null); }}>Listen to full audiobook <ArrowRight size={15} aria-hidden /></button>}
+      </div>}
+      {(playbackError || previewError) && <p role="alert" className={styles.playerError}>{playbackError || previewError}</p>}
+    </section>
   );
 }
-
-// ── AudiobookCheckoutModal ────────────────────────────────────────────────────
 
 interface AudiobookCheckoutModalProps {
   open: boolean;
@@ -273,113 +171,20 @@ interface AudiobookCheckoutModalProps {
   onCheckout: () => void;
 }
 
-export function AudiobookCheckoutModal({
-  open,
-  onClose,
-  audiobookError,
-  audiobookCheckoutLoading,
-  onCheckout,
-}: AudiobookCheckoutModalProps) {
+export function AudiobookCheckoutModal({ open, onClose, audiobookError, audiobookCheckoutLoading, onCheckout }: AudiobookCheckoutModalProps) {
   const router = useRouter();
-
   if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="relative mx-4 w-full max-w-md rounded-2xl bg-card p-8 shadow-2xl dark:bg-card">
-        <button type="button" onClick={onClose} className="absolute right-4 top-4 text-muted-foreground hover:text-muted-foreground dark:text-muted-foreground dark:hover:text-foreground" aria-label="Close">
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
-        </button>
-        <h2 className="author-section-title mb-6 text-center text-lg font-medium text-foreground dark:text-foreground">Choose a plan to generate audiobook</h2>
-        <div className="space-y-4">
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-[#907AFF] bg-[#907AFF]/5 px-4 py-4 transition">
-            <input type="radio" name="audiobook-plan-new" value="per_book" defaultChecked className="mt-0.5 h-4 w-4 accent-[#907AFF]" />
-            <div>
-              <p className="font-semibold text-foreground dark:text-foreground">Pay per audiobook</p>
-              <p className="text-sm text-muted-foreground dark:text-muted-foreground">299 kr / book</p>
-            </div>
-          </label>
-          <label
-            className="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-border px-4 py-4 transition hover:border-border dark:border-border dark:hover:border-border"
-            onClick={() => { onClose(); router.push("/author/billing"); }}
-          >
-            <input type="radio" name="audiobook-plan-new" value="pro" className="mt-0.5 h-4 w-4 accent-[#907AFF]" />
-            <div>
-              <p className="font-semibold text-foreground dark:text-foreground">Subscribe to PRO</p>
-              <p className="mb-2 text-sm text-muted-foreground dark:text-muted-foreground">2 490 kr / month</p>
-              <ul className="space-y-1 text-sm text-muted-foreground dark:text-muted-foreground">
-                {["Unlimited audiobooks", "Unlimited translations", "Chapter-level control", "Marketing tools"].map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <svg className="h-4 w-4 shrink-0 text-accent-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 13l4 4L19 7" /></svg>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </label>
-        </div>
-        {audiobookError && <p className="mt-4 text-center text-sm text-red-600 dark:text-red-400">{audiobookError}</p>}
-        <button
-          type="button"
-          onClick={() => { onClose(); onCheckout(); }}
-          disabled={audiobookCheckoutLoading}
-          className="mt-6 block w-full rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {audiobookCheckoutLoading ? "Redirecting..." : "Generate full audiobook"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── AudiobookLanguageList ─────────────────────────────────────────────────────
-
-interface AudiobookLanguageListProps {
-  bookLanguage: string | null;
-  bookOriginalLanguage: string | null;
-  audiobookSelectedLanguages: string[];
-  setAudiobookSelectedLanguages: React.Dispatch<React.SetStateAction<string[]>>;
-}
-
-export function AudiobookLanguageList({
-  bookLanguage,
-  bookOriginalLanguage,
-  audiobookSelectedLanguages,
-  setAudiobookSelectedLanguages,
-}: AudiobookLanguageListProps) {
-  const bookLang = normalizeLanguage(bookLanguage ?? bookOriginalLanguage);
-  const sorted = [...LANGUAGE_OPTIONS].sort((a, b) =>
-    a.value === bookLang ? -1 : b.value === bookLang ? 1 : 0
-  );
-
-  return (
-    <div className="mt-4 divide-y divide-border dark:divide-border">
-      {sorted.map((lang) => {
-        const isBookLang = bookLang === lang.value;
-        const isChecked = audiobookSelectedLanguages.includes(lang.value);
-        return (
-          <label key={lang.value} className="flex cursor-pointer items-center justify-between py-3.5 text-[15px] text-foreground dark:text-foreground">
-            <span>{lang.label}</span>
-            <input
-              type="checkbox"
-              checked={isChecked}
-              onChange={() => {
-                if (isBookLang) return;
-                setAudiobookSelectedLanguages((prev) =>
-                  prev.includes(lang.value)
-                    ? prev.filter((l) => l !== lang.value)
-                    : [...prev, lang.value]
-                );
-              }}
-              disabled={isBookLang}
-              className="h-4 w-4 rounded border-border text-accent-foreground focus:ring-[#907AFF] disabled:cursor-default dark:border-border"
-            />
-          </label>
-        );
-      })}
-    </div>
+    <Dialog open={open} onOpenChange={(next) => { if (!next && !audiobookCheckoutLoading) onClose(); }} aria-label="Create your audiobook">
+      <DialogHeader className={styles.checkoutHeading}><DialogTitle>Create your audiobook</DialogTitle><button type="button" aria-label="Close" onClick={onClose} disabled={audiobookCheckoutLoading}><X size={20} aria-hidden /></button></DialogHeader>
+      <DialogBody>
+        <p className={styles.checkoutIntro}>Turn your full manuscript into an audio edition.</p>
+        <div className={styles.checkoutPrice}><div><strong>Pay per audiobook</strong><p>One full book · one payment</p></div><span>299 kr</span></div>
+        <p className={styles.hint}>You’ll review the payment in checkout before paying.</p>
+        <button type="button" className={styles.planLink} disabled={audiobookCheckoutLoading} onClick={() => { onClose(); router.push("/author/billing"); }}><div><strong>Looking for PRO?</strong><span>Compare plans and chapter-level controls</span></div><ArrowRight size={18} aria-hidden /></button>
+        {audiobookError && <p role="alert" className={styles.error}>{audiobookError}</p>}
+      </DialogBody>
+      <DialogFooter><button type="button" onClick={onCheckout} disabled={audiobookCheckoutLoading} className={styles.generate}>{audiobookCheckoutLoading ? "Opening checkout…" : "Continue to checkout"}</button></DialogFooter>
+    </Dialog>
   );
 }

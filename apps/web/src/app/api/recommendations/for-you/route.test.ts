@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   scoreSimilarBooks: vi.fn(),
   enrichWithAuthors: vi.fn(),
+  historyOrder: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -21,13 +22,14 @@ vi.mock("@/lib/recommendations/enrichment", () => ({
 
 const { GET } = await import("./route");
 
-function makeAuthedSupabase() {
+function makeAuthedSupabase(noHistory = false, readingsError = false) {
   const from = (table: string) => {
     if (table === "readings") {
       return {
         select: () => ({
           eq: () => ({
-            limit: async () => ({ data: [{ book_id: "seed-book" }], error: null }),
+            limit: async () => ({ data: noHistory ? [] : [{ book_id: "seed-book" }], error: readingsError ? { message: "database unavailable" } : null }),
+            order: mocks.historyOrder.mockReturnValue({ limit: async () => ({ data: noHistory ? [] : [{ book_id: "seed-book" }], error: readingsError ? { message: "database unavailable" } : null }) }),
           }),
         }),
       };
@@ -51,7 +53,7 @@ function makeAuthedSupabase() {
             error: null,
           }),
           eq: () => ({
-            in: async () => ({ data: [], error: null }),
+            in: async () => ({ data: [{ id: "seed-book", author_id: "author-1", language: "en" }], error: null }),
           }),
         }),
       };
@@ -60,14 +62,14 @@ function makeAuthedSupabase() {
     if (table === "book_genres") {
       return {
         select: () => ({
-          in: async (column: string) => {
+          in: (column: string) => {
             if (column === "book_id") {
               return {
                 data: [{ book_id: "seed-book", genre_id: "genre-1" }],
                 error: null,
               };
             }
-            return { data: [], error: null };
+            return { limit: async () => ({ data: [{ book_id: "seed-book" }], error: null }) };
           },
           limit: async () => ({ data: [], error: null }),
         }),
@@ -136,7 +138,33 @@ describe("GET /api/recommendations/for-you", () => {
     expect(body.books).toEqual([
       expect.objectContaining({ id: "book-2", author_name: "Author Two", score: 15 }),
     ]);
+    expect(mocks.historyOrder).toHaveBeenCalledWith("last_read_at", { ascending: false });
     expect(mocks.scoreSimilarBooks).toHaveBeenCalledTimes(1);
     expect(mocks.enrichWithAuthors).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("recommendation signal boundaries", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.scoreSimilarBooks.mockResolvedValue([]);
+    mocks.enrichWithAuthors.mockResolvedValue([]);
+  });
+
+  it("scores genre-only readers without inventing an author or read history", async () => {
+    mocks.createClient.mockResolvedValueOnce(makeAuthedSupabase(true));
+    const response = await GET(new Request("http://localhost/api/recommendations/for-you"));
+    expect(response.status).toBe(200);
+    expect(mocks.scoreSimilarBooks).toHaveBeenCalledWith(expect.anything(), null, null, null, ["genre-1"], 50);
+  });
+
+  it("returns a retryable error when reading history cannot be loaded", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.createClient.mockResolvedValueOnce(makeAuthedSupabase(false, true));
+    const response = await GET(new Request("http://localhost/api/recommendations/for-you"));
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ error: "RECOMMENDATIONS_LOAD_FAILED" });
+    expect(mocks.scoreSimilarBooks).not.toHaveBeenCalled();
+    log.mockRestore();
   });
 });
