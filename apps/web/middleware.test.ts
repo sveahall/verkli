@@ -238,7 +238,7 @@ describe("middleware order paths survive the site locks", () => {
       process.env.BETA_LOCK = "false";
     });
 
-    it.each(["/api/order/ta-for-er", "/order/ta-for-er/success"])(
+    it.each(["/api/order/ta-for-er", "/order/ta-for-er/success", "/apply", "/api/apply"])(
       "lets %s through instead of redirecting it to /waitlist",
       async (path) => {
         const { middleware } = await import("./middleware");
@@ -329,6 +329,16 @@ describe("middleware order paths survive the site locks", () => {
       expect(res.status).not.toBe(403);
     });
 
+    it.each(["/apply", "/api/apply"])(
+      "does not lock the invitation form %s",
+      async (path) => {
+        const { middleware } = await import("./middleware");
+        const res = await middleware(new NextRequest(`http://localhost${path}`));
+        expect(res.status).not.toBe(403);
+        expect(res.headers.get("location") ?? "").not.toContain("/waitlist");
+      }
+    );
+
     it("does not bounce the Stripe return page to /waitlist", async () => {
       const { middleware } = await import("./middleware");
       const res = await middleware(
@@ -369,7 +379,7 @@ describe("middleware order paths survive the site locks", () => {
         mockIsBetaUser.mockImplementation(() => Promise.resolve(false));
       });
 
-      it.each(["/api/order/ta-for-er", "/order/ta-for-er/success"])(
+      it.each(["/api/order/ta-for-er", "/order/ta-for-er/success", "/apply", "/api/apply"])(
         "does not 503 %s, because the lookup cannot change the outcome",
         async (path) => {
           const { middleware } = await import("./middleware");

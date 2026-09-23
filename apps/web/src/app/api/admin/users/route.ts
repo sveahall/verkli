@@ -20,7 +20,7 @@ export async function GET(request: Request) {
 
   let query = admin
     .from("profiles")
-    .select("user_id, role, display_name, username, created_at", { count: "exact" })
+    .select("user_id, role, display_name, username, created_at, deletion_requested_at, deletion_completed_at", { count: "exact" })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 

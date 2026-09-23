@@ -15,11 +15,11 @@ import ReaderDiscoverPageView from "@/features/reader/reader-discover/ReaderDisc
 /* ── Search param types ── */
 
 type SearchParams = {
-  lang?: string;
-  q?: string;
-  genre?: string; // comma-separated slugs, e.g. "fiction,romance"
-  format?: string;
-  sort?: string;
+  lang?: string | string[];
+  q?: string | string[];
+  genre?: string | string[]; // comma-separated slugs, e.g. "fiction,romance"
+  format?: string | string[];
+  sort?: string | string[];
 };
 
 export const revalidate = 300;
@@ -52,6 +52,12 @@ function parseFormat(raw: string | undefined): Format {
 function parseSort(raw: string | undefined): Sort {
   if (raw && VALID_SORTS.includes(raw as Sort)) return raw as Sort;
   return "newest";
+}
+
+// Next.js returns arrays for repeated query keys. Scalar filters use the first
+// value; genres combine repeated keys and comma-separated selections.
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 /* ── Data fetching ── */
@@ -123,7 +129,7 @@ async function fetchFilteredBooks(
 
   // Text search
   if (query) {
-    base = base.ilike("title", `%${query}%`);
+    base = base.ilike("title", `%${query.replace(/[\\%_]/g, "\\$&")}%`);
   }
 
   // Genre filter (restrict to matched book IDs)
@@ -293,15 +299,15 @@ export default async function ReaderDiscoverPage({
   }
 
   const params = await searchParams;
-  const language = normalizeLanguage(params?.lang);
+  const language = normalizeLanguage(firstParam(params?.lang));
   const langLabel = getLanguageLabel(language);
-  const query = (params?.q ?? "").trim();
-  const genreSlugs = (params?.genre ?? "")
-    .split(",")
+  const query = (firstParam(params?.q) ?? "").trim();
+  const genreSlugs = [...new Set([params?.genre ?? ""].flat()
+    .flatMap((value) => value.split(","))
     .map((s) => s.trim())
-    .filter(Boolean);
-  const format = parseFormat(params?.format);
-  const sort = parseSort(params?.sort);
+    .filter(Boolean))];
+  const format = parseFormat(firstParam(params?.format));
+  const sort = parseSort(firstParam(params?.sort));
 
   const supabase = await createClient();
 

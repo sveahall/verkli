@@ -55,6 +55,8 @@ export type MarketingJobData = {
   campaignId?: string;
   /** When set, the worker expands a marketing_campaign_plans row into marketing_posts. */
   campaignPlanId?: string;
+  /** Worker checkpoint: unresolved paid work blocks automatic queue recovery. */
+  modelWorkPending?: string | null;
 };
 
 export async function enqueueMarketingJob(data: MarketingJobData): Promise<string | null> {

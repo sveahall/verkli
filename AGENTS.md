@@ -18,7 +18,7 @@ Guidance for AI agents and developers working in this repo.
 ### No Prisma
 
 - **Data layer is Supabase only.** There is no Prisma; `packages/db` is a thin Supabase-oriented package (see `packages/db/src/index.ts`).
-- **`check:no-prisma`** (root script) fails if `@prisma/client` or `prisma` appears under `node_modules`. Do not introduce Prisma. Ignore or refactor any remaining references (e.g. `packages/db/load-env-and-migrate.cjs` still mentions Prisma and is legacy).
+- **`check:no-prisma`** (root script) fails if `@prisma/client` or `prisma` appears under `node_modules`. Do not introduce Prisma.
 
 ### Supabase types
 

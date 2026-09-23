@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   scoreSimilarBooks: vi.fn(),
   enrichWithAuthors: vi.fn(),
+  historyOrder: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -28,6 +29,7 @@ function makeAuthedSupabase(noHistory = false, readingsError = false) {
         select: () => ({
           eq: () => ({
             limit: async () => ({ data: noHistory ? [] : [{ book_id: "seed-book" }], error: readingsError ? { message: "database unavailable" } : null }),
+            order: mocks.historyOrder.mockReturnValue({ limit: async () => ({ data: noHistory ? [] : [{ book_id: "seed-book" }], error: readingsError ? { message: "database unavailable" } : null }) }),
           }),
         }),
       };
@@ -136,6 +138,7 @@ describe("GET /api/recommendations/for-you", () => {
     expect(body.books).toEqual([
       expect.objectContaining({ id: "book-2", author_name: "Author Two", score: 15 }),
     ]);
+    expect(mocks.historyOrder).toHaveBeenCalledWith("last_read_at", { ascending: false });
     expect(mocks.scoreSimilarBooks).toHaveBeenCalledTimes(1);
     expect(mocks.enrichWithAuthors).toHaveBeenCalledTimes(1);
   });
