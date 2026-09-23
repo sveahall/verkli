@@ -33,6 +33,7 @@ function normalizePreviewPath(value: unknown): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   if (/^https?:\/\//i.test(trimmed)) return null;
+  if (trimmed.startsWith("/") || trimmed.includes("\\") || trimmed.includes("..")) return null;
   return trimmed;
 }
 
@@ -153,7 +154,7 @@ export async function GET() {
   ] = await Promise.all([
     supabase
       .from("audiobook_assets")
-      .select("book_id, audio_path, audio_bucket, created_at")
+      .select("book_id, audio_path, created_at")
       .in("book_id", bookIds)
       .order("created_at", { ascending: false }),
     supabase
@@ -192,15 +193,11 @@ export async function GET() {
     return apiError(E_JOB_FETCH_FAILED, 500);
   }
 
-  const latestAssetByBookId = new Map<
-    string,
-    { audioPath: string | null; audioBucket: string | null }
-  >();
+  const latestAssetByBookId = new Map<string, { audioPath: string | null }>();
   for (const asset of audiobookAssetsResult.data ?? []) {
     if (latestAssetByBookId.has(asset.book_id)) continue;
     latestAssetByBookId.set(asset.book_id, {
       audioPath: normalizePreviewPath(asset.audio_path),
-      audioBucket: asset.audio_bucket ?? null,
     });
   }
 
@@ -215,7 +212,7 @@ export async function GET() {
         return;
       }
 
-      const bucket = asset.audioBucket?.trim() || defaultBucket;
+      const bucket = defaultBucket;
       const signedUrl = await signStoragePath(
         admin,
         asset.audioPath,
@@ -243,21 +240,11 @@ export async function GET() {
             : {};
         const safeError = sanitizeJobError(row.error);
         const audioPath = normalizePreviewPath(output.audioPath);
-        const audioBucket =
-          typeof output.audioBucket === "string" && output.audioBucket.trim().length > 0
-            ? output.audioBucket.trim()
-            : defaultBucket;
+        const audioBucket = defaultBucket;
         const manifestPath = normalizePreviewPath(output.manifestPath);
-        const manifestBucket =
-          typeof output.manifestBucket === "string" && output.manifestBucket.trim().length > 0
-            ? output.manifestBucket.trim()
-            : defaultBucket;
+        const manifestBucket = defaultBucket;
         const generatedChapterAudioPath = normalizePreviewPath(output.generatedChapterAudioPath);
-        const generatedChapterAudioBucket =
-          typeof output.generatedChapterAudioBucket === "string" &&
-          output.generatedChapterAudioBucket.trim().length > 0
-            ? output.generatedChapterAudioBucket.trim()
-            : defaultBucket;
+        const generatedChapterAudioBucket = defaultBucket;
         const [audioUrl, manifestUrl, generatedChapterAudioUrl] = await Promise.all([
           signStoragePath(admin, audioPath, audioBucket, "[author jobs] output audio sign failed", {
             bookId,
@@ -294,7 +281,7 @@ export async function GET() {
             generatedChapterAudioUrl ??
             audioUrl ??
             assetPreview.audioUrl ??
-            (typeof output.audioUrl === "string" ? output.audioUrl : null),
+            null,
           logSummary: getAudiobookLogSummary(status, output, safeError),
           createdAt: row.created_at ?? null,
           startedAt: row.started_at ?? null,
@@ -305,6 +292,9 @@ export async function GET() {
               ? (row.input as Record<string, unknown>)
               : {}),
             ...output,
+            audioBucket,
+            manifestBucket,
+            generatedChapterAudioBucket,
             audioUrl,
             manifestUrl: manifestUrl ?? assetPreview.manifestUrl,
             generatedChapterAudioUrl,

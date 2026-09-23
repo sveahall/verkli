@@ -1,6 +1,8 @@
 /**
- * BullMQ worker: process "translate" jobs for book translations (Opus MT / CTranslate2).
- * Run from apps/web: npm run translate-worker (requires REDIS_URL, Supabase env; Python venv and model in apps/web/models/sv_en)
+ * BullMQ worker: process "translate" jobs for book translations.
+ * With the critic on: OpenAI drafts, Anthropic audits, OpenAI revises.
+ * Otherwise Anthropic translates and OpenAI covers an outage.
+ * Run from apps/web: npm run translate-worker (requires REDIS_URL, Supabase env, ANTHROPIC_API_KEY or OPENAI_API_KEY)
  */
 
 import type { MeterContext } from "../src/lib/usage/types";
@@ -11,12 +13,9 @@ import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 import { Worker, UnrecoverableError } from "bullmq";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import type { TranslationJobData } from "../src/lib/translation-queue";
-import { translateBatch as opusTranslateBatch, sanitizeTranslatedText } from "../src/lib/opus";
-import { nvidiaRivaTranslator } from "../src/lib/ai/providers/nvidia-riva-translator";
-import { anthropicTranslator } from "../src/lib/ai/providers/anthropic-translator";
-import { opusTranslator } from "../src/lib/ai/providers/opus-translator";
-import { ChainTranslator } from "../src/lib/ai/providers/chain-translator";
-import { getProviderForPair, type TranslationProvider } from "../src/lib/translation-pairs";
+import { getTranslatorForPair, translationUsesCriticLoop } from "../src/lib/ai/providers/translation-runtime";
+import type { TranslatorProvider } from "../src/lib/ai/providers/types";
+import { isTranslationPairSupported } from "../src/lib/translation-pairs";
 import { detectLanguageWithConfidence } from "../src/lib/language-detect";
 import { contentHash } from "../src/lib/import-extract";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
@@ -44,7 +43,7 @@ function translateSmokeText(text: string, targetLanguage: string): string {
   return `[smoke:${normalizedTarget}] ${trimmed}`;
 }
 
-/** Max chars per batch sent to Opus MT (~1500-2000 tokens for European languages). */
+/** Max chars per batch handed to the translator. The provider batches again internally. */
 const MAX_BATCH_CHARS = 6000;
 /** Per-chunk retry attempts with exponential backoff. */
 const MAX_CHUNK_RETRY = 3;
@@ -118,8 +117,8 @@ function batchByChars(texts: string[], maxChars: number): string[][] {
 }
 
 /**
- * Translate a batch of texts via the appropriate provider, with retry.
- * Opus MT output is sanitized; NVIDIA Riva output is used as-is.
+ * Translate a batch of texts, with retry. Failover to OpenAI lives inside the
+ * translator, and only for outages — a bad reply stays on the same engine.
  */
 async function translateBatchWithRetry(
   texts: string[],
@@ -127,27 +126,24 @@ async function translateBatchWithRetry(
   targetLang: string,
   chapterId: string,
   batchIndex: number,
-  provider: TranslationProvider,
+  translator: TranslatorProvider,
   meter?: MeterContext,
 ): Promise<string[]> {
   for (let attempt = 1; attempt <= MAX_CHUNK_RETRY; attempt++) {
     try {
-      let results: string[];
-
-      if (provider === "opus") {
-        const raw = opusTranslateBatch({ texts, sourceLanguage: sourceLang, targetLanguage: targetLang });
-        results = raw.map((t) => sanitizeTranslatedText(t));
-      } else if (provider === "nvidia-riva") {
-        results = await nvidiaRivaTranslator.translateBatch(texts, sourceLang, targetLang);
-      } else if (provider === "anthropic") {
-        results = await anthropicTranslator.translateBatch(texts, sourceLang, targetLang, meter);
-      } else {
-        // chain: sv → en (Opus) → target (Riva), or source (Riva) → en → sv (Opus)
-        const chain = sourceLang === "sv"
-          ? new ChainTranslator(opusTranslator, nvidiaRivaTranslator)
-          : new ChainTranslator(nvidiaRivaTranslator, opusTranslator);
-        results = await chain.translateBatch(texts, sourceLang, targetLang);
-      }
+      const results = translator.translateBatch
+        ? await translator.translateBatch(texts, sourceLang, targetLang, meter)
+        : await Promise.all(
+            texts.map(async (text) => {
+              const result = await translator.translate({
+                text,
+                sourceLanguage: sourceLang,
+                targetLanguage: targetLang,
+                meter,
+              });
+              return result.translatedText;
+            })
+          );
 
       return results.map((t, i) => {
         if (!t.trim() && texts[i].trim()) {
@@ -164,7 +160,7 @@ async function translateBatchWithRetry(
         attempt,
         maxAttempts: MAX_CHUNK_RETRY,
         error: msg.slice(0, 300),
-        provider,
+        provider: translator.name,
       });
       if (attempt === MAX_CHUNK_RETRY) throw err;
       const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
@@ -211,37 +207,23 @@ function assertWorkerEnv(): void {
   }
 }
 
-function assertOpusEnv(): void {
+function assertTranslationEnv(): void {
   if (PIPELINE_SMOKE_MODE) {
-    console.warn("[translation worker] PIPELINE_SMOKE_MODE=true — Opus MT binary checks are skipped.");
+    console.warn("[translation worker] PIPELINE_SMOKE_MODE=true — provider key checks are skipped.");
     return;
   }
 
-  // Opus is optional and normally absent: it needs a Python venv and a
-  // downloaded model.bin that ships with neither the repo nor this image.
-  // getProviderForPair() checks the same two variables, so when they are unset
-  // nothing is routed to Opus and its absence costs nothing.
-  const opusMissing: string[] = [];
-  if (!process.env.OPUSMT_PYTHON?.trim()) opusMissing.push("OPUSMT_PYTHON");
-  if (!process.env.OPUSMT_MODELS_DIR?.trim()) opusMissing.push("OPUSMT_MODELS_DIR");
-  if (opusMissing.length > 0) {
-    console.warn(
-      `[translation worker] Opus MT not configured (${opusMissing.join(", ")}). sv pairs route to Anthropic instead.`
-    );
-  }
-
-  if (!process.env.NVIDIA_NIM_API_KEY?.trim()) {
-    console.warn(
-      "[translation worker] NVIDIA_NIM_API_KEY not set. Riva pairs (en/de/es/fr/pt/ru/zh/ja/ko/ar) will fail."
-    );
-  }
-
-  // This one is load-bearing. Without Opus, every Swedish pair — which is every
-  // book on the platform today — resolves to Anthropic, so a missing key here
-  // means translation does not work at all rather than partially.
-  if (!process.env.ANTHROPIC_API_KEY?.trim()) {
+  const anthropic = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+  const openai = Boolean(process.env.OPENAI_API_KEY?.trim());
+  if (!anthropic && !openai) {
     console.error(
-      "[translation worker] ANTHROPIC_API_KEY not set. Swedish translations will fail."
+      "[translation worker] Neither ANTHROPIC_API_KEY nor OPENAI_API_KEY is set. Translations will fail."
+    );
+  } else if (!anthropic) {
+    console.warn("[translation worker] ANTHROPIC_API_KEY not set. Translations use OpenAI.");
+  } else if (!openai) {
+    console.warn(
+      "[translation worker] OPENAI_API_KEY not set. No standby if Anthropic is unavailable."
     );
   }
 }
@@ -356,8 +338,13 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       throw new UnrecoverableError("Target language missing or unsupported for translation job");
     }
 
-    const translationProvider = getProviderForPair(sourceLang, normalizedTarget);
-    if (!translationProvider) {
+    if (!isTranslationPairSupported(sourceLang, normalizedTarget)) {
+      throw new UnrecoverableError(
+        `Unsupported translation pair: ${sourceLang} -> ${normalizedTarget}`
+      );
+    }
+    const translator = getTranslatorForPair(sourceLang, normalizedTarget);
+    if (!translator) {
       throw new UnrecoverableError(
         `Unsupported translation pair: ${sourceLang} -> ${normalizedTarget}`
       );
@@ -422,27 +409,6 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       });
     }
 
-    if (overwrite) {
-      if (selectedChapterId) {
-        const { data: sourceChapterForDelete, error: sourceChapterForDeleteError } = await supabase
-          .from("chapters")
-          .select("order")
-          .eq("book_version_id", sourceVersionId)
-          .eq("id", selectedChapterId)
-          .maybeSingle();
-        if (sourceChapterForDeleteError || !sourceChapterForDelete) {
-          throw new Error(sourceChapterForDeleteError?.message ?? "Selected source chapter not found");
-        }
-        await supabase
-          .from("chapters")
-          .delete()
-          .eq("book_version_id", resolvedTargetVersionId)
-          .eq("order", sourceChapterForDelete.order);
-      } else {
-        await supabase.from("chapters").delete().eq("book_version_id", resolvedTargetVersionId);
-      }
-    }
-
     let chaptersQuery = supabase
       .from("chapters")
       .select("id, title, source_text, content, order")
@@ -480,7 +446,9 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       }
       return sum + content.length;
     }, 0);
-    const estimatedCostUnits = Math.ceil(totalChars / 4);
+    // Draft, critique and revision are three full reads of the chapter. Reserve
+    // for that when the loop will actually run, so the daily cap matches the bill.
+    const estimatedCostUnits = Math.ceil(totalChars / 4) * (translationUsesCriticLoop() ? 3 : 1);
     const budgetUserId = payload.authorId ?? book.author_id;
     if (!budgetUserId) {
       throw new UnrecoverableError("Missing authorId for translation budget enforcement");
@@ -512,8 +480,18 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       chapterCount: chapterList.length,
       totalChars,
       scope: selectedChapterId ? "chapter" : "book",
-      provider: translationProvider,
+      provider: translator.name,
     });
+
+    const pendingChapters: Array<{
+      book_id: string;
+      book_version_id: string;
+      title: string;
+      content: string;
+      source_text: string;
+      content_hash: string;
+      order: number;
+    }> = [];
 
     for (let i = 0; i < chapterList.length; i++) {
       const ch = chapterList[i];
@@ -531,7 +509,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
       if (sourceContent.trim()) {
         try {
           if (PIPELINE_SMOKE_MODE) {
-            // Smoke mode: prefix text with smoke marker (no Opus MT)
+            // Smoke mode: prefix text with a marker. No model call.
             if (isTiptapJson(sourceContent)) {
               const parsed = JSON.parse(sourceContent);
               const texts = collectTiptapTexts(parsed);
@@ -571,7 +549,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
                   const allTranslated: string[] = [];
                   for (let bi = 0; bi < batches.length; bi++) {
                     const result = await translateBatchWithRetry(
-                      batches[bi], sourceLang, normalizedTarget, ch.id, bi, translationProvider, translationMeter,
+                      batches[bi], sourceLang, normalizedTarget, ch.id, bi, translator, translationMeter,
                     );
                     allTranslated.push(...result);
                   }
@@ -590,7 +568,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
                   const allTranslated: string[] = [];
                   for (let bi = 0; bi < batches.length; bi++) {
                     const result = await translateBatchWithRetry(
-                      batches[bi], sourceLang, normalizedTarget, ch.id, bi, translationProvider, translationMeter,
+                      batches[bi], sourceLang, normalizedTarget, ch.id, bi, translator, translationMeter,
                     );
                     allTranslated.push(...result);
                   }
@@ -615,27 +593,15 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
         }
       }
 
-      const hash = contentHash(translatedContent);
-      const { error: upsertError } = await supabase.from("chapters").upsert(
-        {
-          book_id: bookId,
-          book_version_id: resolvedTargetVersionId,
-          title: ch.title ?? `Chapter ${Number(ch.order ?? i) + 1}`,
-          content: translatedContent,
-          source_text: sourceContent,
-          content_hash: hash,
-          order: Number(ch.order ?? i),
-        },
-        { onConflict: "book_version_id,order" }
-      );
-      if (upsertError) {
-        structuredLog("chapter_upsert_failed", {
-          chapterId: ch.id,
-          error: upsertError.message,
-          details: upsertError.details,
-        });
-        throw new Error(`Failed to upsert translated chapter: ${upsertError.message}`);
-      }
+      pendingChapters.push({
+        book_id: bookId,
+        book_version_id: resolvedTargetVersionId,
+        title: ch.title ?? `Chapter ${Number(ch.order ?? i) + 1}`,
+        content: translatedContent,
+        source_text: sourceContent,
+        content_hash: contentHash(translatedContent),
+        order: Number(ch.order ?? i),
+      });
 
       if (!selectedChapterId) {
         translationProgress = Math.round(((i + 1) / chapterList.length) * 100);
@@ -653,6 +619,31 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
         sourceChars: sourceContent.length,
         translatedChars: translatedContent.length,
       });
+    }
+
+    const { error: upsertError } = await supabase
+      .from("chapters")
+      .upsert(pendingChapters, { onConflict: "book_version_id,order" });
+    if (upsertError) {
+      structuredLog("chapter_upsert_failed", {
+        error: upsertError.message,
+        details: upsertError.details,
+      });
+      throw new Error(`Failed to upsert translated chapters: ${upsertError.message}`);
+    }
+
+    if (overwrite && !selectedChapterId && pendingChapters.length > 0) {
+      const keptOrders = pendingChapters
+        .map((row) => row.order)
+        .filter((order) => Number.isFinite(order));
+      const { error: trimError } = await supabase
+        .from("chapters")
+        .delete()
+        .eq("book_version_id", resolvedTargetVersionId)
+        .not("order", "in", `(${keptOrders.join(",")})`);
+      if (trimError) {
+        throw new Error(`Failed to trim replaced translation chapters: ${trimError.message}`);
+      }
     }
 
     await supabase
@@ -702,7 +693,7 @@ async function processJob(payload: TranslationJobData, workerJobId?: string) {
 
 function main() {
   assertWorkerEnv();
-  assertOpusEnv();
+  assertTranslationEnv();
 
   const url = process.env.REDIS_URL ?? "";
   if (!url || url.trim() === "") {

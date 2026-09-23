@@ -35,7 +35,7 @@ export const runtime = "nodejs";
 
 // createPerUserRateLimiter is generic — the key is just a string identifier;
 // we pass the client IP for this anonymous endpoint.
-const dmcaLimiter = createPerUserRateLimiter({ maxPerMinute: 3 });
+const dmcaLimiter = createPerUserRateLimiter({ name: "legal-dmca-takedown", maxPerMinute: 3 });
 
 const dmcaSchema = z.object({
   // Rightsholder identification

@@ -12,7 +12,7 @@ import {
 
 export const runtime = "nodejs";
 
-const changeLimiter = createPerUserRateLimiter({ maxPerMinute: 3 });
+const changeLimiter = createPerUserRateLimiter({ name: "account-email", maxPerMinute: 3 });
 
 const bodySchema = z.object({
   email: z.string().trim().email().max(320),

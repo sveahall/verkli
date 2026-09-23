@@ -140,6 +140,9 @@ export async function POST(
         bookTitle,
         chapterTitle,
         chapterText,
+        // The critic loop bills each of its own calls. A single-model reply
+        // still returns `usage` and is recorded below.
+        meter: { userId: user.id, pipeline: "assistant", bookId },
       });
 
       // Metered here rather than inside the provider: the assistant already

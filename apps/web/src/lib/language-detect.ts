@@ -8,6 +8,11 @@ const COMMON_WORDS: Record<SupportedLanguage, string[]> = {
   it: ["il", "lo", "la", "gli", "le", "e", "che", "non", "una", "per", "con"],
   pt: ["o", "a", "os", "as", "e", "de", "que", "não", "para", "uma", "com"],
   sv: ["och", "det", "att", "som", "inte", "är", "en", "ett", "på", "med", "för", "har"],
+  da: ["og", "jeg", "af", "ikke", "blev", "havde", "også", "nogle", "være", "denne"],
+  no: ["og", "jeg", "ikke", "ble", "hadde", "også", "noen", "være", "fra", "denne"],
+  fi: ["ja", "on", "että", "ei", "oli", "hän", "mutta", "ole", "niin", "kun"],
+  nl: ["het", "een", "van", "niet", "zijn", "voor", "ook", "naar", "werd", "deze"],
+  pl: ["się", "nie", "że", "jest", "czy", "jego", "tylko", "przez", "był", "ale"],
   ru: ["и", "в", "не", "на", "что", "он", "как", "это", "она", "по", "но"],
   zh: [],
   ja: [],
@@ -35,6 +40,7 @@ const CHAR_HINTS: Partial<Record<SupportedLanguage, RegExp>> = {
   ja: /[\u3040-\u309F\u30A0-\u30FF]/g,
   ko: /[\uAC00-\uD7AF\u1100-\u11FF]/g,
   ar: /[\u0600-\u06FF]/g,
+  pl: /[ąęłńśźż]/g,
 };
 
 const MIN_TOKEN_COUNT = 8;
@@ -86,6 +92,23 @@ export function detectLanguageFromText(text: string): SupportedLanguage | null {
   if (!top || top.score < MIN_SCORE) return null;
   if (runnerUp && top.score - runnerUp.score < MIN_MARGIN) return null;
   return top.code;
+}
+
+/**
+ * Walk several passages until detection is confident.
+ * A short opening chapter ("Introduction") is not enough on its own.
+ */
+export function detectLanguageFromParts(parts: Array<string | null | undefined>): SupportedLanguage | null {
+  let sample = "";
+  for (const part of parts) {
+    const text = part?.trim();
+    if (!text) continue;
+    sample = sample ? `${sample}\n\n${text}` : text;
+    const detected = detectLanguageFromText(sample);
+    if (detected) return detected;
+    if (sample.length >= 8000) break;
+  }
+  return sample ? detectLanguageFromText(sample) : null;
 }
 
 export function detectLanguageWithConfidence(text: string): {

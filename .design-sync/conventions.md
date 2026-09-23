@@ -41,7 +41,7 @@ Colour comes from OKLCH custom properties, so write `var(--…)` rather than hex
 - Status: `--color-success`, `--color-warning`, `--color-info`, `--color-error`, each with a
   `-muted` background companion. These back `Badge`'s semantic variants.
 - Brand: `--brand-violet` (plus `-hover` / `-active`), `--brand-rose`, `--brand-amber`.
-  The brand gradient ramp is `#907aff → #e29ed5 → #fcc997` (`BrandGradientText`).
+  The brand gradient ramp is `#907aff → #e29ed5 → #fcc997`.
 - Type: `--font-inter` is the sans stack.
 
 State must never be encoded by colour alone (DESIGN.md rule 6) — `Badge` therefore always

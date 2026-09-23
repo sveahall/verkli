@@ -189,11 +189,27 @@ export async function POST(
 
   if (insertError || !inserted?.id) {
     console.error("[trailer build] insert media_asset failed:", insertError?.message);
+    // No provider call has happened yet, so the whole reservation is owed back.
+    // Without this a DB failure silently burns `scenes.length` units of the
+    // author's daily cap having generated nothing. The status reset honours the
+    // rule stated above the "generating" write: a refusal must never leave the
+    // book showing a spinner that never resolves.
+    await refundVideoBudget(budget.reservation);
+    await admin.from("books").update({ trailer_status: "failed" }).eq("id", bookId);
     return apiError(E_DATABASE_ERROR, 500);
   }
 
+  // Declared outside the try so the catch can tell a pre-provider failure from
+  // a post-provider one. `refundVideoBudget` releases the whole reservation by
+  // jobId and has no partial mode, so the only honest refund is all-or-nothing
+  // and it is owed only when the provider produced nothing at all.
+  let billedScenes = 0;
+
   try {
-    const sceneResults = await Promise.all(
+    // `Promise.all` rejects on the first failure but does not cancel the rest,
+    // so a partial failure still bills every scene the provider completed.
+    // `allSettled` is what makes that count visible.
+    const settled = await Promise.allSettled(
       scenes.map((scene) =>
         generateImageToVideo({
           prompt: scene.visual_prompt,
@@ -202,6 +218,12 @@ export async function POST(
           includeAudio,
         })
       )
+    );
+    billedScenes = settled.filter((result) => result.status === "fulfilled").length;
+    const rejected = settled.find((result) => result.status === "rejected");
+    if (rejected) throw rejected.reason;
+    const sceneResults = settled.flatMap((result) =>
+      result.status === "fulfilled" ? [result.value] : []
     );
 
     const finalVideoBuffer = await stitchSceneVideos(
@@ -255,7 +277,13 @@ export async function POST(
       err instanceof Error ? err.message : "Unknown trailer build error.";
 
     await markMediaAssetFailed(admin, inserted.id, user.id, message);
-    await refundVideoBudget(budget.reservation);
+    // Refund only when nothing was billed. Refunding after scenes completed is
+    // what made the daily ceiling unenforceable: a stitch or upload failure
+    // returned every unit while the provider had already rendered and charged
+    // for all of them, so repeated failures cost real renders and zero budget.
+    if (billedScenes === 0) {
+      await refundVideoBudget(budget.reservation);
+    }
 
     // Mark book trailer as failed
     await admin

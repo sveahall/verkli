@@ -70,8 +70,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!proGate.ok) return proGate.response;
 
   const jobId = randomUUID();
-  // The critic re-sends the full text to a second provider, so an enabled
-  // critic genuinely costs twice the characters.
+  // The critic is a second full read of the same text, so an enabled critic
+  // genuinely costs twice the characters.
   const budgetUnits = parts[part].length * (isAiCriticEnabled() ? 2 : 1);
   try {
     validateJobCost({ userId: gate.user.id, pipeline: "editorial", jobSize: budgetUnits, jobId });

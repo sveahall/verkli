@@ -1,5 +1,6 @@
 import { storeImportFile } from "@/lib/import-storage";
 import { enqueueExtractJob, type ImportMode } from "@/lib/import-queue";
+import { IN_FLIGHT_IMPORT_STATUSES, selectInFlightImport } from "@/lib/imports/in-flight-import";
 import type { createClient } from "@/lib/supabase/server";
 import {
   E_BOOK_NOT_FOUND,
@@ -140,6 +141,29 @@ export async function startScopedBookImport({
         detail: "Cannot overwrite a published version",
       };
     }
+  }
+
+  const { data: activeRows } = await supabase
+    .from("book_imports")
+    .select("id, status, updated_at")
+    .eq("author_id", userId)
+    .eq("book_id", bookId)
+    .eq("mode", mode)
+    .in("status", [...IN_FLIGHT_IMPORT_STATUSES])
+    .order("updated_at", { ascending: false })
+    .limit(5);
+  const inFlight = selectInFlightImport(
+    (activeRows ?? []) as Array<{ id: string; status: string; updated_at: string }>,
+  );
+  if (inFlight) {
+    return {
+      ok: true,
+      importId: inFlight.id,
+      jobId: inFlight.id,
+      mode,
+      targetVersionId,
+      message: "Import already queued",
+    };
   }
 
   const { data: insertRow, error: insertError } = await supabase

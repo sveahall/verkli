@@ -23,7 +23,7 @@ import { plainTextToTiptapDoc } from "../src/lib/tiptap-content";
 import { uploadImportedChapterImages } from "../src/lib/import-images";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { enqueueTranslationJob } from "../src/lib/translation-queue";
-import { detectLanguageFromText } from "../src/lib/language-detect";
+import { detectLanguageFromParts } from "../src/lib/language-detect";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
 import { isDuplicate } from "../src/lib/workers/idempotency";
@@ -107,10 +107,21 @@ function isUniqueLanguageConstraint(message: string): boolean {
   );
 }
 
+const BOOK_TITLE_MAX = 200;
+
 function normalizeTitleValue(value: string | null | undefined): string {
   return String(value ?? "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Book titles land in prompts and slugs. Keep a real title, drop the rest. */
+function boundBookTitle(value: string | null | undefined): string {
+  const normalized = normalizeTitleValue(value);
+  if (normalized.length <= BOOK_TITLE_MAX) return normalized;
+  const cut = normalized.slice(0, BOOK_TITLE_MAX);
+  const space = cut.lastIndexOf(" ");
+  return (space > 40 ? cut.slice(0, space) : cut).trim();
 }
 
 function looksLikePlaceholderBookTitle(value: string | null | undefined): boolean {
@@ -298,7 +309,7 @@ export async function processJob(payload: ProcessJobPayload) {
     await updateImport({ status: "extracting", progress: 30 });
 
     const extracted = await runExtract(localPath);
-    const title = extracted.title || "Imported";
+    const title = boundBookTitle(extracted.title || "Imported");
     const chapters = extracted.chapters;
 
     if (!chapters.length) {
@@ -316,8 +327,7 @@ export async function processJob(payload: ProcessJobPayload) {
     await updateImport({ status: "extracting", progress: 55 });
 
     const warnings: string[] = [];
-    const sampleText = normalizedChapters.find((ch) => ch.sourceText?.trim())?.sourceText ?? "";
-    const detectedLanguage = detectLanguageFromText(sampleText);
+    const detectedLanguage = detectLanguageFromParts(normalizedChapters.map((chapter) => chapter.sourceText));
     const normalizedDetected = normalizeLanguageOrNull(detectedLanguage);
     if (!normalizedDetected) {
       warnings.push("language_detection_fallback");
@@ -396,15 +406,6 @@ export async function processJob(payload: ProcessJobPayload) {
 
         if (targetVersion.published_at) {
           throw new Error("Cannot overwrite a published version");
-        }
-
-        const { error: deleteError } = await supabase
-          .from("chapters")
-          .delete()
-          .eq("book_version_id", targetVersion.id);
-
-        if (deleteError) {
-          throw new Error(`Failed to clear draft chapters: ${deleteError.message}`);
         }
 
         targetBookVersionId = targetVersion.id;
@@ -624,20 +625,37 @@ export async function processJob(payload: ProcessJobPayload) {
         await updateImport({ status: "extracting", progress });
       }
     } catch (insertError) {
-      // Rollback: remove all chapters we inserted for this version to avoid orphans
-      console.error("[import worker] batch insert failed, rolling back chapters", {
+      // A new version has no previous draft, so a failed batch can drop the
+      // rows this run wrote. Overwrite must keep the existing draft: the
+      // chapters already upserted stay, and the rest of the old text stays.
+      console.error("[import worker] batch insert failed", {
         importId,
         targetBookVersionId,
         insertedCount,
         totalRows: rows.length,
+        keptExistingDraft: mode === "overwrite_draft",
       });
 
-      await supabase
-        .from("chapters")
-        .delete()
-        .eq("book_version_id", targetBookVersionId);
+      if (mode !== "overwrite_draft") {
+        await supabase
+          .from("chapters")
+          .delete()
+          .eq("book_version_id", targetBookVersionId);
+      }
 
       throw insertError;
+    }
+
+    if (mode === "overwrite_draft") {
+      const { error: trimError } = await supabase
+        .from("chapters")
+        .delete()
+        .eq("book_version_id", targetBookVersionId)
+        .gte("order", chaptersWithMedia.length);
+
+      if (trimError) {
+        throw new Error(`Failed to trim leftover draft chapters: ${trimError.message}`);
+      }
     }
 
     await updateImport({

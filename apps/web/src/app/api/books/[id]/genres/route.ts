@@ -11,6 +11,17 @@ export async function GET(
   if (!isValidUuid(bookId)) return apiError(E_INVALID_BOOK_ID, 400);
   const supabase = await createClient();
 
+  // book_genres is readable without a book check. Drafts are not: the books
+  // policy hides them from anyone but the author, so a missing row here is a
+  // draft the caller cannot see.
+  const { data: book, error: bookError } = await supabase
+    .from("books")
+    .select("id")
+    .eq("id", bookId)
+    .maybeSingle();
+  if (bookError) return apiError(E_DATABASE_ERROR, 500);
+  if (!book) return apiError(E_BOOK_NOT_FOUND, 404);
+
   const { data, error } = await supabase
     .from("book_genres")
     .select("genre_id")

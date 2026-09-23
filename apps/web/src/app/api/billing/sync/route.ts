@@ -14,6 +14,7 @@ import {
   type BillingAccountPatch,
 } from "@/lib/billing/server";
 import { resolveBillingRole } from "@/lib/auth/billing-role";
+import { getConfirmedEmail } from "@/lib/auth/verified-email";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import {
   apiError,
@@ -25,7 +26,7 @@ import {
 
 export const runtime = "nodejs";
 
-const syncLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const syncLimiter = createPerUserRateLimiter({ name: "billing-sync", maxPerMinute: 5 });
 
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 
@@ -184,8 +185,11 @@ export async function GET(request: Request) {
   if (!error && row?.stripe_customer_id?.trim()) {
     customerIdsToTry = [row.stripe_customer_id.trim()];
   } else {
-    // No row or no customer_id: try to find Stripe customer(s) by email (recover from Stripe).
-    const email = (user.email ?? "").trim();
+    // No row or no customer_id: try to find Stripe customer(s) by email
+    // (recover from Stripe). Confirmed address only — this branch adopts
+    // whatever subscription that address owns, so it must be proven rather than
+    // claimed. See lib/auth/verified-email.
+    const email = getConfirmedEmail(user) ?? "";
     if (email) {
       try {
         const customers = await listStripeCustomersByEmail(email);

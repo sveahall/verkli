@@ -17,6 +17,18 @@ describe("generateLaunchCopy", () => {
   });
   afterEach(() => vi.unstubAllEnvs());
 
+  it("caps a book title before it sets the headline size", async () => {
+    const longTitle = `Ocean ${"A".repeat(400)}`;
+    const capped = longTitle.replace(/\s+/g, " ").trim().slice(0, 200);
+    create.mockResolvedValue({
+      content: [{ type: "text", text: JSON.stringify({ ...copy, headline: capped }) }],
+    });
+    await generateLaunchCopy({ ...input, title: longTitle });
+    const sent = JSON.parse(create.mock.calls[0][0].messages[0].content) as { title: string };
+    expect(sent.title).toBe(capped);
+    expect(sent.title.length).toBe(200);
+  });
+
   it("uses the selected language and book facts, and returns the provider's copy", async () => {
     expect(await generateLaunchCopy(input)).toEqual(copy);
     const request = create.mock.calls[0][0];
