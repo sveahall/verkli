@@ -43,7 +43,7 @@ export async function recordUsage(
       const { costUsd, priceVersion } = computeCost(price, event.quantity);
       return {
         user_id: ctx.userId,
-        occurred_at: now.toISOString(),
+        occurred_at: event.occurredAt ?? now.toISOString(),
         kind: event.kind,
         provider: event.provider ?? null,
         model: event.model ?? null,
