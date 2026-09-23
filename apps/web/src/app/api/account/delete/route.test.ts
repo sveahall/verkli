@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   eq: vi.fn(),
   audit: vi.fn(),
+  reread: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -18,15 +19,19 @@ vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: m
 
 import { DELETE, POST } from "./route";
 
-function profileResult(data: unknown, error: { message: string } | null = null) {
+function profileResult(data: unknown, error: { message: string } | null = null, conditional?: { data: unknown; error: null }) {
   const result = { data, error };
   // Supports the old unverified update as well as a returning-row update.
   const returning = { select: () => ({ maybeSingle: async () => result }) };
   mocks.eq.mockReturnValue({
     ...result,
     ...returning,
-    // The cancel path narrows to rows that actually have a pending request.
+    // The cancel path narrows to rows that actually have a pending request;
+    // the request path narrows to rows that do not.
     not: () => returning,
+    is: () => ({ select: () => ({ maybeSingle: async () => conditional ?? result }) }),
+    // The re-read that tells "already pending" apart from "no profile".
+    maybeSingle: async () => result,
   });
 }
 
@@ -39,8 +44,14 @@ describe("account deletion request acknowledgement", () => {
     mocks.check.mockResolvedValue({ allowed: true });
     mocks.update.mockReturnValue({ eq: mocks.eq });
     mocks.audit.mockResolvedValue({ error: null });
+    mocks.reread.mockResolvedValue({ data: null, error: null });
     mocks.from.mockImplementation((table: string) => {
-      if (table === "profiles") return { update: mocks.update };
+      if (table === "profiles") return {
+        update: mocks.update,
+        // The request path re-reads to tell "already pending" apart from
+        // "no profile row", so a re-post is idempotent rather than a 500.
+        select: () => ({ eq: () => ({ maybeSingle: mocks.reread }) }),
+      };
       if (table === "audit_log") return { insert: mocks.audit };
       throw new Error(`Unexpected table ${table}`);
     });
@@ -68,6 +79,23 @@ describe("account deletion request acknowledgement", () => {
     expect(await response.json()).toMatchObject({ error: "DATABASE_ERROR" });
     expect(mocks.signOut).not.toHaveBeenCalled();
     expect(mocks.audit).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Found by an outside review. The request used to overwrite an existing
+   * timestamp, which restarts the 14-day grace window — an account could
+   * postpone its own deletion indefinitely, one click at a time. The update is
+   * now conditional, and a re-post reports the pending request rather than a 500.
+   */
+  it("does not restart the grace window when a request is already pending", async () => {
+    profileResult({ user_id: "own-user" }, null, { data: null, error: null });
+    mocks.reread.mockResolvedValue({ data: { deletion_requested_at: "2026-09-01T00:00:00.000Z" }, error: null });
+    const response = await POST();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ok: true, deletionRequested: true, alreadyRequested: true });
+    // No second audit entry and no sign-out: nothing changed.
+    expect(mocks.audit).not.toHaveBeenCalled();
+    expect(mocks.signOut).not.toHaveBeenCalled();
   });
 
   it("does not sign out after a failed profile update", async () => {
@@ -116,8 +144,14 @@ describe("withdrawing a deletion request", () => {
     mocks.check.mockResolvedValue({ allowed: true });
     mocks.update.mockReturnValue({ eq: mocks.eq });
     mocks.audit.mockResolvedValue({ error: null });
+    mocks.reread.mockResolvedValue({ data: null, error: null });
     mocks.from.mockImplementation((table: string) => {
-      if (table === "profiles") return { update: mocks.update };
+      if (table === "profiles") return {
+        update: mocks.update,
+        // The request path re-reads to tell "already pending" apart from
+        // "no profile row", so a re-post is idempotent rather than a 500.
+        select: () => ({ eq: () => ({ maybeSingle: mocks.reread }) }),
+      };
       if (table === "audit_log") return { insert: mocks.audit };
       throw new Error(`Unexpected table ${table}`);
     });
