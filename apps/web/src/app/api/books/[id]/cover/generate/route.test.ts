@@ -189,15 +189,15 @@ describe("POST /api/books/[id]/cover/generate", () => {
         "https://cdn.example.com/cover-4.jpg",
       ],
     });
-    expect(mocks.generateCoverImages).toHaveBeenCalledWith({
-      prompt: expect.stringContaining("no text"),
-    });
-    expect(mocks.generateCoverImages).toHaveBeenCalledWith({
-      prompt: expect.stringContaining("Business atmosphere"),
-    });
-    expect(mocks.generateCoverImages).toHaveBeenCalledWith({
-      prompt: expect.stringContaining("A fox in snow"),
-    });
+    expect(mocks.generateCoverImages).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: expect.stringContaining("no text"), })
+    );
+    expect(mocks.generateCoverImages).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: expect.stringContaining("Business atmosphere"), })
+    );
+    expect(mocks.generateCoverImages).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: expect.stringContaining("A fox in snow"), })
+    );
   });
 
   it("returns 502 when NVIDIA SD3 generation fails", async () => {

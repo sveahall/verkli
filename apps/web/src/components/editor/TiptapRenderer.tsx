@@ -4,13 +4,8 @@ import { useEffect, useMemo } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
-import TextAlign from "@tiptap/extension-text-align";
-import {
-  TextStyle,
-  FontFamily,
-  FontSize,
-  LineHeight,
-} from "@tiptap/extension-text-style";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { FontFamily, FontSize, LineHeight, Link, TextAlign } from "./safeTypography";
 import { toTiptapContent } from "@/lib/tiptap-content";
 
 type TiptapRendererProps = {
@@ -26,10 +21,12 @@ export default function TiptapRenderer({ content, className = "" }: TiptapRender
     editable: false,
     extensions: [
       StarterKit.configure({
+        link: false,
         heading: {
           levels: [1, 2, 3],
         },
       }),
+      Link,
       TextStyle,
       FontFamily.configure({ types: ["textStyle"] }),
       FontSize.configure({ types: ["textStyle"] }),

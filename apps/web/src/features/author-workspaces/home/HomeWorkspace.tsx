@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import CreateBookDialog from "@/components/books/CreateBookDialog";
 import AgentTeam from "@/features/ai-team/AgentTeam";
+import { useAiEnabled } from "@/features/ai-team/settings/availability";
 import { Button } from "@/components/ui/button";
 import { resolveCommandHref } from "@/features/author-shell/command-registry";
 import { useAuthorWorkspace } from "@/features/author-shell/workspace-state";
@@ -89,6 +90,7 @@ export default function HomeWorkspace({
   activity,
   countrySales,
 }: HomeWorkspaceProps) {
+  const aiEnabled = useAiEnabled();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const { setCurrentBookId } = useAuthorWorkspace();
 
@@ -240,7 +242,7 @@ export default function HomeWorkspace({
               </Link>
             </section>
 
-            <AgentTeam workspace bookId={primaryBook?.id} bookTitle={primaryBook?.title} onCreateBook={openCreateDialog} />
+            {aiEnabled && <AgentTeam workspace bookId={primaryBook?.id} bookTitle={primaryBook?.title} onCreateBook={openCreateDialog} />}
 
             <section>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">

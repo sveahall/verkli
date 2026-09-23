@@ -12,6 +12,9 @@ vi.mock("@/lib/book-translation", async (original) => ({ ...await original<objec
 vi.mock("@/lib/ai/translation-quality/anthropic", () => ({ translateWithQuality: mocks.translate }));
 vi.mock("@/lib/translation-queue", () => ({ getTranslationQueue: mocks.queue }));
 vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: mocks.limit }) }));
+// This route now checks the account's master AI switch first. Its own guard
+// test covers the blocked path; here the account simply has AI on.
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 
 const { POST, GET } = await import("./route");
 const { BudgetExceededError } = await import("@/lib/workers/budget");
@@ -125,10 +128,15 @@ describe("translation quality authorization and failure handling", () => {
     expect((await POST(request({ targetLanguage: "xx" }), params)).status).toBe(400);
     expect(mocks.translate).not.toHaveBeenCalled();
   });
-  it("rejects cross-origin requests", async () => {
-    const req = request(); req.headers.set("Origin", "https://unrelated.example");
-    expect((await POST(req, params)).status).toBe(403);
-    expect(mocks.translate).not.toHaveBeenCalled();
+  // CSRF belongs to middleware.ts, which checks Origin against
+  // NEXT_PUBLIC_SITE_URL. The copy that used to live in this route compared
+  // against new URL(request.url).origin — the origin the server saw — and so
+  // 403'd real authors once Railway terminated TLS in front of it. This test
+  // passed the whole time, because under vitest those two origins are the same
+  // string. Pinned inverted so the broken check does not return.
+  it("leaves Origin to the middleware and does not reject on it", async () => {
+    const req = request(); req.headers.set("Origin", "https://www.verkli.com");
+    expect((await POST(req, params)).status).not.toBe(403);
   });
   it("rate limits before model calls", async () => {
     mocks.limit.mockResolvedValue({ allowed: false, retryAfterSeconds: 60 });

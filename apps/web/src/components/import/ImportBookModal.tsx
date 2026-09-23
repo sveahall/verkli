@@ -376,6 +376,7 @@ export function ImportBookModal({ open, onClose, onImportComplete }: ImportBookM
                       {imp.file_name}
                     </p>
                     <p className="mt-0.5 text-[12px] text-muted-foreground">
+                      <span className="block break-all text-xs text-muted-foreground">Support reference: <code>{imp.id}</code></span>
                       {imp.status === "completed" && imp.book_id ? (
                         <Link
                           href={`/author/books/${imp.book_id}`}

@@ -95,6 +95,33 @@ function isPublicOrderPath(pathname: string): boolean {
   return slug !== undefined && PUBLIC_ORDER_SLUGS.has(slug)
 }
 
+/** `www.verkli.com` and `verkli.com` are the same site for authors. */
+function hostsEquivalent(left: string, right: string): boolean {
+  const normalize = (host: string) => host.trim().toLowerCase().replace(/\.$/, "").replace(/^www\./, "")
+  return normalize(left) === normalize(right)
+}
+
+function headerHost(value: string | null): string | null {
+  const host = value?.split(",")[0]?.trim()
+  return host || null
+}
+
+function isTrustedBrowserOrigin(origin: string, expectedOrigin: string | null, requestHost: string | null): boolean {
+  let originHost: string
+  try {
+    originHost = new URL(origin).host
+  } catch {
+    return false
+  }
+  if (requestHost && hostsEquivalent(originHost, requestHost)) return true
+  if (!expectedOrigin) return false
+  try {
+    return hostsEquivalent(originHost, new URL(expectedOrigin).host)
+  } catch {
+    return false
+  }
+}
+
 const AUTHOR_ROLE_CACHE_TTL_MS = 60_000
 const AUTHOR_ROLE_CACHE_MAX = 512
 type CachedRoleEntry = { role: string; expiresAt: number }
@@ -144,7 +171,7 @@ export async function middleware(request: NextRequest) {
     // Stripe webhook has its own HMAC signature verification.
     const isStripeWebhook = pathname === '/api/stripe/webhook'
     if (!isStripeWebhook) {
-      const secFetchSite = request.headers.get('sec-fetch-site')
+      const secFetchSite = request.headers.get('sec-fetch-site')?.trim().toLowerCase() ?? null
       const origin = request.headers.get('origin')
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
       const isProduction = process.env.NODE_ENV === 'production'
@@ -178,10 +205,15 @@ export async function middleware(request: NextRequest) {
 
       // Sec-Fetch-Site is the strongest signal because the browser sets it
       // and it isn't sent on cross-site form submissions. Trust it when present.
+      const requestHost =
+        headerHost(request.headers.get('x-forwarded-host')) ||
+        headerHost(request.headers.get('host')) ||
+        request.nextUrl.host ||
+        null
       const sameOriginByFetchMetadata =
         secFetchSite === 'same-origin' || secFetchSite === 'none'
       const sameOriginByOrigin =
-        !!(origin && expectedOrigin && origin === expectedOrigin)
+        !!(origin && isTrustedBrowserOrigin(origin, expectedOrigin, requestHost))
 
       // If neither signal vouches for same-origin, reject. We only allow the
       // "no signal at all" case (no Sec-Fetch-Site, no Origin) when a non-browser
@@ -193,6 +225,12 @@ export async function middleware(request: NextRequest) {
         (!isProduction && noBrowserSignals)
 
       if (!allowed) {
+        console.warn('[csrf] rejected state-changing request', {
+          path: pathname,
+          secFetchSite,
+          requestHost,
+          expectedOrigin,
+        })
         return new NextResponse(JSON.stringify({ error: 'Forbidden' }), {
           status: 403,
           headers: { 'Content-Type': 'application/json' },
@@ -275,9 +313,12 @@ export async function middleware(request: NextRequest) {
     // { ok, timestamp, version } — the database and Redis probes are behind
     // hasAdminOrOpsAccess. See api/health/route.ts.
     const isHealth = p === '/api/health'
+    // The invitation form is account-less and linked from the waitlist email.
+    // Exact paths only: /apply-admin or /api/apply/extra must stay locked.
+    const isApply = p === '/apply' || p === '/api/apply'
 
     const allowed =
-      isWaitlist || isApiWaitlist || isOrder || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth || PUBLIC_BUYER_PATHS.has(p)
+      isWaitlist || isApiWaitlist || isApply || isOrder || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth || PUBLIC_BUYER_PATHS.has(p)
     if (!allowed) {
       const url = request.nextUrl.clone()
       url.pathname = '/waitlist'
@@ -356,6 +397,7 @@ export async function middleware(request: NextRequest) {
     // { ok, timestamp, version } — the database and Redis probes are behind
     // hasAdminOrOpsAccess. See api/health/route.ts.
     const isHealth = p === '/api/health'
+    const isApply = p === '/apply' || p === '/api/apply'
 
     const isAuthEntry = BETA_LOCK_AUTH_PATHS.has(p)
     // Publish the author landing page and its explanation CTA during beta.
@@ -367,7 +409,7 @@ export async function middleware(request: NextRequest) {
     // goes on for the cohort — see PUBLIC_ORDER_SLUGS.
     const isOrderPath = isPublicOrderPath(p)
 
-    const allowedPath = isWaitlist || isAuth || isAuthEntry || isPublicMarketing || isApiWaitlist || isApiAuth || isOrderPath || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth
+    const allowedPath = isWaitlist || isAuth || isAuthEntry || isPublicMarketing || isApiWaitlist || isApiAuth || isApply || isOrderPath || isNext || isKnownRoot || isRootAssetWithExt || isStaticAsset || isHealth
     // Only look up cohort membership when it can change the outcome. `isBeta` is
     // read once, in `!allowedPath && !isBeta` below, so on an allowed path the
     // result is discarded — and a transient failure of that lookup would 503 a

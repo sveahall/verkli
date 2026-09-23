@@ -22,7 +22,7 @@ function client(chapters: Chapter[], error: { message: string } | null = null) {
         order: () => query,
         limit: () => query,
         update: () => query,
-        maybeSingle: async () => ({ data: rows[0], error }),
+        maybeSingle: async () => ({ data: rows[0], error: table === "chapters" ? error : null }),
         then: (resolve: (result: { data: typeof rows; error: typeof error }) => unknown) => resolve({ data: rows, error }),
       };
       return query;
@@ -68,6 +68,26 @@ describe("translation manuscript source", () => {
         source_text: "The book is on the table and it was written for the reader in the morning.",
       }]),
       bookId: "book", book: {}, requestedSourceVersionId: "edition",
+    });
+
+    expect(result.sourceLanguage).toBe("sv");
+    expect(result.sourceLanguageOrigin).toBe("heuristic");
+  });
+
+  it("propagates a chapter read error instead of persisting the request language hint", async () => {
+    await expect(resolveTranslationSourceContext({
+      supabase: client([], { message: "Chapter read failed" }),
+      bookId: "book", book: {}, requestedSourceVersionId: "edition", requestedSourceLanguage: "en",
+    })).rejects.toThrow("Chapter read failed");
+  });
+
+  it("reads past a short introduction when the edition language is unknown", async () => {
+    const result = await resolveTranslationSourceContext({
+      supabase: client([
+        { content: document("Introduction"), source_text: "" },
+        { content: document("Det är en bok som jag har på bordet och den är inte färdig än."), source_text: "" },
+      ]),
+      bookId: "book", book: { original_language: "und", language: "und" }, requestedSourceVersionId: "edition",
     });
 
     expect(result.sourceLanguage).toBe("sv");

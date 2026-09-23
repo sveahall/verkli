@@ -12,6 +12,7 @@ vi.mock("react", async (original) => ({
   useMemo: (callback: () => unknown) => callback(),
   useEffect: (effect: () => void | (() => void)) => { hooks.effects.push(effect); },
 }));
+vi.mock("./AudioTextSync", () => ({ useAudioTextSync: () => ({ update: () => {}, clear: () => {}, status: "waiting" }) }));
 vi.mock("@/lib/flags", () => ({ getAudiobookEnabled: () => true }));
 vi.mock("@/lib/analytics/useListenTracking", () => ({ useListenTracking: () => ({}) }));
 import ChapterAudiobookPlayer from "./ChapterAudiobookPlayer";

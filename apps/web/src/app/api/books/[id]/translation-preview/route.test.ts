@@ -42,6 +42,9 @@ vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: m
 vi.mock("@/lib/workers/budget", async (original) => ({
   ...await original<object>(), checkBudget: mocks.budget, releaseBudget: mocks.release, validateJobCost: mocks.validateCost,
 }))
+// This route now checks the account's master AI switch first. Its own guard
+// test covers the blocked path; here the account simply has AI on.
+vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 
 const { BudgetExceededError } = await import("@/lib/workers/budget")
 const { GET } = await import("./route")
@@ -86,6 +89,18 @@ describe("GET /api/books/[id]/translation-preview", () => {
     mocks.getTranslatorForPair.mockReturnValue({ translate: vi.fn().mockResolvedValue({ translatedText: "Hello" }) })
     mocks.isTranslationPairSupported.mockReturnValue(true)
     mocks.getProviderForPair.mockReturnValue("anthropic")
+  })
+
+  it("returns a retryable error before provider or budget work when source reads fail", async () => {
+    mocks.requireAuthorRoleForApi.mockResolvedValueOnce({ user: { id: "author-1" }, response: null })
+    mocks.resolveTranslationSourceContext.mockRejectedValueOnce(new Error("Chapter read failed"))
+    const response = await GET(new Request("http://localhost/api/books/book-1/translation-preview?targetLanguage=fr&sourceLanguage=sv"), {
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
+    })
+    expect(response.status).toBe(503)
+    expect(await response.json()).toMatchObject({ error: "TRANSLATION_SERVICE_UNAVAILABLE" })
+    expect(mocks.budget).not.toHaveBeenCalled()
+    expect(mocks.getTranslatorForPair).not.toHaveBeenCalled()
   })
 
   it.each(["feature", "rollout"])("does not spend while %s is held", async (held) => {
@@ -194,6 +209,8 @@ describe("GET /api/books/[id]/translation-preview", () => {
       text: "Hej varlden",
       sourceLanguage: "sv",
       targetLanguage: "en",
+      // The preview is billed to the author who asked for it.
+      meter: { userId: "author-1", pipeline: "translation", bookId: expect.any(String) },
     })
   })
 

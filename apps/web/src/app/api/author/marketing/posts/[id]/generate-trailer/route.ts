@@ -18,6 +18,7 @@ import {
   E_TRAILER_GENERATION_FAILED,
   isValidUuid,
 } from "@/lib/api-errors";
+import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 240;
@@ -61,6 +62,11 @@ export async function POST(
 ) {
   const gate = await requireAuthorAndMarketingEnabled();
   if (gate.response) return gate.response;
+
+  // Account master AI switch. Server-side, so turning AI off is a real
+  // setting and not just a hidden button.
+  const aiOff = await aiDisabledResponse(gate.user.id);
+  if (aiOff) return aiOff;
 
   const rl = await trailerLimiter.check(gate.user.id);
   if (!rl.allowed) {

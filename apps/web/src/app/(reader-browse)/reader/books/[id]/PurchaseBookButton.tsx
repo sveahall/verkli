@@ -74,6 +74,7 @@ export default function PurchaseBookButton({ bookId, amount, currency }: Props) 
       >
         {loading ? "Opening checkout…" : `Buy book (${formatMoney(amount, currency)})`}
       </button>
+      <p className="text-sm text-muted-foreground">Available payment methods are shown at Stripe checkout and depend on your country, currency and device.</p>
       {error ? <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p> : null}
     </div>
   );

@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useToastHelpers } from "@/components/ui/toast";
-import { normalizeLanguage } from "@/lib/languages";
+import { normalizeLanguageOrNull } from "@/lib/languages";
 import type { Book, BookVersion, Chapter } from "../BookEditorView.types";
 import { drainPendingSaves, type PersistChapter } from "./useChapterCrud.autosave";
 import { assertReviewCanApply, persistReviewedChapterContent, persistAutosavedChapterContent } from "./useChapterCrud.review";
@@ -260,7 +260,7 @@ export function useChapterCrud({
     let targetVersionId = activeVersion?.id ?? null;
     let targetVersionLanguage = activeVersion?.language_code ?? null;
     if (!targetVersionId) {
-      const fallbackLanguage = normalizeLanguage(book.original_language ?? book.language);
+      const fallbackLanguage = normalizeLanguageOrNull(book.original_language ?? book.language) ?? "und";
       const { data: createdVersion, error: versionError } = await supabase
         .from("book_versions")
         .insert({

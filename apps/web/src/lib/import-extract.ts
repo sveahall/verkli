@@ -81,6 +81,64 @@ function chapterHeadingRegex(): RegExp {
   return /^\s*((?:(?:chapter|part|book|kapitel|del|chapitre|partie|teil|capitolo|cap(?:i|\u00ed)tulo|parte|libro|livro|bok)\s+[^\n]{1,120})|(?:prologue|epilogue|preface|foreword|afterword|introduction|prolog|epilog|f[öo]rord|inledning|efterord|inneh[åa]ll(?:sf[öo]rteckning)?|contents?|table of contents|acknowledg(?:e)?ments?|about the author|om f[öo]rfattaren|bibliography|bibliografi|k[äa]llf[öo]rteckning|colophon|kolofon|dedication|dedikation|tillägnan|glossary|ordlista|appendix|bilaga))\s*$/gim;
 }
 
+/**
+ * True when a whole line (or paragraph) is nothing but a chapter heading.
+ * Stricter than chapterHeadingRegex on purpose: the HTML splitter drops the
+ * element it turns into a chapter title, so a line that also carries body text
+ * ("Kapitel fyragjorde för andra elever. Eftersom ingen sa...") must stay put.
+ */
+function isStandaloneChapterHeadingLine(text: string): boolean {
+  const compact = text.replace(/\s+/g, " ").trim();
+  if (!compact || compact.length > 80) return false;
+
+  const withoutTrailingPunctuation = compact.replace(/[.!?:;,]+$/, "");
+  if (/[.!?]/.test(withoutTrailingPunctuation)) return false;
+  if (withoutTrailingPunctuation.split(" ").length > 8) return false;
+
+  return chapterHeadingRegex().test(compact);
+}
+
+/** A block element that opens a chapter, and whether it is title-only. */
+type ChapterHeadingBlock = { title: string; isTitleOnly: boolean };
+
+/**
+ * Classify one HTML block as a chapter opening. Word files that never used
+ * Heading styles carry chapter headings as ordinary paragraphs, and the ones
+ * that went through OCR or a PDF round-trip arrive damaged in two ways:
+ * body text run into the heading ("Kapitel fyragjorde för andra elever. …"),
+ * or the ordinal orphaned into the next paragraph (a bare "Kapitel").
+ * A damaged block keeps its content (isTitleOnly false) so no text is lost.
+ */
+function detectChapterHeadingBlock(
+  text: string,
+  allowDamagedHeadings: boolean
+): ChapterHeadingBlock | null {
+  const compact = text.replace(/\s+/g, " ").trim();
+  if (!compact) return null;
+
+  if (isStandaloneChapterHeadingLine(compact)) {
+    return { title: compact, isTitleOnly: true };
+  }
+
+  // Repairing a damaged heading means trusting a prefix that also opens
+  // ordinary prose ("Kapitel tre var det svåraste jag skrivit."), so only do it
+  // in a document that demonstrably uses the convention for its headings.
+  if (!allowDamagedHeadings) return null;
+  if (!CHAPTER_PREFIX_RE.test(compact)) return null;
+
+  // "Kapitel" on its own: the ordinal got separated into the next paragraph.
+  if (/^\p{L}+$/u.test(compact)) {
+    return { title: compact, isTitleOnly: true };
+  }
+
+  const repaired = normalizeChapterHeadingTitle(compact.slice(0, 200));
+  if (!repaired || !isStandaloneChapterHeadingLine(repaired)) return null;
+  return { title: repaired, isTitleOnly: false };
+}
+
+/** A document needs this many intact headings before damaged ones are repaired. */
+const DAMAGED_HEADING_REPAIR_THRESHOLD = 3;
+
 /** Detect back matter heading (epilogue, acknowledgments, about the author, etc.) */
 function isBackMatterHeading(text: string): boolean {
   const key = text.trim().toLowerCase().replace(/[^\p{L}\p{N}\s]+/gu, "").replace(/\s+/g, " ");
@@ -594,10 +652,9 @@ export function repairImportedChapterTitles(titles: string[]): string[] {
   return normalizeChapterTitlesToNumericSequence(titles);
 }
 
-function splitIntoChaptersHeuristicInternal(text: string): ExtractedChapter[] {
-  const normalized = normalizeTextForChapterSplit(text);
-  if (!normalized) return [];
+type ChapterHeadingMatch = { start: number; end: number; title: string };
 
+function findChapterHeadingMatches(normalized: string): ChapterHeadingMatch[] {
   const headingMatches = Array.from(normalized.matchAll(chapterHeadingRegex()))
     .map((match) => {
       if (typeof match.index !== "number") return null;
@@ -639,13 +696,31 @@ function splitIntoChaptersHeuristicInternal(text: string): ExtractedChapter[] {
     }
   }
 
-  const allMatches = [...headingMatches, ...inferredMatches]
+  return [...headingMatches, ...inferredMatches]
     .sort((a, b) => a.start - b.start)
     .filter((current, index, arr) => {
       if (index === 0) return true;
       const prev = arr[index - 1];
       return current.start >= prev.end;
     });
+}
+
+/**
+ * How many chapter breaks the plain-text heuristic can see in this text.
+ * The HTML/docx paths use it to tell "this really is one chapter" apart from
+ * "the file carries no <h1>-<h3> so HTML segmentation found nothing".
+ */
+function countDetectableChapterHeadings(text: string): number {
+  const normalized = normalizeTextForChapterSplit(text);
+  if (!normalized) return 0;
+  return findChapterHeadingMatches(normalized).length;
+}
+
+function splitIntoChaptersHeuristicInternal(text: string): ExtractedChapter[] {
+  const normalized = normalizeTextForChapterSplit(text);
+  if (!normalized) return [];
+
+  const allMatches = findChapterHeadingMatches(normalized);
 
   if (allMatches.length === 0) {
     return splitWithoutHeadings(normalized);
@@ -1010,23 +1085,33 @@ function splitHtmlByHeadings(html: string): { title: string; html: string; sourc
     textParts: [],
   };
 
+  const intactHeadingCount = $("body")
+    .children()
+    .toArray()
+    .filter((el) => isStandaloneChapterHeadingLine($(el).text().trim())).length;
+  const allowDamagedHeadings = intactHeadingCount >= DAMAGED_HEADING_REPAIR_THRESHOLD;
+
   $("body").children().each((_, el) => {
     const $el = $(el);
     const tag = el.tagName?.toLowerCase();
     const text = $el.text().trim();
 
-    if (tag && /^h[1-3]$/.test(tag) && text) {
-      // Check if this heading looks like a chapter heading
-      const headingRegex = chapterHeadingRegex();
-      const isChapterHeading = headingRegex.test(text);
+    if (text) {
+      const isHtmlHeading = Boolean(tag && /^h[1-3]$/.test(tag));
+      // Manuscripts that style chapter headings by hand instead of using Word
+      // Heading styles arrive with no <h1>-<h3> at all, so a paragraph that
+      // opens a chapter has to count as a boundary too.
+      const chapterHeading = detectChapterHeadingBlock(text, allowDamagedHeadings);
 
-      if (isChapterHeading || segments.length === 0) {
+      if (chapterHeading || (isHtmlHeading && segments.length === 0)) {
         // Flush current if it has content
         if (current.textParts.length > 0 || current.title) {
           segments.push(current);
         }
-        current = { title: text, htmlParts: [], textParts: [] };
-        return;
+        current = { title: chapterHeading?.title ?? text, htmlParts: [], textParts: [] };
+
+        // A damaged heading carries body text with it, so keep the block.
+        if (!chapterHeading || chapterHeading.isTitleOnly) return;
       }
     }
 
@@ -1048,6 +1133,25 @@ function splitHtmlByHeadings(html: string): { title: string; html: string; sourc
       html: seg.htmlParts.join("\n"),
       sourceText: seg.textParts.join("\n\n"),
     }));
+}
+
+/**
+ * HTML segmentation only sees breaks the file actually marks up. A manuscript
+ * with no <h1>-<h3> and no standalone heading paragraphs collapses into a single
+ * "Untitled" segment holding the whole book, so prefer the plain-text heuristic
+ * whenever it can see real chapter breaks the markup did not carry. A document
+ * that genuinely is one chapter has none, and keeps its rich content.
+ *
+ * The bar is the same as for heading repair: the text heuristic consumes the
+ * line it splits on, so handing it a document on the strength of one or two
+ * ambiguous matches can swallow a paragraph of prose.
+ */
+function shouldPreferTextHeuristic(
+  htmlChapters: ExtractedChapter[],
+  source: string
+): boolean {
+  if (htmlChapters.length > 1) return false;
+  return countDetectableChapterHeadings(source) >= DAMAGED_HEADING_REPAIR_THRESHOLD;
 }
 
 export async function extractFromDocx(buffer: Buffer): Promise<ExtractedBook> {
@@ -1085,10 +1189,12 @@ export async function extractFromDocx(buffer: Buffer): Promise<ExtractedBook> {
         tiptapContent: htmlToTiptapDoc(seg.html),
       }));
       const normalizedChapters = normalizeExtractedChapters(chapters);
-      return {
-        title: resolveExtractedTitle(DEFAULT_TITLE, source),
-        chapters: normalizedChapters,
-      };
+      if (!shouldPreferTextHeuristic(normalizedChapters, source)) {
+        return {
+          title: resolveExtractedTitle(DEFAULT_TITLE, source),
+          chapters: normalizedChapters,
+        };
+      }
     }
   }
 
@@ -1114,7 +1220,10 @@ export async function extractFromHtml(buffer: Buffer): Promise<ExtractedBook> {
       tiptapContent: htmlToTiptapDoc(seg.html),
     }));
     const normalizedChapters = normalizeExtractedChapters(chapters);
-    if (normalizedChapters.length > 0) {
+    if (
+      normalizedChapters.length > 0 &&
+      !shouldPreferTextHeuristic(normalizedChapters, structuredBody)
+    ) {
       return {
         title: resolveExtractedTitle($("title").text().trim(), structuredBody),
         chapters: normalizedChapters,
@@ -1323,25 +1432,56 @@ function dropTitleOnlyFrontMatter(book: ExtractedBook): ExtractedBook {
 }
 
 /** Run extraction. filePath must be a local path (worker downloads from Supabase to temp first if needed). */
+/**
+ * A leading block with no heading of its own comes back titled "Untitled",
+ * which reads to an author like the import broke. When it opens with the book's
+ * own title it is the publisher's title page, so name it that.
+ *
+ * Renames only. dropTitleOnlyFrontMatter above owns the decision to REMOVE one,
+ * and deliberately will not touch a page past TITLE_PAGE_MAX_CHARS — a long
+ * front page is credits plus something else, and that something else is the
+ * author's. "Titelsida" is not added to SYNTHESIZED_FRONT_MATTER_TITLES for the
+ * same reason: naming a page must not make it eligible for deletion.
+ */
+function nameUntitledTitlePage(book: ExtractedBook): ExtractedBook {
+  const [first, ...rest] = book.chapters;
+  if (!first || rest.length === 0) return book;
+  if (first.title.trim().toLowerCase() !== "untitled") return book;
+
+  const normalize = (value: string) =>
+    stripDecorativeChars(value).replace(/\s+/g, " ").trim().toLowerCase();
+
+  const title = normalize(book.title);
+  if (!title) return book;
+
+  const firstLine = first.sourceText
+    .split(/\n+/)
+    .map((line) => stripDecorativeChars(line).trim())
+    .find(Boolean);
+  if (!firstLine || normalize(firstLine) !== title) return book;
+
+  return { ...book, chapters: [{ ...first, title: "Titelsida" }, ...rest] };
+}
+
 export async function runExtract(filePath: string): Promise<ExtractedBook> {
   const ext = path.extname(filePath).toLowerCase();
 
   if (ext === ".epub") {
-    return dropTitleOnlyFrontMatter(await extractFromEpub(filePath));
+    return nameUntitledTitlePage(dropTitleOnlyFrontMatter(await extractFromEpub(filePath)));
   }
 
   const buffer = await fs.readFile(filePath);
   if (ext === ".docx") {
-    return dropTitleOnlyFrontMatter(await extractFromDocx(buffer));
+    return nameUntitledTitlePage(dropTitleOnlyFrontMatter(await extractFromDocx(buffer)));
   }
   if (ext === ".html" || ext === ".htm") {
-    return dropTitleOnlyFrontMatter(await extractFromHtml(buffer));
+    return nameUntitledTitlePage(dropTitleOnlyFrontMatter(await extractFromHtml(buffer)));
   }
   if (ext === ".txt") {
-    return dropTitleOnlyFrontMatter(await extractFromTxt(buffer));
+    return nameUntitledTitlePage(dropTitleOnlyFrontMatter(await extractFromTxt(buffer)));
   }
   if (ext === ".pdf") {
-    return dropTitleOnlyFrontMatter(await extractFromPdf(buffer));
+    return nameUntitledTitlePage(dropTitleOnlyFrontMatter(await extractFromPdf(buffer)));
   }
 
   throw new Error(`Unsupported format: ${ext}`);
