@@ -7,7 +7,10 @@ vi.mock("../src/lib/supabase/admin", () => ({ createAdminClient: mocks.admin }))
 vi.mock("../src/lib/import-storage", () => ({ resolveLocalImportPath: () => "/synthetic/book.txt" }));
 vi.mock("fs/promises", () => ({ access: async () => {} }));
 vi.mock("../src/lib/import-extract", () => ({ runExtract: mocks.extract, contentHash: () => "hash-b", normalizeChapterTitlesToNumericSequence: (titles: string[]) => titles }));
-vi.mock("../src/lib/language-detect", () => ({ detectLanguageFromText: () => "en" }));
+vi.mock("../src/lib/language-detect", () => ({
+  detectLanguageFromText: () => "en",
+  detectLanguageFromParts: () => "en",
+}));
 vi.mock("../src/lib/translation-queue", () => ({ enqueueTranslationJob: vi.fn() }));
 vi.mock("../src/lib/health/worker-heartbeat", () => ({ startHeartbeatInterval: mocks.heartbeat }));
 vi.mock("bullmq", async (importOriginal) => {
