@@ -227,7 +227,7 @@ export async function POST(request: Request) {
   await syncLegacyAuthorFollowersInsert(supabase, user.id, followeeId);
 
   try {
-    await createNotification(supabase, {
+    await createNotification({
       userId: followeeId,
       type: "new_follower",
       title: "New follower",

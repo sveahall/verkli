@@ -8,6 +8,11 @@ import {
 // export is mocked at the class level and the shared spy is re-pointed per test.
 const anthropicCreate = vi.fn();
 const anthropicCtor = vi.fn();
+const callOpenAi = vi.hoisted(() => vi.fn());
+vi.mock("./providers/openai", () => ({
+  callOpenAi: (...args: unknown[]) => callOpenAi(...args),
+  isOpenAiConfigured: () => Boolean(process.env.OPENAI_API_KEY?.trim()),
+}));
 vi.mock("@anthropic-ai/sdk", () => {
   class MockAnthropic {
     messages = { create: (...args: unknown[]) => anthropicCreate(...args) };
@@ -51,7 +56,9 @@ describe("generateWritingAssistantReply", () => {
   beforeEach(() => {
     anthropicCreate.mockReset();
     anthropicCtor.mockReset();
+    callOpenAi.mockReset();
     delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.OPENAI_API_KEY;
     delete process.env.NVIDIA_NIM_API_KEY;
   });
 
@@ -352,5 +359,15 @@ describe("generateWritingAssistantReply", () => {
       expect(sentBody().system).toContain("No chapter text was available");
       expect(sentBody().system).not.toContain("never ask the author to paste");
     });
+  });
+
+  it("drafts advice with OpenAI and keeps it when Anthropic finds nothing to fix", async () => {
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test";
+    process.env.OPENAI_API_KEY = "sk-openai-test";
+    callOpenAi.mockResolvedValue("Cut the sky.");
+    anthropicCreate.mockResolvedValue(anthropicReply(JSON.stringify({ issues: [] })));
+    const result = await generateWritingAssistantReply(INPUT);
+    expect(result).toMatchObject({ provider: "openai+anthropic", content: "Cut the sky." });
+    expect(callOpenAi).toHaveBeenCalledOnce();
   });
 });

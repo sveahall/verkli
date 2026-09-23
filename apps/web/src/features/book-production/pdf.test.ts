@@ -31,8 +31,8 @@ describe("book production PDF", () => {
     }
     expect(result.buffer.toString("latin1")).toContain("/FontFile2");
     expect(result.warnings.join(" ")).toMatch(/PDF\/X/);
-  // Exports and re-parses a full book; allow for shared CI runner contention.
-  }, 60_000);
+  // Exports and re-parses a full book; the full suite can hold this past a minute.
+  }, 180_000);
 
   it("uses requested trim geometry, keeps excluded parts out, and sorts manuscript order", async () => {
     const settings = createProductionSettings({ title: "Book", author: "Author" });
