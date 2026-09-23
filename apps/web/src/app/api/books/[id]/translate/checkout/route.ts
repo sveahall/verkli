@@ -103,14 +103,23 @@ export async function POST(
     normalizeLanguageOrNull(book.original_language) ?? normalizeLanguageOrNull(book.language)
 
   if (!sourceLanguage) {
-    const sourceContext = await resolveTranslationSourceContext({
-      supabase,
-      bookId,
-      book,
-      requestedSourceVersionId: sourceVersionId,
-      requestedSourceLanguage: typeof body.sourceLanguage === "string" ? body.sourceLanguage : null,
-    })
-    sourceLanguage = normalizeLanguageOrNull(sourceContext.sourceLanguage)
+    try {
+      const sourceContext = await resolveTranslationSourceContext({
+        supabase,
+        bookId,
+        book,
+        requestedSourceVersionId: sourceVersionId,
+        requestedSourceLanguage: typeof body.sourceLanguage === "string" ? body.sourceLanguage : null,
+      })
+      sourceLanguage = normalizeLanguageOrNull(sourceContext.sourceLanguage)
+    } catch (error) {
+      console.error("[translate.checkout] source text lookup failed", {
+        bookId,
+        userId: user.id,
+        message: error instanceof Error ? error.message : String(error),
+      })
+      return apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503)
+    }
   }
 
   if (!sourceLanguage) {
