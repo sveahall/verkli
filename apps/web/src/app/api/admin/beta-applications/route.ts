@@ -50,10 +50,12 @@ export async function PATCH(request: Request) {
     ...(typeof note === "string" ? { review_note: note.trim() || null } : {}),
   };
 
-  const { error } = await supabase
+  const { data: application, error } = await supabase
     .from("beta_applications")
     .update(update)
-    .eq("id", id);
+    .eq("id", id)
+    .select("waitlist_id")
+    .maybeSingle();
 
   if (error) {
     console.error("ADMIN_BETA_APPLICATION_ERROR", {
@@ -64,5 +66,70 @@ export async function PATCH(request: Request) {
     return apiError(E_GENERIC_ERROR, 500);
   }
 
-  return NextResponse.json({ ok: true, status });
+  const invitation = await syncWaitlistInvitation(supabase, application?.waitlist_id ?? null, status as Status);
+
+  return NextResponse.json({ ok: true, status, invitation });
+}
+
+/**
+ * Make "accepted" mean the applicant is actually in.
+ *
+ * Accepting used to write a label and nothing else. It granted no access, sent
+ * nothing, and — since 13 of the first 14 applicants had no account yet —
+ * could not have granted `user_flags.beta_enabled` either, because that hangs
+ * off a `user_id` that does not exist until they sign up.
+ *
+ * The waitlist is where an invitation can exist before an account does:
+ * `beta_invited_at` authorises the first verified signup, which is what grants
+ * beta (see `lib/auth/beta.ts`). `beta_applications.waitlist_id` already linked
+ * the two rows; nothing used it.
+ *
+ * Reversing the decision clears the invitation again, so a mistaken accept
+ * cannot leave a stranger able to sign straight into the cohort. It does not
+ * touch anyone who already signed up: their `beta_enabled` is granted, and
+ * taking that away is a separate, deliberate admin action.
+ */
+type InvitationResult =
+  | { state: "invited" | "already_invited" | "withdrawn" | "not_invited" }
+  | { state: "no_waitlist_row" }
+  | { state: "failed" };
+
+async function syncWaitlistInvitation(
+  supabase: ReturnType<typeof createAdminClient>,
+  waitlistId: string | null,
+  status: Status
+): Promise<InvitationResult> {
+  if (!waitlistId) return { state: "no_waitlist_row" };
+
+  const { data: row, error: readError } = await supabase
+    .from("waitlist")
+    .select("beta_invited_at")
+    .eq("id", waitlistId)
+    .maybeSingle();
+
+  if (readError) {
+    console.error("ADMIN_BETA_APPLICATION_ERROR", { message: "waitlist read failed", code: readError.code });
+    return { state: "failed" };
+  }
+  if (!row) return { state: "no_waitlist_row" };
+
+  const invited = row.beta_invited_at != null;
+  const shouldBeInvited = status === "accepted";
+  if (invited === shouldBeInvited) {
+    return { state: shouldBeInvited ? "already_invited" : "not_invited" };
+  }
+
+  const { error: writeError } = await supabase
+    .from("waitlist")
+    .update({ beta_invited_at: shouldBeInvited ? new Date().toISOString() : null })
+    .eq("id", waitlistId);
+
+  if (writeError) {
+    // The decision is recorded either way; the caller is told the invitation
+    // half did not land rather than being left to assume it did.
+    console.error("ADMIN_BETA_APPLICATION_ERROR", { message: "waitlist invitation write failed", code: writeError.code });
+    return { state: "failed" };
+  }
+
+  return { state: shouldBeInvited ? "invited" : "withdrawn" };
 }
