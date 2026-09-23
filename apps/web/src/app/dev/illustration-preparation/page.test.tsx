@@ -1,0 +1,8 @@
+import { afterEach, expect, it, vi } from "vitest";
+vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("NOT_FOUND"); } }));
+vi.mock("@/features/illustration-preparation/PreparationPanel", () => ({ default: () => null }));
+import Page from "./page";
+afterEach(() => vi.unstubAllEnvs());
+it.each(["production", "test"])("excludes the development entry in %s", (mode) => {
+  vi.stubEnv("NODE_ENV", mode); expect(() => Page()).toThrow("NOT_FOUND");
+});
