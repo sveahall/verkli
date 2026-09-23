@@ -8,10 +8,9 @@ import type { InlineAiAction } from "@/features/book-workspace/types";
 /**
  * Author writing assistant.
  *
- * Talks to POST /api/books/[id]/ai/chat, which runs Anthropic (primary) with
- * NVIDIA NIM as fallback and deterministic templates as a last resort. The
- * reply carries a `source` field, and this panel renders it: an author must be
- * able to tell a real model answer from a canned one.
+ * Talks to POST /api/books/[id]/ai/chat. With the critic on, OpenAI drafts
+ * the reply, Anthropic checks it against the chapter, and OpenAI revises.
+ * A canned template is labeled so it cannot be mistaken for that.
  */
 
 export type PendingAiRequest = {
@@ -283,6 +282,11 @@ export default function AiAssistantPanel({
               {message.role === "assistant" && message.source === "template" && (
                 <p className="mt-2 text-[11px] font-medium text-muted-foreground dark:text-muted-foreground">
                   Canned reply — the AI model was unavailable.
+                </p>
+              )}
+              {message.role === "assistant" && message.provider === "openai+anthropic" && (
+                <p className="mt-2 text-[11px] font-medium text-muted-foreground dark:text-muted-foreground">
+                  Checked by both readers.
                 </p>
               )}
             </div>

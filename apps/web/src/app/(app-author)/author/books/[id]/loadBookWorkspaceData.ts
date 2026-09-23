@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizeLanguage } from "@/lib/languages";
+import { normalizeLanguage, normalizeLanguageOrNull } from "@/lib/languages";
 import { isStripeConfigured } from "@/lib/payments/stripe";
 import { getAudiobookStorageBucket } from "@/lib/tts/storage";
 
@@ -81,10 +81,11 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
   }
 
   if (!bookVersionsError && versions.length === 0) {
-    const fallbackLanguage = normalizeLanguage(
-      (book as { original_language?: string | null; language?: string | null }).original_language ??
-        book.language
-    );
+    const fallbackLanguage =
+      normalizeLanguageOrNull(
+        (book as { original_language?: string | null; language?: string | null }).original_language ??
+          book.language
+      ) ?? "und";
     const { data: createdVersion, error: createVersionError } = await supabase
       .from("book_versions")
       .insert({ book_id: book.id, language_code: fallbackLanguage, status: "draft" })
@@ -161,7 +162,7 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
       .eq("book_id", book.id),
     supabase
       .from("profiles")
-      .select("display_name, username, preferences, demo_mode")
+      .select("display_name, username, preferences, demo_mode, bio")
       .eq("user_id", book.author_id)
       .maybeSingle(),
   ]);
@@ -198,6 +199,7 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
     activeVersion: activeVersion ?? null,
     authorDisplayName,
     authorDisplayNameSet,
+    authorBio: authorProfile?.bio?.trim() ?? "",
     defaultPublishVisibility,
     latestAudiobookAsset: latestAudiobookAsset
       ? {

@@ -10,7 +10,7 @@ import {
 } from "@/lib/payments/stripe-connect";
 import { apiError, E_GENERIC_ERROR, E_RATE_LIMIT_EXCEEDED } from "@/lib/api-errors";
 
-const onboardLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const onboardLimiter = createPerUserRateLimiter({ name: "billing-connect-onboard", maxPerMinute: 5 });
 
 export const runtime = "nodejs";
 
@@ -21,6 +21,7 @@ export async function POST(request: Request) {
   const rl = await onboardLimiter.check(auth.user.id);
   if (!rl.allowed) return apiError(E_RATE_LIMIT_EXCEEDED, 429);
 
+  const acceptsHtml = request.headers.get("accept")?.includes("text/html") ?? false;
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const country =
     typeof body?.country === "string" && body.country.trim().length === 2
@@ -55,12 +56,16 @@ export async function POST(request: Request) {
       actor: { id: auth.user.id, role: auth.role },
     }).catch(() => {});
 
+    if (acceptsHtml) return NextResponse.redirect(url, 303);
     return NextResponse.json({ url, accountId: account.stripe_account_id });
   } catch (err) {
     console.error("[billing.connect.onboard] failed", {
       userId: auth.user.id,
       message: err instanceof Error ? err.message : String(err),
     });
+    if (acceptsHtml) {
+      return NextResponse.redirect(`${baseUrl}/author/billing/payouts?status=onboarding_failed`, 303);
+    }
     return apiError(E_GENERIC_ERROR, 500);
   }
 }

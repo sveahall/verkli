@@ -299,6 +299,7 @@ export function useTranslation({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             targetLanguage: translateTargetLanguage,
+            sourceLanguage: translationSourceLang,
             sourceVersionId: activeVersion.id,
             targetVersionId,
             overwrite,
@@ -333,6 +334,7 @@ export function useTranslation({
       isStartingTranslation,
       startTranslationPoll,
       translateTargetLanguage,
+      translationSourceLang,
       activeVersion?.id,
       selectedChapterId,
       versionsByLang,

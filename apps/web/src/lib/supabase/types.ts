@@ -56,6 +56,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_plans: {
+        Row: {
+          applied_at: string | null
+          book_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          outcome: Json | null
+          owner_id: string
+          steps: Json
+          summary: string
+          tool: string
+          version_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          book_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          outcome?: Json | null
+          owner_id: string
+          steps: Json
+          summary?: string
+          tool: string
+          version_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          book_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          outcome?: Json | null
+          owner_id?: string
+          steps?: Json
+          summary?: string
+          tool?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_plans_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_plans_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "book_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_jobs: {
         Row: {
           book_id: string | null
@@ -175,19 +232,52 @@ export type Database = {
       }
       ai_memory_settings: {
         Row: {
+          about: string | null
+          ai_enabled: boolean
+          craft: string | null
+          emoji: string
           enabled: boolean
+          enthusiasm: string
+          instructions: string | null
+          match_writing_voice: boolean
+          nickname: string | null
           owner_id: string
+          reply_style: string
+          structure: string
           updated_at: string
+          warmth: string
         }
         Insert: {
+          about?: string | null
+          ai_enabled?: boolean
+          craft?: string | null
+          emoji?: string
           enabled?: boolean
+          enthusiasm?: string
+          instructions?: string | null
+          match_writing_voice?: boolean
+          nickname?: string | null
           owner_id: string
+          reply_style?: string
+          structure?: string
           updated_at?: string
+          warmth?: string
         }
         Update: {
+          about?: string | null
+          ai_enabled?: boolean
+          craft?: string | null
+          emoji?: string
           enabled?: boolean
+          enthusiasm?: string
+          instructions?: string | null
+          match_writing_voice?: boolean
+          nickname?: string | null
           owner_id?: string
+          reply_style?: string
+          structure?: string
           updated_at?: string
+          warmth?: string
         }
         Relationships: []
       }
@@ -1289,6 +1379,7 @@ export type Database = {
         Row: {
           audiobook_status: string | null
           author_id: string
+          cover_copy: Json
           cover_image: string | null
           created_at: string
           deleted_at: string | null
@@ -1326,6 +1417,7 @@ export type Database = {
         Insert: {
           audiobook_status?: string | null
           author_id: string
+          cover_copy?: Json
           cover_image?: string | null
           created_at?: string
           deleted_at?: string | null
@@ -1363,6 +1455,7 @@ export type Database = {
         Update: {
           audiobook_status?: string | null
           author_id?: string
+          cover_copy?: Json
           cover_image?: string | null
           created_at?: string
           deleted_at?: string | null

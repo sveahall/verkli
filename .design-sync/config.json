@@ -9,9 +9,6 @@
   "guidelinesGlob": [
     "../../../DESIGN.md"
   ],
-  "extraEntries": [
-    "../../../.design-sync/ds-shims.tsx"
-  ],
   "componentSrcMap": {
     "Skeleton": null
   },

@@ -6,6 +6,9 @@ import dynamic from "next/dynamic";
 import { ArrowRight, ImageIcon, PenLine, Sparkles, Upload } from "lucide-react";
 import { ACCEPTED_COVER_TYPES, COVER_AI_STYLES, COVER_TEMPLATES } from "../BookEditorView.helpers";
 import { requiresUnoptimizedImage } from "@/lib/images/optimizable";
+import type { CoverCopy } from "@/lib/cover-copy";
+import type { CoverCopySaveState } from "../hooks/useCoverCopy";
+import CoverCopyCard from "./CoverCopyCard";
 
 const CoverCropModal = dynamic(() => import("@/components/books/CoverCropModal"), { ssr: false });
 const CoverEditorModal = dynamic(() => import("@/components/books/cover-editor/CoverEditorModal"), { ssr: false });
@@ -55,6 +58,10 @@ interface CoverPanelProps {
   bookId: string;
   bookTitle: string;
   authorName: string;
+  coverCopy: CoverCopy;
+  profileBio: string;
+  coverCopySaveState: CoverCopySaveState;
+  onCoverCopyChange: (next: CoverCopy) => void;
 }
 
 export default function CoverPanel({
@@ -97,6 +104,10 @@ export default function CoverPanel({
   bookId,
   bookTitle,
   authorName,
+  coverCopy,
+  profileBio,
+  coverCopySaveState,
+  onCoverCopyChange,
 }: CoverPanelProps) {
   const selectedTemplate = coverAITemplate
     ? COVER_TEMPLATES.find((t) => t.id === coverAITemplate) ?? null
@@ -666,6 +677,16 @@ export default function CoverPanel({
           )}
         </div>
       </div>
+
+      <CoverCopyCard
+        value={coverCopy}
+        profileBio={profileBio}
+        bookTitle={bookTitle}
+        authorName={authorName}
+        coverUrl={(demoMode ? demoCoverUrl : displayCoverUrl) ?? null}
+        saveState={coverCopySaveState}
+        onChange={onCoverCopyChange}
+      />
 
       {/* Crop modal */}
       {coverCropSrc && (

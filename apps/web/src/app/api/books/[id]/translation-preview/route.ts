@@ -9,7 +9,7 @@ import {
 } from "@/lib/book-translation"
 import { createClient } from "@/lib/supabase/server"
 import { isSupportedLanguage } from "@/lib/languages"
-import { isTranslationPairSupported, getProviderForPair } from "@/lib/translation-pairs"
+import { isTranslationPairSupported } from "@/lib/translation-pairs"
 import {
   apiError,
   E_BOOK_NOT_FOUND,
@@ -31,7 +31,10 @@ export async function GET(
   if (response) return response
 
   const { id: bookId } = await params
-  const targetLanguage = new URL(request.url).searchParams.get("targetLanguage")?.trim().toLowerCase() ?? ""
+  const requestUrl = new URL(request.url)
+  const targetLanguage = requestUrl.searchParams.get("targetLanguage")?.trim().toLowerCase() ?? ""
+  const requestedSourceVersionId = requestUrl.searchParams.get("sourceVersionId")
+  const requestedSourceLanguage = requestUrl.searchParams.get("sourceLanguage")
 
   if (!targetLanguage || !isSupportedLanguage(targetLanguage)) {
     return apiError(E_INVALID_TARGET_LANGUAGE, 400)
@@ -63,6 +66,8 @@ export async function GET(
     supabase,
     bookId,
     book,
+    requestedSourceVersionId,
+    requestedSourceLanguage,
   })
 
   if (!sourceContext.sourceVersionId) {
@@ -84,9 +89,9 @@ export async function GET(
   }
 
   // Always collect source text so the "Original text" panel is populated
-  // even when the translation pair is unsupported.
-  // Use shorter preview for API-based translation (Riva 8K context limit).
-  const previewWordLimit = getProviderForPair(sourceContext.sourceLanguage, targetLanguage) === "opus" ? 1000 : 300
+  // even when the translation pair is unsupported. 300 words is a preview,
+  // not a model limit — the full chapter is translated by the worker.
+  const previewWordLimit = 300
   let originalText = ""
   try {
     originalText = await collectTranslationPreviewText(supabase, sourceContext.sourceVersionId, previewWordLimit)

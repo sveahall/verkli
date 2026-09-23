@@ -1,5 +1,7 @@
 "use client";
 
+import type { ApplyReview } from "./panels/EditorialReviewPanel";
+
 import dynamic from "next/dynamic";
 import GenreSelector from "@/components/books/GenreSelector";
 import DeleteBookButton from "@/components/books/DeleteBookButton";
@@ -14,6 +16,8 @@ import type {
   Tool,
 } from "./BookEditorView.types";
 import type { PrintOnDemandSettings } from "@/lib/print-on-demand";
+import type { CoverCopy } from "@/lib/cover-copy";
+import type { CoverCopySaveState } from "./hooks/useCoverCopy";
 import type { useBookCover } from "./hooks/useBookCover";
 import type { useAudiobook } from "./hooks/useAudiobook";
 import type { useTranslation } from "./hooks/useTranslation";
@@ -44,6 +48,10 @@ interface BookEditorPanelContentProps {
   bookTrailerStatus: string | null;
   bookTrailerUrl: string | null;
   authorDisplayName: string;
+  authorBio: string;
+  coverCopy: CoverCopy;
+  coverCopySaveState: CoverCopySaveState;
+  onCoverCopyChange: (next: CoverCopy) => void;
   tool: Tool;
   tools: Tool[];
   chapters: Chapter[];
@@ -71,6 +79,8 @@ interface BookEditorPanelContentProps {
   refetchBookJob: () => Promise<void>;
   /** True when the parent (BookEditorView) detected demo mode via effectiveTools. */
   demoMode?: boolean;
+  onApplyReview: ApplyReview;
+  reviewSaveBlocked: boolean;
   /** Set when an editor bubble-menu action routed the author to the AI panel. */
 }
 
@@ -80,6 +90,10 @@ export default function BookEditorPanelContent({
   bookDescription,
   bookOriginalUrl,
   authorDisplayName,
+  authorBio,
+  coverCopy,
+  coverCopySaveState,
+  onCoverCopyChange,
   tool,
   tools,
   chapters,
@@ -109,6 +123,8 @@ export default function BookEditorPanelContent({
   bookTrailerStatus,
   bookTrailerUrl,
   demoMode = false,
+  onApplyReview,
+  reviewSaveBlocked,
 }: BookEditorPanelContentProps) {
   return (
     <div className="w-full overflow-hidden rounded-2xl border border-black/[0.04] bg-card shadow-[0_1px_3px_rgba(0,0,0,0.04)] dark:border-border dark:bg-card dark:shadow-none">
@@ -162,6 +178,10 @@ export default function BookEditorPanelContent({
             bookId={bookId}
             bookTitle={bookTitle}
             authorName={authorDisplayName}
+            coverCopy={coverCopy}
+            profileBio={authorBio}
+            coverCopySaveState={coverCopySaveState}
+            onCoverCopyChange={onCoverCopyChange}
           />
         )}
 
@@ -343,6 +363,8 @@ export default function BookEditorPanelContent({
 
         {tool === "review" && (
           <ReviewPanel
+            onApplyReview={onApplyReview}
+            saveBlocked={reviewSaveBlocked}
             bookId={bookId}
             bookTitle={bookTitle}
             chapters={chapters}
@@ -417,7 +439,7 @@ export default function BookEditorPanelContent({
               if (marketing.isGeneratingMarketing) return;
               marketing.setMarketingChannel(channel);
               marketing.setMarketingLanguage(lang as SupportedLanguage);
-              await marketing.handleGenerateMarketingCopy();
+              await marketing.handleGenerateMarketingCopy(channel, lang as SupportedLanguage);
             }}
             isGenerating={marketing.isGeneratingMarketing}
             trailerStatus={bookTrailerStatus}

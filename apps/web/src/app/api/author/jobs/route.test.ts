@@ -261,4 +261,58 @@ describe("GET /api/author/jobs", () => {
       assetAudioUrl: null,
     });
   });
+
+  it("signs only the audiobook bucket when job output names another bucket", async () => {
+    const from = vi.fn().mockReturnValue({
+      createSignedUrl: vi.fn().mockImplementation(async (path: string) => ({
+        data: { signedUrl: `https://signed.example.com/${path}` },
+        error: null,
+      })),
+    });
+    createAdminClient.mockReturnValue({ storage: { from } });
+    createClient.mockResolvedValueOnce(
+      makeSupabaseMock({
+        audiobookAssets: [
+          {
+            book_id: "book-1",
+            audio_path: "../book-downloads/ta-for-er/ta-for-er.pdf",
+            audio_bucket: "book-downloads",
+            created_at: "2026-03-17T10:00:00.000Z",
+          },
+        ],
+        audiobookJobs: [
+          {
+            id: "job-audio",
+            kind: "audiobook_generation",
+            status: "completed",
+            book_id: "book-1",
+            book_version_id: "ver-1",
+            language: "sv",
+            progress: 100,
+            input: {},
+            output: {
+              audioPath: "ta-for-er/ta-for-er.pdf",
+              audioBucket: "book-downloads",
+              audioUrl: "https://attacker.example/stolen.pdf",
+            },
+            error: null,
+            created_at: "2026-03-17T10:05:00.000Z",
+            started_at: "2026-03-17T10:06:00.000Z",
+            finished_at: "2026-03-17T10:20:00.000Z",
+          },
+        ],
+        translationJobs: [],
+        marketingJobs: [],
+      })
+    );
+
+    const response = await GET();
+    const body = await response.json();
+
+    expect(from.mock.calls.map((call) => call[0])).toEqual(["audiobooks"]);
+    expect(body.jobs[0].previewUrl).toBe("https://signed.example.com/ta-for-er/ta-for-er.pdf");
+    expect(body.jobs[0].meta.audioBucket).toBe("audiobooks");
+    expect(JSON.stringify(body)).not.toContain("book-downloads");
+    expect(JSON.stringify(body)).not.toContain("attacker.example");
+  });
 });

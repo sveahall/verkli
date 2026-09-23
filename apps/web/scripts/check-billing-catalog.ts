@@ -2,8 +2,8 @@
  * Verify that every active billing_plan_catalog row points at a Stripe price
  * that actually exists, in the mode the configured key talks to.
  *
- *   npm run check:billing-catalog              # report only, exit 0
- *   npm run check:billing-catalog -- --strict  # exit 1 on any error
+ *   npm run check:billing-catalog              # a found mismatch exits 1; a missing key skips
+ *   npm run check:billing-catalog -- --strict  # a skip exits 1 as well
  *
  * Why this exists
  * ---------------
@@ -244,12 +244,11 @@ async function main() {
   if (errors.length > 0) {
     console.error(`❌  ${errors.length} problem${errors.length === 1 ? "" : "s"}:\n`);
     for (const e of errors) console.error(`   • ${e}\n`);
-    if (!strict) console.log("Reporting only — pass --strict to fail on these.\n");
   } else {
     console.log("✔  Every active catalog row resolves to a usable Stripe price.\n");
   }
 
-  process.exit(strict && errors.length > 0 ? 1 : 0);
+  process.exit(errors.length > 0 ? 1 : 0);
 }
 
 main().catch((err) => {

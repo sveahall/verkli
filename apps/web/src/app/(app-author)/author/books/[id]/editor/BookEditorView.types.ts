@@ -60,6 +60,7 @@ export type Book = {
   price_currency?: string | null;
   pricing_model?: string | null;
   print_on_demand_settings?: unknown | null;
+  cover_copy?: unknown | null;
   setup_state?: unknown | null;
   trailer_status?: string | null;
   trailer_url?: string | null;

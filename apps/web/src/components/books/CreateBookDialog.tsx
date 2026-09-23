@@ -20,7 +20,7 @@ type CreateBookDialogProps = {
 export default function CreateBookDialog({
   open,
   onClose,
-  initialMode = "write",
+  initialMode = "choice",
   onCreated,
   onImported,
 }: CreateBookDialogProps) {
@@ -132,33 +132,36 @@ export default function CreateBookDialog({
             <DialogTitle className="mb-6 pr-10 text-[24px] font-normal">{header}</DialogTitle>
 
             {mode === "choice" && (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <button
-                  onClick={() => setMode("write")}
-                  className="group rounded-2xl border border-black/10 dark:border-border bg-black/[0.02] dark:bg-card p-6 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-accent"
-                >
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#E29ED5]/20 to-[#FCC997]/20">
-                    <svg className="h-6 w-6 text-[#E29ED5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                  </div>
-                  <h3 className="mb-2 text-[18px] font-semibold text-foreground dark:text-foreground">Write a new book</h3>
-                  <p className="text-[14px] text-muted-foreground dark:text-muted-foreground">Create a new book and start writing</p>
-                </button>
-                <button
+                  type="button"
                   onClick={() => {
                     setMode("import");
                     setImportOpen(true);
                   }}
-                  className="group rounded-2xl border border-black/10 dark:border-border bg-black/[0.02] dark:bg-card p-6 text-left transition-all hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-accent"
+                  className="group flex flex-col items-start rounded-2xl border border-[#907AFF]/50 bg-[#907AFF]/10 p-4 text-left transition-colors hover:border-[#907AFF] hover:bg-[#907AFF]/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#907AFF] sm:p-6"
                 >
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#FCC997]/20 to-[#FEE9A3]/20">
-                    <svg className="h-6 w-6 text-[#FCC997]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#907AFF]/15">
+                    <svg className="h-6 w-6 text-[#907AFF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                   </div>
-                  <h3 className="mb-2 text-[18px] font-semibold text-foreground dark:text-foreground">Import book</h3>
-                  <p className="text-[14px] text-muted-foreground dark:text-muted-foreground">Upload an existing book file (epub, docx, html, txt)</p>
+                  <h3 className="mb-2 text-[18px] font-semibold text-foreground">Upload a book</h3>
+                  <p className="text-[14px] text-muted-foreground">Bring your finished manuscript to publish, turn into an audiobook, or translate.</p>
+                  <p className="mt-3 text-[12px] text-muted-foreground">EPUB, DOCX, HTML or TXT</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("write")}
+                  className="group flex flex-col items-start rounded-2xl border border-black/10 dark:border-border bg-black/[0.02] dark:bg-card p-4 text-left transition-colors hover:border-[#907AFF]/30 hover:bg-black/[0.01] dark:hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#907AFF] sm:p-6"
+                >
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#E29ED5]/20 to-[#FCC997]/20">
+                    <svg className="h-6 w-6 text-[#E29ED5]" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                  </div>
+                  <h3 className="mb-2 text-[18px] font-semibold text-foreground">Write your own</h3>
+                  <p className="text-[14px] text-muted-foreground">Start with a blank page and write a new book.</p>
                 </button>
               </div>
             )}

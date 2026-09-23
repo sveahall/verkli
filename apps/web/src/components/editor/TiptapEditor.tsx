@@ -194,6 +194,16 @@ export default function TiptapEditor({
   }, [autosave]);
 
   useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!autosave.hasPending()) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [autosave]);
+
+  useEffect(() => {
     if (!editor) return;
 
     const updateSlashMenu = () => {

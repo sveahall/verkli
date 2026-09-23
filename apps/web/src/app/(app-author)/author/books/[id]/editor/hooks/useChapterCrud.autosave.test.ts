@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  autosaveRetryDelayMs,
   drainPendingSaves,
   type PersistChapter,
   type PersistOutcome,
@@ -285,5 +286,16 @@ describe("drainPendingSaves", () => {
     const result = await drainPendingSaves(pending, persist);
 
     expect(result.saved.get("a")).toBe(JSON.stringify({ body: "hello", extra: 1 }));
+  });
+});
+
+describe("autosaveRetryDelayMs", () => {
+  it("backs off and then stays at the cap", () => {
+    expect(autosaveRetryDelayMs(0)).toBe(2_000);
+    expect(autosaveRetryDelayMs(1)).toBe(4_000);
+    expect(autosaveRetryDelayMs(2)).toBe(8_000);
+    expect(autosaveRetryDelayMs(3)).toBe(16_000);
+    expect(autosaveRetryDelayMs(4)).toBe(30_000);
+    expect(autosaveRetryDelayMs(9)).toBe(30_000);
   });
 });

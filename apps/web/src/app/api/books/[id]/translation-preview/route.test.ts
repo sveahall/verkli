@@ -8,7 +8,6 @@ const mocks = vi.hoisted(() => ({
   collectTranslationPreviewText: vi.fn(),
   getTranslatorForPair: vi.fn(),
   isTranslationPairSupported: vi.fn(),
-  getProviderForPair: vi.fn(),
 }))
 
 vi.mock("@/lib/auth/require-author", () => ({
@@ -28,7 +27,6 @@ vi.mock("@/lib/book-translation", () => ({
 // language the app offers now has a provider, so no real pair reaches it.
 vi.mock("@/lib/translation-pairs", () => ({
   isTranslationPairSupported: mocks.isTranslationPairSupported,
-  getProviderForPair: mocks.getProviderForPair,
 }))
 
 vi.mock("@/lib/ai/providers/server", () => ({
@@ -67,7 +65,6 @@ describe("GET /api/books/[id]/translation-preview", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.isTranslationPairSupported.mockReturnValue(true)
-    mocks.getProviderForPair.mockReturnValue("anthropic")
   })
 
   it("forwards auth failure response", async () => {
@@ -142,7 +139,7 @@ describe("GET /api/books/[id]/translation-preview", () => {
         new AIProviderError(
           "Required model file missing or not a file",
           "PROVIDER_UNAVAILABLE",
-          "opus-mt"
+          "anthropic"
         )
       )
     mocks.getTranslatorForPair.mockReturnValueOnce({ translate })
@@ -176,7 +173,6 @@ describe("GET /api/books/[id]/translation-preview", () => {
     mocks.collectTranslationPreviewText.mockResolvedValueOnce("Hej varlden")
 
     mocks.isTranslationPairSupported.mockReturnValue(false)
-    mocks.getProviderForPair.mockReturnValue(null)
 
     const res = await GET(new Request("http://localhost/api/books/book-1/translation-preview?targetLanguage=it"), {
       params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),

@@ -14,7 +14,7 @@ import {
 } from "@/lib/api-errors";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 
-const pollRateLimiter = createPerUserRateLimiter({ maxPerMinute: 5 });
+const pollRateLimiter = createPerUserRateLimiter({ name: "polls", maxPerMinute: 5 });
 
 const createPollBodySchema = z.object({
   question: z.string().min(1).max(500),
