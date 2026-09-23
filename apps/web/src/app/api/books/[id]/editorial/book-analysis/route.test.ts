@@ -200,7 +200,16 @@ describe("whole-book analysis API", () => {
     const completed = await advance(analysis.jobId, analysis.totalParts);
     expect(completed.status).toBe(200);
     expect(await completed.json()).toMatchObject({ analysis: { status: "completed", completedParts: 4, report } });
-    expect(mocks.report).toHaveBeenCalledWith(inputChapters(), savedRun().notes, expect.any(Function));
+    // Four arguments now: the receipt callback the budget ledger needs, and the
+    // meter context the cost ledger needs. Whole-book analysis reads every
+    // chapter, so it is the largest single spend on the platform — asserting
+    // the meter here is what keeps it from going quiet again.
+    expect(mocks.report).toHaveBeenCalledWith(
+      inputChapters(),
+      savedRun().notes,
+      expect.any(Function),
+      expect.objectContaining({ pipeline: "editorial" })
+    );
     expect(savedRun().receipts).toEqual(Array.from({ length: 5 }, (_, step) => ({ step, reservedUnits: step === 4 ? 30000 : 20000, usage })));
     expect(mocks.budget.mock.calls.map(([input]) => input.jobId)).toEqual(Array.from({ length: 5 }, (_, step) => `${analysis.jobId}:${step}`));
     expect(mocks.budget.mock.invocationCallOrder[0]).toBeLessThan(mocks.notes.mock.invocationCallOrder[0]);

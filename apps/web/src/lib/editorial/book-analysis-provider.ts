@@ -2,6 +2,8 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { EDITORIAL_MODEL, type EditorialUsage } from "./provider";
+import { recordUsage } from "@/lib/usage/meter";
+import type { MeterContext } from "@/lib/usage/types";
 import { splitBookAnalysis, type BookAnalysisChapter, type BookAnalysisPart } from "./book-analysis-content";
 import { BOOK_ANALYSIS_CATEGORIES, bookAnalysisNoteSchema, bookAnalysisNotesSchema, bookAnalysisReportSchema, type AnalysisCitation, type AnalysisNote, type BookAnalysisReport } from "./book-analysis-schema";
 
@@ -64,11 +66,24 @@ export function estimateBookAnalysisNotesUnits(part: BookAnalysisPart): number {
 export function estimateBookAnalysisReportUnits(chapters: BookAnalysisChapter[], notes: AnalysisNote[]): number {
   return Buffer.byteLength(JSON.stringify(reportRequest(chapters, notes)), "utf8") + 4096 + REPORT_OUTPUT_TOKENS;
 }
-async function generate(input: Anthropic.MessageCreateParamsNonStreaming, onUsage?: (usage: EditorialUsage) => Promise<void>): Promise<unknown> {
+async function generate(input: Anthropic.MessageCreateParamsNonStreaming, onUsage?: (usage: EditorialUsage) => Promise<void>, meter?: MeterContext): Promise<unknown> {
   const key = process.env.ANTHROPIC_API_KEY?.trim();
   if (!key) throw new Error("Whole-book analysis AI is not configured. Please contact support.");
   const client = new Anthropic({ apiKey: key, timeout: 40000, maxRetries: 0 });
   const result = await client.messages.create(input);
+
+  // Beside the receipt below, not instead of it: `onUsage` is the budget ledger
+  // and throws when a receipt is missing, this is the cost record and must not.
+  // Whole-book analysis is the largest single token spend the platform makes —
+  // it reads every chapter — so leaving it unmeasured hides the biggest number.
+  if (meter) {
+    await recordUsage(meter, [
+      { kind: "ai_call", provider: "anthropic", model: EDITORIAL_MODEL,
+        quantity: result.usage?.input_tokens ?? 0, unit: "input_tokens" },
+      { kind: "ai_call", provider: "anthropic", model: EDITORIAL_MODEL,
+        quantity: result.usage?.output_tokens ?? 0, unit: "output_tokens" },
+    ]);
+  }
   // A rejected answer is still paid work. Persist its receipt before validating it.
   if (onUsage) {
     const usage = result.usage;
@@ -80,13 +95,13 @@ async function generate(input: Anthropic.MessageCreateParamsNonStreaming, onUsag
   const raw = result.content.filter((block): block is Anthropic.TextBlock => block.type === "text").map((block) => block.text).join("\n").trim();
   return JSON.parse(raw.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, ""));
 }
-export async function generateBookAnalysisNotes(part: BookAnalysisPart, onUsage?: (usage: EditorialUsage) => Promise<void>): Promise<AnalysisNote[]> {
-  const parsed = z.object({ notes: bookAnalysisNotesSchema }).strict().parse(await generate(notesRequest(part), onUsage));
+export async function generateBookAnalysisNotes(part: BookAnalysisPart, onUsage?: (usage: EditorialUsage) => Promise<void>, meter?: MeterContext): Promise<AnalysisNote[]> {
+  const parsed = z.object({ notes: bookAnalysisNotesSchema }).strict().parse(await generate(notesRequest(part), onUsage, meter));
   validateCitations(parsed.notes.flatMap((note) => note.evidence), [{ id: part.chapterId, title: part.chapterTitle, order: part.chapterOrder, text: part.text }]);
   return parsed.notes;
 }
-export async function generateBookAnalysisReport(chapters: BookAnalysisChapter[], notes: AnalysisNote[], onUsage?: (usage: EditorialUsage) => Promise<void>): Promise<BookAnalysisReport> {
-  const report = bookAnalysisReportSchema.parse(await generate(reportRequest(chapters, notes), onUsage));
+export async function generateBookAnalysisReport(chapters: BookAnalysisChapter[], notes: AnalysisNote[], onUsage?: (usage: EditorialUsage) => Promise<void>, meter?: MeterContext): Promise<BookAnalysisReport> {
+  const report = bookAnalysisReportSchema.parse(await generate(reportRequest(chapters, notes), onUsage, meter));
   validateCitations(report.findings.flatMap((finding) => finding.evidence), chapters);
   return report;
 }
