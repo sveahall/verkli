@@ -5,6 +5,26 @@ import { balanceScenario } from "@/app/dev/balance-reconciliation/scenarios";
 import { BalanceComparison } from "./BalanceComparison";
 
 describe("balance comparison presentation", () => {
+  it.each([
+    ["SEK", "90,071,992,547,409.91"], ["JPY", "9,007,199,254,740,991"],
+    ["BHD", "9,007,199,254,740.991"], ["ISK", "90,071,992,547,409.91"],
+    ["UGX", "90,071,992,547,409.91"], ["HUF", "90,071,992,547,409.91"], ["TWD", "90,071,992,547,409.91"],
+  ])("preserves the exact last minor unit for positive and negative %s limits", (currency, formatted) => {
+    for (const sign of [1, -1]) {
+      const fixture = balanceScenario("matched");
+      const minor = sign * Number.MAX_SAFE_INTEGER;
+      fixture.entries = [{ ...fixture.entries[0], currency, amountMinor: minor, feeMinor: 0, netMinor: minor }];
+      fixture.balances = [{ currency, openingMinor: 0, closingMinor: minor }];
+      const html = renderToStaticMarkup(<BalanceComparison report={compareBalances(fixture)} />);
+      expect(html).toContain(`${sign < 0 ? "-" : ""}${currency}\u00a0${formatted}`);
+    }
+  });
+  it("preserves the sign of negative movements smaller than one major unit", () => {
+    const fixture = balanceScenario("matched");
+    fixture.entries = [{ ...fixture.entries[0], amountMinor: -1, feeMinor: 0, netMinor: -1 }];
+    fixture.balances = [{ currency: "sek", openingMinor: 0, closingMinor: -1 }];
+    expect(renderToStaticMarkup(<BalanceComparison report={compareBalances(fixture)} />)).toContain("-SEK\u00a00.01");
+  });
   it("identifies an arithmetic comparison without calling it payable or reconciled", () => {
     const html = renderToStaticMarkup(<BalanceComparison report={compareBalances(balanceScenario("matched"))} />);
     expect(html).toContain("Arithmetic matches");

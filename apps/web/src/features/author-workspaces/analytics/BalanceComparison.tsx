@@ -1,5 +1,5 @@
 import type { BalanceComparisonReport } from "@/lib/payments/balance-reconciliation";
-import { stripeAmountFractionDigits, stripeMinorToMajor } from "@/lib/payments/stripe-currency";
+import { stripeAmountFractionDigits } from "@/lib/payments/stripe-currency";
 
 const labels = {
   incomplete_pages: "Missing transaction pages: observed movements are only a subtotal.",
@@ -11,7 +11,13 @@ export function BalanceComparison({ report }: { report: BalanceComparisonReport 
   function amount(value: number | null, currency: string) {
     if (value === null) return "Not available";
     const digits = stripeAmountFractionDigits(currency);
-    return new Intl.NumberFormat("en", { style: "currency", currency, currencyDisplay: "code", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(stripeMinorToMajor(value, currency));
+    // Dividing a safe minor-unit integer as a Number can still lose the last cent.
+    const minor = BigInt(value);
+    const absolute = minor < 0n ? -minor : minor;
+    const scale = 10n ** BigInt(digits);
+    const whole = new Intl.NumberFormat("en", { maximumFractionDigits: 0 }).format(absolute / scale);
+    const fraction = digits ? `.${(absolute % scale).toString().padStart(digits, "0")}` : "";
+    return `${minor < 0n ? "-" : ""}${currency}\u00a0${whole}${fraction}`;
   }
   const status = report.status === "matched" ? "Arithmetic matches" : report.status === "incomplete" ? "Incomplete comparison" : "Balance mismatch";
   return <section className="space-y-5" aria-label="Balance comparison">
