@@ -57,7 +57,7 @@ export function createFullBookExportHandlers(deps: FullBookExportRuntime) {
         const active = (await deps.list(ownerId, bookId, input.editionId, signal)).find((job) => (job.status === "pending" || job.status === "processing") && job.input.requestId !== input.requestId);
         if (active) throw new PrivateExportError(409, "EXPORT_ALREADY_RUNNING", "An export is already queued for this edition. Finish or cancel it before starting another.");
         const job = await createFullBookJob(deps.store, ownerId, bookId, input, signal);
-        if (job.status === "pending") await deps.enqueue(job);
+        if (job.status === "pending") await awaitMetadata(deps.enqueue(job), signal);
         signal.throwIfAborted();
         return Response.json(fullBookJobView(job, identity), { status: 202, headers });
       }

@@ -24,6 +24,27 @@ describe("full book HTTP ownership and publication", () => {
     const pending = f.handlers.GET(new Request(url, { signal: controller.signal }), context);
     controller.abort(); expect((await pending).status).toBe(504); expect(f.runtime.snapshot).not.toHaveBeenCalled();
   });
+  it.each(["request abort", "deadline with late success", "deadline with late failure"])("bounds enqueue on %s and retries the same saved identity", async (scenario) => {
+    const f = await fixture(), controller = new AbortController();
+    let started!: () => void, succeed!: () => void, fail!: (cause: Error) => void;
+    const entered = new Promise<void>((resolve) => { started = resolve; });
+    const queue = new Promise<void>((resolve, reject) => { succeed = resolve; fail = reject; });
+    vi.mocked(f.runtime.enqueue).mockImplementation(async () => { started(); return queue; });
+    const timeout = scenario === "request abort" ? null : vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+    try {
+      const pending = f.handlers.POST(new Request(url, { method: "POST", body: JSON.stringify(f.input), ...(scenario === "request abort" ? { signal: controller.signal } : {}) }), context);
+      await entered; controller.abort();
+      const response = await Promise.race([pending, new Promise<null>((resolve) => setTimeout(() => resolve(null), 50))]);
+      expect(response).not.toBeNull(); expect(response!.status).toBe(504); expect((await response!.json()).message).toContain("saved export");
+      const id = f.saved.id; expect(f.saved.status).toBe("pending");
+      if (scenario === "deadline with late failure") fail(new Error("Queue outcome arrived late")); else succeed();
+      await Promise.resolve(); timeout?.mockRestore();
+      vi.mocked(f.runtime.enqueue).mockResolvedValue(undefined);
+      const retried = await f.handlers.POST(new Request(url, { method: "POST", body: JSON.stringify(f.input) }), context);
+      expect(retried.status).toBe(202); expect((await retried.json()).id).toBe(id); expect(f.saved.status).toBe("pending");
+      expect(vi.mocked(f.runtime.enqueue).mock.calls.map(([record]) => record.id)).toEqual([id, id]);
+    } finally { succeed(); timeout?.mockRestore(); }
+  });
   it("enqueues only strict current identities and returns no object paths", async () => {
     const f = await fixture(), response = await f.handlers.POST(new Request(url, { method: "POST", body: JSON.stringify(f.input) }), context);
     expect(response.status).toBe(202); const result = await response.json(); expect(result.status).toBe("pending"); expect(result).not.toHaveProperty("artifact"); expect(f.runtime.enqueue).toHaveBeenCalledOnce();
