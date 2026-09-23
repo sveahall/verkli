@@ -190,16 +190,9 @@ export async function resolveTranslationSourceContext({
   }
 
   if (!sourceLanguage) {
-    const { data: firstChapter } = await supabase
-      .from("chapters")
-      .select("content")
-      .eq("book_version_id", sourceVersionId)
-      .is("deleted_at", null)
-      .order("order", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    const sample = extractPlainText(firstChapter?.content as string | null);
+    // A manuscript can start with an empty page or a short title. Detect from
+    // the saved opening excerpt across chapters, just like the preview does.
+    const sample = await collectTranslationPreviewText(supabase, sourceVersionId, 1000);
     const detected = detectLanguageFromText(sample);
 
     if (detected) {

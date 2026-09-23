@@ -228,8 +228,12 @@ describe("whole-book analysis API", () => {
     expect(await (await get()).json()).toMatchObject({ available: false, unavailableReason: expect.any(String) });
     expect(mocks.notes).not.toHaveBeenCalled(); expect(mocks.budget).not.toHaveBeenCalled(); expect(tables.ai_jobs).toHaveLength(0);
   });
-  it("rejects cross-origin, invalid IDs, rate limits and single-chapter manuscripts before creating a job", async () => {
-    expect((await post({ action: "start" }, bookId, "https://elsewhere.example")).status).toBe(403);
+  it("starts behind a proxy after middleware accepts the public origin", async () => {
+    const response = await post({ action: "start" }, bookId, "https://www.verkli.com");
+    expect(response.status).toBe(200);
+    expect(tables.ai_jobs).toHaveLength(1);
+  });
+  it("rejects invalid IDs, rate limits and single-chapter manuscripts before creating a job", async () => {
     expect((await post({ action: "start" }, "invalid")).status).toBe(400);
     mocks.check.mockResolvedValueOnce({ allowed: false }); expect((await post({ action: "start" })).status).toBe(429);
     tables.chapters = [makeChapter(0, "Only chapter.")]; expect((await post({ action: "start" })).status).toBe(422);

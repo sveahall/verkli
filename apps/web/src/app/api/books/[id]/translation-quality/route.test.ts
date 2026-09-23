@@ -125,10 +125,10 @@ describe("translation quality authorization and failure handling", () => {
     expect((await POST(request({ targetLanguage: "xx" }), params)).status).toBe(400);
     expect(mocks.translate).not.toHaveBeenCalled();
   });
-  it("rejects cross-origin requests", async () => {
-    const req = request(); req.headers.set("Origin", "https://unrelated.example");
-    expect((await POST(req, params)).status).toBe(403);
-    expect(mocks.translate).not.toHaveBeenCalled();
+  it("reviews behind a proxy after middleware accepts the public origin", async () => {
+    const req = request(); req.headers.set("Origin", "https://www.verkli.com");
+    expect((await POST(req, params)).status).toBe(200);
+    expect(mocks.translate).toHaveBeenCalledOnce();
   });
   it("rate limits before model calls", async () => {
     mocks.limit.mockResolvedValue({ allowed: false, retryAfterSeconds: 60 });

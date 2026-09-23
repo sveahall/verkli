@@ -94,3 +94,25 @@ it("explains a signed-in user's missing invitation without opening the platform"
   expect(response.status).toBe(307);
   expect(response.headers.get("location")).toBe("https://www.verkli.com/waitlist?access=pending");
 });
+
+// These routes rely on middleware CSRF validation before provider or DB work.
+describe.each(["editorial/book-analysis", "editorial/review", "translation-quality"])("proxy CSRF for %s", (endpoint) => {
+  beforeEach(() => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("BETA_LOCK", "false");
+    vi.stubEnv("NEXT_PUBLIC_WAITLIST_ONLY", "false");
+  });
+  it("accepts the configured public origin when the server URL is internal", async () => {
+    const response = await middleware(new NextRequest(`http://internal:3000/api/books/book/${endpoint}`, {
+      method: "POST", headers: { origin: "https://www.verkli.com" },
+    }));
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+  it("rejects a foreign browser origin before reaching the route", async () => {
+    const response = await middleware(new NextRequest(`http://internal:3000/api/books/book/${endpoint}`, {
+      method: "POST", headers: { origin: "https://unrelated.example", "sec-fetch-site": "cross-site" },
+    }));
+    expect(response.status).toBe(403);
+    expect(response.headers.get("x-middleware-next")).toBeNull();
+  });
+});

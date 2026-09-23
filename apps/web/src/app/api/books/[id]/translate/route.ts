@@ -340,12 +340,22 @@ export async function POST(
     return await failAfterPaidClaim(apiError(E_FORBIDDEN, 403))
   }
 
-  const sourceContext = await resolveTranslationSourceContext({
-    supabase,
-    bookId,
-    book,
-    requestedSourceVersionId: bodySourceVersionId,
-  })
+  let sourceContext
+  try {
+    sourceContext = await resolveTranslationSourceContext({
+      supabase,
+      bookId,
+      book,
+      requestedSourceVersionId: bodySourceVersionId,
+    })
+  } catch (error) {
+    console.error("[book translate] source text lookup failed", {
+      bookId,
+      userId: user.id,
+      message: error instanceof Error ? error.message : String(error),
+    })
+    return await failAfterPaidClaim(apiError(E_TRANSLATION_SERVICE_UNAVAILABLE, 503))
+  }
 
   if (!sourceContext.sourceVersionId) {
     return await failAfterPaidClaim(apiError(E_NO_SOURCE_VERSION, 400))

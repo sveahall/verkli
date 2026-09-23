@@ -88,6 +88,18 @@ describe("GET /api/books/[id]/translation-preview", () => {
     mocks.getProviderForPair.mockReturnValue("anthropic")
   })
 
+  it("returns a retryable error when source-language detection cannot read the manuscript", async () => {
+    mocks.requireAuthorRoleForApi.mockResolvedValueOnce({ user: { id: "author-1" }, response: null })
+    mocks.resolveTranslationSourceContext.mockRejectedValueOnce(new Error("Chapter read failed"))
+    const response = await GET(new Request("http://localhost/api/books/book-1/translation-preview?targetLanguage=fr"), {
+      params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }),
+    })
+    expect(response.status).toBe(503)
+    expect(await response.json()).toMatchObject({ error: "TRANSLATION_SERVICE_UNAVAILABLE" })
+    expect(mocks.budget).not.toHaveBeenCalled()
+    expect(mocks.getTranslatorForPair).not.toHaveBeenCalled()
+  })
+
   it.each(["feature", "rollout"])("does not spend while %s is held", async (held) => {
     (held === "feature" ? mocks.enabled : mocks.activation).mockReturnValue(false)
     mocks.requireAuthorRoleForApi.mockResolvedValueOnce({ user: { id: "author-1" }, response: null })

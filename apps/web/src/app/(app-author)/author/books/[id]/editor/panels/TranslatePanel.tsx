@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getLanguageLabel, LANGUAGE_OPTIONS, isSupportedLanguage, type SupportedLanguage } from "@/lib/languages";
+import { resolveErrorMessage } from "@/lib/error-messages";
 import { isTranslationPairSupported } from "@/lib/translation-pairs";
 import { ArrowRight, BookOpen, ChevronDown, Languages, Check } from "lucide-react";
 import styles from "./TranslatePanel.module.css";
@@ -150,7 +151,7 @@ export default function TranslatePanel({
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || data?.ok === false) {
-            failed.push({ lang, error: data?.error ?? "Unknown error" });
+            failed.push({ lang, error: resolveErrorMessage(data?.error, "Could not start translation. Try again.") });
           } else {
             succeeded.push(lang);
             trackJob(lang, data.jobId);
@@ -233,7 +234,7 @@ export default function TranslatePanel({
         setPreviewUnavailable(nextPreviewUnavailable || Boolean(data.pairUnsupported));
       } else {
         setTranslationPreview("");
-        setPreviewError(res.status === 401 ? "Your session expired. Sign in again to load the preview." : "We couldn’t load the preview. Your manuscript has not changed.");
+        setPreviewError(res.status === 401 ? "Your session expired. Sign in again to load the preview." : resolveErrorMessage(data?.error, "We couldn’t load the preview. Your manuscript has not changed."));
       }
     } catch (err) {
       if (controller.signal.aborted || (err instanceof DOMException && err.name === "AbortError")) return;
@@ -288,7 +289,7 @@ export default function TranslatePanel({
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || data?.ok === false) {
-            failed.push({ lang, error: data?.error ?? "Unknown error" });
+            failed.push({ lang, error: resolveErrorMessage(data?.error, "Could not start translation. Try again.") });
           } else {
             succeeded.push(lang);
             trackJob(lang, data.jobId);
@@ -349,7 +350,7 @@ export default function TranslatePanel({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.ok === false) {
-        reportMessage(data?.error ?? "Could not start translation.");
+        reportMessage(resolveErrorMessage(data?.error, "Could not start translation. Try again."));
         setTranslating(false);
         return;
       }

@@ -142,6 +142,17 @@ describe("POST /api/books/[id]/translate", () => {
     mocks.deleteBookTranslationState.mockResolvedValue(undefined)
   })
 
+  it("returns a retryable error when source-language detection cannot read the manuscript", async () => {
+    mocks.resolveTranslationSourceContext.mockRejectedValueOnce(new Error("Chapter read failed"))
+    const response = await POST(new Request("http://localhost/api/books/book-1/translate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetLanguage: "fr", sourceVersionId: "00000000-0000-4000-8000-000000000002" }),
+    }), { params: Promise.resolve({ id: "00000000-0000-4000-8000-000000000001" }) })
+    expect(response.status).toBe(503)
+    expect(await response.json()).toMatchObject({ error: "TRANSLATION_SERVICE_UNAVAILABLE" })
+    expect(mocks.enqueueTranslationJob).not.toHaveBeenCalled()
+  })
+
   it("blocks queue ingress while the reviewed rollout is held", async () => {
     mocks.activation.mockReturnValue(false)
     const res = await POST(new Request("http://localhost/api/books/book-1/translate", {

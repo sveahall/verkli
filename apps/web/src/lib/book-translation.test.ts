@@ -22,7 +22,7 @@ function client(chapters: Chapter[], error: { message: string } | null = null) {
         order: () => query,
         limit: () => query,
         update: () => query,
-        maybeSingle: async () => ({ data: rows[0], error }),
+        maybeSingle: async () => ({ data: rows[0], error: table === "chapters" ? error : null }),
         then: (resolve: (result: { data: typeof rows; error: typeof error }) => unknown) => resolve({ data: rows, error }),
       };
       return query;
@@ -59,6 +59,33 @@ describe("translation manuscript source", () => {
   it("propagates a chapter read failure instead of returning a misleading preview", async () => {
     await expect(collectTranslationPreviewText(client([], { message: "Chapter read failed" }), "edition"))
       .rejects.toThrow("Chapter read failed");
+  });
+
+  it.each([null, document(""), document("Introduction")])("detects language beyond short or empty opening chapters (%s)", async (opening) => {
+    const result = await resolveTranslationSourceContext({
+      supabase: client([
+        { content: opening, source_text: "" },
+        { content: document("The book is on the table and it was written for the reader in the morning."), source_text: "" },
+      ]),
+      bookId: "book", book: {}, requestedSourceVersionId: "edition",
+    });
+    expect(result.sourceLanguage).toBe("en");
+    expect(result.sourceLanguageOrigin).toBe("heuristic");
+  });
+
+  it("propagates a detection read failure instead of reporting a missing language", async () => {
+    await expect(resolveTranslationSourceContext({
+      supabase: client([], { message: "Chapter read failed" }),
+      bookId: "book", book: {}, requestedSourceVersionId: "edition",
+    })).rejects.toThrow("Chapter read failed");
+  });
+
+  it("keeps an unrecognizable manuscript language unknown", async () => {
+    const result = await resolveTranslationSourceContext({
+      supabase: client([{ content: document("Mira"), source_text: "" }]),
+      bookId: "book", book: {}, requestedSourceVersionId: "edition",
+    });
+    expect(result.sourceLanguage).toBeNull();
   });
 
   it("detects missing edition language from current content, not the prior source language", async () => {
