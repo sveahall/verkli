@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { monthlyReportCsv, type MonthlyReport as Report } from "@/lib/payments/monthly-report";
-import { stripeAmountFractionDigits, stripeMinorToMajor } from "@/lib/payments/stripe-currency";
+import { stripeAmountFractionDigits } from "@/lib/payments/stripe-currency";
 
 type LoadReport = (month: string, signal: AbortSignal) => Promise<Report>;
 async function fetchReport(month: string, signal: AbortSignal): Promise<Report> {
@@ -14,7 +14,15 @@ async function fetchReport(month: string, signal: AbortSignal): Promise<Report> 
 export function MonthlyReportSummary({ report, locale }: { report: Report; locale: string }) {
   function amount(value: number, currency: string) {
     const digits = stripeAmountFractionDigits(currency);
-    return new Intl.NumberFormat(locale, { style: "currency", currency, currencyDisplay: "code", minimumFractionDigits: digits, maximumFractionDigits: digits }).format(stripeMinorToMajor(value, currency));
+    // Keep accepted minor-unit integers exact through presentation, including the last cent.
+    const minor = BigInt(value);
+    const scale = 10n ** BigInt(digits);
+    const whole = minor / scale;
+    const fraction = minor < 0n ? -(minor % scale) : minor % scale;
+    const fractionText = digits ? new Intl.NumberFormat(locale, { useGrouping: false, minimumIntegerDigits: digits, maximumFractionDigits: 0 }).format(fraction) : "";
+    const formatter = new Intl.NumberFormat(locale, { style: "currency", currency, currencyDisplay: "code", minimumFractionDigits: digits, maximumFractionDigits: digits });
+    return formatter.formatToParts(whole === 0n && minor < 0n ? -0 : whole)
+      .map((part) => part.type === "fraction" ? fractionText : part.value).join("");
   }
   return <div className="space-y-4">
     <p className="text-sm font-medium">{report.month} · Not reconciled · Royalty: Not configured</p>
