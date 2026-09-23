@@ -174,6 +174,7 @@ export default function WorkspaceLayout({
   const handleRef = useRef<HTMLDivElement>(null);
   const widthRef = useRef(DOCK_DEFAULT_WIDTH);
   const workspaceWidthRef = useRef(0);
+  const stopResizeRef = useRef<(() => void) | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const [hasDockSpace, setHasDockSpace] = useState(false);
@@ -207,11 +208,12 @@ export default function WorkspaceLayout({
     return () => observer.disconnect();
   }, []);
 
+  // Listeners live on window, not the handle: ⌘I can close the dock mid-drag,
+  // and the page must never be left with text selection switched off.
   const startResize = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
     event.preventDefault();
-    const handle = event.currentTarget;
-    handle.setPointerCapture(event.pointerId);
+    stopResizeRef.current?.();
     const startX = event.clientX;
     const startWidth = widthRef.current;
     const page = document.documentElement;
@@ -222,19 +224,26 @@ export default function WorkspaceLayout({
     page.style.cursor = "col-resize";
     page.style.userSelect = "none";
     const move = (moveEvent: PointerEvent) => applyWidth(startWidth + startX - moveEvent.clientX);
-    const end = () => {
+    const stop = () => {
+      stopResizeRef.current = null;
       delete page.dataset.resizingAssistant;
       page.style.cursor = previous.cursor;
       page.style.userSelect = previous.userSelect;
-      handle.removeEventListener("pointermove", move);
-      handle.removeEventListener("pointerup", end);
-      handle.removeEventListener("pointercancel", end);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      window.removeEventListener("blur", stop);
       applyWidth(widthRef.current, true);
     };
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("pointerup", end);
-    handle.addEventListener("pointercancel", end);
+    stopResizeRef.current = stop;
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+    window.addEventListener("blur", stop);
   };
+
+  useEffect(() => { if (!docked) stopResizeRef.current?.(); }, [docked]);
+  useEffect(() => () => stopResizeRef.current?.(), []);
 
   useEffect(() => {
     const dialog = dialogRef.current;
