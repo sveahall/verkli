@@ -163,7 +163,7 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
       .eq("book_id", book.id),
     supabase
       .from("profiles")
-      .select("display_name, username, preferences, demo_mode")
+      .select("display_name, username, bio, preferences, demo_mode")
       .eq("user_id", book.author_id)
       .maybeSingle(),
   ]);
@@ -208,6 +208,7 @@ export async function loadBookWorkspaceData(bookId: string, langParam: string | 
     activeVersion: activeVersion ?? null,
     authorDisplayName,
     authorDisplayNameSet,
+    authorBio: authorProfile?.bio?.trim() ?? "",
     defaultPublishVisibility,
     latestAudiobookAsset: latestAudiobookAsset
       ? {

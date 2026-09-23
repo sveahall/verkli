@@ -270,12 +270,12 @@ export default async function ReaderReadPage({
           .eq("user_id", user.id)
           .eq("book_id", book.id)
           .maybeSingle()
-      : Promise.resolve({ data: null }),
+      : Promise.resolve({ data: null, error: null }),
   ]);
 
-  const shouldLogStartReading = user
-    ? !existingReadingResult?.data
-    : Number(chapter.order ?? 0) === 1;
+  const shouldLogStartReading = !isAuthorView && (user
+    ? !existingReadingResult?.error && !existingReadingResult?.data
+    : chapters?.[0]?.id === chapter.id);
 
   if (shouldLogStartReading) {
     logAnalyticsEvent(supabase, {
@@ -286,6 +286,7 @@ export default async function ReaderReadPage({
       props: {
         chapterId: chapter.id,
         chapterOrder: chapter.order,
+        bookVersionId: chapter.book_version_id,
       },
     }).catch(() => {});
   }

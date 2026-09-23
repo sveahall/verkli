@@ -81,43 +81,14 @@ async function fetchFilteredBooks(
 ) {
   const { language, query, genreSlugs, format, sort, limit } = opts;
 
-  // If filtering by genres, get all matching book IDs (union across selected genres)
-  let genreBookIds: string[] | null = null;
-  if (genreSlugs.length > 0) {
-    const { data: genreRows, error: genreError } = await supabase
-      .from("genres")
-      .select("id")
-      .in("slug", genreSlugs);
-
-    checkDiscoveryError("genre filter lookup", genreError);
-
-    if (genreRows && genreRows.length > 0) {
-      const genreIds = genreRows.map((r) => r.id);
-      const { data: junctionRows, error: junctionError } = await supabase
-        .from("book_genres")
-        .select("book_id")
-        .in("genre_id", genreIds)
-        .limit(500);
-
-      checkDiscoveryError("genre books lookup", junctionError);
-
-      // Deduplicate — a book tagged with multiple selected genres appears once
-      genreBookIds = [...new Set((junctionRows ?? []).map((r) => r.book_id))];
-      if (genreBookIds.length === 0) {
-        return [];
-      }
-    } else {
-      // None of the requested slugs exist — return empty
-      return [];
-    }
-  }
-
-  // Build the main query
-  let base = supabase
-    .from("books")
-    .select(
-      "id, title, cover_image, author_id, published_at, is_featured, audiobook_status, trailer_url"
-    )
+  // Apply genre membership in the same query as the book filters. A capped
+  // junction lookup can discard relevant books before language/title/format.
+  let base = (genreSlugs.length > 0
+    ? supabase.from("books")
+      .select("id, title, cover_image, author_id, published_at, is_featured, audiobook_status, trailer_url, book_genres!inner(genres!inner(slug))")
+      .in("book_genres.genres.slug", genreSlugs)
+    : supabase.from("books")
+      .select("id, title, cover_image, author_id, published_at, is_featured, audiobook_status, trailer_url"))
     .eq("status", "PUBLISHED");
 
   // Language filter
@@ -130,11 +101,6 @@ async function fetchFilteredBooks(
   // Text search
   if (query) {
     base = base.ilike("title", `%${query.replace(/[\\%_]/g, "\\$&")}%`);
-  }
-
-  // Genre filter (restrict to matched book IDs)
-  if (genreBookIds) {
-    base = base.in("id", genreBookIds);
   }
 
   // Format filter
