@@ -41,7 +41,7 @@ export const DELETION_GRACE_DAYS = 14;
 export const REMOVED_AUTHOR_NAME = "Removed account";
 
 export type TeardownOutcome =
-  | { userId: string; ok: true; skipped?: "withdrawn" }
+  | { userId: string; ok: true; skipped?: "withdrawn" | "not_due" }
   | { userId: string; ok: false; step: string };
 
 export function graceCutoff(now: Date, days = DELETION_GRACE_DAYS): string {
@@ -88,6 +88,13 @@ export async function tearDownAccount(admin: Admin, userId: string, now: Date): 
   }
   if (!current || current.deletion_requested_at == null || current.deletion_completed_at != null) {
     return { userId, ok: true, skipped: "withdrawn" };
+  }
+
+  // A withdrawal followed by a new request may have happened after the due list
+  // was read. Honor the current request's full grace period before any mutation.
+  const requestedAt = Date.parse(current.deletion_requested_at);
+  if (!Number.isFinite(requestedAt) || requestedAt >= Date.parse(graceCutoff(now))) {
+    return { userId, ok: true, skipped: "not_due" };
   }
 
   const fail = (step: string, detail: unknown): TeardownOutcome => {
