@@ -111,7 +111,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // Its own pipeline, with a working default rather than a required variable:
   // EDITORIAL_DAILY_BUDGET is declared in no env file and set nowhere, which is
   // why the editorial review route already fails closed in every environment.
-  const budgetJobId = randomUUID();
+  /**
+   * Stable across a replay of the same request, which is the case this route
+   * exists to handle: a client that loses the response retries with the same
+   * requestId, reserveTurn returns the stored reply without calling the model,
+   * and a fresh uuid here charged the full estimate again for a run that never
+   * happened. Two such replays on a large book locked the author out of the
+   * agent for the rest of the UTC day. The idempotent reservation marker in
+   * workers/budget was built for exactly this and was being handed a new key
+   * every time.
+   *
+   * Only when the conversation is persisted, because only then does reserveTurn
+   * refuse a repeated requestId. A temporary conversation has no such guard, so
+   * a client could otherwise reuse one id and run the model for free.
+   */
+  const replayable = body.data.conversation && !body.data.conversation.temporary;
+  const budgetJobId = replayable ? `request:${body.data.conversation!.requestId}` : randomUUID();
   let reserved = false;
   let modelStarted = false;
   try {

@@ -70,9 +70,13 @@ const DEFAULT_JOB_COST_CAPS: Record<BudgetPipeline, number> = {
   video: 5,
   editorial: 80_000,
   marketing: 0,
-  // One run cannot spend more than the loop's own ceiling, so the per-job cap
-  // matches it rather than inventing a second, looser number.
-  agent: 182_000,
+  // Present because the Record is exhaustive, not because it is enforced:
+  // validateJobCost is called for translation, tts, video and marketing only,
+  // so this is never consulted for an agent run. What actually bounds one run
+  // is the loop's own turn and token limits plus the reservation clip in
+  // ai/agent-runtime/budget. Stating that here rather than leaving a number
+  // that reads like a guard.
+  agent: 332_000,
 };
 
 const PIPELINE_JOB_COST_UNITS: Record<BudgetPipeline, JobCostUnit> = {
