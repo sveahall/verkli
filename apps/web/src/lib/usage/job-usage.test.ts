@@ -70,4 +70,15 @@ describe("jobToUsage", () => {
   it("skips a job with no owner, since there is nobody to bill", () => {
     expect(jobToUsage(job({ user_id: null }))).toBeNull();
   });
+
+  it("records the job against the day it finished, not the day it was synced", () => {
+    // Jobs are derived from `ai_jobs` long after they ran — the first sync
+    // backfilled six months of history. Stamping them `now` put every one of
+    // them on the sync date, which makes cost-per-day meaningless and would
+    // read as one catastrophic day.
+    const out = jobToUsage(
+      job({ started_at: "2026-03-05T13:46:00Z", finished_at: "2026-03-05T13:46:43Z" })
+    );
+    expect(out?.events[0].occurredAt).toBe("2026-03-05T13:46:43Z");
+  });
 });

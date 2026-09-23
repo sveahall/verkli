@@ -63,6 +63,15 @@ export type UsageEventInput = {
   unit: UsageUnit;
   /** The provider's own id, so a line on their invoice can be traced back. */
   requestId?: string | null;
+  /**
+   * When the spend happened, if that is not now.
+   *
+   * Derived events need this. Job cost is read out of `ai_jobs` long after the
+   * fact — the first sync backfilled six months — and stamping those `now` puts
+   * every one of them on the sync date. Cost-per-day then reads as one
+   * catastrophic day and every other day as free.
+   */
+  occurredAt?: string | null;
   meta?: Record<string, unknown>;
 };
 

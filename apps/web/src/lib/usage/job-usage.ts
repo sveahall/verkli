@@ -60,6 +60,8 @@ export function jobToUsage(
         kind: "job",
         quantity: durationMs,
         unit: "ms",
+        // The day the job finished, not the day the sync noticed it.
+        occurredAt: job.finished_at,
         // Failures are recorded too. A run that burned tokens and then crashed
         // is precisely the cost that would otherwise be priced at zero.
         meta: {

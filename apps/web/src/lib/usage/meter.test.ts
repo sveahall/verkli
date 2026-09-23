@@ -115,4 +115,18 @@ describe("recordUsage", () => {
     expect(rows[0].meta.price_missing).toBeUndefined();
     expect(rows[0].meta.job_kind).toBe("audiobook_generation");
   });
+
+  it("honours an event's own occurredAt instead of stamping now", async () => {
+    await recordUsage(ctx, [
+      { kind: "job", quantity: 5_000, unit: "ms", occurredAt: "2026-03-05T13:46:43Z" },
+    ]);
+    const [rows] = insertMock.mock.calls[0];
+    expect(rows[0].occurred_at).toBe("2026-03-05T13:46:43Z");
+  });
+
+  it("still stamps now when the event carries no time of its own", async () => {
+    await recordUsage(ctx, [{ kind: "ai_call", provider: "openai", model: "gpt-6-astra", quantity: 10, unit: "input_tokens" }]);
+    const [rows] = insertMock.mock.calls[0];
+    expect(Date.parse(rows[0].occurred_at)).toBeGreaterThan(Date.now() - 10_000);
+  });
 });
