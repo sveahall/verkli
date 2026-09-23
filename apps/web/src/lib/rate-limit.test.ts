@@ -17,7 +17,7 @@ describe("createPerUserRateLimiter", () => {
   let limiter: ReturnType<typeof createPerUserRateLimiter>;
 
   beforeEach(() => {
-    limiter = createPerUserRateLimiter({ maxPerMinute: 3 });
+    limiter = createPerUserRateLimiter({ name: "test-memory", maxPerMinute: 3 });
   });
 
   it("allows requests up to the limit", async () => {
@@ -58,6 +58,7 @@ describe("createPerUserRateLimiter", () => {
 
   it("refills after window expires", async () => {
     const fast = createPerUserRateLimiter({
+  name: "test-memory-fast",
       maxPerMinute: 2,
       windowMs: 50,
     });

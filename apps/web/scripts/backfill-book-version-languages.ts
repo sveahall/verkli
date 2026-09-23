@@ -10,33 +10,9 @@
 
 import "./load-dotenv";
 import { createAdminClient } from "../src/lib/supabase/admin";
-import { detectLanguageFromText } from "../src/lib/language-detect";
+import { detectLanguageFromParts } from "../src/lib/language-detect";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
-
-function extractText(node: unknown): string {
-  if (!node || typeof node !== "object") return "";
-  if ("text" in node && typeof (node as { text?: string }).text === "string") {
-    return (node as { text: string }).text;
-  }
-  if ("content" in node && Array.isArray((node as { content?: unknown[] }).content)) {
-    return (node as { content: unknown[] }).content.map(extractText).join("");
-  }
-  return "";
-}
-
-function extractPlainText(content: string | null | undefined): string {
-  if (!content) return "";
-  const trimmed = content.trim();
-  if (!trimmed) return "";
-  if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || trimmed.startsWith("[")) {
-    try {
-      return extractText(JSON.parse(trimmed));
-    } catch {
-      return trimmed;
-    }
-  }
-  return trimmed;
-}
+import { chapterPlainText } from "../src/lib/book-translation";
 
 async function main() {
   const supabase = createAdminClient();
@@ -88,15 +64,13 @@ async function main() {
     let source = "book";
 
     if (!resolved) {
-      const { data: chapter } = await supabase
+      const { data: chapters } = await supabase
         .from("chapters")
         .select("content, source_text")
         .eq("book_version_id", version.id)
         .order("order", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      const sample = extractPlainText((chapter?.source_text as string | null) ?? chapter?.content ?? null);
-      const detected = detectLanguageFromText(sample);
+        .limit(12);
+      const detected = detectLanguageFromParts((chapters ?? []).map((chapter) => chapterPlainText(chapter)));
       if (detected) {
         resolved = detected;
         source = "heuristic";

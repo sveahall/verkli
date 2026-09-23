@@ -379,6 +379,7 @@ export type BookEditorProps = {
   activeVersion: BookVersion | null;
   authorDisplayName?: string;
   authorDisplayNameSet?: boolean;
+  authorBio?: string;
   defaultPublishVisibility?: "public" | "followers" | "private";
   latestAudiobookAsset?: LatestAudiobookAsset;
   marketingCampaigns?: MarketingCampaignRow[];

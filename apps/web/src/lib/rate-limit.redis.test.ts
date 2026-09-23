@@ -66,7 +66,7 @@ describe("rate limiter Redis client", () => {
 
   it("asks for a client that cannot queue commands while disconnected", async () => {
     const { createPerUserRateLimiter } = await import("./rate-limit");
-    const limiter = createPerUserRateLimiter({ maxPerMinute: 3 });
+    const limiter = createPerUserRateLimiter({ name: "test-redis-1", maxPerMinute: 3 });
     mocks.evalFn.mockResolvedValue(1);
 
     await limiter.check("user-1");
@@ -78,9 +78,39 @@ describe("rate limiter Redis client", () => {
     });
   });
 
+  /**
+   * The failure this guards: the Redis key was `rl:<userId>:<max>`, so limiters
+   * were separated by their limit VALUE, not by route. ~20 routes at max 5 —
+   * billing/checkout, billing/portal, donations, credits, order/ta-for-er,
+   * feedback, author-applications, audiobook and translate generation — drew
+   * from one 5-per-minute allowance per user. Generating an audiobook spent the
+   * budget for paying and for contacting support.
+   *
+   * It was invisible in dev and in every test: the in-memory fallback allocates
+   * its own Map per limiter, so the buckets are isolated precisely when Redis is
+   * absent. Only production had Redis, and only production had the bug.
+   */
+  it("gives two limiters sharing a limit value their own Redis buckets", async () => {
+    const { createPerUserRateLimiter } = await import("./rate-limit");
+    const paying = createPerUserRateLimiter({ name: "billing-checkout", maxPerMinute: 5 });
+    const generating = createPerUserRateLimiter({ name: "books-audiobook-generate", maxPerMinute: 5 });
+    mocks.evalFn.mockResolvedValue(1);
+
+    await generating.check("user-1");
+    await paying.check("user-1");
+    paying._reset();
+
+    // eval(script, numKeys, key, ttl) — the key is the 3rd argument.
+    const keys = mocks.evalFn.mock.calls.map((call) => call[2] as string);
+    expect(keys).toHaveLength(2);
+    expect(new Set(keys).size).toBe(2);
+    expect(keys[0]).toContain("books-audiobook-generate");
+    expect(keys[1]).toContain("billing-checkout");
+  });
+
   it("bounds a single command so a silent host cannot stall the request", async () => {
     const { createPerUserRateLimiter } = await import("./rate-limit");
-    const limiter = createPerUserRateLimiter({ maxPerMinute: 3 });
+    const limiter = createPerUserRateLimiter({ name: "test-redis-2", maxPerMinute: 3 });
     mocks.evalFn.mockResolvedValue(1);
 
     await limiter.check("user-1");
@@ -95,7 +125,7 @@ describe("rate limiter Redis client", () => {
 
   it("allows the request when the Redis command rejects", async () => {
     const { createPerUserRateLimiter } = await import("./rate-limit");
-    const limiter = createPerUserRateLimiter({ maxPerMinute: 3 });
+    const limiter = createPerUserRateLimiter({ name: "test-redis-3", maxPerMinute: 3 });
     // What enableOfflineQueue: false produces when disconnected.
     mocks.evalFn.mockRejectedValue(
       new Error("Stream isn't writeable and enableOfflineQueue options is false")
@@ -109,7 +139,7 @@ describe("rate limiter Redis client", () => {
 
   it("still enforces the limit through the in-memory fallback", async () => {
     const { createPerUserRateLimiter } = await import("./rate-limit");
-    const limiter = createPerUserRateLimiter({ maxPerMinute: 2 });
+    const limiter = createPerUserRateLimiter({ name: "test-redis-4", maxPerMinute: 2 });
     mocks.evalFn.mockRejectedValue(new Error("redis down"));
 
     const first = await limiter.check("user-2");

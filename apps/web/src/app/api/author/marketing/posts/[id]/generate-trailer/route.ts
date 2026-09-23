@@ -275,7 +275,21 @@ export async function POST(
   // The scenes are concatenated into a single Higgsfield call, so this costs
   // one unit regardless of scene count. Refunded below if it produces nothing.
   const budget = await reserveVideoBudget({ userId: gate.user.id, units: 1 });
-  if (!budget.ok) return budget.response;
+  if (!budget.ok) {
+    // The compare-and-set above already moved this row to `asset_pending`, and
+    // the guard at the top of this handler answers 409 for that status forever
+    // — nothing in this repo ever writes it back to another value, and the UI
+    // pins the button disabled on it. Releasing the claim here is what stops a
+    // single over-quota click from permanently bricking the post, including
+    // after the daily window resets. Scoped with `.eq("status", ...)` so a
+    // concurrent writer that already moved the row on is not clobbered.
+    await supabase
+      .from("marketing_posts")
+      .update({ status: post.status, asset_error: null })
+      .eq("id", post.id)
+      .eq("status", "asset_pending");
+    return budget.response;
+  }
 
   const { data: assetInsert, error: insertErr } = await supabase
     .from("media_assets")
@@ -293,6 +307,11 @@ export async function POST(
 
   if (insertErr || !assetInsert?.id) {
     console.error("[trailer post] media_assets insert:", insertErr?.message);
+    // No Higgsfield call has happened, so the reservation is owed back. The
+    // comment above the reservation ("Refunded below if it produces nothing")
+    // was not true on this path: the only refund sits in the provider catch
+    // block, which this early return never reaches.
+    await refundVideoBudget(budget.reservation);
     await supabase
       .from("marketing_posts")
       .update({ status: "asset_failed", asset_error: "asset_insert_failed" })
@@ -302,12 +321,18 @@ export async function POST(
 
   const assetId = assetInsert.id as string;
 
+  // Set the moment the provider returns. The catch below wraps the upload and
+  // several writes as well as the generation call, so without this a failure
+  // after a successful render refunds a unit that was genuinely spent.
+  let providerBilled = false;
+
   try {
     const { requestId, videoUrl } = await generateImageToVideo({
       prompt,
       imageUrl: safeCoverImageUrl,
       includeAudio: true,
     });
+    providerBilled = true;
 
     const res = await fetchWithTimeout(videoUrl, TRAILER_DOWNLOAD_TIMEOUT_MS);
     if (!res.ok) {
@@ -369,7 +394,12 @@ export async function POST(
     const message = err instanceof Error ? err.message : "trailer generation failed";
     console.error("[trailer post] generation:", message);
 
-    await refundVideoBudget(budget.reservation);
+    // Refund only when the render never happened. A download, upload or write
+    // failure after Higgsfield returned is a unit that was genuinely spent, and
+    // returning it makes the daily ceiling unenforceable.
+    if (!providerBilled) {
+      await refundVideoBudget(budget.reservation);
+    }
 
     await supabase
       .from("media_assets")

@@ -9,6 +9,14 @@ on:
       - ".github/workflows/pipeline-smoke.yml"
       - "docs/BASELINE_SYSTEM_STATE.md"
 
+# Least privilege for GITHUB_TOKEN — see the matching block in ci.yml. It
+# matters more here: this job holds SUPABASE_SERVICE_ROLE_KEY, which bypasses
+# every RLS policy, so the blast radius of anything running in it is the whole
+# database. The job reads the tree and talks to Supabase; it writes nothing back
+# to the repo.
+permissions:
+  contents: read
+
 jobs:
   pipeline-smoke:
     runs-on: ubuntu-latest
@@ -46,10 +54,14 @@ jobs:
             echo "Smoke secrets absent — skipping the pipeline smoke test." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - uses: actions/checkout@v4
+      # Pinned to a commit SHA, not a tag. This job holds
+      # SUPABASE_SERVICE_ROLE_KEY: a repointed `v4` tag would execute new code
+      # with an RLS-bypassing credential in its environment. The SHA cannot be
+      # repointed. Trailing comment keeps Renovate/Dependabot able to bump it.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         if: steps.gate.outputs.run == 'true'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         if: steps.gate.outputs.run == 'true'
         with:
           # Matches the root package.json engines floor (>=22.12.0); the smoke

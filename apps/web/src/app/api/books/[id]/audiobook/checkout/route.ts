@@ -28,7 +28,7 @@ import { sumChapterTextLength } from "@/lib/audiobook/chapter-text"
 import { JobCostExceededError, validateJobCost } from "@/lib/workers/budget"
 import { getRemainingCredits } from "@/lib/tts/elevenlabs-quota"
 
-const checkoutLimiter = createPerUserRateLimiter({ maxPerMinute: 5 })
+const checkoutLimiter = createPerUserRateLimiter({ name: "books-audiobook-checkout", maxPerMinute: 5 })
 
 export const runtime = "nodejs"
 

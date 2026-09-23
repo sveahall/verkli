@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getLanguageLabel, LANGUAGE_OPTIONS, isSupportedLanguage, type SupportedLanguage } from "@/lib/languages";
+import { resolveErrorMessage } from "@/lib/error-messages";
 import { isTranslationPairSupported } from "@/lib/translation-pairs";
 import TranslationCheckoutModal from "./TranslationCheckoutModal";
 import { TranslateMoreLanguagesCard, TranslatePreviewPanes } from "./TranslatePanel.components";
@@ -83,6 +84,7 @@ export default function TranslatePanel({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               targetLanguage: lang,
+              sourceLanguage,
               sourceVersionId,
               overwrite: false,
               stripeSessionId,
@@ -90,7 +92,7 @@ export default function TranslatePanel({
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || data?.ok === false) {
-            failed.push({ lang, error: data?.error ?? "Unknown error" });
+            failed.push({ lang, error: resolveErrorMessage(data?.error, typeof data?.error === "string" ? data.error : undefined) });
           } else {
             succeeded.push(lang);
           }
@@ -115,7 +117,7 @@ export default function TranslatePanel({
     } finally {
       setTranslating(false);
     }
-  }, [bookId, sourceVersionId, onMessage]);
+  }, [bookId, sourceLanguage, sourceVersionId, onMessage]);
 
   // Handle return from Stripe checkout. Runs once per mount via
   // checkoutHandledRef so re-renders from prop changes can't double-fire.
@@ -152,8 +154,10 @@ export default function TranslatePanel({
     setTranslationPreview("");
     setPreviewUnavailable(false);
     try {
+      const previewParams = new URLSearchParams({ targetLanguage, sourceLanguage });
+      if (sourceVersionId) previewParams.set("sourceVersionId", sourceVersionId);
       const res = await fetch(
-        `/api/books/${bookId}/translation-preview?targetLanguage=${encodeURIComponent(targetLanguage)}`,
+        `/api/books/${bookId}/translation-preview?${previewParams.toString()}`,
         { signal: controller.signal },
       );
       if (controller.signal.aborted) return;
@@ -182,7 +186,7 @@ export default function TranslatePanel({
         setLoadingPreview(false);
       }
     }
-  }, [bookId, targetLanguage]);
+  }, [bookId, sourceLanguage, sourceVersionId, targetLanguage]);
 
   useEffect(() => {
     void fetchPreview();
@@ -220,13 +224,14 @@ export default function TranslatePanel({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               targetLanguage: lang,
+              sourceLanguage,
               sourceVersionId,
               overwrite: false,
             }),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || data?.ok === false) {
-            failed.push({ lang, error: data?.error ?? "Unknown error" });
+            failed.push({ lang, error: resolveErrorMessage(data?.error, typeof data?.error === "string" ? data.error : undefined) });
           } else {
             succeeded.push(lang);
           }
@@ -251,7 +256,7 @@ export default function TranslatePanel({
     } finally {
       setTranslating(false);
     }
-  }, [bookId, sourceVersionId, selectedLanguages, translating, billingLoading, isProLocked, onMessage]);
+  }, [bookId, sourceLanguage, sourceVersionId, selectedLanguages, translating, billingLoading, isProLocked, onMessage]);
 
   const handleTranslateSingleLanguage = useCallback(async () => {
     if (!bookId || !sourceVersionId || translating || billingLoading || !isSupportedLanguage(targetLanguage)) return;
@@ -273,6 +278,7 @@ export default function TranslatePanel({
     try {
       const body: Record<string, unknown> = {
         targetLanguage,
+        sourceLanguage,
         sourceVersionId,
         overwrite: false,
       };
@@ -286,7 +292,7 @@ export default function TranslatePanel({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.ok === false) {
-        onMessage?.(data?.error ?? "Could not start translation.");
+        onMessage?.(resolveErrorMessage(data?.error, typeof data?.error === "string" ? data.error : "Could not start translation."));
         setTranslating(false);
         return;
       }
@@ -298,7 +304,7 @@ export default function TranslatePanel({
     } finally {
       setTranslating(false);
     }
-  }, [bookId, sourceVersionId, targetLanguage, translating, billingLoading, isProLocked, translateScope, selectedChapterId, onMessage]);
+  }, [bookId, sourceLanguage, sourceVersionId, targetLanguage, translating, billingLoading, isProLocked, translateScope, selectedChapterId, onMessage]);
 
   const handleProSubscribe = useCallback(() => {
     setCheckoutModalOpen(false);
@@ -476,6 +482,7 @@ export default function TranslatePanel({
         onClose={() => setCheckoutModalOpen(false)}
         bookId={bookId}
         sourceVersionId={sourceVersionId ?? ""}
+        sourceLanguage={sourceLanguage}
         languages={checkoutLanguages}
         onProSubscribe={handleProSubscribe}
       />

@@ -33,6 +33,31 @@ COPY packages/shared packages/shared
 
 WORKDIR /app/apps/web
 
+# Drop root. These workers parse attacker-supplied content as their whole job —
+# EPUB uploads through epub/adm-zip in import-worker, and ffmpeg over generated
+# media — while holding SUPABASE_SERVICE_ROLE_KEY in their environment. As root
+# any RCE in that chain is a writable, RLS-bypassing foothold; as uid 1001 it is
+# a crashed process. Mirrors Dockerfile.web:196.
+#
+# `-G nodejs` puts worker in the group, so the `:nodejs` half of the chown below
+# actually grants something rather than relying on owner bits alone.
+#
+# Every worker temp path derives from os.tmpdir() (import-worker.ts:174,678 and
+# audiobook-worker.ts:522,955), and /tmp is 1777 on Alpine, so nothing here
+# needs write access under /app. The chown is kept anyway because this image
+# cannot be built and started in the current environment; it costs a duplicated
+# layer and buys certainty. Drop it once a real `docker run` confirms the
+# workers boot without it.
+RUN addgroup -g 1001 -S nodejs && adduser -S worker -u 1001 -G nodejs \
+  && chown -R worker:nodejs /app
+
+USER worker
+
 # Default: run import worker. Override in compose with command or WORKER env.
 ENV WORKER=import
-CMD ["sh", "-c", "npx tsx scripts/${WORKER}-worker.ts"]
+# Direct path rather than `npx`: tsx hoists to the workspace root, so it lives
+# at /app/node_modules/.bin/tsx even though WORKDIR is /app/apps/web. Calling it
+# absolutely skips the npm process entirely — no cache or $HOME dependency — and
+# `exec` makes tsx PID 1 so Railway's SIGTERM reaches the BullMQ worker instead
+# of stopping at the shell, letting it finish the job in hand before exiting.
+CMD ["sh", "-c", "exec /app/node_modules/.bin/tsx scripts/${WORKER}-worker.ts"]

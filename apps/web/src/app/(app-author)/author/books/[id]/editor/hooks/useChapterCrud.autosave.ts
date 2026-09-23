@@ -159,3 +159,12 @@ export async function drainPendingSaves(
 
   return { saved, transientFailures, missingChapters };
 }
+
+const AUTOSAVE_RETRY_BASE_MS = 2_000;
+const AUTOSAVE_RETRY_MAX_MS = 30_000;
+
+/** Backoff for a failed drain. Attempt 0 waits 2s, then 4s, 8s, 16s, then 30s. */
+export function autosaveRetryDelayMs(attempt: number): number {
+  const step = Math.max(0, Math.floor(attempt));
+  return Math.min(AUTOSAVE_RETRY_MAX_MS, AUTOSAVE_RETRY_BASE_MS * 2 ** Math.min(step, 4));
+}

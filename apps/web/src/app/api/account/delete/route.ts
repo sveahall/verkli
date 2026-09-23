@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 
 // Tight rate limit — this is a deliberate user action and shouldn't be
 // automated or retried in a loop.
-const deleteLimiter = createPerUserRateLimiter({ maxPerMinute: 2 });
+const deleteLimiter = createPerUserRateLimiter({ name: "account-delete", maxPerMinute: 2 });
 
 /**
  * Soft-request account deletion.

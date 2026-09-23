@@ -15,7 +15,7 @@ test("import is a named modal with keyboard file selection and a contained short
   await page.goto("/author/library");
   const trigger = page.getByRole("button", { name: "New book", exact: true }).first();
   await trigger.click();
-  await page.getByRole("button", { name: "import from file", exact: true }).click();
+  await page.getByRole("button", { name: /Upload a book/ }).click();
   const dialog = page.getByRole("dialog", { name: "Import book", exact: true });
   await expect(dialog).toBeVisible();
   const bounds = await dialog.boundingBox();

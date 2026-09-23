@@ -31,7 +31,10 @@ export async function GET(
   if (response) return response
 
   const { id: bookId } = await params
-  const targetLanguage = new URL(request.url).searchParams.get("targetLanguage")?.trim().toLowerCase() ?? ""
+  const requestUrl = new URL(request.url)
+  const targetLanguage = requestUrl.searchParams.get("targetLanguage")?.trim().toLowerCase() ?? ""
+  const requestedSourceVersionId = requestUrl.searchParams.get("sourceVersionId")
+  const requestedSourceLanguage = requestUrl.searchParams.get("sourceLanguage")
 
   if (!targetLanguage || !isSupportedLanguage(targetLanguage)) {
     return apiError(E_INVALID_TARGET_LANGUAGE, 400)
@@ -63,6 +66,8 @@ export async function GET(
     supabase,
     bookId,
     book,
+    requestedSourceVersionId,
+    requestedSourceLanguage,
   })
 
   if (!sourceContext.sourceVersionId) {

@@ -6,8 +6,12 @@ vi.mock("@/lib/usage/meter", () => ({
 }));
 
 const messagesCreateMock = vi.fn();
+const anthropicCtorArgs: unknown[] = [];
 vi.mock("@anthropic-ai/sdk", () => ({
   default: class {
+    constructor(args: unknown) {
+      anthropicCtorArgs.push(args);
+    }
     messages = { create: messagesCreateMock };
   },
 }));
@@ -19,6 +23,7 @@ const MODEL_ID = "claude-sonnet-5";
 describe("AnthropicTranslator metering", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    anthropicCtorArgs.length = 0;
     vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-test");
     messagesCreateMock.mockResolvedValue({
       content: [{ type: "text", text: '["hej"]' }],
@@ -72,5 +77,10 @@ describe("AnthropicTranslator metering", () => {
     });
     const [ctx] = recordUsageMock.mock.calls[0];
     expect(ctx.userId).toBe("user-2");
+  });
+
+  it("does not let the SDK retry a chunk the worker will retry itself", async () => {
+    await new AnthropicTranslator().translateBatch(["hi"], "en", "sv");
+    expect(anthropicCtorArgs[0]).toMatchObject({ maxRetries: 0 });
   });
 });

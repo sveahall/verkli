@@ -15,12 +15,30 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/books/*/translate", (route) => route.abort());
 });
 
+test("new book offers upload first alongside writing and resets when reopened", async ({ page }) => {
+  await page.goto("/author/library");
+  const trigger = page.getByRole("button", { name: "New book", exact: true }).first();
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "New book", exact: true });
+  const choices = dialog.getByRole("button").filter({ has: page.getByRole("heading", { level: 3 }) });
+  await expect(choices).toHaveCount(2);
+  await expect(choices.nth(0)).toContainText("Upload a book");
+  await expect(choices.nth(1)).toContainText("Write your own");
+  await expect(dialog.getByRole("textbox", { name: "Title", exact: true })).toHaveCount(0);
+  await choices.nth(1).click();
+  await expect(dialog.getByRole("textbox", { name: "Title", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await trigger.click();
+  await expect(choices.nth(0)).toBeVisible();
+});
+
 test("new book is named, keeps keyboard focus, and restores its trigger", async ({ page }) => {
   await page.goto("/author/library");
   const trigger = page.getByRole("button", { name: "New book", exact: true }).first();
   await trigger.click();
   const dialog = page.getByRole("dialog", { name: "New book", exact: true });
   await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: /Write your own/ }).click();
   const title = dialog.getByRole("textbox", { name: "Title", exact: true });
   await expect(title).toBeFocused();
   await trigger.evaluate((element) => element.focus());
@@ -36,6 +54,7 @@ test("new book is named, keeps keyboard focus, and restores its trigger", async 
 test("new book submits with Enter and announces a recoverable error", async ({ page }) => {
   await page.goto("/author/library");
   await page.getByRole("button", { name: "New book", exact: true }).first().click();
+  await page.getByRole("button", { name: /Write your own/ }).click();
   const title = page.getByPlaceholder("Book title", { exact: true });
   await title.fill("Keyboard QA book");
   const request = page.waitForRequest((value) => value.url().endsWith("/api/books") && value.method() === "POST");
@@ -50,6 +69,9 @@ test("new book fits a short mobile viewport with a reachable submit control", as
   await page.goto("/author/library");
   await page.getByRole("button", { name: "New book", exact: true }).first().click();
   const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("button", { name: /Upload a book/ })).toBeInViewport();
+  await expect(dialog.getByRole("button", { name: /Write your own/ })).toBeInViewport();
+  await dialog.getByRole("button", { name: /Write your own/ }).click();
   const bounds = await dialog.boundingBox();
   expect(bounds!.y).toBeGreaterThanOrEqual(16);
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(464);
@@ -60,7 +82,7 @@ test("new book fits a short mobile viewport with a reachable submit control", as
 test("switching from new book keeps the import dialog open", async ({ page }) => {
   await page.goto("/author/library");
   await page.getByRole("button", { name: "New book", exact: true }).first().click();
-  await page.getByRole("button", { name: "import from file", exact: true }).click();
+  await page.getByRole("button", { name: /Upload a book/ }).click();
   await expect(page.getByRole("heading", { name: "Import book", exact: true })).toBeVisible();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("heading", { name: "Import book", exact: true })).toBeVisible();

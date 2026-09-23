@@ -35,7 +35,7 @@ export const runtime = "nodejs";
  *     get the file, and every earlier print order would retroactively include
  *     a product it never paid for.
  *
- * The link is signed for 60 minutes and the bucket is private, so a URL that
+ * The link is signed for 15 minutes and the bucket is private, so a URL that
  * leaks stops working; the buyer can always come back to the success page and
  * get a fresh one, because it is derived from the session id.
  *
@@ -43,9 +43,9 @@ export const runtime = "nodejs";
  * payment and issues fresh signed URLs, so the storage URL can safely expire.
  */
 
-const downloadLimiter = createPerUserRateLimiter({ maxPerMinute: 20 });
+const downloadLimiter = createPerUserRateLimiter({ name: "order-ta-for-er-download", maxPerMinute: 20 });
 
-const SIGNED_URL_TTL_SECONDS = 3600;
+const SIGNED_URL_TTL_SECONDS = 15 * 60;
 
 export async function GET(request: Request) {
   if (!isStripeConfigured()) {

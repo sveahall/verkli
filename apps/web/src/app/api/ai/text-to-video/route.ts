@@ -2,6 +2,7 @@ import { generateImageToVideo } from "@/lib/higgsfield";
 import { NextResponse } from "next/server";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
 import { requireProBillingForApi } from "@/lib/billing/server";
+import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { validateProviderImageUrl } from "@/lib/security/url-allowlist";
 import {
   apiError,
@@ -14,32 +15,12 @@ import {
 /** Higgsfield image→video can take 1–2+ minutes. */
 export const maxDuration = 300;
 
-// ─── Rate limiting (per-user token bucket) ──────────────────────────────────
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX_PER_MINUTE = 5; // Video generation is expensive — tight limit
-
-type RateLimitEntry = { tokens: number; lastRefill: number };
-const rateLimitMap = new Map<string, RateLimitEntry>();
-
-function checkRateLimit(userId: string): { allowed: boolean; retryAfterSeconds?: number } {
-  const now = Date.now();
-  const existing = rateLimitMap.get(userId);
-  if (!existing) {
-    rateLimitMap.set(userId, { tokens: RATE_LIMIT_MAX_PER_MINUTE - 1, lastRefill: now });
-    return { allowed: true };
-  }
-  const elapsed = now - existing.lastRefill;
-  if (elapsed >= RATE_LIMIT_WINDOW_MS) {
-    existing.tokens = RATE_LIMIT_MAX_PER_MINUTE - 1;
-    existing.lastRefill = now;
-    return { allowed: true };
-  }
-  if (existing.tokens <= 0) {
-    return { allowed: false, retryAfterSeconds: Math.ceil((RATE_LIMIT_WINDOW_MS - elapsed) / 1000) };
-  }
-  existing.tokens -= 1;
-  return { allowed: true };
-}
+// Shared with the other paid routes so the cap holds across Railway replicas.
+// The in-process Map reset on every process and never saw the others.
+const rateLimiter = createPerUserRateLimiter({
+  name: "ai-text-to-video",
+  maxPerMinute: 5,
+});
 
 // ─── Request parsing ────────────────────────────────────────────────────────
 const DURATIONS = [4, 6, 8] as const;
@@ -69,7 +50,7 @@ export async function POST(req: Request) {
   if (!user) return apiError(E_UNAUTHORIZED, 401);
 
   // SECURITY: Rate limit per user — video credits are expensive
-  const rl = checkRateLimit(user.id);
+  const rl = await rateLimiter.check(user.id);
   if (!rl.allowed) {
     return apiError(E_RATE_LIMIT_EXCEEDED, 429, {
       retryAfterSeconds: rl.retryAfterSeconds,

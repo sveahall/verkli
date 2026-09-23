@@ -1,14 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-// The budget helper has its own unit tests; here it must not reach Redis.
-vi.mock("@/lib/marketing/video-budget", () => ({
-  reserveVideoBudget: vi.fn(async () => ({
-    ok: true as const,
-    reservation: { jobId: "test-job", units: 1 },
-  })),
-  refundVideoBudget: vi.fn(async () => {}),
-}));
-
 
 // Ensure the cover-image SSRF allowlist accepts the fake test URL so the
 // behavioural tests exercise the non-validation code paths below.
@@ -35,6 +26,18 @@ const mocks = vi.hoisted(() => ({
   generateImageToVideo: vi.fn(),
   stitchSceneVideos: vi.fn(),
   uploadTrailerAndGetPublicUrl: vi.fn(),
+  reserveVideoBudget: vi.fn(),
+  refundVideoBudget: vi.fn(),
+}));
+
+// Hoisted handles, not a factory that always succeeds. The previous version
+// inlined `reserveVideoBudget: vi.fn(async () => ({ ok: true, ... }))` inside
+// the factory, so no test could ever reach the `!budget.ok` branch or assert on
+// the refund — and every budget bug found in review lived on exactly those
+// paths. The helper still never reaches Redis; it is just controllable now.
+vi.mock("@/lib/marketing/video-budget", () => ({
+  reserveVideoBudget: mocks.reserveVideoBudget,
+  refundVideoBudget: mocks.refundVideoBudget,
 }));
 
 vi.mock("@/lib/auth/require-author", () => ({
@@ -119,12 +122,12 @@ function makeRequest(overrides: Record<string, unknown> = {}) {
   });
 }
 
-function mockAdminClient() {
+function mockAdminClient({ insertError }: { insertError?: { message: string } } = {}) {
   const insert = vi.fn(() => ({
     select: vi.fn(() => ({
       single: vi.fn().mockResolvedValue({
-        data: { id: "asset-1" },
-        error: null,
+        data: insertError ? null : { id: "asset-1" },
+        error: insertError ?? null,
       }),
     })),
   }));
@@ -166,8 +169,22 @@ function mockAdminClient() {
   });
 
   mocks.createAdminClient.mockReturnValue({ from });
-  return { insert, update };
+  return { insert, update, booksUpdate };
 }
+
+const THREE_SCENES = {
+  output: {
+    scenes: [
+      { visual_prompt: "scene one", duration: 5 },
+      { visual_prompt: "scene two", duration: 5 },
+      { visual_prompt: "scene three", duration: 5 },
+    ],
+    caption: "caption",
+    hashtags: ["#one", "#two"],
+    title_card: "My Book",
+  },
+  metadata: { provider: "template" },
+};
 
 describe("POST /api/books/[id]/trailer/build", () => {
   beforeEach(() => {
@@ -178,7 +195,73 @@ describe("POST /api/books/[id]/trailer/build", () => {
     });
     mocks.requireProBillingForApi.mockResolvedValue({ ok: true, response: null });
     mocks.isMarketingEnabled.mockReturnValue(true);
+    mocks.reserveVideoBudget.mockResolvedValue({
+      ok: true,
+      reservation: { jobId: "test-job", units: 3 },
+    });
+    mocks.refundVideoBudget.mockResolvedValue(undefined);
     mockAdminClient();
+  });
+
+  // Budget accounting. The rule the route now follows: before the provider call
+  // a refund is owed, after it a refund is not — because refundVideoBudget
+  // releases the whole reservation by jobId and has no partial mode.
+  it("returns the budget refusal without touching the provider", async () => {
+    mocks.reserveVideoBudget.mockResolvedValue({
+      ok: false,
+      response: new Response(JSON.stringify({ error: "AI_BUDGET_EXCEEDED" }), { status: 429 }),
+    });
+    mocks.generateTrailerPrompt.mockResolvedValue(THREE_SCENES);
+
+    const response = await POST(makeRequest(), { params: Promise.resolve({ id: BOOK_ID }) });
+
+    expect(response.status).toBe(429);
+    expect(mocks.generateImageToVideo).not.toHaveBeenCalled();
+    expect(mocks.refundVideoBudget).not.toHaveBeenCalled();
+  });
+
+  it("refunds and clears the spinner when the media_assets insert fails", async () => {
+    const { booksUpdate } = mockAdminClient({ insertError: { message: "insert failed" } });
+    mocks.generateTrailerPrompt.mockResolvedValue(THREE_SCENES);
+
+    const response = await POST(makeRequest(), { params: Promise.resolve({ id: BOOK_ID }) });
+
+    expect(response.status).toBe(500);
+    // Nothing was billed, so the whole reservation is owed back...
+    expect(mocks.refundVideoBudget).toHaveBeenCalledWith({ jobId: "test-job", units: 3 });
+    expect(mocks.generateImageToVideo).not.toHaveBeenCalled();
+    // ...and the book must not be left showing a spinner that never resolves.
+    expect(booksUpdate).toHaveBeenCalledWith(expect.objectContaining({ trailer_status: "failed" }));
+  });
+
+  it("does NOT refund when some scenes were already billed", async () => {
+    mocks.generateTrailerPrompt.mockResolvedValue(THREE_SCENES);
+    // Promise.all rejects on the first failure but does not cancel the siblings,
+    // so these two renders are billed regardless of the third.
+    mocks.generateImageToVideo
+      .mockResolvedValueOnce({ requestId: "req-1", videoUrl: "https://cdn.example.com/s1.mp4" })
+      .mockResolvedValueOnce({ requestId: "req-2", videoUrl: "https://cdn.example.com/s2.mp4" })
+      .mockRejectedValueOnce(new Error("Scene generation failed"));
+
+    const response = await POST(makeRequest(), { params: Promise.resolve({ id: BOOK_ID }) });
+
+    expect(response.status).toBe(502);
+    expect(mocks.refundVideoBudget).not.toHaveBeenCalled();
+  });
+
+  it("does NOT refund when the stitch fails after every scene was billed", async () => {
+    mocks.generateTrailerPrompt.mockResolvedValue(THREE_SCENES);
+    mocks.generateImageToVideo
+      .mockResolvedValueOnce({ requestId: "req-1", videoUrl: "https://cdn.example.com/s1.mp4" })
+      .mockResolvedValueOnce({ requestId: "req-2", videoUrl: "https://cdn.example.com/s2.mp4" })
+      .mockResolvedValueOnce({ requestId: "req-3", videoUrl: "https://cdn.example.com/s3.mp4" });
+    mocks.stitchSceneVideos.mockRejectedValue(new Error("ffmpeg died"));
+
+    const response = await POST(makeRequest(), { params: Promise.resolve({ id: BOOK_ID }) });
+
+    expect(response.status).toBe(502);
+    expect(mocks.generateImageToVideo).toHaveBeenCalledTimes(3);
+    expect(mocks.refundVideoBudget).not.toHaveBeenCalled();
   });
 
   it("builds trailer, uploads final mp4, and marks media asset ready", async () => {
@@ -291,5 +374,9 @@ describe("POST /api/books/[id]/trailer/build", () => {
         error: "Scene generation failed",
       })
     );
+    // The other half of the rule: every scene rejected, so nothing was billed
+    // and the full reservation IS owed back. Paired with the two "does NOT
+    // refund" cases above, this pins both sides of the divider.
+    expect(mocks.refundVideoBudget).toHaveBeenCalledWith({ jobId: "test-job", units: 3 });
   });
 });

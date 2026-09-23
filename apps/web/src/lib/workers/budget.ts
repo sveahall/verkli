@@ -15,7 +15,7 @@
 import Redis from "ioredis";
 import { getRedisClientOptions } from "@/lib/env";
 
-export type BudgetPipeline = "tts" | "translation" | "video";
+export type BudgetPipeline = "tts" | "translation" | "video" | "editorial";
 
 export interface BudgetCheckInput {
   userId: string;
@@ -55,18 +55,28 @@ const DEFAULT_DAILY_BUDGETS: Record<BudgetPipeline, number> = {
   tts: 500_000,
   translation: 500_000,
   video: 100,
+  // Editorial review is its own pipeline on purpose. Charging it to an existing
+  // one would repeat the mistake the marketing worker makes by billing campaign
+  // drafts to `video`: a video unit is calibrated for one Higgsfield render, so
+  // sharing a budget across pipelines with different per-unit costs means
+  // neither ceiling means anything. ~40 reviewed parts/day with the critic on.
+  editorial: 1_000_000,
 };
 
 const DEFAULT_JOB_COST_CAPS: Record<BudgetPipeline, number> = {
   tts: 50_000,
   translation: 1_000_000,
   video: 5,
+  // `splitReviewText` caps one part at 12k chars, and an enabled critic doubles
+  // that to 24k. 30k leaves headroom without admitting a whole unsplit book.
+  editorial: 30_000,
 };
 
 const PIPELINE_JOB_COST_UNITS: Record<BudgetPipeline, JobCostUnit> = {
   tts: "chars",
   translation: "chars",
   video: "units",
+  editorial: "chars",
 };
 
 const REDIS_RESERVE_SCRIPT = `

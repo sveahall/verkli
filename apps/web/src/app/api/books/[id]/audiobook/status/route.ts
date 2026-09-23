@@ -26,6 +26,7 @@ function normalizeStoragePath(value: unknown): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   if (/^https?:\/\//i.test(trimmed)) return null;
+  if (trimmed.startsWith("/") || trimmed.includes("\\") || trimmed.includes("..")) return null;
   return trimmed;
 }
 
@@ -185,22 +186,12 @@ export async function GET(
   const pauseRequested = output.pauseRequested === true;
   const cancelRequested = output.cancelRequested === true;
   const outputAudioPath = normalizeStoragePath(output.audioPath);
-  const outputAudioBucket =
-    typeof output.audioBucket === "string" && output.audioBucket.trim().length > 0
-      ? output.audioBucket.trim()
-      : defaultBucket;
+  const outputAudioBucket = defaultBucket;
   const outputManifestPath = normalizeStoragePath(output.manifestPath);
-  const outputManifestBucket =
-    typeof output.manifestBucket === "string" && output.manifestBucket.trim().length > 0
-      ? output.manifestBucket.trim()
-      : defaultBucket;
+  const outputManifestBucket = defaultBucket;
   const outputGeneratedChapterAudioPath =
     normalizeStoragePath(output.generatedChapterAudioPath);
-  const outputGeneratedChapterAudioBucket =
-    typeof output.generatedChapterAudioBucket === "string" &&
-    output.generatedChapterAudioBucket.trim().length > 0
-      ? output.generatedChapterAudioBucket.trim()
-      : defaultBucket;
+  const outputGeneratedChapterAudioBucket = defaultBucket;
   const [outputAudioUrl, outputManifestUrl, outputGeneratedChapterAudioUrl, assetAudioUrl] = await Promise.all([
     signAudioPath(admin, outputAudioPath, outputAudioBucket),
     signAudioPath(admin, outputManifestPath, outputManifestBucket),

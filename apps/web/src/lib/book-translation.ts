@@ -1,4 +1,4 @@
-import { detectLanguageFromText } from "@/lib/language-detect";
+import { detectLanguageFromParts } from "@/lib/language-detect";
 import { normalizeLanguageOrNull } from "@/lib/languages";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -10,7 +10,7 @@ type TranslationBookRow = {
   language?: string | null;
 };
 
-type SourceLanguageOrigin = "version" | "book" | "heuristic" | null;
+type SourceLanguageOrigin = "version" | "book" | "heuristic" | "request" | null;
 
 export type TranslationSourceContext = {
   sourceVersionId: string | null;
@@ -47,8 +47,10 @@ export function extractText(node: unknown): string {
   return "";
 }
 
-export function extractPlainText(content: string | null | undefined): string {
-  if (!content) return "";
+export function extractPlainText(content: unknown): string {
+  if (content == null) return "";
+  if (typeof content === "object") return extractText(content).trim();
+  if (typeof content !== "string") return "";
   const trimmed = content.trim();
   if (!trimmed) return "";
   if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || trimmed.startsWith("[")) {
@@ -59,6 +61,14 @@ export function extractPlainText(content: string | null | undefined): string {
     }
   }
   return trimmed;
+}
+
+/** Prefer stored plain text. An empty source_text must not hide TipTap content. */
+export function chapterPlainText(chapter: { source_text?: unknown; content?: unknown } | null | undefined): string {
+  if (!chapter) return "";
+  const source = extractPlainText(chapter.source_text);
+  if (source.trim()) return source;
+  return extractPlainText(chapter.content);
 }
 
 function takeWords(text: string, remainingWords: number): { text: string; usedWords: number } {
@@ -97,9 +107,7 @@ export async function collectTranslationPreviewText(
 
   for (const chapter of chapters ?? []) {
     if (remainingWords <= 0) break;
-    const plainText = extractPlainText(
-      (chapter.source_text as string | null) ?? (chapter.content as string | null) ?? null
-    );
+    const plainText = chapterPlainText(chapter);
     if (!plainText) continue;
 
     const excerpt = takeWords(plainText, remainingWords);
@@ -117,11 +125,14 @@ export async function resolveTranslationSourceContext({
   bookId,
   book,
   requestedSourceVersionId,
+  requestedSourceLanguage,
 }: {
   supabase: SupabaseLikeClient;
   bookId: string;
   book: TranslationBookRow;
   requestedSourceVersionId?: string | null;
+  /** Used only when the stored language is missing. Never overrides a real language. */
+  requestedSourceLanguage?: string | null;
 }): Promise<TranslationSourceContext> {
   let sourceVersionId = requestedSourceVersionId?.trim() || null;
 
@@ -190,27 +201,38 @@ export async function resolveTranslationSourceContext({
   }
 
   if (!sourceLanguage) {
-    const { data: firstChapter } = await supabase
+    const { data: chapters } = await supabase
       .from("chapters")
       .select("content, source_text")
       .eq("book_version_id", sourceVersionId)
       .order("order", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .limit(12);
 
-    const sample = extractPlainText(
-      (firstChapter?.source_text as string | null) ?? (firstChapter?.content as string | null) ?? null
-    );
-    const detected = detectLanguageFromText(sample);
-
+    const detected = detectLanguageFromParts((chapters ?? []).map((chapter: { source_text?: unknown; content?: unknown }) => chapterPlainText(chapter)));
     if (detected) {
       sourceLanguage = detected;
       sourceLanguageOrigin = "heuristic";
     }
   }
 
+  if (!sourceLanguage) {
+    const hinted = normalizeLanguageOrNull(requestedSourceLanguage);
+    if (hinted) {
+      sourceLanguage = hinted;
+      sourceLanguageOrigin = "request";
+    }
+  }
+
   if (sourceLanguage && !versionLanguage) {
     await supabase.from("book_versions").update({ language_code: sourceLanguage }).eq("id", sourceVersionId);
+    const bookLanguageKnown =
+      normalizeLanguageOrNull(book.original_language) ?? normalizeLanguageOrNull(book.language);
+    if (!bookLanguageKnown) {
+      await supabase
+        .from("books")
+        .update({ original_language: sourceLanguage, language: sourceLanguage })
+        .eq("id", bookId);
+    }
   }
 
   return {

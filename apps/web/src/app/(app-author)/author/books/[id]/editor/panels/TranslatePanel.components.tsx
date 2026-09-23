@@ -1,25 +1,7 @@
 "use client";
 
-import { getLanguageLabel, isSupportedLanguage, type SupportedLanguage } from "@/lib/languages";
+import { getLanguageLabel, isSupportedLanguage, LANGUAGE_OPTIONS, type SupportedLanguage } from "@/lib/languages";
 import { isTranslationPairSupported } from "@/lib/translation-pairs";
-
-/** Languages shown in "Translate into more languages" card (design list). */
-const TRANSLATE_MORE_LANGUAGES: Array<{ code: string; label: string }> = [
-  { code: "en", label: "English" },
-  { code: "es", label: "Spanish" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "pt", label: "Portuguese" },
-  { code: "it", label: "Italian" },
-  { code: "ru", label: "Russian" },
-  { code: "zh", label: "Chinese" },
-  { code: "ja", label: "Japanese" },
-  { code: "ko", label: "Korean" },
-  { code: "ar", label: "Arabic" },
-  { code: "no", label: "Norwegian" },
-  { code: "da", label: "Danish" },
-  { code: "fi", label: "Finnish" },
-];
 
 // ── TranslatePreviewPanes ─────────────────────────────────────────────────────
 
@@ -124,7 +106,7 @@ export function TranslateMoreLanguagesCard({
           Translate into more languages:
         </h3>
         <ul className="max-h-[260px] divide-y divide-border overflow-y-auto text-sm dark:divide-border">
-          {TRANSLATE_MORE_LANGUAGES.map(({ code, label }) => {
+          {LANGUAGE_OPTIONS.map(({ value: code, label }) => {
             const isSource = code === sourceLanguage;
             const supported = !isSource && isSupportedLanguage(code) && isTranslationPairSupported(sourceLanguage, code);
             return (

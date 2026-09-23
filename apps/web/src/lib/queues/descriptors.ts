@@ -30,7 +30,7 @@ export const TRANSLATION_QUEUE_DESCRIPTOR = {
   logPrefix: "[translation queue]",
   jobNames: ["translate"] as const,
   retryPolicy: {
-    attempts: 3,
+    attempts: 1,
     backoffDelayMs: 5_000,
     removeOnCompleteCount: 500,
     removeOnFailCount: 500,

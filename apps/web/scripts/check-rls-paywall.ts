@@ -1,8 +1,8 @@
 /**
  * Fail if the chapters paywall can be read around.
  *
- *   npm run check:rls-paywall              # report only, exit 0
- *   npm run check:rls-paywall -- --strict  # exit 1 on any error
+ *   npm run check:rls-paywall              # a found hole exits 1; a missing key skips
+ *   npm run check:rls-paywall -- --strict  # a skip exits 1 as well
  *
  * Why this exists
  * ---------------
@@ -36,6 +36,21 @@ import * as path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
+import {
+  chapterWritesIgnoringVersion,
+  clientMessageWrites,
+  clientNotificationInserts,
+  clientSubscriptionWrites,
+  clubJoinsSkippingPrivacy,
+  bookPointersSkippingVisibility,
+  inventoryReportsWithCheck,
+  openClientWritePolicies,
+  publishedStatusSelects,
+  highlightWritesSkippingChapter,
+  reviewWritesSkippingVisibility,
+  shelfBooksExposingHiddenBooks,
+  unconditionalSelects,
+} from "../src/lib/policy-inventory";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const strict = process.argv.includes("--strict");
@@ -67,6 +82,7 @@ type PolicyRow = {
   permissive: string;
   roles: string[];
   qual: string | null;
+  with_check?: string | null;
 };
 
 async function main() {
@@ -103,7 +119,7 @@ async function main() {
       );
     }
     console.error(`✖  policy_inventory failed: HTTP ${invRes.status} ${body.slice(0, 200)}\n`);
-    process.exit(strict ? 1 : 0);
+    process.exit(1);
   }
 
   const policies = (await invRes.json()) as PolicyRow[];
@@ -140,6 +156,266 @@ async function main() {
       `the single permissive SELECT policy ("${permissive[0].policyname}") never consults ` +
         `entitlements, so a published paid book is readable by anyone.`
     );
+  }
+
+  const booksRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/policy_inventory`, {
+    method: "POST",
+    headers: svc,
+    body: JSON.stringify({ p_table: "books" }),
+  });
+  if (!booksRes.ok) {
+    problems.push(`policy_inventory(books) failed: HTTP ${booksRes.status}`);
+  } else {
+    const bookPolicies = (await booksRes.json()) as PolicyRow[];
+    const statusOnly = publishedStatusSelects(bookPolicies);
+    if (statusOnly.length > 0) {
+      problems.push(
+        `books has a permissive SELECT that treats status = PUBLISHED as public and ignores ` +
+          `can_view_book, so a followers-only book is readable by anyone: ` +
+          statusOnly.map((p) => `"${p.policyname}"`).join(", ")
+      );
+    } else {
+      console.log(`   books: no status-only public SELECT ✓`);
+    }
+  }
+
+  const assetsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/policy_inventory`, {
+    method: "POST",
+    headers: svc,
+    body: JSON.stringify({ p_table: "audiobook_assets" }),
+  });
+  if (!assetsRes.ok) {
+    problems.push(`policy_inventory(audiobook_assets) failed: HTTP ${assetsRes.status}`);
+  } else {
+    const assetPolicies = (await assetsRes.json()) as PolicyRow[];
+    const statusAssets = publishedStatusSelects(assetPolicies);
+    if (statusAssets.length > 0) {
+      problems.push(
+        `audiobook_assets has a permissive SELECT on status = PUBLISHED, so a published ` +
+          `book's audio path is readable without can_view_book: ` +
+          statusAssets.map((p) => `"${p.policyname}"`).join(", ")
+      );
+    } else {
+      console.log(`   audiobook_assets: no status-only public SELECT ✓`);
+    }
+  }
+
+  const reviewsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/policy_inventory`, {
+    method: "POST",
+    headers: svc,
+    body: JSON.stringify({ p_table: "reviews" }),
+  });
+  if (!reviewsRes.ok) {
+    problems.push(`policy_inventory(reviews) failed: HTTP ${reviewsRes.status}`);
+  } else {
+    const reviewPolicies = (await reviewsRes.json()) as PolicyRow[];
+    const openReviews = unconditionalSelects(reviewPolicies);
+    const looseReviewWrites = reviewWritesSkippingVisibility(reviewPolicies);
+    if (openReviews.length > 0) {
+      problems.push(
+        `reviews has a SELECT policy of true, so a draft book's reviews are readable by anyone: ` +
+          openReviews.map((p) => `"${p.policyname}"`).join(", ")
+      );
+    } else if (looseReviewWrites.length > 0) {
+      problems.push(
+        `reviews lets a signed-in user attach a review to a book they cannot see: ` +
+          looseReviewWrites.map((p) => `"${p.policyname}"`).join(", ")
+      );
+    } else {
+      console.log(`   reviews: no world-readable SELECT ✓`);
+    }
+  }
+
+  const highlightsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/policy_inventory`, {
+    method: "POST",
+    headers: svc,
+    body: JSON.stringify({ p_table: "highlights" }),
+  });
+  if (!highlightsRes.ok) {
+    problems.push(`policy_inventory(highlights) failed: HTTP ${highlightsRes.status}`);
+  } else {
+    const highlightPolicies = (await highlightsRes.json()) as PolicyRow[];
+    const looseHighlights = highlightWritesSkippingChapter(highlightPolicies);
+    if (looseHighlights.length > 0) {
+      problems.push(
+        `highlights lets a signed-in user attach a highlight to a chapter they cannot read: ` +
+          looseHighlights.map((p) => `"${p.policyname}"`).join(", ")
+      );
+    } else {
+      console.log(`   highlights: writes require a visible chapter ✓`);
+    }
+  }
+
+  const shelfBooksRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/policy_inventory`, {
+    method: "POST",
+    headers: svc,
+    body: JSON.stringify({ p_table: "shelf_books" }),
+  });
+  if (!shelfBooksRes.ok) {
+    problems.push(`policy_inventory(shelf_books) failed: HTTP ${shelfBooksRes.status}`);
+  } else {
+    const shelfPolicies = (await shelfBooksRes.json()) as PolicyRow[];
+    const looseShelves = shelfBooksExposingHiddenBooks(shelfPolicies);
+    if (looseShelves.length > 0) {
+      problems.push(
+        `shelf_books can place a hidden book on a shelf, and a public profile exposes that book id: ` +
+          looseShelves.map((p) => `"${p.policyname}"`).join(", ")
+      );
+    } else {
+      console.log(`   shelf_books: public shelves only show visible books ✓`);
+    }
+  }
+
+  const clubMembersRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/policy_inventory`, {
+    method: "POST",
+    headers: svc,
+    body: JSON.stringify({ p_table: "book_club_members" }),
+  });
+  if (!clubMembersRes.ok) {
+    problems.push(`policy_inventory(book_club_members) failed: HTTP ${clubMembersRes.status}`);
+  } else {
+    const memberPolicies = (await clubMembersRes.json()) as PolicyRow[];
+    const openJoins = clubJoinsSkippingPrivacy(memberPolicies);
+    if (openJoins.length > 0) {
+      problems.push(
+        `book_club_members lets a signed-in user join a private club and then read its messages: ` +
+          openJoins.map((p) => `"${p.policyname}"`).join(", ")
+      );
+    } else {
+      console.log(`   book_club_members: private clubs are not self-joinable ✓`);
+    }
+  }
+
+  for (const table of ["polls", "book_clubs"] as const) {
+    const pointerRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/policy_inventory`, {
+      method: "POST",
+      headers: svc,
+      body: JSON.stringify({ p_table: table }),
+    });
+    if (!pointerRes.ok) {
+      problems.push(`policy_inventory(${table}) failed: HTTP ${pointerRes.status}`);
+      continue;
+    }
+    const pointerPolicies = (await pointerRes.json()) as PolicyRow[];
+    const loosePointers = bookPointersSkippingVisibility(pointerPolicies);
+    if (loosePointers.length > 0) {
+      problems.push(
+        `${table} lets a signed-in user attach a book they cannot see: ` +
+          loosePointers.map((p) => `"${p.policyname}"`).join(", ")
+      );
+    } else {
+      console.log(`   ${table}: book pointer requires a visible or owned book ✓`);
+    }
+  }
+
+  const notificationsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/policy_inventory`, {
+    method: "POST",
+    headers: svc,
+    body: JSON.stringify({ p_table: "notifications" }),
+  });
+  if (!notificationsRes.ok) {
+    problems.push(`policy_inventory(notifications) failed: HTTP ${notificationsRes.status}`);
+  } else {
+    const notificationPolicies = (await notificationsRes.json()) as PolicyRow[];
+    const clientInserts = clientNotificationInserts(notificationPolicies);
+    if (clientInserts.length > 0) {
+      problems.push(
+        `notifications lets a signed-in user write into someone else's inbox: ` +
+          clientInserts.map((p) => `"${p.policyname}"`).join(", ")
+      );
+    } else {
+      console.log(`   notifications: no client insert ✓`);
+    }
+  }
+
+  const subscriptionsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/policy_inventory`, {
+    method: "POST",
+    headers: svc,
+    body: JSON.stringify({ p_table: "author_subscriptions" }),
+  });
+  if (!subscriptionsRes.ok) {
+    problems.push(`policy_inventory(author_subscriptions) failed: HTTP ${subscriptionsRes.status}`);
+  } else {
+    const subscriptionPolicies = (await subscriptionsRes.json()) as PolicyRow[];
+    const subscriptionWrites = clientSubscriptionWrites(subscriptionPolicies);
+    if (subscriptionWrites.length > 0) {
+      problems.push(
+        `author_subscriptions lets a signed-in reader write a subscription, which the audiobook gate treats as a purchase: ` +
+          subscriptionWrites.map((p) => `"${p.policyname}"`).join(", ")
+      );
+    } else {
+      console.log(`   author_subscriptions: clients cannot write a subscription ✓`);
+    }
+  }
+
+  for (const table of ["conversations", "messages"] as const) {
+    const messageRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/policy_inventory`, {
+      method: "POST",
+      headers: svc,
+      body: JSON.stringify({ p_table: table }),
+    });
+    if (!messageRes.ok) {
+      problems.push(`policy_inventory(${table}) failed: HTTP ${messageRes.status}`);
+      continue;
+    }
+    const messagePolicies = (await messageRes.json()) as PolicyRow[];
+    const messageWrites = clientMessageWrites(messagePolicies);
+    if (messageWrites.length > 0) {
+      problems.push(
+        `${table} lets a signed-in user write messages outside the request flow: ` +
+          messageWrites.map((p) => `"${p.policyname}"`).join(", ")
+      );
+    } else {
+      console.log(`   ${table}: no client write ✓`);
+    }
+  }
+
+  const listItemsRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/policy_inventory`, {
+    method: "POST",
+    headers: svc,
+    body: JSON.stringify({ p_table: "curated_list_items" }),
+  });
+  if (!listItemsRes.ok) {
+    problems.push(`policy_inventory(curated_list_items) failed: HTTP ${listItemsRes.status}`);
+  } else {
+    const listItemPolicies = (await listItemsRes.json()) as PolicyRow[];
+    const openItems = unconditionalSelects(listItemPolicies);
+    if (openItems.length > 0) {
+      problems.push(
+        `curated_list_items has a SELECT policy of true, so a draft book id on a list is readable ` +
+          `by anyone: ` + openItems.map((p) => `"${p.policyname}"`).join(", ")
+      );
+    } else {
+      console.log(`   curated_list_items: no world-readable SELECT ✓`);
+    }
+  }
+
+  const unboundChapterWrites = chapterWritesIgnoringVersion(policies);
+  if (unboundChapterWrites.length > 0) {
+    problems.push(
+      `chapters has a permissive write policy that never checks book_version_id, so it ORs ` +
+        `with the version-scoped policies and a chapter can be attached to someone else's book: ` +
+        unboundChapterWrites.map((p) => `"${p.policyname}"`).join(", ")
+    );
+  } else {
+    console.log(`   chapters: every write policy checks book_version_id ✓`);
+  }
+
+  if (!inventoryReportsWithCheck(policies)) {
+    console.log(
+      `   note: policy_inventory does not return with_check yet. Apply ` +
+        `20260922211000_policy_inventory_with_check.sql so open write policies are visible.`
+    );
+  } else {
+    const openWrites = openClientWritePolicies(policies);
+    if (openWrites.length > 0) {
+      problems.push(
+        `chapters has a write policy whose WITH CHECK is true for a client role: ` +
+          openWrites.map((p) => `"${p.policyname}"`).join(", ")
+      );
+    } else {
+      console.log(`   write policies: no WITH CHECK true for anon or authenticated ✓`);
+    }
   }
 
   if (restrictive.length === 0) {
@@ -184,11 +460,10 @@ async function main() {
 
   console.log(`\n❌ ${problems.length} problem${problems.length === 1 ? "" : "s"}:\n`);
   for (const p of problems) console.log(`   • ${p}\n`);
-  if (!strict) console.log(`Reporting only — pass --strict to fail on these.\n`);
-  process.exit(strict ? 1 : 0);
+  process.exit(1);
 }
 
 main().catch((err) => {
   console.error(`\n✖  check crashed: ${err instanceof Error ? err.message : String(err)}\n`);
-  process.exit(strict ? 1 : 0);
+  process.exit(1);
 });
