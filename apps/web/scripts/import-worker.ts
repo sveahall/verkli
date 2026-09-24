@@ -8,6 +8,7 @@ import "./sentry-worker-init";
 import * as path from "path";
 import * as fs from "fs/promises";
 import * as os from "os";
+import { createHash } from "node:crypto";
 import { assertServerEnv, getRedisConnectionOptions } from "../src/lib/env";
 
 assertServerEnv();
@@ -26,14 +27,13 @@ import { enqueueTranslationJob } from "../src/lib/translation-queue";
 import { detectLanguageFromParts } from "../src/lib/language-detect";
 import { normalizeLanguageOrNull } from "../src/lib/languages";
 import { sanitizeJobErrorForStorage } from "../src/lib/sanitize-job-error";
-import { isDuplicate } from "../src/lib/workers/idempotency";
 import { IMPORT_OVERWRITE_ERROR, requestsDraftOverwrite } from "../src/lib/imports/import-safety";
 import type { ImportMode } from "../src/lib/import-queue";
 
 import { QUEUE_NAMES } from "../src/lib/queue-names";
 import { startHeartbeatInterval } from "../src/lib/health/worker-heartbeat";
 import { Sentry } from "./sentry-worker-init";
-import type { TablesInsert } from "../src/lib/supabase/types";
+import type { Tables, TablesInsert } from "../src/lib/supabase/types";
 
 const QUEUE_NAME = QUEUE_NAMES.IMPORT;
 const BUCKET = "book-imports";
@@ -57,6 +57,9 @@ type ImportRow = {
   book_id: string | null;
   book_version_id: string | null;
   mode: string | null;
+  result?: { recovery?: { versionId?: string; sourceHash?: string } } | null;
+  file_path?: string;
+  file_storage?: string;
 };
 
 type BillingRow = {
@@ -182,14 +185,42 @@ async function ensureLocalFile(
   return localPath;
 }
 
+function importVersionId(importId: string) {
+  const digest = createHash("sha256").update(`import-version:v1:${importId}`).digest("hex");
+  return `${digest.slice(0, 8)}-${digest.slice(8, 12)}-5${digest.slice(13, 16)}-a${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
+}
+
 async function createNewScopedVersion(args: {
   supabase: ReturnType<typeof createAdminClient>;
   bookId: string;
   preferredLanguage: string;
   importId: string;
   warnings: string[];
+  recoveryKnown: boolean;
+  beforeCreate: () => Promise<void>;
 }): Promise<{ id: string; languageCode: string }> {
   const { supabase, bookId, preferredLanguage, importId, warnings } = args;
+  // Both targets and checkpoint metadata are owner-writable. The derived UUID
+  // is an identity key, not provenance; scope and insert-only writes stay required.
+  const versionId = importVersionId(importId);
+  const recover = async () => {
+    const { data, error } = await supabase.from("book_versions")
+      .select("id, book_id, language_code, status, published_at").eq("id", versionId).maybeSingle();
+    if (error) throw new Error(`Import recovery lookup failed: ${error.message}`);
+    if (!data) return null;
+    if (data.book_id !== bookId || data.status !== "draft" || data.published_at) {
+      throw new UnrecoverableError("IMPORT_RECOVERY_VERSION_UNAVAILABLE");
+    }
+    return { id: data.id, languageCode: data.language_code };
+  };
+  const existing = await recover();
+  if (existing) {
+    if (!args.recoveryKnown) throw new UnrecoverableError("IMPORT_RECOVERY_CHECKPOINT_UNAVAILABLE");
+    return existing;
+  }
+  // Establish the full source/identity intent before the insert. No FK points
+  // at the absent row yet, and a lost insert ACK can be recovered after restart.
+  await args.beforeCreate();
   const shortImport = importId.replace(/-/g, "").slice(0, 6);
   const baseLanguage = preferredLanguage || "und";
 
@@ -203,6 +234,7 @@ async function createNewScopedVersion(args: {
     const { data: version, error } = await supabase
       .from("book_versions")
       .insert({
+        id: versionId,
         book_id: bookId,
         language_code: languageCode,
         status: "draft",
@@ -217,6 +249,9 @@ async function createNewScopedVersion(args: {
       return { id: version.id, languageCode };
     }
 
+    const recovered = await recover();
+    if (recovered) return recovered;
+
     if (!error || !isUniqueLanguageConstraint(error.message) || i === candidates.length - 1) {
       throw new Error(error?.message ?? "Failed to create new book version");
     }
@@ -230,11 +265,20 @@ export async function processJob(payload: ProcessJobPayload) {
   const { importId, filePath, fileStorage, authorId } = payload;
   const supabase = createAdminClient();
 
-  const updateImport = async (updates: Record<string, unknown>) => {
-    const { error } = await supabase
+  let completedPersisted = false;
+  let ownsImport = false;
+  const updateImport = async (updates: Record<string, unknown>, critical = false) => {
+    const query = supabase
       .from("book_imports")
       .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq("id", importId);
+      .eq("id", importId)
+      .eq("author_id", authorId)
+      .neq("status", "completed");
+    const { data, error } = critical ? await query.select("id").maybeSingle() : await query;
+
+    if (critical && (error || !data)) {
+      throw new Error(`Import receipt persistence failed: ${error?.message ?? "No matching import row"}`);
+    }
 
     if (error) {
       console.error("[import worker] failed to update import row", {
@@ -255,7 +299,7 @@ export async function processJob(payload: ProcessJobPayload) {
 
     const { data: importRowData, error: importLoadError } = await supabase
       .from("book_imports")
-      .select("id, status, author_id, book_id, book_version_id, mode")
+      .select("id, status, author_id, book_id, book_version_id, mode, result, file_path, file_storage")
       .eq("id", importId)
       .single();
 
@@ -265,39 +309,43 @@ export async function processJob(payload: ProcessJobPayload) {
 
     const importRow = importRowData as ImportRow;
 
+    if (importRow.author_id !== authorId) {
+      throw new UnrecoverableError("Ownership mismatch: authorId does not match import owner");
+    }
+    ownsImport = true;
+    if ((importRow.file_path && importRow.file_path !== filePath)
+      || (importRow.file_storage && importRow.file_storage !== fileStorage)
+      || (importRow.book_id && payload.bookId && importRow.book_id !== payload.bookId)) {
+      throw new UnrecoverableError("IMPORT_SOURCE_MISMATCH");
+    }
+
     // Old queue payloads must also stop before extraction, dedupe or content writes.
     // A conflicting "new_version" field must not override an overwrite signal.
     if (requestsDraftOverwrite(importRow.mode) || requestsDraftOverwrite(payload.mode, payload.overwrite)) {
       throw new UnrecoverableError(IMPORT_OVERWRITE_ERROR);
     }
 
-    // Processor-level dedupe: skip if import already completed with chapters.
-    const versionId = importRow.book_version_id;
-    const alreadyDone = await isDuplicate(async () => {
-      if (!versionId || importRow.status !== "completed") return false;
-      const { count } = await supabase
-        .from("chapters")
-        .select("id", { count: "exact", head: true })
-        .eq("book_version_id", versionId);
-      return (count ?? 0) > 0;
-    }, `import:${importId}`);
-
-    if (alreadyDone) {
-      await updateImport({ status: "completed", progress: 100 });
+    // Completed redelivery is read-only and never turns a read failure into a
+    // fresh import. Recheck book scope before trusting the terminal receipt.
+    if (importRow.status === "completed") {
+      const { data: book, error: bookError } = await supabase.from("books")
+        .select("id, author_id, deleted_at").eq("id", importRow.book_id!).single();
+      const { data: version, error: versionError } = await supabase.from("book_versions")
+        .select("book_id").eq("id", importRow.book_version_id!).single();
+      const { count, error } = await supabase.from("chapters")
+        .select("id", { count: "exact", head: true }).eq("book_version_id", importRow.book_version_id!);
+      if (bookError || !book || book.author_id !== authorId || book.deleted_at
+        || versionError || version?.book_id !== book.id || error || !count) {
+        throw new UnrecoverableError("IMPORT_COMPLETION_UNVERIFIED");
+      }
       return;
-    }
-
-    if (importRow.author_id !== authorId) {
-      await updateImport({
-        status: "failed",
-        progress: 0,
-        error_message: "Ownership mismatch: authorId does not match import owner",
-      });
-      throw new UnrecoverableError("Ownership mismatch: authorId does not match import owner");
     }
 
     const mode = normalizeImportMode(importRow.mode ?? payload.mode, payload.overwrite);
     const scopedBookId = importRow.book_id ?? payload.bookId ?? null;
+    if (!scopedBookId && importRow.status !== "pending") {
+      throw new UnrecoverableError("IMPORT_LEGACY_RECOVERY_UNAVAILABLE");
+    }
 
     await updateImport({ status: "extracting", progress: 10, mode, error_message: null });
 
@@ -320,6 +368,18 @@ export async function processJob(payload: ProcessJobPayload) {
       title: normalizedChapterTitles[index] || `Kapitel ${index + 1}`,
     }));
 
+    const sourceHash = createHash("sha256").update(JSON.stringify({ title, chapters: normalizedChapters })).digest("hex");
+    const checkpoint = importRow.result?.recovery;
+    if (checkpoint && checkpoint.versionId !== importVersionId(importId)) {
+      throw new UnrecoverableError("IMPORT_RECOVERY_CHECKPOINT_UNAVAILABLE");
+    }
+    if (checkpoint?.sourceHash && checkpoint.sourceHash !== sourceHash) {
+      throw new UnrecoverableError("IMPORT_RECOVERY_SOURCE_CHANGED");
+    }
+    if (importRow.status !== "pending" && importRow.book_version_id && !checkpoint) {
+      throw new UnrecoverableError("IMPORT_RECOVERY_CHECKPOINT_UNAVAILABLE");
+    }
+
     await updateImport({ status: "extracting", progress: 55 });
 
     const warnings: string[] = [];
@@ -339,11 +399,11 @@ export async function processJob(payload: ProcessJobPayload) {
     if (scopedBookId) {
       const { data: bookRow, error: bookError } = await supabase
         .from("books")
-        .select("id, title, author_id, original_language, language")
+        .select("id, title, author_id, original_language, language, deleted_at")
         .eq("id", scopedBookId)
         .single();
 
-      if (bookError || !bookRow) {
+      if (bookError || !bookRow || bookRow.deleted_at) {
         throw new Error(bookError?.message ?? "Scoped book not found");
       }
 
@@ -369,6 +429,10 @@ export async function processJob(payload: ProcessJobPayload) {
           preferredLanguage,
           importId,
           warnings,
+          recoveryKnown: checkpoint?.sourceHash === sourceHash,
+          beforeCreate: () => updateImport({ result: { recovery: {
+            versionId: importVersionId(importId), sourceHash,
+          } } }, true),
         });
 
         targetBookVersionId = newVersion.id;
@@ -463,7 +527,12 @@ export async function processJob(payload: ProcessJobPayload) {
       }
     }
 
-    await updateImport({ status: "extracting", progress: 70, book_id: targetBookId, book_version_id: targetBookVersionId, mode });
+    const recovery = { versionId: targetBookVersionId, sourceHash };
+    if (checkpoint?.versionId && checkpoint.versionId !== targetBookVersionId) {
+      throw new UnrecoverableError("IMPORT_RECOVERY_CHECKPOINT_UNAVAILABLE");
+    }
+    await updateImport({ status: "extracting", progress: 70, book_id: targetBookId,
+      book_version_id: targetBookVersionId, mode, result: { recovery } }, true);
 
     // ─── Images: move mammoth's inline data: URIs into storage ───
     // Has to run before rows are built. mammoth returns pictures embedded in a
@@ -490,16 +559,25 @@ export async function processJob(payload: ProcessJobPayload) {
       });
     }
 
-    // ─── Dedup: fetch existing content hashes so we skip identical chapters ───
-    const { data: existingChapters } = await supabase
-      .from("chapters")
-      .select("content_hash, order")
-      .eq("book_version_id", targetBookVersionId)
-      .not("content_hash", "is", null);
-
-    const existingHashes = new Set(
-      (existingChapters ?? []).map((c: { content_hash: string }) => c.content_hash)
-    );
+    // A checkpoint is per chapter order, not a global text hash. Null/stale
+    // hashes or author edits must never authorize replacing an existing row.
+    type CheckpointChapter = Pick<Tables<"chapters">, "content_hash" | "order" | "source_text" | "content" | "title" | "deleted_at" | "book_id">;
+    const readChapters = async () => {
+      const { data, error } = await supabase.from("chapters")
+        .select("content_hash, order, source_text, content, title, deleted_at, book_id")
+        .eq("book_version_id", targetBookVersionId);
+      if (error || !data) throw new Error(`Import recovery chapter lookup failed: ${error?.message ?? "No result"}`);
+      return data;
+    };
+    const matches = (stored: CheckpointChapter, expected: TablesInsert<"chapters">) =>
+      stored.deleted_at === null && stored.book_id === targetBookId
+      && stored.content_hash === expected.content_hash && stored.source_text === expected.source_text
+      && stored.content === expected.content && stored.title === expected.title;
+    const existingChapters = await readChapters();
+    const existingByOrder = new Map(existingChapters.map(chapter => [chapter.order, chapter]));
+    if (existingChapters.some(chapter => chapter.order < 0 || chapter.order >= chaptersWithMedia.length)) {
+      throw new UnrecoverableError("IMPORT_RECOVERY_CONTENT_CHANGED");
+    }
 
     // Build rows, skipping duplicates
     const rows: TablesInsert<"chapters">[] = [];
@@ -515,16 +593,11 @@ export async function processJob(payload: ProcessJobPayload) {
       const sourceText = ch.sourceText ?? "";
       const hash = contentHash(sourceText);
 
-      if (existingHashes.has(hash)) {
-        dedupSkipped++;
-        continue;
-      }
-
       // Use rich TipTap content from HTML extraction when available,
       // otherwise fall back to plain text conversion.
       const tiptapDoc = ch.tiptapContent ?? plainTextToTiptapDoc(sourceText);
 
-      rows.push({
+      const expected: TablesInsert<"chapters"> = {
         book_id: targetBookId,
         book_version_id: targetBookVersionId,
         title: chapterTitle,
@@ -532,7 +605,12 @@ export async function processJob(payload: ProcessJobPayload) {
         source_text: sourceText,
         content_hash: hash,
         order: i,
-      });
+      };
+      const existing = existingByOrder.get(i);
+      if (existing) {
+        if (!matches(existing, expected)) throw new UnrecoverableError("IMPORT_RECOVERY_CONTENT_CHANGED");
+        dedupSkipped++;
+      } else rows.push(expected);
     }
 
     if (dedupSkipped > 0) {
@@ -549,7 +627,7 @@ export async function processJob(payload: ProcessJobPayload) {
       isFrontMatterChapterTitle(chapter.title)
     ).length;
 
-    // ─── Batch insert with rollback on failure ───
+    // ─── Retryable batches into this import's stable version ───
     const BATCH_SIZE = 50;
     let insertedCount = 0;
 
@@ -558,7 +636,7 @@ export async function processJob(payload: ProcessJobPayload) {
         const batch = rows.slice(batchStart, batchStart + BATCH_SIZE);
         const { error: batchError } = await supabase
           .from("chapters")
-          .upsert(batch, { onConflict: "book_version_id,order" });
+          .upsert(batch, { onConflict: "book_version_id,order", ignoreDuplicates: true });
 
         if (batchError) {
           throw new Error(
@@ -566,23 +644,27 @@ export async function processJob(payload: ProcessJobPayload) {
           );
         }
 
+        // Another delivery or an author edit can race our initial read. Never
+        // update a conflicting row; verify insert-or-ignore actually matches.
+        const persisted = new Map((await readChapters()).map(chapter => [chapter.order, chapter]));
+        for (const expected of batch) {
+          const actual = persisted.get(expected.order!);
+          if (!actual || !matches(actual, expected)) throw new UnrecoverableError("IMPORT_RECOVERY_CONTENT_CHANGED");
+        }
+
         insertedCount += batch.length;
         const progress = 70 + Math.floor((insertedCount / rows.length) * 29);
         await updateImport({ status: "extracting", progress });
       }
     } catch (insertError) {
-      // Rollback: remove all chapters we inserted for this version to avoid orphans
-      console.error("[import worker] batch insert failed, rolling back chapters", {
+      // Keep committed batches: retry resumes this version and skips their
+      // hashes. Deleting the version's rows can erase an earlier attempt.
+      console.error("[import worker] batch insert failed, retaining retry checkpoint", {
         importId,
         targetBookVersionId,
         insertedCount,
         totalRows: rows.length,
       });
-
-      await supabase
-        .from("chapters")
-        .delete()
-        .eq("book_version_id", targetBookVersionId);
 
       throw insertError;
     }
@@ -595,6 +677,7 @@ export async function processJob(payload: ProcessJobPayload) {
       progress: 100,
       error_message: null,
       result: {
+        recovery,
         chapterCount: normalizedChapters.length,
         chaptersCreated: rows.length,
         insertedCount: rows.length,
@@ -607,7 +690,8 @@ export async function processJob(payload: ProcessJobPayload) {
         languageCode: targetLanguageCode,
         detectedLanguage: detectedLanguage ?? null,
       },
-    });
+    }, true);
+    completedPersisted = true;
 
     console.log("[import worker] completed", {
       importId,
@@ -658,12 +742,16 @@ export async function processJob(payload: ProcessJobPayload) {
     const raw = error instanceof Error ? error.message : String(error);
     const safe = sanitizeJobErrorForStorage(raw);
 
-    console.error("[import worker] failed", {
+    console.error(completedPersisted ? "[import worker] downstream follow-up failed" : "[import worker] failed", {
       importId,
       authorId,
       message: raw,
     });
 
+    // A downstream failure must not downgrade durable completion. A concurrent
+    // delivery may also have completed while this attempt was failing.
+    if (completedPersisted) return;
+    if (!ownsImport) throw error;
     const supabase = createAdminClient();
     await supabase
       .from("book_imports")
@@ -673,7 +761,9 @@ export async function processJob(payload: ProcessJobPayload) {
         error_message: safe,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", importId);
+      .eq("id", importId)
+      .eq("author_id", authorId)
+      .neq("status", "completed");
 
     throw error;
   }

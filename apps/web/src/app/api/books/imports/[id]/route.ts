@@ -73,7 +73,7 @@ export async function POST(
   const supabase = await createClient();
   const { data: row, error } = await supabase
     .from("book_imports")
-    .select("id, author_id, status, file_path, file_storage, mode, book_id, book_version_id")
+    .select("id, author_id, status, file_path, file_storage, mode, book_id, book_version_id, result")
     .eq("id", id)
     .eq("author_id", user.id)
     .maybeSingle();
@@ -95,13 +95,24 @@ export async function POST(
     return apiError(E_IMPORT_OVERWRITE_UNAVAILABLE, 409);
   }
 
+  // A failed legacy import may already have content. Do not erase its failure
+  // state and make it look like fresh work when no recovery receipt exists.
+  const result = row.result;
+  const recovery = result && typeof result === "object" && !Array.isArray(result) ? result.recovery : null;
+  if (!row.book_id || !row.book_version_id || !recovery || typeof recovery !== "object"
+    || Array.isArray(recovery) || recovery.versionId !== row.book_version_id
+    || typeof recovery.sourceHash !== "string" || !/^[a-f0-9]{64}$/i.test(recovery.sourceHash)) {
+    console.warn("[import retry] recovery checkpoint unavailable", { importId: row.id });
+    return apiError("IMPORT_RECOVERY_CHECKPOINT_UNAVAILABLE", 409, { reference: row.id });
+  }
+
   const filePath = (row as { file_path?: string }).file_path;
   const fileStorage = (row as { file_storage?: string }).file_storage;
   if (!filePath || !fileStorage) {
     return apiError(E_IMPORT_MISSING_FILE_INFO, 400);
   }
 
-  const { error: updateError } = await supabase
+  const { data: admitted, error: updateError } = await supabase
     .from("book_imports")
     .update({
       status: "pending",
@@ -110,12 +121,16 @@ export async function POST(
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq("author_id", user.id);
+    .eq("author_id", user.id)
+    .eq("status", "failed")
+    .select("id")
+    .maybeSingle();
 
   if (updateError) {
     console.error("[imports] retry update failed", { id, message: updateError.message });
     return apiError(E_DATABASE_ERROR, 500);
   }
+  if (!admitted) return apiError(E_IMPORT_NOT_FAILED, 409);
 
   let jobId: string | null = null;
   try {
