@@ -50,7 +50,7 @@ describe("private campaign audio", () => {
   });
   it("stores narrated copy privately and returns a saved post", async () => {
     expect((await POST(request(), context)).status).toBe(200);
-    expect(m.synthesize).toHaveBeenCalledWith(row.caption, expect.objectContaining({ meter: expect.objectContaining({ userId: "author", bookId: "book" }) }));
+    expect(m.synthesize).toHaveBeenCalledWith(row.caption, expect.objectContaining({ meter: { userId: "author", pipeline: "marketing", bookId: "book" } }));
     expect(m.upload).toHaveBeenCalledWith(expect.stringContaining(`marketing/author/${id}/`), expect.any(Buffer), expect.objectContaining({ contentType: "audio/mpeg" }));
     expect(row.media_asset_url).toBe(`/api/author/marketing/posts/${id}/generate-audio`);
     expect(row.status).toBe("draft");

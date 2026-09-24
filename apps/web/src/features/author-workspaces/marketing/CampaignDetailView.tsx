@@ -222,11 +222,12 @@ export default function CampaignDetailView({
       );
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
-        patchLocal(postId, {
-          status: "asset_failed",
-          assetError: body.detail ?? body.error ?? "Generation could not be completed. Try again.",
-        });
-        return;
+        const latest = await handleReloadPost(postId);
+        patchLocal(postId, { ...latest, assetError: latest.assetError ?? body.detail ?? body.error ?? "Generation could not be completed. Try again." });
+        // A failed provider attempt advances the saved revision. Advance the drawer
+        // only if its copy is still identical; concurrent edits must still conflict.
+        const previous = posts.find(post => post.id === postId);
+        return latest.caption === previous?.caption && latest.hashtags === previous?.hashtags ? latest : undefined;
       }
       const latest = await handleReloadPost(postId);
       patchLocal(postId, latest);

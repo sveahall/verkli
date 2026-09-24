@@ -8,7 +8,7 @@ import { requireAuthorAndMarketingEnabled } from "@/lib/auth/require-author-mark
 import { requireProBillingForApi } from "@/lib/billing/server";
 import { createPerUserRateLimiter } from "@/lib/rate-limit";
 import { generateTrailerPrompt } from "@/lib/ai/trailer-generation";
-import { generateImageToVideo } from "@/lib/higgsfield";
+import { HIGGSFIELD_MODEL, assertHiggsfieldConfigured, generateImageToVideo } from "@/lib/higgsfield";
 import { reserveVideoBudget, refundVideoBudget } from "@/lib/marketing/video-budget";
 import { uploadTrailerAndGetPublicUrl } from "@/lib/marketing/trailer-storage";
 import { validateProviderImageUrl } from "@/lib/security/url-allowlist";
@@ -30,7 +30,6 @@ export const maxDuration = 240;
 // this one runs up to 240s. One a minute.
 const trailerLimiter = createPerUserRateLimiter({ name: "marketing-post-trailer", maxPerMinute: 1 });
 const TRAILER_DOWNLOAD_TIMEOUT_MS = 25_000;
-const ESTIMATED_COST_USD = 0.15;
 
 type PostRow = {
   id: string;
@@ -135,6 +134,12 @@ export async function POST(
   if (!coverUrlCheck.ok) return apiError(E_TRAILER_GENERATION_FAILED, 422, { detail: "Upload a cover image to Verkli before generating a trailer." });
   const safeCoverImageUrl = coverUrlCheck.url.toString();
 
+  try { assertHiggsfieldConfigured(); }
+  catch (error) {
+    console.error("[marketing trailer] configuration:", error instanceof Error ? error.message : "Missing video credentials");
+    return apiError("TRAILER_UNAVAILABLE", 503, { detail: "Video generation is temporarily unavailable. Your draft is saved; try again later." });
+  }
+
   const { data: claimed, error: claimError } = await supabase.from("marketing_posts")
     .update({ status: "asset_pending", asset_error: null }).eq("id", id).eq("author_id", gate.user.id)
     .eq("status", post.status).eq("updated_at", post.updated_at).select("id, updated_at").maybeSingle();
@@ -204,7 +209,7 @@ export async function POST(
   const prompt = sceneText.slice(0, 1900);
 
   // The scenes concatenate into a single Higgsfield call, so this costs one
-  // unit regardless of scene count. Refunded below if it produces nothing.
+  // unit regardless of scene count. Only pre-dispatch failures are refundable.
   let budget;
   try { budget = await reserveVideoBudget({ userId: gate.user.id, units: 1 }); }
   catch {
@@ -224,7 +229,7 @@ export async function POST(
       type: "video",
       status: "generating",
       provider: "higgsfield",
-      input_json: { model: "dop-standard", prompt, imageUrl: safeCoverImageUrl, audio: true },
+      input_json: { model: HIGGSFIELD_MODEL, prompt, imageUrl: safeCoverImageUrl, audio: true },
       duration_seconds: 5,
     })
     .select("id")
@@ -244,6 +249,7 @@ export async function POST(
       prompt,
       imageUrl: safeCoverImageUrl,
       includeAudio: true,
+      meter: { userId: gate.user.id, pipeline: "marketing", bookId: book.id },
     });
 
     const res = await fetchWithTimeout(videoUrl, TRAILER_DOWNLOAD_TIMEOUT_MS);
@@ -269,7 +275,7 @@ export async function POST(
         status: "ready",
         provider_request_id: requestId,
         output_url: upload.publicUrl,
-        estimated_cost_usd: ESTIMATED_COST_USD,
+        estimated_cost_usd: null,
         metadata: {
           scenes,
           caption: trailerCaption,
@@ -308,8 +314,8 @@ export async function POST(
       .eq("id", assetId)
       .eq("user_id", gate.user.id);
 
-    await updateClaimedPost({ status: "asset_failed", asset_error: "Could not finish saving the trailer. Reload before trying again." });
+    await updateClaimedPost({ status: "asset_failed", asset_error: "Trailer generation is temporarily unavailable. Your saved text is unchanged. Try again later." });
 
-    return apiError(E_TEXT_TO_VIDEO_FAILED, 502);
+    return apiError(E_TEXT_TO_VIDEO_FAILED, 502, { detail: "Trailer generation is temporarily unavailable. Your saved text is unchanged. Try again later." });
   }
 }

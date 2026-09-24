@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-const m = vi.hoisted(() => ({ from: vi.fn(), generate: vi.fn(), reserve: vi.fn(), refund: vi.fn(), claimed: true, pendingError: false, saveError: false, updates: [] as Record<string, unknown>[] }));
+const m = vi.hoisted(() => ({ from: vi.fn(), configured: vi.fn(), generate: vi.fn(), reserve: vi.fn(), refund: vi.fn(), claimed: true, pendingError: false, saveError: false, updates: [] as Record<string, unknown>[] }));
 vi.mock("@/lib/auth/require-author-marketing", () => ({ requireAuthorAndMarketingEnabled: async () => ({ user: { id: "author" } }) }));
 vi.mock("@/lib/billing/server", () => ({ requireProBillingForApi: async () => ({ ok: true }) }));
 vi.mock("@/features/ai-team/settings/guard", () => ({ aiDisabledResponse: async () => null }));
 vi.mock("@/lib/rate-limit", () => ({ createPerUserRateLimiter: () => ({ check: async () => ({ allowed: true }) }) }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: async () => ({ from: m.from }) }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({}) }));
-vi.mock("@/lib/higgsfield", () => ({ generateImageToVideo: m.generate }));
+vi.mock("@/lib/higgsfield", () => ({ HIGGSFIELD_MODEL: "dop-turbo", generateImageToVideo: m.generate, assertHiggsfieldConfigured: m.configured }));
 vi.mock("@/lib/ai/trailer-generation", () => ({ generateTrailerPrompt: async () => ({ output: { scenes: [{ visual_prompt: "boat", duration: 5 }], caption: "Caption", hashtags: ["#book"] } }) }));
 vi.mock("@/lib/marketing/video-budget", () => ({ reserveVideoBudget: m.reserve, refundVideoBudget: m.refund }));
 vi.mock("@/lib/marketing/trailer-storage", () => ({ uploadTrailerAndGetPublicUrl: async () => ({ publicUrl: "https://storage.example/trailer.mp4" }) }));
@@ -17,7 +17,7 @@ const revision = "2026-09-24T10:00:00Z";
 let post: Record<string, unknown>;
 const run = () => POST(new Request("http://localhost/trailer", { method: "POST", body: JSON.stringify({ expectedUpdatedAt: revision }) }), { params: Promise.resolve({ id }) });
 beforeEach(() => {
-  vi.clearAllMocks(); m.claimed = true; m.pendingError = false; m.saveError = false; m.updates = [];
+  vi.clearAllMocks(); m.configured.mockReset(); m.claimed = true; m.pendingError = false; m.saveError = false; m.updates = [];
   post = { id, author_id: "author", book_id: "book", content_type: "trailer", caption: "Reviewed caption", hashtags: "#reviewed", status: "draft", updated_at: revision, metadata: {} };
   m.reserve.mockResolvedValue({ ok: false, response: new Response(null, { status: 429 }) });
   m.generate.mockResolvedValue({ requestId: "provider-request", videoUrl: "https://storage.example/output.mp4" });
@@ -51,5 +51,13 @@ it("does not claim success or refund a dispatched render when its final save fai
 it("restores an editable failure state when budget admission fails", async () => {
   expect((await run()).status).toBe(429);
   expect(m.updates.at(-1)?.status).toBe("asset_failed");
+  expect(m.generate).not.toHaveBeenCalled();
+});
+
+it("does not claim or reserve a render when video credentials are missing", async () => {
+  m.configured.mockImplementation(() => { throw new Error("HF_CREDENTIALS missing"); });
+  expect((await run()).status).toBe(503);
+  expect(m.updates).toEqual([]);
+  expect(m.reserve).not.toHaveBeenCalled();
   expect(m.generate).not.toHaveBeenCalled();
 });

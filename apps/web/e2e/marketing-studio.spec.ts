@@ -79,3 +79,62 @@ test("campaign creation previews its scope and retains every selected channel", 
   expect(new Set(Object.values(schedule).flat()).size).toBe(6);
   await expect(dialog.getByLabel("Plan length")).toHaveValue("2");
 });
+
+
+test("unsaved draft survives cancelled internal navigation", async ({ page }) => {
+  await page.route("**/api/marketing/assets**", route => route.fulfill({ json: { assets: [] } }));
+  await page.goto("/dev/marketing-studio");
+  await page.getByLabel("Your draft", { exact: true }).fill("Keep my reviewed text.");
+  let confirmations = 0;
+  page.on("dialog", async dialog => { confirmations++; await dialog.dismiss(); });
+  await page.getByRole("link", { name: "Ad drafts & budgets" }).click();
+  await expect(page).toHaveURL(/dev\/marketing-studio$/);
+  await expect(page.getByLabel("Your draft", { exact: true })).toHaveValue("Keep my reviewed text.");
+  expect(confirmations).toBe(1);
+});
+
+test("media provider failure can be retried and edited without reloading", async ({ page }) => {
+  let revision = "2026-09-24T10:00:00Z";
+  let attempts = 0;
+  const post = { id: "preview-post", scheduledFor: "2026-09-28T12:00:00Z", channel: "instagram", language: "en", contentType: "podcast", headline: null, caption: "A paper boat on the river.", hashtags: "#Books", cta: null, shareUrl: null, mediaAssetId: null, mediaAssetUrl: null, postedAt: null, postedUrl: null, mode: "organic" };
+  await page.route("**/api/author/marketing/campaigns/preview-campaign", route => route.fulfill({ json: { posts: [{ ...post, status: "asset_failed", updatedAt: revision, assetError: "Provider temporarily unavailable." }] } }));
+  await page.route("**/api/author/marketing/posts/preview-post/generate-audio", route => {
+    expect(route.request().postDataJSON().expectedUpdatedAt).toBe(revision);
+    attempts++; revision = `2026-09-24T10:0${attempts}:00Z`;
+    return route.fulfill({ status: 502, json: { error: "AUDIO_FAILED" } });
+  });
+  await page.route("**/api/author/marketing/posts/preview-post", route => {
+    expect(route.request().postDataJSON().expectedUpdatedAt).toBe(revision);
+    return route.fulfill({ json: { post: { ...post, ...route.request().postDataJSON(), updatedAt: "2026-09-24T11:00:00Z" } } });
+  });
+  await page.goto("/dev/marketing-studio?view=campaign");
+  await page.getByRole("button", { name: "Essential only", exact: true }).click();
+  await page.getByText(post.caption, { exact: true }).click();
+  const drawer = page.getByRole("dialog");
+  await drawer.getByRole("button", { name: "Generate audio clip" }).click();
+  await expect(drawer.getByText("Provider temporarily unavailable.")).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "Generate audio clip" })).toBeEnabled();
+  await drawer.getByRole("button", { name: "Generate audio clip" }).click();
+  await expect.poll(() => attempts).toBe(2);
+  await expect(drawer.getByRole("button", { name: "Generate audio clip" })).toBeEnabled();
+  await drawer.getByLabel("Caption", { exact: true }).fill("Reviewed after retry.");
+  await drawer.getByRole("button", { name: "Save edits" }).click();
+  await expect(drawer.getByRole("button", { name: "Saved!", exact: true })).toBeVisible();
+});
+
+
+test("browser history restores unsaved text and its brief", async ({ page }) => {
+  await page.route("**/api/marketing/assets**", route => route.fulfill({ json: { assets: [] } }));
+  await page.goto("/dev/marketing-studio?view=campaign");
+  await page.getByRole("button", { name: "Essential only", exact: true }).click();
+  // Same-document navigation reproduces App Router Back/Forward behavior.
+  await page.getByRole("link", { name: "Open studio preview" }).click();
+  await page.getByLabel("Your draft", { exact: true }).fill("Recover my unsaved marketing draft.");
+  await page.getByLabel("Intended audience").fill("Young readers");
+  await page.goBack();
+  await expect(page.getByText("Private review", { exact: true })).toBeVisible();
+  await page.goForward();
+  await expect(page.getByLabel("Your draft", { exact: true })).toHaveValue("Recover my unsaved marketing draft.");
+  await expect(page.getByLabel("Intended audience")).toHaveValue("Young readers");
+  await expect(page.getByText("Unsaved changes", { exact: true })).toBeVisible();
+});

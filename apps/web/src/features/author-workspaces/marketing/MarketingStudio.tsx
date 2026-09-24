@@ -29,17 +29,48 @@ export default function MarketingStudio({ book, onDirtyChange }: { book: PortalB
   const [libraryError, setLibraryError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [restored, setRestored] = useState(false);
+  const recoveryKey = `verkli:marketing-draft:${book.id}`;
   const metadata = { goal, audience, dailyBudget, currency, days };
   const signature = JSON.stringify({ text, channel, language, ...metadata });
   const dirty = !!text && signature !== savedDraft;
   const totalBudget = Number.isFinite(Number(dailyBudget) * Number(days)) && Number(dailyBudget) > 0 && Number.isInteger(Number(days)) && Number(days) > 0 ? Number(dailyBudget) * Number(days) : null;
 
-  useEffect(() => { onDirtyChange(dirty); }, [dirty, onDirtyChange]);
+  // Session-only recovery also covers browser Back/Forward, where neither
+  // beforeunload nor an intercepted Link click fires in the App Router.
   useEffect(() => {
-    const guard = (event: BeforeUnloadEvent) => { if (dirty) { event.preventDefault(); event.returnValue = ""; } };
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(recoveryKey) ?? "null");
+      if (draft && typeof draft.text === "string" && draft.text.length <= 100000 && CHANNELS.includes(draft.channel) &&
+          [draft.language, draft.goal, draft.audience, draft.dailyBudget, draft.currency, draft.days, draft.savedDraft].every(value => typeof value === "string")) {
+        setText(draft.text); setChannel(draft.channel); setLanguage(normalizeLanguage(draft.language));
+        setGoal(draft.goal); setAudience(draft.audience); setDailyBudget(draft.dailyBudget); setCurrency(draft.currency); setDays(draft.days);
+        setSavedDraft(draft.savedDraft); setNotice("Restored this tab’s last draft. Save it to keep it in your material library.");
+      }
+    } catch { /* Recovery is best-effort; explicit save remains available. */ }
+    setRestored(true);
+  }, [recoveryKey]);
+  useEffect(() => {
+    if (!restored) return;
+    try { sessionStorage.setItem(recoveryKey, JSON.stringify({ ...JSON.parse(signature), savedDraft })); }
+    catch { /* The navigation guard still protects normal links and reloads. */ }
+  }, [restored, recoveryKey, signature, savedDraft]);
+
+  useEffect(() => { onDirtyChange(dirty || !!busy); }, [dirty, busy, onDirtyChange]);
+  useEffect(() => {
+    const guard = (event: BeforeUnloadEvent) => { if (dirty || busy) { event.preventDefault(); event.returnValue = ""; } };
+    const guardLink = (event: MouseEvent) => {
+      if ((!dirty && !busy) || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!link || link.target === "_blank" || link.hasAttribute("download") || link.href === window.location.href || link.getAttribute("href")?.startsWith("#")) return;
+      if (!window.confirm(busy ? "Leave while your draft is being processed? The result may not appear here." : "Leave and discard your unsaved marketing draft?")) {
+        event.preventDefault(); event.stopPropagation();
+      }
+    };
     window.addEventListener("beforeunload", guard);
-    return () => window.removeEventListener("beforeunload", guard);
-  }, [dirty]);
+    document.addEventListener("click", guardLink, true);
+    return () => { window.removeEventListener("beforeunload", guard); document.removeEventListener("click", guardLink, true); };
+  }, [dirty, busy]);
   useEffect(() => {
     let active = true;
     fetch(`/api/marketing/assets?bookId=${book.id}`)
@@ -56,13 +87,23 @@ export default function MarketingStudio({ book, onDirtyChange }: { book: PortalB
   async function generate() {
     if (busy || (dirty && !window.confirm("Replace your unsaved text with a new AI draft?"))) return;
     setBusy("generate"); setError(null); setNotice(null);
+    const generationId = crypto.randomUUID();
+    try { sessionStorage.setItem(recoveryKey, JSON.stringify({ ...JSON.parse(signature), savedDraft, generationId })); } catch { /* Explicit save is available. */ }
     try {
       const response = await fetch(`/api/books/${book.id}/marketing/generate`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ channel, language, draftOnly: true, brief: { goal, audience } }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : data.message ?? "Could not generate a draft. Your text is still here. Try again.");
-      setText([data.headline, data.caption, data.cta, data.hashtags].filter(Boolean).join("\n\n"));
+      const generatedText = [data.headline, data.caption, data.cta, data.hashtags].filter(Boolean).join("\n\n");
+      // Keep a completed response recoverable even if the author navigated back
+      // while generation was in flight and this component has unmounted.
+      try {
+        if (JSON.parse(sessionStorage.getItem(recoveryKey) ?? "null")?.generationId === generationId) {
+          sessionStorage.setItem(recoveryKey, JSON.stringify({ text: generatedText, channel, language, ...metadata, savedDraft }));
+        }
+      } catch { /* Explicit save is still available. */ }
+      setText(generatedText);
       setNotice("Draft generated. Edit the wording, then save it to your material library.");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Could not generate a draft."); }
     finally { setBusy(null); }

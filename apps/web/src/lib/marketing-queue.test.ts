@@ -25,4 +25,19 @@ describe("marketing producer admission", () => {
     expect(await enqueueMarketingJob(payload)).toBe("job");
     expect(m.add).toHaveBeenCalledWith("marketing-generate", payload, expect.objectContaining({ jobId: expect.any(String) }));
   });
+  it("passes the installed BullMQ custom job ID validation", async () => {
+    const { Job } = await vi.importActual<typeof import("bullmq")>("bullmq");
+    m.add.mockImplementation(async (_name, data, options) => {
+      // Exercise BullMQ's real admission validator without connecting Redis.
+      Reflect.apply(Reflect.get(Job.prototype, "validateOptions"), { opts: options }, [{ data: JSON.stringify(data) }]);
+      return { id: options.jobId };
+    });
+    await expect(enqueueMarketingJob(payload)).resolves.toMatch(/^marketing-/);
+  });
+  it("keeps a legacy active job instead of dispatching duplicate paid work", async () => {
+    m.getJob.mockImplementation(async (id: string) => id.includes(":") ? { id, getState: async () => "active", remove: m.remove } : null);
+    await expect(enqueueMarketingJob(payload)).resolves.toMatch(/^marketing:/);
+    expect(m.add).not.toHaveBeenCalled();
+    expect(m.remove).not.toHaveBeenCalled();
+  });
 });

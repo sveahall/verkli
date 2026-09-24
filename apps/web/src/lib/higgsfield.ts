@@ -1,10 +1,10 @@
 import "server-only";
-import { createHiggsfieldClient } from "@higgsfield/client/v2";
+import { HiggsfieldClient } from "@higgsfield/client";
 import { recordUsage } from "@/lib/usage/meter";
 import type { MeterContext } from "@/lib/usage/types";
 
 const HIGGSFIELD_ENDPOINT = "/v1/image2video/dop";
-export const HIGGSFIELD_MODEL = "dop-standard" as const;
+export const HIGGSFIELD_MODEL = "dop-turbo" as const;
 // Keep headroom for provider-file download + Supabase upload within route maxDuration=180s.
 const HIGGSFIELD_TIMEOUT_MS = 150_000;
 
@@ -22,21 +22,19 @@ type GenerateImageToVideoResult = {
   videoUrl: string;
 };
 
-let hfClient: ReturnType<typeof createHiggsfieldClient> | null = null;
+export function assertHiggsfieldConfigured(): void {
+  const credentials = process.env.HF_CREDENTIALS?.trim();
+  const parts = credentials?.split(":");
+  if (!parts || parts.length !== 2 || !parts.every(part => part.trim())) {
+    throw new Error("HF_CREDENTIALS is missing or invalid. Expected KEY_ID:KEY_SECRET.");
+  }
+}
 
 function getHiggsfieldClient() {
-  if (hfClient) return hfClient;
-
-  const credentials = process.env.HF_CREDENTIALS?.trim();
-  if (!credentials) {
-    throw new Error("HF_CREDENTIALS is missing. Expected KEY_ID:KEY_SECRET.");
-  }
-  if (!credentials.includes(":")) {
-    throw new Error("HF_CREDENTIALS format is invalid. Expected KEY_ID:KEY_SECRET.");
-  }
-
-  hfClient = createHiggsfieldClient({ credentials });
-  return hfClient;
+  assertHiggsfieldConfigured();
+  const [apiKey, apiSecret] = process.env.HF_CREDENTIALS!.trim().split(":");
+  // This endpoint uses the v1 params/job-set contract, not v2 subscribe.
+  return new HiggsfieldClient({ apiKey, apiSecret, maxRetries: 0, maxPollTime: HIGGSFIELD_TIMEOUT_MS, timeout: 30_000 });
 }
 
 function timeoutError(ms: number): Error {
@@ -86,18 +84,15 @@ export async function generateImageToVideo({
   input.audio = includeAudio;
 
   const result = await withTimeout(
-    hf.subscribe(HIGGSFIELD_ENDPOINT, {
-      input,
-      withPolling: true,
-    }),
+    hf.generate(HIGGSFIELD_ENDPOINT, input, { withPolling: true }),
     HIGGSFIELD_TIMEOUT_MS
   );
 
-  const requestId = result.request_id?.trim();
-  const videoUrl = result.video?.url?.trim();
+  const requestId = result.id?.trim();
+  const videoUrl = result.jobs.find(job => job.status === "completed")?.results?.raw?.url?.trim();
 
   if (!requestId) {
-    throw new Error("Higgsfield response missing request_id.");
+    throw new Error("Higgsfield response missing job-set ID.");
   }
   if (!videoUrl) {
     throw new Error("Higgsfield response missing video URL.");

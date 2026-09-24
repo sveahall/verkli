@@ -22,6 +22,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 vi.mock("@/lib/higgsfield", () => ({
+  HIGGSFIELD_MODEL: "dop-turbo",
   generateImageToVideo: (...args: unknown[]) => mockGenerateImageToVideo(...args),
 }));
 
@@ -243,7 +244,7 @@ describe("POST /api/marketing/video/generate", () => {
         provider_request_id: "req-123",
         output_url: PUBLIC_TRAILER_URL,
         metadata: expect.objectContaining({ generation_time_ms: expect.any(Number) }),
-        estimated_cost_usd: 0.15,
+        estimated_cost_usd: null,
       })
     );
     expect(mockGenerateImageToVideo).toHaveBeenCalledWith(

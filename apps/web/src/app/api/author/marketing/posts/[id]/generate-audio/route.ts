@@ -64,7 +64,9 @@ export async function POST(request: Request, { params }: Context) {
     dispatched = true;
     const audio = await new ElevenLabsTtsProvider().synthesize(script, {
       language: post.language, voiceId: voiceId!, modelId: "", timeoutMs: 90_000,
-      meter: { userId: gate.user.id, pipeline: "marketing", bookId: post.book_id, jobId: attemptId },
+      // This synchronous route has no ai_jobs row. A budget reservation ID
+      // must not be used as the usage_events.job_id foreign key.
+      meter: { userId: gate.user.id, pipeline: "marketing", bookId: post.book_id },
     });
     const extension = audio.format === "wav" ? "wav" : "mp3";
     const storagePath = `marketing/${gate.user.id}/${id}/${attemptId}.${extension}`;

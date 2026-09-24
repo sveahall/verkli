@@ -110,6 +110,7 @@ export default function MarketingPortalView({
   const visibleCampaigns = campaigns.filter(campaign => campaign.bookId === initialBook?.id);
 
   const handleCreate = async (config: CampaignWizardCompleteConfig) => {
+    if (dirty && !window.confirm("Create the campaign and leave your unsaved studio draft? Save it first if you want to keep it.")) throw new Error("Your studio draft is still here. Close this window to save it first.");
     setError(null);
     const res = await fetch("/api/author/marketing/campaigns", {
       method: "POST",
