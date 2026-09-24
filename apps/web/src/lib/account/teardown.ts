@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
+import { cancelStripeSubscription } from "@/lib/payments/stripe-billing";
 
 type Admin = SupabaseClient<Database>;
 
@@ -132,6 +133,35 @@ export async function tearDownAccount(admin: Admin, userId: string, now: Date): 
     })
     .eq("user_id", userId);
   if (profileError) return fail("profiles", profileError);
+
+  // Stop the money before stopping the sign-in. Banning an account does not
+  // stop Stripe charging its saved card, so a closed account would keep paying
+  // for a product it can no longer reach. Only what THIS account pays for:
+  // subscriptions readers hold in a departing author's books are a separate
+  // decision about their catalogue, not something a teardown should settle.
+  const { data: billing, error: billingError } = await admin
+    .from("billing_accounts")
+    .select("stripe_subscription_id")
+    .eq("user_id", userId)
+    .not("stripe_subscription_id", "is", null);
+  if (billingError) return fail("billing", billingError);
+
+  for (const row of billing ?? []) {
+    const subscriptionId = row.stripe_subscription_id;
+    if (!subscriptionId) continue;
+    try {
+      await cancelStripeSubscription(subscriptionId);
+    } catch (error) {
+      // Stop rather than continue: leaving a live subscription on an account
+      // that is about to lose its sign-in is the exact harm this step exists to
+      // prevent, and the sweep will retry the whole teardown.
+      console.error("[account.teardown] subscription cancel failed", {
+        userId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return { userId, ok: false, step: "stripe" };
+    }
+  }
 
   // Sign-in and the last copy of the address. `user_metadata` carries the name
   // and avatar the account signed up with, and `public-author.ts` falls back to

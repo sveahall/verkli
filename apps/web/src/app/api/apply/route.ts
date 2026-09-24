@@ -78,10 +78,16 @@ export async function POST(request: Request) {
 
     // Link the application to the waitlist row when the address matches, so a
     // reviewer can tell an invited applicant from someone who found the form.
+    // Escape the LIKE wildcards before matching. `_` matches any single
+    // character in ILIKE, so an application for `a_b@example.com` linked to a
+    // waitlist row for `axb@example.com` — and accepting it would then invite
+    // that other person. `beta-delivery.ts:122` already does this; this call
+    // was the one that did not.
+    const emailPattern = email.replace(/[%_\\]/g, "\\$&");
     const { data: waitlistRow } = await supabase
       .from("waitlist")
       .select("id")
-      .ilike("email", email)
+      .ilike("email", emailPattern)
       .maybeSingle();
 
     const record = {

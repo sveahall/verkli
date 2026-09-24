@@ -16,10 +16,6 @@ export type ActionState = {
   message: string;
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 /** Update profiles.avatar_url with storage path only (called after avatar upload). */
 export async function updateAvatarPath(path: string): Promise<ActionState> {
   // SECURITY: Require author role for author settings
@@ -152,35 +148,31 @@ export async function saveAuthorProfile(
  * narrow, same-user race with no data loss beyond one re-save, and closing it
  * would mean a jsonb-merge RPC for a preference blob — not worth the migration.
  */
+/**
+ * Merge one slice into `profiles.preferences`.
+ *
+ * Settings live on separate pages, so each form posts only its own fields — and
+ * this used to read the whole blob, merge in memory and write it back. That is
+ * the lost update: Publishing defaults and Notifications saved moments apart
+ * both read the same JSON, and the second write restored the first one's old
+ * values. Both reported success.
+ *
+ * The merge now happens inside a single statement, so nothing can land between
+ * the read and the write. It is recursive, so patching one key under
+ * `notifications` does not drop its siblings.
+ */
 async function updatePreferences(
   userId: string,
-  mutate: (current: Record<string, unknown>) => Record<string, unknown>
+  patch: Record<string, unknown>
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const supabase = await createClient();
-  const { data: profile, error: readError } = await supabase
-    .from("profiles")
-    .select("preferences")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (readError) {
-    return { ok: false, message: "Could not read your current settings. Nothing was changed." };
-  }
-
-  const current = isRecord(profile?.preferences)
-    ? (profile.preferences as Record<string, unknown>)
-    : {};
-
-  const { error } = await supabase
-    .from("profiles")
-    // `preferences` is a jsonb column typed as `Json`; the mutator works in
-    // plain records because that is what the callers spread into.
-    .upsert(
-      { user_id: userId, preferences: mutate(current) as Json },
-      { onConflict: "user_id" }
-    );
+  const { error } = await supabase.rpc("merge_profile_preferences", {
+    p_user_id: userId,
+    p_patch: patch as Json,
+  });
 
   if (error) {
+    console.error("[author settings] preference merge failed", { userId, code: error.code });
     return { ok: false, message: "Could not save settings." };
   }
 
@@ -203,15 +195,11 @@ export async function savePublishingDefaults(
   const defaultVisibility =
     String(formData.get("default_visibility") || "public").trim() || "public";
 
-  const result = await updatePreferences(roleCheck.user.id, (current) => ({
-    ...current,
+  const result = await updatePreferences(roleCheck.user.id, {
     default_language: defaultLanguage,
     default_visibility: defaultVisibility,
-    visibility: {
-      shelves: defaultVisibility,
-      books: defaultVisibility,
-    },
-  }));
+    visibility: { shelves: defaultVisibility, books: defaultVisibility },
+  });
 
   return result.ok
     ? { ok: true, message: "Publishing defaults saved." }
@@ -231,13 +219,11 @@ export async function saveNotificationPreferences(
 
   const emailNotifications = String(formData.get("email_notifications") || "false") === "true";
 
-  const result = await updatePreferences(roleCheck.user.id, (current) => ({
-    ...current,
-    notifications: {
-      ...(isRecord(current.notifications) ? (current.notifications as Record<string, unknown>) : {}),
-      email: emailNotifications,
-    },
-  }));
+  // Only the key this page owns. The merge is recursive, so a sibling such as
+  // an SMS preference survives without being read first.
+  const result = await updatePreferences(roleCheck.user.id, {
+    notifications: { email: emailNotifications },
+  });
 
   return result.ok
     ? { ok: true, message: "Notification preferences saved." }
