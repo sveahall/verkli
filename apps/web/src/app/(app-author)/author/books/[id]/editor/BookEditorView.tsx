@@ -1,5 +1,7 @@
 "use client";
 
+import type { IllustrationDrafts } from "@/components/editor/TiptapEditor";
+
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import BookToolsMenu from "../BookToolsMenu";
@@ -119,6 +121,8 @@ export default function BookEditorView({
 
   // ── Chapters ──────────────────────────────────────────────────────────────
   const [chapters, setChapters] = useState<Chapter[]>(initialChapters);
+  // Shares the existing chapter writer lifetime and its original CAS baselines.
+  const illustrationDrafts = useMemo<IllustrationDrafts>(() => new Map(), []);
 
   const {
     CHAPTERS_PER_PAGE,
@@ -487,6 +491,8 @@ export default function BookEditorView({
   if (focusMode) {
     return (
       <FocusModeEditorView
+        illustrationOwnerId={book.author_id}
+        illustrationDrafts={illustrationDrafts}
         publishToast={publishing.publishToast}
         topContent={statusBanners}
         bookTitle={bookTitle}
@@ -689,6 +695,8 @@ export default function BookEditorView({
             {/* Edit panel (has its own white card) */}
             {tool === "edit" && (
               <SimplifiedEditView
+                illustrationOwnerId={book.author_id}
+                illustrationDrafts={illustrationDrafts}
                 activeLanguage={activeLanguage}
                 bookId={book.id}
                 bookTitle={bookTitle}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getReadAccess } from "@/lib/books/access";
+import { hasAnyCandidateImage } from "@/features/illustration-candidates/media-reference";
 import FreemiumGate from "@/components/reader/FreemiumGate";
 import { logAnalyticsEvent } from "@/lib/analytics/events";
 import PurchaseBookButton from "../../books/[id]/PurchaseBookButton";
@@ -320,7 +321,7 @@ export default async function ReaderReadPage({
   }
 
   const initialReaderSettings = parseReaderSettings(profilePreferences);
-  const rawChapterContent = hasReadableChapterContent(chapter.content)
+  const rawChapterContent = (hasReadableChapterContent(chapter.content) || hasAnyCandidateImage(chapter.content, { bookId: chapter.book_id, editionId: chapter.book_version_id, chapterId: chapter.id }))
     ? chapter.content
     : ((chapter as { source_text?: string | null }).source_text ?? null);
   const chapterContent = stripLeadingTitleHeading(rawChapterContent, chapter.title) as
