@@ -80,6 +80,11 @@ export async function getRemainingCredits(): Promise<QuotaSnapshot> {
     return { remaining: null, reason: "request_failed" };
   }
 
+  return parseQuotaSnapshot(payload);
+}
+
+/** Shared response contract for checkout and the provider health probe. */
+export function parseQuotaSnapshot(payload: unknown): QuotaSnapshot {
   if (!payload || typeof payload !== "object") {
     return { remaining: null, reason: "unexpected_shape" };
   }
