@@ -157,7 +157,7 @@ export function TrailerCard({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.message ?? `Request failed (${res.status})`);
+        throw new Error(typeof data?.detail === "string" ? data.detail : data?.message ?? `Request failed (${res.status})`);
       }
 
       const data = await res.json();
@@ -186,7 +186,7 @@ export function TrailerCard({
           </div>
           <div>
             <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Book Trailer</h3>
-            <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">Your trailer is live for readers</p>
+            <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">Your trailer is ready to preview</p>
           </div>
         </div>
         <video
@@ -225,7 +225,7 @@ export function TrailerCard({
         <div>
           <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Creating your trailer...</h3>
           <p className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground">
-            This usually takes a few minutes. You can leave this page — we&apos;ll finish in the background.
+            This usually takes a few minutes. Keep this page open until your trailer is ready.
           </p>
         </div>
         <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-muted dark:bg-card">

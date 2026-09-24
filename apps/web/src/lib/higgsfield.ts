@@ -15,6 +15,8 @@ type GenerateImageToVideoInput = {
   includeAudio?: boolean;
   /** When present, the render is billed to this user. Absent = not measured. */
   meter?: MeterContext;
+  requestId?: string;
+  onSubmitted?: (requestId: string) => Promise<void>;
 };
 
 type GenerateImageToVideoResult = {
@@ -37,22 +39,35 @@ function getHiggsfieldClient() {
   return new HiggsfieldClient({ apiKey, apiSecret, maxRetries: 0, maxPollTime: HIGGSFIELD_TIMEOUT_MS, timeout: 30_000 });
 }
 
-function timeoutError(ms: number): Error {
-  return new Error(`[marketing video generate] Higgsfield request timed out after ${ms}ms.`);
+export class HiggsfieldPendingError extends Error {
+  constructor(public readonly requestId: string) {
+    super("The trailer is still processing. Check the same render again shortly.");
+    this.name = "HiggsfieldPendingError";
+  }
 }
 
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let timer: NodeJS.Timeout | null = null;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        timer = setTimeout(() => reject(timeoutError(ms)), ms);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
+async function pollVideo(requestId: string): Promise<string> {
+  const [key, secret] = process.env.HF_CREDENTIALS!.trim().split(":");
+  const deadline = Date.now() + HIGGSFIELD_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    let response: Response;
+    try {
+      response = await fetch(`https://platform.higgsfield.ai/v1/job-sets/${encodeURIComponent(requestId)}`, {
+        headers: { "hf-api-key": key, "hf-secret": secret },
+        signal: AbortSignal.timeout(Math.min(30_000, Math.max(1, deadline - Date.now()))),
+      });
+    } catch { throw new HiggsfieldPendingError(requestId); }
+    // A failed status read is not evidence that the paid render failed.
+    if (!response.ok) throw new HiggsfieldPendingError(requestId);
+    const result = await response.json().catch(() => { throw new HiggsfieldPendingError(requestId); }) as { jobs?: { status: string; results?: { raw?: { url?: string } } }[] };
+    const completed = result.jobs?.find(job => job.status === "completed");
+    if (completed?.results?.raw?.url) return completed.results.raw.url;
+    if (result.jobs?.some(job => ["failed", "nsfw", "canceled"].includes(job.status))) {
+      throw new Error("Higgsfield could not complete this trailer. Review the cover and try again.");
+    }
+    await new Promise(resolve => setTimeout(resolve, Math.min(2_000, Math.max(0, deadline - Date.now()))));
   }
+  throw new HiggsfieldPendingError(requestId);
 }
 
 export async function generateImageToVideo({
@@ -61,6 +76,8 @@ export async function generateImageToVideo({
   durationSeconds,
   includeAudio = true,
   meter,
+  requestId: existingRequestId,
+  onSubmitted,
 }: GenerateImageToVideoInput): Promise<GenerateImageToVideoResult> {
   const trimmedPrompt = prompt.trim();
   const trimmedImageUrl = imageUrl.trim();
@@ -83,26 +100,18 @@ export async function generateImageToVideo({
   }
   input.audio = includeAudio;
 
-  const result = await withTimeout(
-    hf.generate(HIGGSFIELD_ENDPOINT, input, { withPolling: true }),
-    HIGGSFIELD_TIMEOUT_MS
-  );
-
-  const requestId = result.id?.trim();
-  const videoUrl = result.jobs.find(job => job.status === "completed")?.results?.raw?.url?.trim();
-
-  if (!requestId) {
-    throw new Error("Higgsfield response missing job-set ID.");
-  }
-  if (!videoUrl) {
-    throw new Error("Higgsfield response missing video URL.");
+  const requestId = existingRequestId ?? (await hf.generate(HIGGSFIELD_ENDPOINT, input, { withPolling: false })).id?.trim();
+  if (!requestId) throw new Error("Higgsfield response missing job-set ID.");
+  if (!existingRequestId) {
+    // Save before waiting: the provider can finish after this HTTP request ends.
+    await onSubmitted?.(requestId);
   }
 
   // Video is the highest unit cost on the platform, so it is measured even
   // though one render is one row. `duration_seconds` rides in meta because
   // Higgsfield prices by length: if the price book later needs per-second
   // rates, the raw number is already recorded and history reprices.
-  if (meter) {
+  if (meter && !existingRequestId) {
     await recordUsage(meter, [
       {
         kind: "ai_call",
@@ -111,10 +120,11 @@ export async function generateImageToVideo({
         quantity: 1,
         unit: "renders",
         requestId,
-        meta: { duration_seconds: durationSeconds ?? null, audio: includeAudio },
+        meta: { duration_seconds: durationSeconds ?? null, audio: includeAudio, submitted: true },
       },
     ]);
   }
 
+  const videoUrl = await pollVideo(requestId);
   return { requestId, videoUrl };
 }

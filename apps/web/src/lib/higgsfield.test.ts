@@ -8,7 +8,7 @@ import { generateImageToVideo, assertHiggsfieldConfigured } from "./higgsfield";
 const require = createRequire(import.meta.url);
 const axios = require("axios");
 const originalAdapter = axios.defaults.adapter;
-afterEach(() => { axios.defaults.adapter = originalAdapter; vi.unstubAllEnvs(); vi.clearAllMocks(); });
+afterEach(() => { axios.defaults.adapter = originalAdapter; vi.unstubAllEnvs(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 it("wraps v1 params, polls a job set and meters its completed video", async () => {
   vi.stubEnv("HF_CREDENTIALS", "test-key:test-secret");
   const requests: { url: string; data?: string }[] = [];
@@ -16,6 +16,10 @@ it("wraps v1 params, polls a job set and meters its completed video", async () =
     requests.push(config);
     return { status: 200, statusText: "OK", headers: {}, config, data: { id: "set-1", jobs: [{ id: "render-1", status: config.url.includes("job-sets") ? "completed" : "queued", results: { raw: { type: "video", url: "https://media.example/trailer.mp4" } } }] } };
   };
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    requests.push({ url: new URL(url).pathname });
+    return new Response(JSON.stringify({ jobs: [{ status: "completed", results: { raw: { url: "https://media.example/trailer.mp4" } } }] }));
+  }));
   const meter = { userId: "author", pipeline: "marketing" as const, bookId: "book" };
   await expect(generateImageToVideo({ prompt: "A boat", imageUrl: "https://media.example/cover.jpg", meter })).resolves.toEqual({ requestId: "set-1", videoUrl: "https://media.example/trailer.mp4" });
   expect(requests.map(request => request.url)).toEqual(["/v1/image2video/dop", "/v1/job-sets/set-1"]);
@@ -25,4 +29,24 @@ it("wraps v1 params, polls a job set and meters its completed video", async () =
 it.each(["", "bad", ":secret", "key:"])("rejects incomplete credentials before budget admission (%s)", credentials => {
   vi.stubEnv("HF_CREDENTIALS", credentials);
   expect(() => assertHiggsfieldConfigured()).toThrow(/HF_CREDENTIALS/);
+});
+
+it("persists the provider ID before polling and preserves it after a polling failure", async () => {
+  vi.stubEnv("HF_CREDENTIALS", "test-key:test-secret");
+  axios.defaults.adapter = async (config: unknown) => ({ status: 200, statusText: "OK", headers: {}, config, data: { id: "set-slow", jobs: [{ id: "render", status: "queued" }] } });
+  const onSubmitted = vi.fn();
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    expect(onSubmitted).toHaveBeenCalledWith("set-slow");
+    throw new Error("Network timeout");
+  }));
+  await expect(generateImageToVideo({ prompt: "Boat", imageUrl: "https://media.example/cover.jpg", onSubmitted })).rejects.toMatchObject({ requestId: "set-slow" });
+});
+
+it("resumes the saved provider job without creating or metering another render", async () => {
+  vi.stubEnv("HF_CREDENTIALS", "test-key:test-secret");
+  const submit = vi.fn(); axios.defaults.adapter = submit;
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "set-saved", jobs: [{ status: "completed", results: { raw: { url: "https://media.example/video.mp4" } } }] }))));
+  await expect(generateImageToVideo({ prompt: "Boat", imageUrl: "https://media.example/cover.jpg", requestId: "set-saved", meter: { userId: "author", pipeline: "marketing" } })).resolves.toEqual({ requestId: "set-saved", videoUrl: "https://media.example/video.mp4" });
+  expect(submit).not.toHaveBeenCalled();
+  expect(recordUsage).not.toHaveBeenCalled();
 });

@@ -682,21 +682,22 @@ export function PostDrawer({
               ) : (
                 <div className="mt-2 rounded-xl border border-dashed border-black/10 bg-black/[0.02] p-4 text-center text-[13px] text-muted-foreground dark:border-border dark:bg-card dark:text-muted-foreground">
                   {post.status === "asset_pending"
-                    ? "Generating trailer…"
+                    ? "Your trailer is processing. Check its status below to continue the same render."
                     : post.assetError
                       ? `Last attempt failed: ${post.assetError}`
                       : "No trailer yet."}
                 </div>
               )}
+              {post.assetError ? <p role="alert" className="mt-3 text-sm text-destructive">{post.assetError}</p> : null}
               <Button
                 size="sm"
                 onClick={async () => { setBusy(true); try { const generated = await onGenerateTrailer(post.id); if (generated) setDraftRevision(generated.updatedAt); } finally { setBusy(false); } }}
                 disabled={busy || conflicted || hasUnsavedEdits || deliveryLocked}
-                isLoading={post.status === "asset_pending"}
+                isLoading={busy}
                 loadingText="Generating…"
                 className="mt-3 w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                {post.mediaAssetUrl ? "Regenerate trailer" : "Generate trailer"}
+                {post.status === "asset_pending" ? "Check trailer status" : post.mediaAssetUrl ? "Regenerate trailer" : "Generate trailer"}
               </Button>
             </section>
           ) : null}

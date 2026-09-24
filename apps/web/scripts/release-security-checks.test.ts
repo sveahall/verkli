@@ -232,3 +232,30 @@ describe("qa-beta release orchestration (all external work mocked)", () => {
     expect(result.status).toBe(1);
   });
 });
+
+
+describe("closed-beta queue consumer requirements", () => {
+  it("accepts an empty social queue without a worker while delivery is blocked", () => {
+    const result = runCheck("check-queue-consumers.ts", {
+      queues: { "social-publish": { workers: 0 } },
+    }, true);
+    expect(result.status).toBe(0);
+    expect(result.output).toContain("social delivery blocked by closed-beta policy");
+  });
+
+  it.each([0, 1])("still flags pending social jobs with %s workers", (workers) => {
+    const result = runCheck("check-queue-consumers.ts", {
+      queues: { "social-publish": { workers, pending: 1 } },
+    }, true);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("pending while social delivery is blocked");
+  });
+
+  it("still requires the marketing campaign worker", () => {
+    const result = runCheck("check-queue-consumers.ts", {
+      queues: { "marketing-campaign": { workers: 0 } },
+    }, true);
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("marketing-campaign: NO WORKER");
+  });
+});
