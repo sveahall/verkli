@@ -132,8 +132,8 @@ describe("launch flag matrix", () => {
   it("keeps the flags the launch plan §3 cuts from September off", () => {
     // Translations left this list once they could actually run: the Railway
     // worker consumes the queue and Anthropic serves the Swedish pairs.
+    // Marketing left it on 2026-09-24 once worker-marketing ran on Railway.
     const cut = [
-      "NEXT_PUBLIC_MARKETING_ENABLED",
       "NEXT_PUBLIC_SOCIAL_ENABLED",
       "NEXT_PUBLIC_BOOK_CLUBS_ENABLED",
       "NEXT_PUBLIC_POLLS_ENABLED",
@@ -196,6 +196,8 @@ describe("verifyLaunchConfig", () => {
       // launch environment.
       EDITORIAL_DAILY_BUDGET: "200000",
       MARKETING_DAILY_BUDGET: "50000",
+      MARKETING_JOB_CAP_UNITS: "30000",
+      NEXT_PUBLIC_MARKETING_ENABLED: "true",
       // Live-mode, because goodEnv() describes an environment that should pass
       // a PRODUCTION check. It held "sk_test_x" while the suite asserted zero
       // errors, which pinned the gate's blind spot open: production could ship
@@ -273,8 +275,8 @@ describe("verifyLaunchConfig", () => {
 
   it('treats "1" as on for a must-be-off flag, since parseBool does', () => {
     const env = goodEnv();
-    env.NEXT_PUBLIC_MARKETING_ENABLED = "1";
-    expect(errors(env).map((p) => p.key)).toContain("NEXT_PUBLIC_MARKETING_ENABLED");
+    env.NEXT_PUBLIC_SOCIAL_ENABLED = "1";
+    expect(errors(env).map((p) => p.key)).toContain("NEXT_PUBLIC_SOCIAL_ENABLED");
   });
 
   it("accepts an unset must-be-off flag — unset is the documented default", () => {
@@ -298,24 +300,24 @@ describe("verifyLaunchConfig", () => {
   it("catches a server-only twin that turns a launch-cut feature back on", () => {
     const env = goodEnv();
     // Public flag stays unset, so a naive check reads the feature as off —
-    // but isMarketingEnabled() falls through to this and returns true.
-    env.MARKETING_ENABLED = "true";
-    expect(errors(env).map((p) => p.key)).toContain("MARKETING_ENABLED");
+    // but isSocialEnabled() falls through to this and returns true.
+    env.SOCIAL_ENABLED = "true";
+    expect(errors(env).map((p) => p.key)).toContain("SOCIAL_ENABLED");
   });
 
   it("ignores the twin when the public flag is explicitly off — flags.ts resolves with ??", () => {
     const env = goodEnv();
-    env.NEXT_PUBLIC_MARKETING_ENABLED = "false";
-    env.MARKETING_ENABLED = "true";
+    env.NEXT_PUBLIC_SOCIAL_ENABLED = "false";
+    env.SOCIAL_ENABLED = "true";
     // The public value is non-nullish, so `??` never reaches the twin and
-    // marketing really is off. Flagging it would reject a valid deployment.
+    // social publishing really is off. Flagging it would reject a valid deployment.
     expect(errors(env)).toEqual([]);
   });
 
   it("ignores the twin when the public flag is an empty string, which is also non-nullish", () => {
     const env = goodEnv();
-    env.NEXT_PUBLIC_MARKETING_ENABLED = "";
-    env.MARKETING_ENABLED = "true";
+    env.NEXT_PUBLIC_SOCIAL_ENABLED = "";
+    env.SOCIAL_ENABLED = "true";
     expect(errors(env)).toEqual([]);
   });
 
@@ -452,6 +454,7 @@ describe("verifyLaunchConfig", () => {
     "FAL_KEY",
     "EDITORIAL_DAILY_BUDGET",
     "MARKETING_DAILY_BUDGET",
+    "MARKETING_JOB_CAP_UNITS",
   ]) {
     it(`rejects a launch environment missing ${key}`, () => {
       const env = goodEnv();

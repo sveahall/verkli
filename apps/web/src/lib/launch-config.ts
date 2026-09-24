@@ -84,9 +84,9 @@ export const LAUNCH_FLAGS: readonly LaunchFlagSpec[] = [
   {
     key: "NEXT_PUBLIC_MARKETING_ENABLED",
     serverTwin: "MARKETING_ENABLED",
-    value: "false",
+    value: "true",
     reason:
-      "Plan §3 cuts the marketing engine. Costs nothing to cut: social OAuth has no Connect button, so the feature is unreachable anyway (§4b).",
+      "ON for the beta — decided by Svea 2026-09-24. Plan §3 cut it because nothing could run it; worker-marketing now consumes the queue on Railway and both budgets are set. Only the drafting half opens: publishing still needs social OAuth, which SOCIAL_ENABLED keeps off. NEXT_PUBLIC_, so it needs its ARG in Dockerfile.web and a rebuild.",
   },
   {
     key: "NEXT_PUBLIC_SOCIAL_ENABLED",
@@ -374,6 +374,11 @@ export const LAUNCH_REQUIRED_PRESENT: readonly LaunchRequiredSpec[] = [
   {
     anyOf: ["MARKETING_DAILY_BUDGET"],
     reason: "Marketing AI throws without it, for the same reason.",
+    validate: validateDailyBudget,
+  },
+  {
+    anyOf: ["MARKETING_JOB_CAP_UNITS"],
+    reason: "Also read with requirePositiveIntEnv, and campaign admission refuses every job without it.",
     validate: validateDailyBudget,
   },
   {
