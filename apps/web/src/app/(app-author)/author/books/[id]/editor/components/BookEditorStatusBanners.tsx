@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookJobsBanner } from "@/components/books/JobStatusBanner";
+import { BookJobsBanner, type ImportRetryState } from "@/components/books/JobStatusBanner";
 import type { UnifiedJob } from "@/hooks/useBookJobs";
 
 interface BookEditorStatusBannersProps {
@@ -11,6 +11,7 @@ interface BookEditorStatusBannersProps {
   billingPastDue: boolean;
   billingProActive: boolean;
   onJobRetry: (job: UnifiedJob) => Promise<void>;
+  importRetry?: ImportRetryState | null;
   /** Investor-pitch demo: suppress the "Loading status..." flash and billing
    * past-due warning so the pitch surfaces never show housekeeping chrome. */
   suppressInDemo?: boolean;
@@ -23,6 +24,7 @@ export function BookEditorStatusBanners({
   billingPastDue,
   billingProActive,
   onJobRetry,
+  importRetry,
   suppressInDemo = false,
 }: BookEditorStatusBannersProps) {
   if (suppressInDemo) return null;
@@ -43,7 +45,7 @@ export function BookEditorStatusBanners({
     </div>
   ) : jobsForBanner.length > 0 ? (
     <div className="mb-6">
-      <BookJobsBanner jobs={jobsForBanner} onRetry={onJobRetry} />
+      <BookJobsBanner jobs={jobsForBanner} onRetry={onJobRetry} importRetry={importRetry} />
     </div>
   ) : null;
 

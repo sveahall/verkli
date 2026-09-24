@@ -9,6 +9,13 @@ import { isJobActiveStatus, normalizeJobStatus, type JobStatus } from "@/lib/job
  */
 export type JobDisplayStatus = JobStatus;
 
+export type ImportRetryState = {
+  jobId: string;
+  failedAt: string | null;
+  status: "retrying" | "queued" | "blocked";
+  message?: string;
+};
+
 export type JobStatusData = {
   id: string;
   status: JobStatus;
@@ -48,6 +55,7 @@ export type JobStatusBannerProps = {
   hideWhenEmpty?: boolean;
   /** Called when user clicks retry on a failed job */
   onRetry?: () => void;
+  retrying?: boolean;
   className?: string;
 };
 
@@ -82,6 +90,7 @@ export default function JobStatusBanner({
   label = "Job",
   hideWhenEmpty = false,
   onRetry,
+  retrying = false,
   className,
 }: JobStatusBannerProps) {
   if (!job) {
@@ -148,9 +157,10 @@ export default function JobStatusBanner({
             <button
               type="button"
               onClick={onRetry}
+              disabled={retrying}
               className="rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 dark:border-red-700 dark:bg-red-950/50 dark:text-red-300 dark:hover:bg-red-950"
             >
-              Retry
+              {retrying ? "Retrying…" : "Retry"}
             </button>
           )}
         </div>
@@ -229,24 +239,35 @@ export type BookJobsBannerProps = {
   jobs: UnifiedJob[];
   /** Called when user clicks retry on a failed job */
   onRetry?: (job: UnifiedJob) => void;
+  importRetry?: ImportRetryState | null;
   className?: string;
 };
 
-export function BookJobsBanner({ jobs, onRetry, className }: BookJobsBannerProps) {
+export function BookJobsBanner({ jobs, onRetry, importRetry, className }: BookJobsBannerProps) {
   const visible = getVisibleJobs(jobs);
   if (visible.length === 0) return null;
 
   return (
     <div className={`space-y-2 ${className ?? ""}`}>
-      {visible.map((j) => (
-        <JobStatusBanner
-          key={j.id}
-          job={toJobStatusData(j)}
-          label={KIND_LABELS[j.kind] ?? j.kind}
-          hideWhenEmpty
-          onRetry={normalizeJobStatus(j.status) === "failed" && onRetry ? () => onRetry(j) : undefined}
-        />
-      ))}
+      {visible.map((j) => {
+        const retry = j.kind === "import" && j.id === importRetry?.jobId &&
+          j.finishedAt === importRetry.failedAt && normalizeJobStatus(j.status) === "failed"
+          ? importRetry : null;
+        return (
+          <JobStatusBanner
+            key={j.id}
+            job={{
+              ...toJobStatusData(j),
+              ...(retry?.status === "queued" ? { status: "pending" as const } : {}),
+              ...(retry?.message ? { error: retry.message } : {}),
+            }}
+            label={KIND_LABELS[j.kind] ?? j.kind}
+            hideWhenEmpty
+            onRetry={normalizeJobStatus(j.status) === "failed" && retry?.status !== "blocked" && onRetry ? () => onRetry(j) : undefined}
+            retrying={retry?.status === "retrying"}
+          />
+        );
+      })}
     </div>
   );
 }

@@ -445,9 +445,10 @@ export default function BookEditorView({
   }, [focusMode, setFocusMode]);
 
   // ── Job retry handler ─────────────────────────────────────────────────────
-  const { handleJobRetry } = useJobRetry({
+  const { handleJobRetry, importRetry } = useJobRetry({
     bookId: book.id,
     activeVersionId: activeVersion?.id,
+    activeChapterId: selectedChapterId,
     audiobook,
     translation,
     refetchBookJob,
@@ -469,6 +470,7 @@ export default function BookEditorView({
       billingPastDue={billing.pastDue ?? false}
       billingProActive={billing.isProActive}
       onJobRetry={handleJobRetry}
+      importRetry={importRetry}
       suppressInDemo={isDemoEditorView}
     />
     </>
