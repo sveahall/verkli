@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertPublicEnv } from "@/lib/env";
@@ -18,7 +19,7 @@ import {
 } from "@/lib/api-errors";
 import { aiDisabledResponse } from "@/features/ai-team/settings/guard";
 
-const CHANNELS = ["generic", "tiktok", "instagram", "x"] as const;
+const CHANNELS = ["generic", "tiktok", "instagram", "x", "facebook"] as const;
 type Channel = (typeof CHANNELS)[number];
 const rateLimiter = createPerUserRateLimiter({ name: "books-marketing-generate", maxPerMinute: 3 });
 
@@ -51,8 +52,16 @@ export async function POST(
 
   const supabase = await createClient();
   const body = await request.json().catch(() => ({}));
+  const brief = z.object({ goal: z.string().trim().max(200), audience: z.string().trim().max(500) }).optional().safeParse(body?.brief);
+  if (!brief.success) return apiError("INVALID_MARKETING_BRIEF", 400, { detail: "Keep the goal under 200 characters and the audience under 500 characters." });
   const language = normalizeLanguage(body?.language);
   const channel: Channel = isChannel(body?.channel) ? body.channel : "generic";
+  const draftOnly = body?.draftOnly === true;
+  // The studio saves reviewed versions to marketing_assets. The legacy
+  // marketing_campaigns table does not support Facebook.
+  if (channel === "facebook" && !draftOnly) {
+    return apiError("INVALID_MARKETING_CHANNEL", 400, { detail: "Create Facebook drafts in the marketing studio." });
+  }
 
   const { data: book, error: bookFetchError } = await supabase
     .from("books")
@@ -74,12 +83,16 @@ export async function POST(
   }
   let copy;
   try {
-    copy = await generateLaunchCopy({ authorId: user.id, title: book.title, description: book.description, language, channel,
+    copy = await generateLaunchCopy({ authorId: user.id, title: book.title, description: book.description, language, channel, brief: brief.data,
       meter: { userId: user.id, pipeline: "marketing", bookId } });
   } catch (error) {
     const code = error instanceof LaunchCopyError ? error.code : "MARKETING_AI_FAILED";
     console.error("[marketing generate] draft failed:", code);
     return apiError(code, code === "MARKETING_BUDGET_EXCEEDED" ? 429 : code.endsWith("UNAVAILABLE") ? 503 : 502);
+  }
+
+  if (draftOnly) {
+    return NextResponse.json({ language, channel, headline: copy.headline, caption: copy.body, cta: copy.cta, hashtags: copy.hashtags });
   }
 
   const campaign = {

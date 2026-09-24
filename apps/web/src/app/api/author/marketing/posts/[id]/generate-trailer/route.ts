@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { isPostDeliveryLocked } from "@/lib/marketing/post-delivery-state";
+import type { TablesUpdate } from "@/lib/supabase/types";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -37,6 +40,10 @@ type PostRow = {
   channel: string;
   content_type: string;
   caption: string | null;
+  hashtags: string | null;
+  status: string;
+  updated_at: string;
+  metadata: unknown;
 };
 
 type BookRow = {
@@ -57,7 +64,7 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
 }
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const gate = await requireAuthorAndMarketingEnabled();
@@ -81,12 +88,14 @@ export async function POST(
   const { id } = await params;
   if (!isValidUuid(id)) return apiError(E_INVALID_BOOK_ID, 400);
 
+  const input = z.object({ expectedUpdatedAt: z.string().datetime({ offset: true }) }).safeParse(await request.json().catch(() => null));
+  if (!input.success) return apiError("INVALID_REQUEST", 400, { detail: "Save and reload your draft before generating a trailer." });
   const supabase = await createClient();
   const admin = createAdminClient();
 
   const { data: post, error: postErr } = await supabase
     .from("marketing_posts")
-    .select("id, book_id, author_id, language, channel, content_type, caption")
+    .select("id, book_id, author_id, language, channel, content_type, caption, hashtags, status, updated_at, metadata")
     .eq("id", id)
     .eq("author_id", gate.user.id)
     .maybeSingle<PostRow>();
@@ -96,6 +105,9 @@ export async function POST(
     return apiError(E_DATABASE_ERROR, 500);
   }
   if (!post) return apiError(E_INVALID_BOOK_ID, 404);
+  if (post.updated_at !== input.data.expectedUpdatedAt || post.status === "asset_pending" || post.status === "posted" || isPostDeliveryLocked(post.metadata)) {
+    return apiError("POST_CHANGED", 409, { detail: "This post changed or is already generating. Reload before trying again." });
+  }
   if (post.content_type !== "trailer") {
     return apiError(E_TRAILER_GENERATION_FAILED, 400);
   }
@@ -111,16 +123,7 @@ export async function POST(
     return apiError(E_DATABASE_ERROR, 500);
   }
 
-  if (!book.cover_image) {
-    await supabase
-      .from("marketing_posts")
-      .update({
-        status: "asset_failed",
-        asset_error: "missing_cover_image",
-      })
-      .eq("id", post.id);
-    return apiError(E_TRAILER_GENERATION_FAILED, 422);
-  }
+  if (!book.cover_image) return apiError(E_TRAILER_GENERATION_FAILED, 422, { detail: "Add a cover image to this book before generating a trailer." });
 
   // SSRF guard — `cover_image` is a free-form user-writable column. Refuse
   // anything that isn't on the approved host-list before handing it to
@@ -129,23 +132,20 @@ export async function POST(
   // Keep the normalised url: the provider must fetch exactly what passed the
   // allowlist, not the raw column value.
   const coverUrlCheck = validateProviderImageUrl(book.cover_image);
-  if (!coverUrlCheck.ok) {
-    await supabase
-      .from("marketing_posts")
-      .update({
-        status: "asset_failed",
-        asset_error: "invalid_cover_image_url",
-      })
-      .eq("id", post.id);
-    return apiError(E_TRAILER_GENERATION_FAILED, 422);
-  }
+  if (!coverUrlCheck.ok) return apiError(E_TRAILER_GENERATION_FAILED, 422, { detail: "Upload a cover image to Verkli before generating a trailer." });
   const safeCoverImageUrl = coverUrlCheck.url.toString();
 
-  // Mark as generating
-  await supabase
-    .from("marketing_posts")
-    .update({ status: "asset_pending", asset_error: null })
-    .eq("id", post.id);
+  const { data: claimed, error: claimError } = await supabase.from("marketing_posts")
+    .update({ status: "asset_pending", asset_error: null }).eq("id", id).eq("author_id", gate.user.id)
+    .eq("status", post.status).eq("updated_at", post.updated_at).select("id, updated_at").maybeSingle();
+  if (claimError) { console.error("[marketing trailer] claim:", claimError.message); return apiError(E_DATABASE_ERROR, 500); }
+  if (!claimed) return apiError("POST_CHANGED", 409, { detail: "Another request changed this post. Reload before generating." });
+  const updateClaimedPost = async (patch: TablesUpdate<"marketing_posts">) => {
+    const result = await supabase.from("marketing_posts").update(patch).eq("id", id).eq("author_id", gate.user.id)
+      .eq("status", "asset_pending").eq("updated_at", claimed.updated_at).select("id, updated_at").maybeSingle();
+    if (result.error) console.error("[marketing trailer] save:", result.error.message);
+    return result;
+  };
 
   type AllowedGenre =
     | "romance"
@@ -196,10 +196,7 @@ export async function POST(
     hashtagsArr = trailer.output.hashtags;
   } catch (err) {
     console.error("[trailer post] prompt:", err instanceof Error ? err.message : err);
-    await supabase
-      .from("marketing_posts")
-      .update({ status: "asset_failed", asset_error: "prompt_generation_failed" })
-      .eq("id", post.id);
+    await updateClaimedPost({ status: "asset_failed", asset_error: "Could not prepare the trailer. Please try again." });
     return apiError(E_TRAILER_GENERATION_FAILED, 500);
   }
 
@@ -208,8 +205,16 @@ export async function POST(
 
   // The scenes concatenate into a single Higgsfield call, so this costs one
   // unit regardless of scene count. Refunded below if it produces nothing.
-  const budget = await reserveVideoBudget({ userId: gate.user.id, units: 1 });
-  if (!budget.ok) return budget.response;
+  let budget;
+  try { budget = await reserveVideoBudget({ userId: gate.user.id, units: 1 }); }
+  catch {
+    await updateClaimedPost({ status: "asset_failed", asset_error: "Trailer generation is temporarily unavailable. Try again later." });
+    return apiError("TRAILER_UNAVAILABLE", 503);
+  }
+  if (!budget.ok) {
+    await updateClaimedPost({ status: "asset_failed", asset_error: "Trailer generation could not start. Try again later." });
+    return budget.response;
+  }
 
   const { data: assetInsert, error: insertErr } = await supabase
     .from("media_assets")
@@ -227,10 +232,8 @@ export async function POST(
 
   if (insertErr || !assetInsert?.id) {
     console.error("[trailer post] media_assets insert:", insertErr?.message);
-    await supabase
-      .from("marketing_posts")
-      .update({ status: "asset_failed", asset_error: "asset_insert_failed" })
-      .eq("id", post.id);
+    await refundVideoBudget(budget.reservation);
+    await updateClaimedPost({ status: "asset_failed", asset_error: "Could not save the trailer request. Please try again." });
     return apiError(E_DATABASE_ERROR, 500);
   }
 
@@ -260,7 +263,7 @@ export async function POST(
       throw new Error(upload.error);
     }
 
-    await supabase
+    const { error: mediaSaveError } = await supabase
       .from("media_assets")
       .update({
         status: "ready",
@@ -277,17 +280,11 @@ export async function POST(
       .eq("id", assetId)
       .eq("user_id", gate.user.id);
 
-    await supabase
-      .from("marketing_posts")
-      .update({
-        status: "draft",
-        media_asset_id: assetId,
-        media_asset_url: upload.publicUrl,
-        caption: trailerCaption || post.caption,
-        hashtags: hashtagsArr.join(" ") || null,
-        asset_error: null,
-      })
-      .eq("id", post.id);
+    if (mediaSaveError) throw new Error("Could not save generated media.");
+    const { data: saved, error: postSaveError } = await updateClaimedPost({
+      status: "draft", media_asset_id: assetId, media_asset_url: upload.publicUrl, asset_error: null,
+    });
+    if (postSaveError || !saved) throw new Error("Could not attach the trailer to the saved post.");
 
     return NextResponse.json({
       ok: true,
@@ -295,12 +292,13 @@ export async function POST(
         id: post.id,
         mediaAssetId: assetId,
         mediaAssetUrl: upload.publicUrl,
-        caption: trailerCaption,
-        hashtags: hashtagsArr.join(" "),
+        caption: post.caption,
+        hashtags: post.hashtags,
+        updatedAt: saved.updated_at,
       },
     });
   } catch (err) {
-    await refundVideoBudget(budget.reservation);
+    // Keep the reservation after dispatch: provider or storage failure can still be billable.
     const message = err instanceof Error ? err.message : "trailer generation failed";
     console.error("[trailer post] generation:", message);
 
@@ -310,10 +308,7 @@ export async function POST(
       .eq("id", assetId)
       .eq("user_id", gate.user.id);
 
-    await supabase
-      .from("marketing_posts")
-      .update({ status: "asset_failed", asset_error: message })
-      .eq("id", post.id);
+    await updateClaimedPost({ status: "asset_failed", asset_error: "Could not finish saving the trailer. Reload before trying again." });
 
     return apiError(E_TEXT_TO_VIDEO_FAILED, 502);
   }

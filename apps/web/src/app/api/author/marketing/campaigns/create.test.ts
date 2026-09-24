@@ -8,7 +8,7 @@ vi.mock("@/lib/health/worker-heartbeat", () => ({ getHeartbeats: m.health, getHe
 import { POST } from "./route";
 const id = "11111111-1111-4111-8111-111111111111";
 const body = { bookId: id, languages: ["en"], contentTypes: ["text"], channels: ["x"], frequency: "1-3", startDate: "2026-09-16" };
-const run = () => POST(new Request("http://localhost/campaigns", { method: "POST", body: JSON.stringify(body) }));
+const run = (extra: object = {}) => POST(new Request("http://localhost/campaigns", { method: "POST", body: JSON.stringify({ ...body, ...extra }) }));
 beforeEach(() => {
   vi.clearAllMocks(); m.queue.mockResolvedValue("job");
   vi.stubEnv("MARKETING_DAILY_BUDGET", "100000"); vi.stubEnv("MARKETING_JOB_CAP_UNITS", "20000");
@@ -49,4 +49,17 @@ describe("campaign creation consumer readiness", () => {
     expect((await run()).status).toBe(503);
     expect(m.update).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }));
   });
+});
+
+it("does not admit an empty calendar", async () => {
+  expect((await run({ weeklySchedule: { mon: [] } })).status).toBe(400);
+  expect(m.insert).not.toHaveBeenCalled();
+});
+it("provides a real default calendar to older callers", async () => {
+  expect((await run()).status).toBe(200);
+  expect(m.insert).toHaveBeenCalledWith(expect.objectContaining({ weekly_schedule: expect.objectContaining({ mon: ["x"] }) }));
+});
+it("rejects a calendar that silently includes an unselected channel", async () => {
+  expect((await run({ weeklySchedule: { mon: ["instagram"] } })).status).toBe(400);
+  expect(m.insert).not.toHaveBeenCalled();
 });

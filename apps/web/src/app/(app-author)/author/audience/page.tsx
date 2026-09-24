@@ -43,6 +43,9 @@ export default async function AuthorAudiencePage({
       : resolvedSearchParams?.intent?.trim() === "campaign"
         ? "campaigns"
         : null);
+  if (!initialSurface || initialSurface === "campaigns" || initialSurface === "marketing-assets") {
+    redirect(initialBookId ? `/author/marketing?bookId=${encodeURIComponent(initialBookId)}` : "/author/marketing");
+  }
   const marketingEnabled = getMarketingEnabled();
   const newslettersEnabled = getNewslettersEnabled();
 

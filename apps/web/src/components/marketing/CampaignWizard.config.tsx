@@ -159,6 +159,6 @@ export const CONTENT_TYPES: {
   emoji: string;
 }[] = [
   { id: "text", label: "Text card", description: "Caption + hashtags ready to copy", emoji: "✍️" },
-  { id: "trailer", label: "Book trailer", description: "AI video trailer (5–15s)", emoji: "🎬" },
-  { id: "podcast", label: "Podcast clip", description: "Narrated chapter excerpt", emoji: "🎙️" },
+  { id: "trailer", label: "Book trailer", description: "Video from your cover", emoji: "🎬" },
+  { id: "podcast", label: "Podcast clip", description: "Narrate your reviewed draft", emoji: "🎙️" },
 ];

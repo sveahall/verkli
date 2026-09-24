@@ -1,3 +1,4 @@
+import { buildDefaultSchedule } from "@/components/marketing/CampaignWizard.state";
 import { getMarketingQueueReadiness } from "@/lib/marketing/queue-readiness";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -142,6 +143,13 @@ export async function POST(request: Request) {
   }
 
   const input = parsed.data;
+  const weeklySchedule = Object.keys(input.weeklySchedule).length > 0
+    ? input.weeklySchedule
+    : Object.fromEntries(buildDefaultSchedule(new Set(input.channels), input.frequency));
+  const scheduledChannels = Object.values(weeklySchedule).flat();
+  if (!scheduledChannels.length || scheduledChannels.some(channel => !input.channels.includes(channel))) {
+    return apiError(E_VALIDATION_FAILED, 400, { detail: "Choose at least one calendar slot using the channels selected for this campaign." });
+  }
   const supabase = await createClient();
 
   const { data: book, error: bookErr } = await supabase
@@ -179,7 +187,7 @@ export async function POST(request: Request) {
       frequency: input.frequency,
       start_date: input.startDate,
       duration_weeks: input.durationWeeks,
-      weekly_schedule: input.weeklySchedule,
+      weekly_schedule: weeklySchedule,
       mode: input.mode,
       paid_config: input.paidConfig ?? {},
     })

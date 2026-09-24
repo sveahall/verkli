@@ -84,9 +84,9 @@ export const LAUNCH_FLAGS: readonly LaunchFlagSpec[] = [
   {
     key: "NEXT_PUBLIC_MARKETING_ENABLED",
     serverTwin: "MARKETING_ENABLED",
-    value: "false",
+    value: "true",
     reason:
-      "Plan §3 cuts the marketing engine. Costs nothing to cut: social OAuth has no Connect button, so the feature is unreachable anyway (§4b).",
+      "Closed beta: authors can create, edit, preview and save marketing for unpublished books. External social publishing remains blocked independently in the API, queue and worker.",
   },
   {
     key: "NEXT_PUBLIC_SOCIAL_ENABLED",

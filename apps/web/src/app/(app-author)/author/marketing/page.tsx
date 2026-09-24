@@ -26,9 +26,9 @@ export default async function AuthorMarketingPage({
 
   if (!user) redirect("/author/signin");
 
-  const { data: books } = await supabase
+  const { data: books, error: booksError } = await supabase
     .from("books")
-    .select("id, title, cover_image, language")
+    .select("id, title, cover_image, language, description, trailer_status, trailer_url")
     .eq("author_id", user.id)
     .order("updated_at", { ascending: false });
 
@@ -49,7 +49,7 @@ export default async function AuthorMarketingPage({
     updated_at: string;
   };
 
-  const { data: planRowsRaw } = await supabase
+  const { data: planRowsRaw, error: plansError } = await supabase
     .from("marketing_campaign_plans")
     .select(
       `id, book_id, name, status, template, channels, languages, content_types,
@@ -64,12 +64,17 @@ export default async function AuthorMarketingPage({
   type PostStatusRow = { campaign_plan_id: string; status: string };
   const postsByPlan = new Map<string, { total: number; ready: number; posted: number }>();
 
+  let postsFailed = false;
   if (planIds.length > 0) {
-    const { data: postRows } = await supabase
+    const { data: postRows, error: postsError } = await supabase
       .from("marketing_posts")
       .select("campaign_plan_id, status")
       .in("campaign_plan_id", planIds);
 
+    if (postsError) {
+      postsFailed = true;
+      console.error("[marketing portal] post counts:", postsError.message);
+    }
     for (const row of (postRows ?? []) as unknown as PostStatusRow[]) {
       const bucket = postsByPlan.get(row.campaign_plan_id) ?? {
         total: 0,
@@ -77,7 +82,7 @@ export default async function AuthorMarketingPage({
         posted: 0,
       };
       bucket.total += 1;
-      if (row.status === "ready" || row.status === "draft") bucket.ready += 1;
+      if (row.status === "ready") bucket.ready += 1;
       if (row.status === "posted") bucket.posted += 1;
       postsByPlan.set(row.campaign_plan_id, bucket);
     }
@@ -106,6 +111,9 @@ export default async function AuthorMarketingPage({
     updatedAt: plan.updated_at,
   }));
 
+  if (booksError) console.error("[marketing portal] books:", booksError.message);
+  if (plansError) console.error("[marketing portal] campaigns:", plansError.message);
+
   return (
     <MarketingPortalView
       books={(books ?? []).map((book) => ({
@@ -113,10 +121,14 @@ export default async function AuthorMarketingPage({
         title: book.title ?? null,
         cover_image: book.cover_image ?? null,
         language: book.language ?? null,
+        description: book.description,
+        trailer_status: book.trailer_status,
+        trailer_url: book.trailer_url,
       }))}
       campaigns={campaigns}
       initialBookId={initialBookId}
       marketingEnabled={marketingEnabled}
+      loadError={booksError || plansError || postsFailed ? "Could not load all your marketing. Retry to see your saved books and campaigns." : null}
     />
   );
 }
