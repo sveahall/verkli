@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import createNextIntlPlugin from "next-intl/plugin";
+import { unsubscribeContentSecurityPolicy, unsubscribePrivacyHeaders } from "./src/lib/newsletters/unsubscribe-page";
 
 // next-intl 4 plugin — points at the server-side request config that
 // resolves the locale per request (cookie → user preference → default).
@@ -215,6 +216,15 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: permissionsPolicy },
         ],
       },
+      // Next applies configured headers over route headers. Keep these two
+      // standalone documents private, using the renderer's exact CSS hash.
+      ...["/api/newsletters/unsubscribe", "/dev/newsletter-unsubscribe"].map(source => ({
+        source,
+        headers: Object.entries({
+          ...unsubscribePrivacyHeaders,
+          "Content-Security-Policy": unsubscribeContentSecurityPolicy,
+        }).map(([key, value]) => ({ key, value })),
+      })),
     ];
   },
   async redirects() {

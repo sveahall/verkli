@@ -165,6 +165,18 @@ export async function middleware(request: NextRequest) {
   // set; if it isn't we reject with 500 rather than silently disabling CSRF.
   // -------------------------------------------------------------------------
   const method = request.method
+  // This exact public endpoint validates a signed token in its route handler.
+  // GET/HEAD only render confirmation; form POST never uses cookie auth.
+  // Mail clients send RFC8058 without Origin/cookies. Do not redirect their
+  // token-bearing URL through a waitlist/login page or the app layout.
+  const unsubscribeFormType = request.headers.get('content-type')?.split(';')[0].trim().toLowerCase()
+  if (
+    request.nextUrl.pathname === '/api/newsletters/unsubscribe' &&
+    (method === 'GET' || method === 'HEAD' ||
+      (method === 'POST' && (unsubscribeFormType === 'application/x-www-form-urlencoded' || unsubscribeFormType === 'multipart/form-data')))
+  ) {
+    return NextResponse.next()
+  }
   const isStateChanging = method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE'
   if (isStateChanging) {
     const pathname = request.nextUrl.pathname
