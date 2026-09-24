@@ -9,9 +9,15 @@ import {
 const anthropicCreate = vi.fn();
 const anthropicCtor = vi.fn();
 const callOpenAi = vi.hoisted(() => vi.fn());
+const beginAdviceWork = vi.hoisted(() => vi.fn());
+vi.mock("./advice-work-budget", async original => ({
+  ...await original<typeof import("./advice-work-budget")>(),
+  beginAdviceWork,
+}));
 vi.mock("./providers/openai", () => ({
   callOpenAi: (...args: unknown[]) => callOpenAi(...args),
   isOpenAiConfigured: () => Boolean(process.env.OPENAI_API_KEY?.trim()),
+  estimateOpenAiUnits: () => 10000,
 }));
 vi.mock("@anthropic-ai/sdk", () => {
   class MockAnthropic {
@@ -57,6 +63,10 @@ describe("generateWritingAssistantReply", () => {
     anthropicCreate.mockReset();
     anthropicCtor.mockReset();
     callOpenAi.mockReset();
+    beginAdviceWork.mockReset().mockResolvedValue({
+      run: async (_stage: string, _provider: string, _units: number, call: (receive: () => Promise<void>) => Promise<unknown>) => call(async () => {}),
+      finish: vi.fn(),
+    });
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.OPENAI_API_KEY;
     delete process.env.AI_ADVICE_CRITIC_ENABLED;
@@ -394,5 +404,15 @@ describe("generateWritingAssistantReply", () => {
     const result = await generateWritingAssistantReply(INPUT);
     expect(result).toMatchObject({ provider: "openai+anthropic", content: "Cut the sky." });
     expect(callOpenAi).toHaveBeenCalledOnce();
+  });
+
+  it("passes stable request identity and cancellation to critic admission", async () => {
+    process.env.AI_ADVICE_CRITIC_ENABLED = "true";
+    process.env.ANTHROPIC_API_KEY = "sk-ant-test"; process.env.OPENAI_API_KEY = "sk-openai-test";
+    callOpenAi.mockResolvedValue("Keep the boat.");
+    anthropicCreate.mockResolvedValue(anthropicReply('{"issues":[]}'));
+    const controller = new AbortController();
+    await generateWritingAssistantReply({ ...INPUT, requestId: "stable-id", signal: controller.signal });
+    expect(beginAdviceWork).toHaveBeenCalledWith(expect.objectContaining({ requestId: "stable-id", signal: controller.signal }));
   });
 });
