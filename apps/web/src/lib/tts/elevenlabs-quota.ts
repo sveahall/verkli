@@ -29,7 +29,7 @@ export type QuotaSnapshot = {
   /** Credits still available on the account, or null when unknown. */
   remaining: number | null;
   /** Why `remaining` is null. Absent on success. */
-  reason?: "no_api_key" | "request_failed" | "unexpected_shape";
+  reason?: "no_api_key" | "request_failed" | "unexpected_shape" | "missing_permission";
 };
 
 function parseCount(value: unknown): number | null {
@@ -52,8 +52,25 @@ export async function getRemainingCredits(): Promise<QuotaSnapshot> {
       cache: "no-store",
     });
     if (!res.ok) {
-      console.warn("[elevenlabs.quota] subscription lookup failed", { status: res.status });
-      return { remaining: null, reason: "request_failed" };
+      // A scoped key is the likeliest cause and the least obvious one: the key
+      // works for synthesis and 401s only here, so the audiobook flow refuses
+      // every purchase while every other ElevenLabs call succeeds. Production
+      // ran in exactly that state on 2026-09-23.
+      //
+      // Deliberately not papered over with a configured quota: a guard that
+      // guesses the balance is worse than one that refuses, because this guard
+      // is what stands between a customer and a charge for narration that
+      // cannot run.
+      const body = await res.text().catch(() => "");
+      const missingPermission =
+        (res.status === 401 || res.status === 403) && /missing the permission/i.test(body);
+      console.warn("[elevenlabs.quota] subscription lookup failed", {
+        status: res.status,
+        reason: missingPermission
+          ? "the API key lacks `user_read` — grant it in the ElevenLabs dashboard"
+          : "unexpected response",
+      });
+      return { remaining: null, reason: missingPermission ? "missing_permission" : "request_failed" };
     }
     payload = await res.json();
   } catch (err) {
