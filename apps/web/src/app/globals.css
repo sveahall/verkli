@@ -1269,5 +1269,8 @@ select:has(+ svg), .dark select:has(+ svg) { background-image: none; }
    window width, which is not what a docked side panel should do. `:modal`
    matches only dialogs in the top layer, i.e. those opened with showModal(). */
 html:has(dialog:modal) { overflow: hidden; }
+/* The docked assistant owns the right edge; keep the floating theme toggle
+   from covering its Send button. */
+html:has(dialog[data-docked-assistant][open]) [data-global-theme-control] { right: calc(var(--assistant-width, 420px) + 20px); }
 .dialog-backdrop::backdrop { background: rgb(23 19 29 / 45%); backdrop-filter: blur(5px); }
 .dark .dialog-backdrop::backdrop { background: rgb(12 9 16 / 65%); }

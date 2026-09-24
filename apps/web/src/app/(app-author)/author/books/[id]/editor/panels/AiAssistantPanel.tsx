@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { ArrowUpRight, CornerDownLeft, Send, X } from "lucide-react";
+import { ArrowUp, ArrowUpRight, X } from "lucide-react";
 import { z } from "zod";
 import AgentAvatar from "@/features/ai-team/AgentAvatar";
 import { getAgent } from "@/features/ai-team/agents";
@@ -370,11 +370,11 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
   };
   return <div className={styles.panel} data-dock={variant === "dock"}>
     <header className={styles.header}>
-      <AgentAvatar agent={persona.agent} size={48} />
+      <AgentAvatar agent={persona.agent} size={34} />
       <div className={styles.identity}><h2>{agent.name}</h2><p>{persona.role}</p></div>
       {onClose && <button type="button" className={styles.close} onClick={onClose} aria-label="Close AI assistant"><X size={17} aria-hidden /></button>}
     </header>
-    <div className={styles.context}>{bookTitle && <span><strong>Book</strong> {bookTitle}</span>}{editionLabel && <span><strong>Edition</strong> {editionLabel}</span>}<span><strong>{chapterId ? "Chapter" : "Scope"}</strong> {chapterTitle || (chapterId ? "Current chapter" : "Whole book")}</span></div>
+    <div className={styles.context}>{bookTitle && <span className={styles.book} title={bookTitle}><strong>Book</strong> {bookTitle}</span>}{editionLabel && <span><strong>Edition</strong> {editionLabel}</span>}<span title={chapterTitle ?? undefined}><strong>{chapterId ? "Chapter" : "Scope"}</strong> {chapterTitle || (chapterId ? "Current chapter" : "Whole book")}</span></div>
     <MemoryControls key={threadKey} memory={memory} hasEdition={Boolean(editionId)} editionLabel={editionLabel} busy={thread.sending} transcript={thread.messages} onViewChange={(open) => setMemoryView({ key: threadKey, open })} />
     <div hidden={memoryOpen} ref={transcriptRef} role="log" aria-label={`Conversation with ${agent.name}`} aria-live="polite" className={styles.transcript}>
       {memory.ready && thread.messages.length === 0 && <div className={styles.welcome}>
@@ -411,10 +411,12 @@ export default function AiAssistantPanel({ bookId, bookTitle, editionId = null, 
         const retry = thread.retry!; void send(retry.message, retry.selectedText, retry.id);
       }}>Retry message</button>}</div>}
       <label htmlFor={inputId} className="sr-only">Message to {agent.name}</label>
-      <textarea id={inputId} ref={inputRef} value={thread.draft} onChange={(event) => updateThread(threadKey, (previous) => ({ ...previous, draft: event.target.value }))}
-        onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing && (event.metaKey || event.ctrlKey)) { event.preventDefault(); submit(); } }}
-        placeholder={`Tell ${agent.name} what you’d like to change…`} maxLength={2000} rows={2} />
-      <div className={styles.composerActions}><span><CornerDownLeft size={12} aria-hidden /> Ctrl / ⌘ + Enter</span><button type="button" onClick={submit} disabled={thread.sending || !memory.ready || memory.pending || !thread.draft.trim()} aria-label={`Send message to ${agent.name}`}><Send size={15} aria-hidden />Send</button></div>
+      <div className={styles.inputBox}>
+        <textarea id={inputId} ref={inputRef} value={thread.draft} onChange={(event) => updateThread(threadKey, (previous) => ({ ...previous, draft: event.target.value }))}
+          onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing && (event.metaKey || event.ctrlKey)) { event.preventDefault(); submit(); } }}
+          placeholder={`Tell ${agent.name} what you’d like to change…`} maxLength={2000} rows={2} />
+        <div className={styles.composerActions}><span><kbd>⌘/Ctrl</kbd><kbd>↵</kbd> to send</span><button type="button" onClick={submit} disabled={thread.sending || !memory.ready || memory.pending || !thread.draft.trim()} aria-label={`Send message to ${agent.name}`}><ArrowUp size={17} strokeWidth={2.25} aria-hidden /></button></div>
+      </div>
       <p className={styles.disclosure}>AI suggestions can be wrong. Review each proposed change.</p>
     </div>
   </div>;
