@@ -41,6 +41,7 @@ export type OpenAiCallInput = {
   user: string;
   maxTokens: number;
   timeoutMs?: number;
+  signal?: AbortSignal;
   /** When set, the reply is constrained to this schema on the wire. */
   schema?: OpenAiJsonSchema;
   /**
@@ -117,9 +118,11 @@ export async function callOpenAi(input: OpenAiCallInput): Promise<string> {
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key) throw new OpenAiError("OPENAI_API_KEY is not set");
 
+  input.signal?.throwIfAborted();
+  const timeoutSignal = AbortSignal.timeout(input.timeoutMs ?? 30_000);
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
-    signal: AbortSignal.timeout(input.timeoutMs ?? 30_000),
+    signal: input.signal ? AbortSignal.any([input.signal, timeoutSignal]) : timeoutSignal,
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify(openAiRequest(input)),
   });
@@ -129,6 +132,30 @@ export async function callOpenAi(input: OpenAiCallInput): Promise<string> {
     throw new OpenAiError(`OpenAI request failed with status ${response.status}`);
   }
   const payload = (await response.json()) as ResponsesPayload;
+  // Persist known spend even when the response content is unusable.
+  if (input.meter) {
+    // The model the API actually ran, not the one we asked for. They differ when
+    // OpenAI routes a request elsewhere, and the bill follows what ran.
+    const billedModel = payload.model?.trim() || process.env.OPENAI_MODEL?.trim() || DEFAULT_MODEL;
+    const usage = payload.usage;
+    if (usage) {
+      await recordUsage(input.meter, [
+        { kind: "ai_call", provider: "openai", model: billedModel, quantity: usage.input_tokens ?? 0, unit: "input_tokens" },
+        { kind: "ai_call", provider: "openai", model: billedModel, quantity: usage.output_tokens ?? 0, unit: "output_tokens" },
+      ]);
+    } else {
+      await recordUsage(input.meter, [
+        {
+          kind: "ai_call",
+          provider: "openai",
+          model: billedModel,
+          quantity: 1,
+          unit: "ms",
+          meta: { usage_missing: true, note: "provider returned no usage block" },
+        },
+      ]);
+    }
+  }
   if (input.onUsage) {
     const usage = payload.usage;
     const counts = [usage?.input_tokens, usage?.output_tokens,
@@ -148,36 +175,5 @@ export async function callOpenAi(input: OpenAiCallInput): Promise<string> {
   const text = readOutputText(payload);
   if (!text) throw new OpenAiError("OpenAI returned an empty reply");
 
-  // Measured only once the reply is known good, and never in a way that can
-  // fail the call: `recordUsage` swallows its own errors by contract, because
-  // the tokens are already spent and a metering problem must not also cost the
-  // caller their result.
-  //
-  // A reply with no `usage` block gets an explicit marker row rather than a
-  // pair of zeros. Zeros would be dropped as unmeasured and the gap would then
-  // look identical to a user who simply spent nothing.
-  if (!input.meter) return text;
-
-  // The model the API actually ran, not the one we asked for. They differ when
-  // OpenAI routes a request elsewhere, and the bill follows what ran.
-  const billedModel = payload.model?.trim() || process.env.OPENAI_MODEL?.trim() || DEFAULT_MODEL;
-  const usage = payload.usage;
-  if (usage) {
-    await recordUsage(input.meter, [
-      { kind: "ai_call", provider: "openai", model: billedModel, quantity: usage.input_tokens ?? 0, unit: "input_tokens" },
-      { kind: "ai_call", provider: "openai", model: billedModel, quantity: usage.output_tokens ?? 0, unit: "output_tokens" },
-    ]);
-  } else {
-    await recordUsage(input.meter, [
-      {
-        kind: "ai_call",
-        provider: "openai",
-        model: billedModel,
-        quantity: 1,
-        unit: "ms",
-        meta: { usage_missing: true, note: "provider returned no usage block" },
-      },
-    ]);
-  }
   return text;
 }

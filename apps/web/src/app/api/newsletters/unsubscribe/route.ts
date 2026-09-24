@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyUnsubscribeToken } from "@/lib/newsletters/unsubscribe-token";
+import { privateUnsubscribeResponse, unsubscribePage } from "@/lib/newsletters/unsubscribe-page";
 import {
   apiError,
   E_NOT_AUTHENTICATED,
@@ -15,51 +16,80 @@ const unsubscribeBodySchema = z.object({
   authorId: z.string().uuid("Invalid author ID"),
 });
 
-// Anonymous one-click unsubscribe. Mail clients call this from
-// `List-Unsubscribe: <https://...>` headers and from the footer link we
-// inject into every newsletter. Signed HMAC token proves the recipient
-// is who the newsletter was sent to; expires after ~6 months.
-async function handleTokenUnsubscribe(token: string): Promise<Response> {
-  const verified = verifyUnsubscribeToken(token);
-  if (!verified) {
-    return apiError(E_VALIDATION_FAILED, 400);
-  }
+const MAX_TOKEN_LENGTH = 2048;
+const MAX_FORM_BYTES = 8192;
+const isFormContentType = (request: Request) => ["application/x-www-form-urlencoded", "multipart/form-data"].includes(request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() ?? "");
+const validToken = (token: string) => token.length <= MAX_TOKEN_LENGTH ? verifyUnsubscribeToken(token) : null;
+const tokenError = (html: boolean) => html ? unsubscribePage("invalid") : privateUnsubscribeResponse(apiError(E_VALIDATION_FAILED, 400));
 
-  const admin = createAdminClient();
-  const { error: updateError } = await admin
-    .from("newsletter_subscriptions")
-    .update({
-      status: "unsubscribed",
-      unsubscribed_at: new Date().toISOString(),
-    } as never)
-    .eq("author_id", verified.authorId)
-    .eq("subscriber_user_id", verified.subscriberUserId);
-
-  if (updateError) {
-    console.error("[newsletters] token unsubscribe failed", {
-      authorId: verified.authorId,
-      subscriberUserId: verified.subscriberUserId,
-      message: updateError.message,
-    });
-    return apiError(E_NEWSLETTER_SUBSCRIBE_FAILED, 500);
-  }
-
-  return NextResponse.json({ ok: true });
+// Bound streamed bodies before parsing multipart/form data.
+async function readUnsubscribeForm(request: Request): Promise<FormData | null> {
+  const reader = request.body?.getReader();
+  if (!reader) return null;
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      length += value.byteLength;
+      if (length > MAX_FORM_BYTES) { await reader.cancel(); return null; }
+      chunks.push(value);
+    }
+    const body = new Uint8Array(length);
+    let offset = 0;
+    for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.byteLength; }
+    return await new Response(body, { headers: { "Content-Type": request.headers.get("content-type")! } }).formData();
+  } catch { return null; }
+  finally { reader.releaseLock(); }
 }
 
+// The signed token alone identifies the recipient. Never read session cookies
+// or fall back to the authenticated JSON path for either anonymous form mode.
+async function handleTokenUnsubscribe(token: string, html: boolean): Promise<Response> {
+  const verified = validToken(token);
+  if (!verified) return tokenError(html);
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin.from("newsletter_subscriptions")
+      .update({ status: "unsubscribed", unsubscribed_at: new Date().toISOString() } as never)
+      .eq("author_id", verified.authorId).eq("subscriber_user_id", verified.subscriberUserId);
+    if (error) {
+      console.error("[newsletters unsubscribe] storage failure", { code: error.code });
+      return html ? unsubscribePage("failed", { token }) : privateUnsubscribeResponse(apiError(E_NEWSLETTER_SUBSCRIBE_FAILED, 500));
+    }
+    return html ? unsubscribePage("success") : privateUnsubscribeResponse(NextResponse.json({ ok: true }));
+  } catch {
+    console.error("[newsletters unsubscribe] storage operation failed");
+    return html ? unsubscribePage("failed", { token }) : privateUnsubscribeResponse(apiError(E_NEWSLETTER_SUBSCRIBE_FAILED, 500));
+  }
+}
+
+// Existing email links remain valid, but GET (including mail scanners and
+// browser prefetch) only renders confirmation. No DB or auth client is used.
 export async function GET(request: Request) {
-  const token = new URL(request.url).searchParams.get("token")?.trim() ?? "";
-  if (!token) return apiError(E_VALIDATION_FAILED, 400);
-  return handleTokenUnsubscribe(token);
+  const values = new URL(request.url).searchParams.getAll("token");
+  const token = values.length === 1 ? values[0].trim() : "";
+  return validToken(token) ? unsubscribePage("confirm", { token }) : unsubscribePage("invalid");
 }
 
 export async function POST(request: Request) {
-
-  // Allow an anonymous one-click unsubscribe with a signed token — this is
-  // what email clients use for the `List-Unsubscribe: One-Click` flow.
-  const tokenParam = new URL(request.url).searchParams.get("token")?.trim() ?? "";
-  if (tokenParam) {
-    return handleTokenUnsubscribe(tokenParam);
+  const params = new URL(request.url).searchParams;
+  const hasQueryToken = params.has("token");
+  if (hasQueryToken || isFormContentType(request)) {
+    const html = !hasQueryToken;
+    if (!isFormContentType(request)) return tokenError(html);
+    const form = await readUnsubscribeForm(request);
+    if (!form) return tokenError(html);
+    if (hasQueryToken) {
+      // RFC8058: same URL as the old footer, exact one-click form marker.
+      const tokens = params.getAll("token");
+      if (tokens.length !== 1 || [...form.keys()].length !== 1 || form.get("List-Unsubscribe") !== "One-Click") return tokenError(false);
+      return handleTokenUnsubscribe(tokens[0].trim(), false);
+    }
+    const tokens = form.getAll("token");
+    if ([...form.keys()].length !== 2 || tokens.length !== 1 || typeof tokens[0] !== "string" || form.get("confirm") !== "unsubscribe") return tokenError(true);
+    return handleTokenUnsubscribe(tokens[0].trim(), true);
   }
 
   const supabase = await createClient();

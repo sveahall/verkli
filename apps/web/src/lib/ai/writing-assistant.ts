@@ -17,6 +17,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { draftAdviceWithCritic } from "./writing-assistant-critic";
+import { AdviceBudgetError } from "./advice-work-budget";
 import { getLanguageLabel } from "../languages";
 import {
   assistantToolPersonas,
@@ -85,6 +86,9 @@ export type WritingAssistantInput = {
   chapterText: string | null;
   /** When set, the advice critic bills each of its own model calls. */
   meter?: import("@/lib/usage/types").MeterContext;
+  /** Stable client turn identity when available; server derives a hash otherwise. */
+  requestId?: string;
+  signal?: AbortSignal;
 };
 
 export type WritingAssistantResult = {
@@ -100,7 +104,7 @@ export type WritingAssistantResult = {
 };
 
 export class WritingAssistantError extends Error {
-  readonly code: "PROVIDER_UNAVAILABLE" | "PROVIDER_FAILED" | "PROVIDER_TIMEOUT";
+  readonly code: "PROVIDER_UNAVAILABLE" | "PROVIDER_FAILED" | "PROVIDER_TIMEOUT" | "BUDGET_UNRESOLVED";
 
   constructor(message: string, code: WritingAssistantError["code"]) {
     super(message);
@@ -407,17 +411,22 @@ export async function generateWritingAssistantReply(
   const openAiKey = process.env.OPENAI_API_KEY?.trim();
   const nimKey = process.env.NVIDIA_NIM_API_KEY?.trim();
 
-  if (input.mode !== "actions" && anthropicKey && openAiKey) {
+  if (input.mode !== "actions" && process.env.AI_ADVICE_CRITIC_ENABLED === "true" && anthropicKey && openAiKey) {
     try {
       return await draftAdviceWithCritic({
         system: buildSystemPrompt(input),
         conversation: buildMessages(input).map((message) => `${message.role}: ${message.content}`).join("\n\n"),
         meter: input.meter,
+        requestId: input.requestId,
+        signal: input.signal,
       });
-    } catch (err) {
-      console.warn("[ai.writing-assistant] critic loop failed, answering with one model", {
-        message: err instanceof Error ? err.message : String(err),
-      });
+    } catch (error) {
+      if (error instanceof AdviceBudgetError) {
+        console.warn("[ai.writing-assistant] advice admission or receipt unavailable", { code: "BUDGET_UNRESOLVED" });
+        throw new WritingAssistantError("AI advice is paused because its allowance or a previous cost needs review. No further model calls were started.", "BUDGET_UNRESOLVED");
+      }
+      console.warn("[ai.writing-assistant] critic draft failed", { code: "PROVIDER_FAILED" });
+      throw new WritingAssistantError("The writing assistant could not complete your request. Please try again.", "PROVIDER_FAILED");
     }
   }
 

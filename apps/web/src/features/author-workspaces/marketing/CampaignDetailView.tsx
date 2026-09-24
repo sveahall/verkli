@@ -2,6 +2,7 @@
 
 import { CLOSED_BETA_MESSAGE } from "@/lib/marketing/beta-policy";
 import Link from "next/link";
+import { CampaignResultsSummary } from "@/components/marketing/CampaignResultsSummary";
 import { getPostDelivery, isPostDeliveryLocked } from "@/lib/marketing/post-delivery-state";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -335,6 +336,8 @@ export default function CampaignDetailView({
               </p>
             ) : null}
           </section>
+
+          <CampaignResultsSummary posts={posts} />
 
           {/* Filters */}
           {posts.length > 0 ? (

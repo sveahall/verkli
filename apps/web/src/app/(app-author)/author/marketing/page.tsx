@@ -1,3 +1,4 @@
+import { AD_DRAFT_FILTER } from "@/lib/marketing/ad-draft";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMarketingEnabled } from "@/lib/flags";
@@ -56,6 +57,7 @@ export default async function AuthorMarketingPage({
        frequency, start_date, duration_weeks, mode, created_at, updated_at`
     )
     .eq("author_id", user.id)
+    .not("paid_config", "cs", AD_DRAFT_FILTER)
     .order("created_at", { ascending: false });
 
   const planRows = (planRowsRaw ?? []) as CampaignPlanListRow[];

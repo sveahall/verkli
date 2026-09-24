@@ -7,6 +7,7 @@ import Image from "@tiptap/extension-image";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { FontFamily, FontSize, LineHeight, Link, TextAlign } from "./safeTypography";
 import { toTiptapContent } from "@/lib/tiptap-content";
+import { resolveReaderImages } from "@/features/illustration-candidates/media-reference";
 
 type TiptapRendererProps = {
   content: string | Record<string, unknown> | null;
@@ -14,7 +15,7 @@ type TiptapRendererProps = {
 };
 
 export default function TiptapRenderer({ content, className = "" }: TiptapRendererProps) {
-  const parsedContent = useMemo(() => toTiptapContent(content), [content]);
+  const parsedContent = useMemo(() => resolveReaderImages(toTiptapContent(content)), [content]);
 
   const editor = useEditor({
     immediatelyRender: false,

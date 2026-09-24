@@ -12,6 +12,8 @@
  * Each probe is the cheapest authenticated call the vendor offers, and none of
  * them generate anything billable.
  */
+import { parseQuotaSnapshot } from "../tts/elevenlabs-quota";
+
 export type ProviderProbe = {
   provider: string;
   envVar: string;
@@ -101,6 +103,55 @@ async function probe(
   }
 }
 
+/**
+ * The audiobook flow needs one specific ElevenLabs permission that synthesis
+ * does not: `user_read`, to check the balance before charging. A key scoped for
+ * TTS alone passes every other probe here and still blocks every audiobook
+ * purchase, because `getRemainingCredits` cannot read the account and checkout
+ * refuses on an unverifiable quota.
+ *
+ * Production ran in exactly that state on 2026-09-23. So this is checked on its
+ * own, and a scope error is a FAILURE here rather than the acceptable outcome
+ * it is elsewhere.
+ */
+function probeElevenLabsQuota(signal: () => AbortSignal): Promise<ProviderProbe> {
+  const envVar = "ELEVENLABS_API_KEY";
+  const key = process.env[envVar]?.trim();
+  if (!key) {
+    return Promise.resolve({
+      provider: "elevenlabs-quota", envVar, configured: false, ok: true,
+      status: null, detail: "not configured — skipped",
+    });
+  }
+  return fetch("https://api.elevenlabs.io/v1/user/subscription", {
+    headers: { "xi-api-key": key },
+    signal: signal(),
+  })
+    .then(async (res) => {
+      if (res.ok) {
+        const quota = parseQuotaSnapshot(await res.json().catch(() => null));
+        const readable = quota.remaining !== null;
+        return { provider: "elevenlabs-quota", envVar, configured: true, ok: readable,
+          status: res.status, detail: readable
+            ? "balance readable"
+            : "balance unreadable — invalid quota response" };
+      }
+      const body = await res.text().catch(() => "");
+      const scoped = isScopeError(body);
+      return {
+        provider: "elevenlabs-quota", envVar, configured: true, ok: false,
+        status: res.status,
+        detail: scoped
+          ? "key lacks `user_read` — every audiobook purchase will be refused on an unverifiable quota"
+          : `balance unreadable (HTTP ${res.status})`,
+      };
+    })
+    .catch((err) => ({
+      provider: "elevenlabs-quota", envVar, configured: true, ok: false, status: null,
+      detail: `probe failed: ${err instanceof Error ? err.message : String(err)}`,
+    }));
+}
+
 export function probeAllProviders(): Promise<ProviderProbe[]> {
   const signal = () => AbortSignal.timeout(TIMEOUT_MS);
   return Promise.all([
@@ -122,6 +173,7 @@ export function probeAllProviders(): Promise<ProviderProbe[]> {
         signal: signal(),
       })
     ),
+    probeElevenLabsQuota(signal),
     probe("fal", "FAL_KEY", (key) =>
       fetch("https://rest.alpha.fal.ai/tokens/", {
         method: "POST",

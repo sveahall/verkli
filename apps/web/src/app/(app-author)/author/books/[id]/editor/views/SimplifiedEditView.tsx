@@ -1,5 +1,7 @@
 "use client";
 
+import type { IllustrationDrafts } from "@/components/editor/TiptapEditor";
+
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Check, ChevronLeft, ChevronRight, Maximize2, MoreHorizontal, PanelRight, Pencil, Plus, Trash2 } from "lucide-react";
@@ -37,6 +39,8 @@ const TiptapEditor = dynamic(editorImport, {
 
 type SimplifiedEditViewProps = {
   bookId: string;
+  illustrationOwnerId?: string;
+  illustrationDrafts?: IllustrationDrafts;
   activeLanguage?: string;
   bookTitle: string;
   chapters: Chapter[];
@@ -88,6 +92,8 @@ type SimplifiedEditViewProps = {
 
 export default function SimplifiedEditView({
   bookId,
+  illustrationOwnerId,
+  illustrationDrafts,
   activeLanguage,
   bookTitle,
   chapters,
@@ -251,6 +257,9 @@ export default function SimplifiedEditView({
         placeholder="Start writing your chapter..."
         bookId={bookId}
         chapterId={selectedChapter.id}
+        editionId={selectedChapter.book_version_id}
+        illustrationOwnerId={illustrationOwnerId}
+        illustrationDrafts={illustrationDrafts}
         preset={preset}
         onWordCount={handleWordCountWrapped}
         onFocusModeToggle={onToggleFocusMode}
@@ -260,7 +269,7 @@ export default function SimplifiedEditView({
         onInlineAction={handleInlineAiActionWithFlush}
       />
     );
-  }, [selectedChapter, handleAutoSave, onDirty, bookId, preset, handleWordCountWrapped, onToggleFocusMode, focusMode, toolbarTarget, handleEditorReady, handleInlineAiActionWithFlush]);
+  }, [selectedChapter, handleAutoSave, onDirty, bookId, illustrationOwnerId, illustrationDrafts, preset, handleWordCountWrapped, onToggleFocusMode, focusMode, toolbarTarget, handleEditorReady, handleInlineAiActionWithFlush]);
 
   const saveLabel = saveError
     ? "Changes not saved"

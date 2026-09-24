@@ -6,7 +6,10 @@
 
 import { IMPORT_OVERWRITE_MESSAGE } from "./imports/import-safety";
 
+export const IMPORT_RECOVERY_MESSAGE = "This import is paused to protect saved chapters. Contact support with the import reference, or start a separate new import.";
+
 const CONTROLLED_MAPPINGS: Array<{ pattern: RegExp; message: string }> = [
+  { pattern: /^IMPORT_(?:RECOVERY_[A-Z_]+|COMPLETION_UNVERIFIED|LEGACY_RECOVERY_UNAVAILABLE|SOURCE_MISMATCH)$/, message: IMPORT_RECOVERY_MESSAGE },
   { pattern: /^IMPORT_OVERWRITE_UNAVAILABLE$/, message: IMPORT_OVERWRITE_MESSAGE },
   { pattern: /^Queue unavailable/i, message: "Kön är tillfälligt otillgänglig. Försök igen senare." },
   { pattern: /^Ownership mismatch/i, message: "Du har inte behörighet för detta jobb." },

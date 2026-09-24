@@ -31,6 +31,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   { href: "/admin/feedback", label: "Feedback", icon: MessageSquare },
   { href: "/admin/queues", label: "Queues", icon: ListChecks },
   { href: "/admin/usage", label: "Usage & cost", icon: Gauge },
+  { href: "/admin/finance", label: "Stripe activity", icon: Gauge },
 ];
 
 function isActive(pathname: string, href: string): boolean {

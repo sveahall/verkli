@@ -26,6 +26,12 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllEnvs());
 describe("campaign creation consumer readiness", () => {
+  it.each(["organic", "paid"])("does not pass an ad draft through generation with mode %s", async mode => {
+    const response = await POST(new Request("http://localhost/campaigns", { method: "POST", body: JSON.stringify({ ...body, mode, paidConfig: { kind: "ad_draft", version: 999 } }) }));
+    expect(response.status).toBe(409);
+    expect(m.from).not.toHaveBeenCalled();
+    expect(m.queue).not.toHaveBeenCalled();
+  });
   it.each(["missing", "stale", "read-failure"])("does not create or enqueue a campaign when health is %s", async (scenario) => {
     if (scenario === "read-failure") m.health.mockRejectedValue(new Error("Redis down"));
     else m.health.mockResolvedValue({ redis: true, heartbeats: scenario === "missing" ? {} : { "marketing-campaign": { lastSeen: "2020-01-01T00:00:00Z", stale: true, crashed: true } } });

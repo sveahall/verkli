@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PostDrawer } from "@/features/author-workspaces/marketing/CampaignDetailView";
+import { CampaignResultsSummary } from "@/components/marketing/CampaignResultsSummary";
 import { DeliveryHistory } from "@/components/marketing/DeliveryHistory";
 import { Button } from "@/components/ui/button";
 import type { LocalDeliveryView } from "@/lib/marketing/local-delivery-types";
@@ -56,10 +57,7 @@ export default function CampaignDeliveryPreview() {
         <p role="status" className="text-sm">Post: {view.post.status} · Delivery: {current?.state ?? "not scheduled"} · External posts: 0</p>
       </section>
       <DeliveryHistory deliveries={view.deliveries} />
-      <section className="rounded-2xl border border-border bg-card p-5" aria-label="Campaign results">
-        <h2 className="text-lg font-medium">Campaign results</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Reach, clicks and purchases: unknown. No measurement source is connected to this fixture. Simulated deliveries are not campaign results.</p>
-      </section>
+      <CampaignResultsSummary posts={[view.post]} testMode />
     </> : null}
     {open && view ? <PostDrawer key={view.post.id} post={view.post} allowManualSharing={false} deliveryReadOnly={!!current && ["failed", "simulated"].includes(current.state)}
       deliveryDescription="Local server journal and test transport only. No subscription, connected account or external delivery is used. Approved copy and receipts are stored by the local server." onClose={() => setOpen(false)}

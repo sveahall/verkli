@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { resolveSanitizedJobError, sanitizeJobError, sanitizeJobErrorForStorage } from "./sanitize-job-error";
 
 describe("sanitizeJobError", () => {
+  it.each(["IMPORT_RECOVERY_SOURCE_CHANGED", "IMPORT_RECOVERY_CONTENT_CHANGED", "IMPORT_RECOVERY_CHECKPOINT_UNAVAILABLE", "IMPORT_COMPLETION_UNVERIFIED", "IMPORT_LEGACY_RECOVERY_UNAVAILABLE"])("preserves a safe terminal recovery message for %s through API sanitization", code => {
+    const stored = sanitizeJobErrorForStorage(code);
+    expect(stored).toContain("Contact support");
+    expect(stored).not.toContain("Försök igen");
+    expect(sanitizeJobError(stored)).toBe(stored);
+  });
   it("maps provider/storage details to controlled message", () => {
     const raw = "Storage upload failed: permission denied for /tmp/private/secrets.log";
     expect(sanitizeJobError(raw)).toBe("Kunde inte spara resultatfilen.");

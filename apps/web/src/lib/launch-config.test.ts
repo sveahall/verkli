@@ -137,6 +137,7 @@ describe("launch flag matrix", () => {
   it("keeps the flags the launch plan §3 cuts from September off", () => {
     // Translations left this list once they could actually run: the Railway
     // worker consumes the queue and Anthropic serves the Swedish pairs.
+    // Marketing left it on 2026-09-24 once worker-marketing ran on Railway.
     const cut = [
       "NEXT_PUBLIC_SOCIAL_ENABLED",
       "NEXT_PUBLIC_BOOK_CLUBS_ENABLED",
@@ -201,6 +202,7 @@ describe("verifyLaunchConfig", () => {
       // launch environment.
       EDITORIAL_DAILY_BUDGET: "200000",
       MARKETING_DAILY_BUDGET: "50000",
+      MARKETING_JOB_CAP_UNITS: "30000",
       // Live-mode, because goodEnv() describes an environment that should pass
       // a PRODUCTION check. It held "sk_test_x" while the suite asserted zero
       // errors, which pinned the gate's blind spot open: production could ship
@@ -457,6 +459,7 @@ describe("verifyLaunchConfig", () => {
     "FAL_KEY",
     "EDITORIAL_DAILY_BUDGET",
     "MARKETING_DAILY_BUDGET",
+    "MARKETING_JOB_CAP_UNITS",
   ]) {
     it(`rejects a launch environment missing ${key}`, () => {
       const env = goodEnv();

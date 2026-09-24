@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const stripe = vi.hoisted(() => ({ cancel: vi.fn() }));
+vi.mock("@/lib/payments/stripe-billing", () => ({ cancelStripeSubscription: stripe.cancel }));
 import {
   DELETION_GRACE_DAYS,
   REMOVED_AUTHOR_NAME,
@@ -20,6 +23,8 @@ type Options = {
   listError?: boolean;
   /** What the pre-teardown intent re-check sees. Null means no profile row. */
   intent?: { deletion_requested_at: string | null; deletion_completed_at: string | null } | null;
+  /** Subscription ids billing_accounts returns for this user. */
+  subscriptions?: string[];
 };
 
 function database(options: Options = {}) {
@@ -55,6 +60,14 @@ function database(options: Options = {}) {
       // Terminal await on delete/update resolves here.
       chain.then = (resolve: (value: unknown) => void) =>
         Promise.resolve({ error: options.failOn === table ? { code: "boom" } : null }).then(resolve);
+      if (table === "billing_accounts") {
+        chain.then = (resolve: (value: unknown) => void) =>
+          Promise.resolve(
+            options.failOn === "billing"
+              ? { data: null, error: { code: "boom" } }
+              : { data: (options.subscriptions ?? []).map((id) => ({ stripe_subscription_id: id })), error: null }
+          ).then(resolve);
+      }
       return chain;
     },
   };
@@ -63,6 +76,8 @@ function database(options: Options = {}) {
 
 describe("account teardown", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    stripe.cancel.mockResolvedValue(undefined);
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(console, "warn").mockImplementation(() => {});
   });
@@ -85,6 +100,14 @@ describe("account teardown", () => {
   it("carries out nothing when the queue cannot be read", async () => {
     const db = database({ listError: true });
     expect(await findDueDeletions(db.admin, NOW)).toEqual([]);
+  });
+
+  it.each([NOW.toISOString(), graceCutoff(NOW), "invalid-date"])("does not erase an account whose current request is not past its grace window (%s)", async (requestedAt) => {
+    const db = database({ due: [USER], intent: { deletion_requested_at: requestedAt, deletion_completed_at: null } });
+    const outcomes = await runAccountTeardownSweep(db.admin, NOW);
+    expect(outcomes).toEqual([{ userId: USER, ok: true, skipped: "not_due" }]);
+    expect(db.calls.some((call) => call.op === "delete" || call.op === "update" || call.op === "insert")).toBe(false);
+    expect(db.updateUserById).not.toHaveBeenCalled();
   });
 
   it("erases the person: private AI data, profile identity, and sign-in", async () => {
@@ -175,6 +198,29 @@ describe("account teardown", () => {
     const already = database({ intent: { deletion_requested_at: "2026-09-01T00:00:00.000Z", deletion_completed_at: "2026-09-10T00:00:00.000Z" } });
     expect(await tearDownAccount(already.admin, USER, NOW)).toMatchObject({ ok: true, skipped: "withdrawn" });
     expect(already.updateUserById).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Found by an outside review. Banning an account does not stop Stripe from
+   * charging its saved card, so a closed account kept paying for a product it
+   * could no longer reach.
+   */
+  it("cancels what the account pays for, before it loses its sign-in", async () => {
+    const db = database({ subscriptions: ["sub_a", "sub_b"] });
+    expect(await tearDownAccount(db.admin, USER, NOW)).toEqual({ userId: USER, ok: true });
+    expect(stripe.cancel).toHaveBeenCalledWith("sub_a");
+    expect(stripe.cancel).toHaveBeenCalledWith("sub_b");
+    expect(stripe.cancel.mock.invocationCallOrder[0]).toBeLessThan(db.updateUserById.mock.invocationCallOrder[0]);
+  });
+
+  it("stops rather than banning an account whose subscription could not be cancelled", async () => {
+    const db = database({ subscriptions: ["sub_a"] });
+    stripe.cancel.mockRejectedValue(new Error("stripe unavailable"));
+    expect(await tearDownAccount(db.admin, USER, NOW)).toEqual({ userId: USER, ok: false, step: "stripe" });
+    // Still reachable, still billed, and still queued for the next sweep.
+    expect(db.updateUserById).not.toHaveBeenCalled();
+    const updates = db.calls.filter((call) => call.table === "profiles" && call.op === "update");
+    expect(updates.every((call) => !(call.payload as Record<string, unknown>)?.deletion_completed_at)).toBe(true);
   });
 
   it("clears the signup name and avatar, not just the profile row", async () => {

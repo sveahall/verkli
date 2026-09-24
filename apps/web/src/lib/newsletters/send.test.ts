@@ -41,6 +41,10 @@ describe("newsletter delivery with sandboxed auth and email transport", () => {
     for (const [i, message] of messages.entries()) {
       expect(message.html).not.toContain("<script>");
       const url = new URL(message.headers["List-Unsubscribe"].slice(1, -1));
+      expect(url.pathname).toBe("/api/newsletters/unsubscribe");
+      expect(message.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+      expect(message.html).toContain(url.toString());
+      expect(message.text).toContain(url.toString());
       expect(verifyUnsubscribeToken(url.searchParams.get("token")!)).toEqual({ authorId: "author-1", subscriberUserId: `reader-${i}` });
     }
   });

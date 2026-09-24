@@ -106,10 +106,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (gate.response) return gate.response;
   const userId = gate.user.id;
 
-  // Account master AI switch. Server-side, so turning AI off is a real
-  // setting and not just a hidden button.
-  const aiOff = await aiDisabledResponse(userId);
-  if (aiOff) return aiOff;
   let admin: ReturnType<typeof createAdminClient> | null = null;
   let ownedJob: Job | null = null;
   let run: AnalysisRun | null = null;
@@ -124,6 +120,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!(await limiter.check(userId)).allowed) throw new AnalysisError("Too many analysis requests. Wait a minute and continue.", 429);
     const body = parsed.data;
     if (body.action !== "abandon") {
+      // Stopping owned work must remain possible when AI is off or settings cannot be read.
+      const aiOff = await aiDisabledResponse(userId);
+      if (aiOff) return aiOff;
       const reason = unavailableReason();
       if (reason) throw new AnalysisError(reason, 503);
     }

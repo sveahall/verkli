@@ -110,7 +110,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .eq("id", row.id)
     .is("applied_at", null)
     .select("id");
-  if (claimError || !claimed?.length) {
+  if (claimError) {
+    // Not the same as losing the claim. Reporting a statement timeout as
+    // "already applied" settles the card permanently, so the author is told
+    // their plan ran when nothing was written and nothing can be retried.
+    console.error("[agent.apply] plan could not be claimed", { planId: row.id, code: claimError.code });
+    return NextResponse.json({
+      error: E_GENERIC_ERROR,
+      message: "The database did not answer, so nothing was changed. Press Run again.",
+    }, { status: 503 });
+  }
+  if (!claimed?.length) {
     return NextResponse.json({ error: E_GENERIC_ERROR, message: "This plan has already been applied." }, { status: 409 });
   }
 

@@ -1,5 +1,7 @@
 "use client";
 
+import type { IllustrationDrafts } from "@/components/editor/TiptapEditor";
+
 import dynamic from "next/dynamic";
 import type { ReactNode } from "react";
 import ChapterRail from "../components/ChapterRail";
@@ -23,6 +25,8 @@ type FocusModeEditorViewProps = {
   bookTitle: string;
   authorDisplayName: string;
   bookId: string;
+  illustrationOwnerId?: string;
+  illustrationDrafts?: IllustrationDrafts;
   chapters: Chapter[];
   selectedChapterId: string | null;
   selectedChapterIndex: number;
@@ -44,6 +48,8 @@ export default function FocusModeEditorView({
   bookTitle,
   authorDisplayName,
   bookId,
+  illustrationOwnerId,
+  illustrationDrafts,
   chapters,
   selectedChapterId,
   selectedChapterIndex,
@@ -164,6 +170,9 @@ export default function FocusModeEditorView({
                   placeholder="Start writing your chapter..."
                   bookId={bookId}
                   chapterId={selectedChapter.id}
+                  editionId={selectedChapter.book_version_id}
+                  illustrationOwnerId={illustrationOwnerId}
+                  illustrationDrafts={illustrationDrafts}
                   preset={preset}
                   onWordCount={onWordCount}
                   onFocusModeToggle={onExitFocusMode}

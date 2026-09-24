@@ -141,6 +141,15 @@ describe("PlanBuilder", () => {
       .toThrow(/already part of this plan/);
   });
 
+  it("claims nothing when the call is refused, so the model can correct itself", () => {
+    // Naming one good id and one bad one used to leave the good one taken, so
+    // the corrected retry was refused for a change that had never been
+    // recorded — and the model had no way back.
+    const { builder } = planner();
+    expect(() => builder.record("replace_in_book", { matchIds: ["m1", "m999"], replacement: "Jonas", reason: "x" })).toThrow(/m999/);
+    expect(JSON.parse(builder.record("replace_in_book", { matchIds: ["m1"], replacement: "Jonas", reason: "Rename." })).recorded).toBe(true);
+  });
+
   it("refuses a replacement that would fake a paragraph break", () => {
     // The splice writes one text node, so the break would not exist — and the
     // next run could not tell the embedded newline from a real boundary.

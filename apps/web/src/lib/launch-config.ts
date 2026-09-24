@@ -377,6 +377,11 @@ export const LAUNCH_REQUIRED_PRESENT: readonly LaunchRequiredSpec[] = [
     validate: validateDailyBudget,
   },
   {
+    anyOf: ["MARKETING_JOB_CAP_UNITS"],
+    reason: "Also read with requirePositiveIntEnv, and campaign admission refuses every job without it.",
+    validate: validateDailyBudget,
+  },
+  {
     anyOf: ["NEXT_PUBLIC_SUPABASE_ANON_KEY"],
     reason: "The browser client cannot authenticate a reader without it.",
   },

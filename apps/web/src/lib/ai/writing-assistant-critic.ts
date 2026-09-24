@@ -1,43 +1,25 @@
-/**
- * Advice-chat critic. OpenAI drafts, Anthropic checks the draft against the
- * chapter, OpenAI revises. Action mode stays on one model: that reply is a
- * structured proposal, and rewriting it as prose would drop the actions.
+/** Advice only: OpenAI drafts, Anthropic critiques, OpenAI revises.
+ * Every paid stage has its own pre-dispatch reservation and durable receipt.
+ * Actions stay on the single-model path; the critic flag remains opt-in/off.
  */
-
+import { createHash } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-
-import { recordUsage } from "@/lib/usage/meter";
 import type { MeterContext } from "@/lib/usage/types";
-
-import { callOpenAi } from "./providers/openai";
+import { callOpenAi, estimateOpenAiUnits } from "./providers/openai";
+import { AdviceBudgetError, beginAdviceWork } from "./advice-work-budget";
 import type { WritingAssistantResult } from "./writing-assistant";
 
 const ANTHROPIC_MODEL_ID = "claude-sonnet-5";
 const REQUEST_TIMEOUT_MS = 20_000;
+const MAX_OUTPUT_TOKENS = 800;
+const critiqueSchema = z.object({ issues: z.array(z.string().trim().min(1).max(400)).max(8) });
+const critiqueWireSchema = { type: "object", additionalProperties: false, required: ["issues"],
+  properties: { issues: { type: "array", items: { type: "string" } } } };
 
-const critiqueSchema = z.object({
-  issues: z.array(z.string().trim().min(1).max(400)).max(8),
-});
-
-const critiqueWireSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["issues"],
-  properties: { issues: { type: "array", items: { type: "string" } } },
-};
-
-function modelId(): string {
-  return process.env.OPENAI_MODEL?.trim() || "gpt-6-astra";
-}
-
-async function critique(conversation: string, draft: string, meter?: MeterContext): Promise<string[]> {
-  const key = process.env.ANTHROPIC_API_KEY?.trim();
-  if (!key) return [];
-  const client = new Anthropic({ apiKey: key, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
-  const result = await client.messages.create({
-    model: ANTHROPIC_MODEL_ID,
-    max_tokens: 800,
+function critiqueRequest(conversation: string, draft: string): Anthropic.MessageCreateParamsNonStreaming {
+  return {
+    model: ANTHROPIC_MODEL_ID, max_tokens: MAX_OUTPUT_TOKENS,
     thinking: { type: "adaptive" },
     output_config: { effort: "low", format: { type: "json_schema", schema: critiqueWireSchema } },
     system: [
@@ -47,54 +29,71 @@ async function critique(conversation: string, draft: string, meter?: MeterContex
       "Return an empty issues array when the reply is already specific and faithful.",
     ].join(" "),
     messages: [{ role: "user", content: JSON.stringify({ conversation, reply: draft }) }],
-  });
-  if (meter) {
-    await recordUsage(meter, [
-      { kind: "ai_call", provider: "anthropic", model: ANTHROPIC_MODEL_ID, quantity: result.usage?.input_tokens ?? 0, unit: "input_tokens" },
-      { kind: "ai_call", provider: "anthropic", model: ANTHROPIC_MODEL_ID, quantity: result.usage?.output_tokens ?? 0, unit: "output_tokens" },
-    ]);
-  }
-  const raw = result.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join("\n");
-  return critiqueSchema.parse(JSON.parse(raw.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, ""))).issues;
+  };
 }
 
 export async function draftAdviceWithCritic(args: {
-  system: string;
-  conversation: string;
-  meter?: MeterContext;
+  system: string; conversation: string; meter?: MeterContext; requestId?: string; signal?: AbortSignal;
 }): Promise<WritingAssistantResult> {
-  const draft = (await callOpenAi({
-    system: args.system,
-    user: args.conversation,
-    maxTokens: 800,
-    timeoutMs: REQUEST_TIMEOUT_MS,
-    meter: args.meter,
-  })).trim();
-  if (!draft) throw new Error("OpenAI returned an empty completion");
-
-  let issues: string[] = [];
+  // Legacy/temporary callers without a conversation ID still get a stable
+  // replay key. Only a hash is persisted, never their manuscript or prompts.
+  const requestId = args.requestId ?? createHash("sha256").update(JSON.stringify([args.system, args.conversation])).digest("hex");
+  const work = await beginAdviceWork({ meter: args.meter, requestId, signal: args.signal }).catch(() => {
+    // Admission may have persisted despite a lost acknowledgement. Do not
+    // suggest retrying when its fence could require reconciliation.
+    throw new AdviceBudgetError();
+  });
+  const request = { system: args.system, user: args.conversation, maxTokens: MAX_OUTPUT_TOKENS,
+    timeoutMs: REQUEST_TIMEOUT_MS, signal: args.signal };
   try {
-    issues = await critique(args.conversation, draft, args.meter);
-  } catch {
-    console.warn("[ai.writing-assistant] critique unavailable, keeping the draft");
-    return { content: draft, provider: "openai+anthropic", model: modelId() };
+    const draft = (await work.run("draft", "openai", estimateOpenAiUnits(request),
+      onUsage => callOpenAi({ ...request, onUsage }))).trim();
+    if (!draft) throw new Error("OpenAI returned an empty completion");
+    const result = (content: string): WritingAssistantResult => ({ content, provider: "openai+anthropic",
+      model: process.env.OPENAI_MODEL?.trim() || "gpt-6-astra" });
+    let issues: string[] = [];
+    const key = process.env.ANTHROPIC_API_KEY?.trim();
+    if (key) {
+      const body = critiqueRequest(args.conversation, draft);
+      // Full escaped UTF-8 request + framing + output/thinking, using the same
+      // conservative unit contract as editorial. Computed AFTER the actual
+      // draft, rather than assuming a fixed prompt or opening reservation.
+      const units = Buffer.byteLength(JSON.stringify(body), "utf8") + 4096 + MAX_OUTPUT_TOKENS;
+      try {
+        issues = await work.run("critique", "anthropic", units, async receive => {
+          const client = new Anthropic({ apiKey: key, timeout: REQUEST_TIMEOUT_MS, maxRetries: 0 });
+          const response = await client.messages.create(body, { signal: args.signal });
+          const usage = response.usage;
+          await receive({ model: response.model, responseId: response.id ?? null,
+            inputTokens: usage?.input_tokens, outputTokens: usage?.output_tokens,
+            cacheCreationInputTokens: usage?.cache_creation_input_tokens ?? 0,
+            cacheReadInputTokens: usage?.cache_read_input_tokens ?? 0 });
+          if (response.stop_reason === "max_tokens" || response.stop_reason === "refusal") throw new Error("Critique incomplete");
+          const raw = response.content.filter((block): block is Anthropic.TextBlock => block.type === "text")
+            .map(block => block.text).join("\n");
+          return critiqueSchema.parse(JSON.parse(raw.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, ""))).issues;
+        });
+      } catch (error) {
+        if (error instanceof AdviceBudgetError || args.signal?.aborted) throw error;
+        console.warn("[ai.writing-assistant] critique content unavailable, keeping the draft");
+      }
+    }
+    let content = draft;
+    if (issues.length) {
+      const revision = { ...request, user: JSON.stringify({ conversation: args.conversation, previousReply: draft, mustFix: issues }) };
+      try {
+        const revised = (await work.run("revision", "openai", estimateOpenAiUnits(revision),
+          onUsage => callOpenAi({ ...revision, onUsage }))).trim();
+        if (revised) content = revised;
+      } catch (error) {
+        if (error instanceof AdviceBudgetError || args.signal?.aborted) throw error;
+        console.warn("[ai.writing-assistant] revision content unavailable, keeping the draft");
+      }
+    }
+    await work.finish(true);
+    return result(content);
+  } catch (error) {
+    await work.finish(false);
+    throw error;
   }
-  if (issues.length === 0) return { content: draft, provider: "openai+anthropic", model: modelId() };
-
-  try {
-    const revised = (await callOpenAi({
-      system: args.system,
-      user: JSON.stringify({ conversation: args.conversation, previousReply: draft, mustFix: issues }),
-      maxTokens: 800,
-      timeoutMs: REQUEST_TIMEOUT_MS,
-      meter: args.meter,
-    })).trim();
-    if (revised) return { content: revised, provider: "openai+anthropic", model: modelId() };
-  } catch {
-    console.warn("[ai.writing-assistant] revision failed, keeping the draft");
-  }
-  return { content: draft, provider: "openai+anthropic", model: modelId() };
 }

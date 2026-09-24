@@ -1,5 +1,6 @@
 "use client";
 
+import ManuscriptIllustrations from "@/features/illustration-candidates/ManuscriptIllustrations";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import { chapterSchemaExtensions } from "@/lib/tiptap-schema";
@@ -10,7 +11,7 @@ import {
   TiptapFloatingMenu as FloatingMenu,
   useEditor,
 } from "@tiptap/react";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   createAutosaveScheduler,
   type EditorSnapshot,
@@ -22,6 +23,8 @@ import { history } from "@tiptap/pm/history";
 import { toTiptapContent, shouldAdoptEditorContent, countWords } from "@/lib/tiptap-content";
 import { FONT_FAMILY_MAP, WRITING_PRESETS } from "./types";
 
+export type IllustrationDrafts = Map<string, EditorSnapshot>;
+
 type PresetId = "novel" | "essay" | "screenplay";
 
 type TiptapEditorProps = {
@@ -30,6 +33,9 @@ type TiptapEditorProps = {
   placeholder?: string;
   bookId?: string;
   chapterId?: string;
+  editionId?: string;
+  illustrationOwnerId?: string;
+  illustrationDrafts?: IllustrationDrafts;
   preset?: string;
   onWordCount?: (count: number) => void;
   onDirty?: () => void;
@@ -116,6 +122,9 @@ export default function TiptapEditor({
   placeholder = "Start writing...",
   bookId,
   chapterId,
+  editionId,
+  illustrationOwnerId,
+  illustrationDrafts,
   preset = "novel",
   onWordCount,
   onDirty,
@@ -128,6 +137,16 @@ export default function TiptapEditor({
     () => true,
     () => false,
   );
+  const illustrationScope = useMemo(() => bookId && editionId && chapterId && illustrationOwnerId ? { bookId, editionId, chapterId } : null, [bookId, editionId, chapterId, illustrationOwnerId]);
+  const localDrafts = useMemo(() => new Map<string, EditorSnapshot>(), []);
+  const drafts = illustrationDrafts ?? localDrafts;
+  const draftKey = `${illustrationOwnerId}:${bookId}:${editionId}:${chapterId}`;
+  const illustrationAccess = useRef({ active: !illustrationScope });
+  const [illustrationSessionVerified, setIllustrationSessionVerified] = useState(false);
+  const onIllustrationSessionState = useCallback((verified: boolean) => {
+    illustrationAccess.current.active = verified;
+    setIllustrationSessionVerified(verified);
+  }, [illustrationAccess]);
   const [slashMenu, setSlashMenu] = useState<SlashMenuState | null>(null);
 
   // The scheduler owns the debounce, its ceiling, and the pending value, and
@@ -149,10 +168,14 @@ export default function TiptapEditor({
 
   useEffect(() => {
     autosave.setCommit((snapshot) => {
+      // A session change must not send the previous author's pending draft as the new user.
+      // The book workspace retains the snapshot across chapter and focus-mode remounts.
+      if (!illustrationAccess.current.active) { drafts.set(draftKey, snapshot); return; }
+      drafts.delete(draftKey);
       onUpdate(snapshot.doc);
       onWordCount?.(countWords(snapshot.text));
     });
-  }, [autosave, onUpdate, onWordCount]);
+  }, [autosave, onUpdate, onWordCount, illustrationAccess, drafts, draftKey]);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -174,6 +197,21 @@ export default function TiptapEditor({
       autosave.push({ doc: editor.getJSON(), text: editor.getText() });
     },
   });
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed || !illustrationAccess.current.active) return;
+    // A newer debounced edit takes precedence over an older held snapshot.
+    if (autosave.hasPending()) return;
+    const pending = drafts.get(draftKey);
+    if (!pending) return;
+    // Recovery owns this draft; unchanged old server props must not replace it
+    // if persistence fails and the same owner verifies their session again.
+    adoptedContent.current = typeof content === "string" ? content : JSON.stringify(content ?? null);
+    if (JSON.stringify(editor.getJSON()) !== JSON.stringify(pending.doc)) {
+      replaceFromServer(editor, toTiptapContent(pending.doc));
+    }
+    autosave.push(pending);
+  }, [editor, illustrationSessionVerified, illustrationAccess, autosave, drafts, draftKey, content]);
 
   const typography = (
     preset && preset in WRITING_PRESETS ? WRITING_PRESETS[preset as PresetId] : null
@@ -197,7 +235,7 @@ export default function TiptapEditor({
   // `content` is only the initial document. After an agent write the prop
   // changes and the open chapter would keep showing the old prose.
   useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
+    if (!editor || editor.isDestroyed || !illustrationAccess.current.active) return;
     if (autosave.hasPending()) return;
     const key = typeof content === "string" ? content : JSON.stringify(content ?? null);
     if (adoptedContent.current === key) return;
@@ -208,7 +246,7 @@ export default function TiptapEditor({
     replaceFromServer(editor, toTiptapContent(content));
     adoptedContent.current = key;
     wordCountRef.current?.(countWords(editor.getText()));
-  }, [editor, content, autosave]);
+  }, [editor, content, autosave, illustrationAccess, illustrationSessionVerified]);
 
   useEffect(() => {
     return () => {
@@ -394,7 +432,8 @@ export default function TiptapEditor({
 
   return (
     <EditorContext.Provider value={{ editor }}>
-    <div className="verkli-editor" style={typographyVars}>
+    {illustrationScope && !illustrationSessionVerified && <p role="status" className="p-4 text-sm text-muted-foreground">Verifying your author session. After a change of account, the previous draft stays hidden in this tab and is not saved. Return to the original account before recovering unsaved work.</p>}
+    <div className="verkli-editor" style={{ ...typographyVars, ...(illustrationScope && !illustrationSessionVerified ? { display: "none" } : {}) }}>
       <BubbleMenu
         shouldShow={({ editor, from, to }) => editor.state.doc.textBetween(from, to, " ").trim().length > 0}
         className="verkli-bubble-menu"
@@ -499,7 +538,7 @@ export default function TiptapEditor({
       </FloatingMenu>
 
       {/* Toolbar buttons (portaled into sticky header when target provided) */}
-      {(() => {
+      {(!illustrationScope || illustrationSessionVerified) && (() => {
         const toolbarButtons = (
           <div className="flex max-w-full items-center gap-0.5 overflow-x-auto px-1 py-1.5 sm:px-4">
             <ToolbarButton label="Undo" onClick={() => editor.chain().focus().undo().run()}>
@@ -556,6 +595,7 @@ export default function TiptapEditor({
           : <div className="verkli-toolbar sticky top-0 z-10 border-b border-border bg-white/95 backdrop-blur-sm dark:border-border dark:bg-card/95">{toolbarButtons}</div>;
       })()}
 
+      {illustrationScope && <ManuscriptIllustrations key={`${bookId}:${editionId}:${chapterId}`} editor={editor} scope={illustrationScope} ownerId={illustrationOwnerId!} onSessionState={onIllustrationSessionState} />}
       <EditorContent editor={editor} className="verkli-content" />
 
       <style jsx global>{`

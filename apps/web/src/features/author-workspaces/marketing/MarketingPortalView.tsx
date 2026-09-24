@@ -228,6 +228,7 @@ export default function MarketingPortalView({
             </label>
             <Button className="w-full sm:w-auto" disabled={!initialBook} onClick={() => setWizardOpen(true)}>Create campaign plan</Button>
           </div>
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm"><Link href="/author/marketing/ads" className="text-accent-foreground underline underline-offset-4">Ad drafts & budgets</Link><Link href="/author/marketing/channels" className="text-muted-foreground underline underline-offset-4">Channel connections</Link></div>
           <div className="flex gap-2 border-b border-border pb-3" role="tablist" aria-label="Marketing workspace">
             {([ ["studio", "Create & save material"], ["campaigns", `Campaign plans (${visibleCampaigns.length})`] ] as const).map(([id, label]) => <button key={id} id={`marketing-tab-${id}`} type="button" role="tab" aria-selected={activeTab === id} aria-controls={`marketing-panel-${id}`} onClick={() => setActiveTab(id)} className={cn("min-h-11 rounded-full px-5 text-sm font-medium", activeTab === id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent")}>{label}</button>)}
           </div>

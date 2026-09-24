@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
   reading: null as { chapter_id: string } | null,
   readingError: null as { message: string } | null,
   locked: false,
+  chapterPatch: {} as Record<string, unknown>,
   logAnalyticsEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -29,7 +30,7 @@ vi.mock("@/lib/supabase/server", () => ({
         maybeSingle: async () => ({
           data: table === "chapters" ? {
             id: "chapter", title: "Private chapter title", order: state.order,
-            book_id: "book", book_version_id: "edition", content: "Private manuscript text",
+            book_id: "book", book_version_id: "edition", content: "Private manuscript text", ...state.chapterPatch,
           } : table === "books" ? {
             id: "book", title: "Private book title", status: "PUBLISHED", author_id: "author",
           } : table === "readings" ? state.reading : null,
@@ -48,7 +49,7 @@ describe("reader start event", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("React", React);
-    Object.assign(state, { user: null, order: 0, firstId: "chapter", reading: null, readingError: null, locked: false });
+    Object.assign(state, { user: null, order: 0, firstId: "chapter", reading: null, readingError: null, locked: false, chapterPatch: {} });
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -99,5 +100,27 @@ describe("reader start event", () => {
     state.locked = true;
     await visit();
     expect(state.logAnalyticsEvent).not.toHaveBeenCalled();
+  });
+});
+
+const illustrationScope = { bookId: "11111111-1111-4111-8111-111111111111", editionId: "22222222-2222-4222-8222-222222222222", chapterId: "33333333-3333-4333-8333-333333333333" };
+const imageNode = { type: "image", attrs: { src: `/api/books/${illustrationScope.bookId}/editions/${illustrationScope.editionId}/chapters/${illustrationScope.chapterId}/illustrations/44444444-4444-4444-8444-444444444444/image`, alt: "A forest" } };
+function shownContent(value: unknown): unknown[] {
+  if (!value || typeof value !== "object") return [];
+  if (Array.isArray(value)) return value.flatMap(shownContent);
+  const element = value as { props?: { chapterContent?: unknown; children?: unknown } };
+  return [...(element.props?.chapterContent !== undefined ? [element.props.chapterContent] : []), ...shownContent(element.props?.children), ...shownContent(element.props?.chapterContent)];
+}
+describe("reader illustration content selection", () => {
+  beforeEach(() => { vi.stubGlobal("React", React); state.locked = false; state.user = null; });
+  afterEach(() => { state.chapterPatch = {}; vi.unstubAllGlobals(); });
+  it.each([{ prose: [] }, { prose: [{ type: "paragraph", content: [{ type: "text", text: "Saved prose" }] }] }])("preserves canonical images with surrounding nodes %j", async ({ prose }) => {
+    const content = JSON.stringify({ type: "doc", content: [...prose, imageNode] });
+    state.chapterPatch = { id: illustrationScope.chapterId, book_id: illustrationScope.bookId, book_version_id: illustrationScope.editionId, content, source_text: "Old fallback" };
+    expect(shownContent(await visit())).toContain(content);
+  });
+  it.each(["", JSON.stringify({ type: "doc", content: [] }), JSON.stringify({ type: "doc", content: [{ ...imageNode, attrs: { ...imageNode.attrs, src: "/not-a-candidate" } }] }), JSON.stringify({ type: "doc", content: [{ ...imageNode, attrs: { ...imageNode.attrs, src: imageNode.attrs.src.replace(illustrationScope.chapterId, illustrationScope.editionId) } }] })])("retains fallback for empty or foreign image content", async (content) => {
+    state.chapterPatch = { id: illustrationScope.chapterId, book_id: illustrationScope.bookId, book_version_id: illustrationScope.editionId, content, source_text: "Old fallback" };
+    expect(shownContent(await visit())).toContain("Old fallback");
   });
 });

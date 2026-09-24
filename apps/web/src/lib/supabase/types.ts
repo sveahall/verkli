@@ -4319,6 +4319,21 @@ export type Database = {
         Args: { book_id: string; viewer_id: string }
         Returns: boolean
       }
+      merge_profile_preferences: {
+        Args: {
+          p_patch: Json
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      review_beta_application: {
+        Args: {
+          p_id: string
+          p_note?: string | null
+          p_status: string
+        }
+        Returns: Json
+      }
       commit_reviewed_translation: {
         Args: {
           p_author_id: string

@@ -5,6 +5,7 @@
  */
 
 import { IMPORT_OVERWRITE_MESSAGE } from "./imports/import-safety";
+import { IMPORT_RECOVERY_MESSAGE } from "./sanitize-job-error";
 
 const ERROR_MESSAGES: Record<string, string> = {
   // Common
@@ -76,6 +77,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_MULTIPART_BODY: "Invalid file upload.",
   MISSING_FILE: "File is missing.",
   IMPORT_OVERWRITE_UNAVAILABLE: IMPORT_OVERWRITE_MESSAGE,
+  IMPORT_RECOVERY_CHECKPOINT_UNAVAILABLE: IMPORT_RECOVERY_MESSAGE,
   INVALID_IMPORT_MODE: "Invalid import mode.",
   IMPORT_RECORD_CREATION_FAILED: "Failed to create import record.",
   IMPORT_FILE_STORAGE_FAILED: "Failed to save the import file.",

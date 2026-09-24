@@ -41,6 +41,28 @@ describe("callOpenAi", () => {
 
   const body = () => JSON.parse(fetchMock.mock.calls[0][1].body as string);
 
+  it("does not dispatch a request that was already cancelled", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    fetchMock.mockResolvedValue(ok(messagePayload("unused")));
+    await expect(callOpenAi({ system: "s", user: "u", maxTokens: 10, signal: controller.signal })).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("cancels an in-flight request when the caller aborts", async () => {
+    const controller = new AbortController();
+    let requestSignal: AbortSignal | undefined;
+    fetchMock.mockImplementation(async (_url, options) => {
+      requestSignal = options.signal;
+      controller.abort();
+      requestSignal?.throwIfAborted();
+      return ok(messagePayload("unused"));
+    });
+    await expect(callOpenAi({ system: "s", user: "u", maxTokens: 10, signal: controller.signal })).rejects.toThrow();
+    expect(requestSignal?.aborted).toBe(true);
+  });
+
+
   it("records billed tokens before rejecting an incomplete reply", async () => {
     const onUsage = vi.fn();
     fetchMock.mockResolvedValue(ok({ status: "incomplete", model: "actual-model", id: "resp-test",
@@ -163,6 +185,17 @@ describe("callOpenAi metering", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+  });
+
+  it.each(["incomplete", "completed"])("meters paid work before rejecting a %s reply with no usable content", async (status) => {
+    fetchMock.mockResolvedValue(ok({ status, model: "actual-model", usage: { input_tokens: 23, output_tokens: 17 } }));
+    await expect(callOpenAi({ system: "s", user: "u", maxTokens: 100,
+      meter: { userId: "user-1", pipeline: "assistant" } })).rejects.toThrow();
+    expect(recordUsageMock).toHaveBeenCalledExactlyOnceWith(
+      { userId: "user-1", pipeline: "assistant" },
+      [expect.objectContaining({ model: "actual-model", quantity: 23, unit: "input_tokens" }),
+        expect.objectContaining({ model: "actual-model", quantity: 17, unit: "output_tokens" })],
+    );
   });
 
   it("records input and output tokens as two separate events", async () => {
