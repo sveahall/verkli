@@ -52,12 +52,17 @@ export async function POST(request: Request) {
   const { authorId } = parsed.data;
 
   // Check for existing subscription
-  const { data: existing } = await supabase
+  const { data: existing, error: lookupError } = await supabase
     .from("newsletter_subscriptions")
     .select("id, status")
     .eq("author_id", authorId)
     .eq("subscriber_user_id", user.id)
     .maybeSingle();
+
+  if (lookupError) {
+    console.error("[newsletters subscribe] subscription lookup failed", { code: lookupError.code });
+    return apiError(E_NEWSLETTER_SUBSCRIBE_FAILED, 500);
+  }
 
   if (existing) {
     const row = existing as { id: string; status: string };
