@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { brokenProviders, type ProviderProbe } from "./provider-health";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
+import { brokenProviders, probeAllProviders, type ProviderProbe } from "./provider-health";
 
 const p = (over: Partial<ProviderProbe> = {}): ProviderProbe => ({
   provider: "openai",
@@ -55,6 +55,82 @@ describe("brokenProviders", () => {
 });
 
 describe("the ElevenLabs quota probe", () => {
+  beforeEach(() => {
+    for (const name of ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "FAL_KEY"]) {
+      vi.stubEnv(name, "");
+    }
+    vi.stubEnv("ELEVENLABS_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it.each([
+    ["empty body", ""],
+    ["truncated JSON", '{"character_limit":100'],
+    ["null body", "null"],
+    ["array body", "[]"],
+    ["missing counts", "{}"],
+    ["missing limit", '{"character_count":0}'],
+    ["missing count", '{"character_limit":100}'],
+    ...["character_limit", "character_count"].flatMap((field) =>
+      ["null", '"100"', "true", "-1", "1e400"].map((value) => [
+        `${field}=${value}`,
+        field === "character_limit"
+          ? `{"character_limit":${value},"character_count":0}`
+          : `{"character_limit":100,"character_count":${value}}`,
+      ])
+    ),
+  ])("reports HTTP 200 with %s as unreadable", async (_label, body) => {
+    vi.mocked(fetch).mockImplementation(async () => new Response(body, { status: 200 }));
+
+    const probes = await probeAllProviders();
+
+    expect(brokenProviders(probes)).toEqual([
+      expect.objectContaining({ provider: "elevenlabs-quota", ok: false, status: 200,
+        detail: "balance unreadable — invalid quota response" }),
+    ]);
+    expect(probes.find((probe) => probe.provider === "elevenlabs")?.ok).toBe(true);
+  });
+
+  it.each([
+    { character_limit: 100, character_count: 20 },
+    { character_limit: 0, character_count: 0 },
+    { character_limit: 100, character_count: 100 },
+    { character_limit: 100, character_count: 250 },
+    { character_limit: 100.5, character_count: 0.5 },
+  ])("reports valid quota %j as readable, including zero remaining", async (body) => {
+    vi.mocked(fetch).mockImplementation(async () => Response.json(body));
+
+    const probes = await probeAllProviders();
+
+    expect(probes.find((probe) => probe.provider === "elevenlabs-quota")).toMatchObject({
+      configured: true, ok: true, status: 200, detail: "balance readable",
+    });
+    expect(brokenProviders(probes)).toEqual([]);
+  });
+
+  it("fails the quota check for a scoped response while accepting the synthesis key", async () => {
+    vi.mocked(fetch).mockImplementation(async () =>
+      new Response("missing the permission user_read", { status: 401 })
+    );
+
+    const probes = await probeAllProviders();
+
+    expect(brokenProviders(probes).map((probe) => probe.provider)).toEqual(["elevenlabs-quota"]);
+    expect(probes.find((probe) => probe.provider === "elevenlabs")).toMatchObject({ ok: true, scoped: true });
+  });
+
+  it("skips absent keys without fetching", async () => {
+    vi.stubEnv("ELEVENLABS_API_KEY", "");
+
+    expect(brokenProviders(await probeAllProviders())).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("treats a scoped key as a FAILURE, unlike every other probe", () => {
     // Synthesis works with a TTS-only key, so every other check passes while
     // `getRemainingCredits` cannot read the balance and checkout refuses every

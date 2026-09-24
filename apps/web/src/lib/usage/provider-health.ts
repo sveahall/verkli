@@ -12,6 +12,8 @@
  * Each probe is the cheapest authenticated call the vendor offers, and none of
  * them generate anything billable.
  */
+import { parseQuotaSnapshot } from "../tts/elevenlabs-quota";
+
 export type ProviderProbe = {
   provider: string;
   envVar: string;
@@ -127,8 +129,12 @@ function probeElevenLabsQuota(signal: () => AbortSignal): Promise<ProviderProbe>
   })
     .then(async (res) => {
       if (res.ok) {
-        return { provider: "elevenlabs-quota", envVar, configured: true, ok: true,
-          status: res.status, detail: "balance readable" };
+        const quota = parseQuotaSnapshot(await res.json().catch(() => null));
+        const readable = quota.remaining !== null;
+        return { provider: "elevenlabs-quota", envVar, configured: true, ok: readable,
+          status: res.status, detail: readable
+            ? "balance readable"
+            : "balance unreadable — invalid quota response" };
       }
       const body = await res.text().catch(() => "");
       const scoped = isScopeError(body);
