@@ -239,6 +239,8 @@ export async function POST(
         audiobookEnabled: actionContext.audiobookEnabled,
         translationsEnabled: actionContext.translationsEnabled,
         meter: { userId: user.id, pipeline: "assistant", bookId },
+        requestId: conversation?.requestId,
+        signal: request.signal,
       };
       const startedAt = Date.now();
       let usage: WritingAssistantResult["usage"];
@@ -289,6 +291,9 @@ export async function POST(
 
     } catch (err) {
       const code = err instanceof WritingAssistantError ? err.code : "PROVIDER_FAILED";
+      if (err instanceof WritingAssistantError && code === "BUDGET_UNRESOLVED") {
+        fallbackMessage = err.message;
+      }
       console.warn("[ai.chat] LLM fallback to templates", {
         bookId,
         userId: user.id,

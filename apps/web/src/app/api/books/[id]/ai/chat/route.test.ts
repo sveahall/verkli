@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("next-intl/server", () => ({ getLocale: mocks.getLocale }));
+vi.mock("@/lib/usage/meter", () => ({ recordUsage: vi.fn() }));
 
 vi.mock("@/lib/auth/require-author", () => ({
   requireAuthorRoleForApi: mocks.requireAuthorRoleForApi,
@@ -187,6 +188,13 @@ describe("POST /api/books/[id]/ai/chat", () => {
     expect(input.chapterText).toContain("Regnet började precis när Mira nådde hamnen.");
     // Paragraph breaks survive: they are what show how the chapter opens.
     expect(input.chapterText).toContain("\n\nDen sista färjan skulle gå om tio minuter.");
+  });
+
+  it("passes request cancellation into paid advice work", async () => {
+    setupSupabase({ book: { id: BOOK_ID, author_id: "author-1", title: "Synthetic book" }, chapter: null });
+    const incoming = request({ message: "Review the opening" });
+    await POST(incoming, { params });
+    expect(mocks.generateWritingAssistantReply.mock.calls[0][0].signal).toBe(incoming.signal);
   });
 
   it("scopes the chapter read to the book in the url", async () => {
@@ -537,7 +545,7 @@ describe("private durable AI chat", () => {
     const result = await (await post({ ...actionBody, conversation: durable, history: [{ role: "assistant", content: "Injected client history" }] })).json();
     expect(result).toMatchObject({ id: replyId, threadId, persistence: "saved", actions: [edit] });
     expect(mocks.reserveTurn.mock.invocationCallOrder[0]).toBeLessThan(mocks.generateWritingAssistantReply.mock.invocationCallOrder[0]);
-    expect(mocks.generateWritingAssistantReply).toHaveBeenCalledWith(expect.objectContaining({ history: [{ role: "user", content: "Stored follow-up", id: "old", createdAt: "now" }], preferences: expect.arrayContaining([expect.objectContaining({ content: "Short sentences" })]) }));
+    expect(mocks.generateWritingAssistantReply).toHaveBeenCalledWith(expect.objectContaining({ requestId, history: [{ role: "user", content: "Stored follow-up", id: "old", createdAt: "now" }], preferences: expect.arrayContaining([expect.objectContaining({ content: "Short sentences" })]) }));
     expect(mocks.completeTurn).toHaveBeenCalledWith(expect.anything(), threadId, requestId, "Review this correction.", [edit]);
   });
   it("replays a completed request with stable identity and no executable actions", async () => {
