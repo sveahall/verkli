@@ -5,6 +5,7 @@ const mockUpdateUser = vi.fn();
 const mockProfilesUpsert = vi.fn();
 const mockProfilesMaybeSingle = vi.fn();
 const mockAiSettingsUpsert = vi.fn();
+const mockMergePreferences = vi.fn();
 const mockUpdateActiveRole = vi.fn();
 const mockRequireAuthorRole = vi.fn();
 const mockRevalidatePath = vi.fn();
@@ -28,6 +29,9 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(async () => ({
+    // Preference slices are merged by a single SQL statement now; the old
+    // read-modify-write is what lost updates between settings pages.
+    rpc: mockMergePreferences,
     auth: {
       getUser: mockGetUser,
       updateUser: mockUpdateUser,
@@ -78,6 +82,7 @@ describe("author settings actions", () => {
     mockUpdateUser.mockResolvedValue({ error: null });
     mockProfilesUpsert.mockResolvedValue({ error: null });
     mockAiSettingsUpsert.mockResolvedValue({ error: null });
+    mockMergePreferences.mockResolvedValue({ data: {}, error: null });
     mockProfilesMaybeSingle.mockResolvedValue({ data: { preferences: {} }, error: null });
     mockUpdateActiveRole.mockResolvedValue({ ok: true });
     mockRequireAuthorRole.mockResolvedValue({ ok: true, user: { id: "author-1" } });
@@ -139,12 +144,14 @@ describe("author settings actions", () => {
    * A blind write of the whole preference blob would therefore reset whatever
    * the current page does not render — this pins that it does not.
    */
-  it("saving publishing defaults keeps notification and unrelated preferences", async () => {
-    mockProfilesMaybeSingle.mockResolvedValue({
-      data: { preferences: { active_role: "author", notifications: { email: true, sms: false }, unrelated: "kept" } },
-      error: null,
-    });
-
+  /**
+   * Sections live on separate pages, so each form posts only its own fields.
+   * They used to be merged in application memory, which lost updates: two
+   * sections saved moments apart both read the same JSON and the second write
+   * restored the first one's old values. The merge is one SQL statement now, so
+   * each page sends only the keys it owns and nothing can land in between.
+   */
+  it("sends only the publishing keys, and merges rather than rewriting the blob", async () => {
     const formData = new FormData();
     formData.set("default_language", "en");
     formData.set("default_visibility", "private");
@@ -152,57 +159,36 @@ describe("author settings actions", () => {
     const result = await savePublishingDefaults({ ok: false, message: "" }, formData);
 
     expect(result).toEqual({ ok: true, message: "Publishing defaults saved." });
-    expect(mockProfilesUpsert).toHaveBeenCalledWith(
-      {
-        user_id: "author-1",
-        preferences: {
-          active_role: "author",
-          unrelated: "kept",
-          notifications: { email: true, sms: false },
-          default_language: "en",
-          default_visibility: "private",
-          visibility: { shelves: "private", books: "private" },
-        },
+    expect(mockMergePreferences).toHaveBeenCalledWith("merge_profile_preferences", {
+      p_user_id: "author-1",
+      p_patch: {
+        default_language: "en",
+        default_visibility: "private",
+        visibility: { shelves: "private", books: "private" },
       },
-      { onConflict: "user_id" }
-    );
-  });
-
-  it("saving notifications keeps the publishing defaults the page never rendered", async () => {
-    mockProfilesMaybeSingle.mockResolvedValue({
-      data: { preferences: { default_language: "en", default_visibility: "private", notifications: { email: true, sms: false } } },
-      error: null,
     });
-
-    const formData = new FormData();
-    formData.set("email_notifications", "false");
-
-    const result = await saveNotificationPreferences({ ok: false, message: "" }, formData);
-
-    expect(result.ok).toBe(true);
-    expect(mockProfilesUpsert).toHaveBeenCalledWith(
-      {
-        user_id: "author-1",
-        preferences: {
-          default_language: "en",
-          default_visibility: "private",
-          notifications: { email: false, sms: false },
-        },
-      },
-      { onConflict: "user_id" }
-    );
+    // Nothing reads or rewrites the whole preference blob any more.
+    expect(mockProfilesUpsert).not.toHaveBeenCalled();
   });
 
-  it("does not write preferences at all when the current ones cannot be read", async () => {
-    mockProfilesMaybeSingle.mockResolvedValue({ data: null, error: { code: "PGRST301" } });
-
+  it("sends only the notification key it owns, leaving siblings to the recursive merge", async () => {
     const formData = new FormData();
     formData.set("email_notifications", "false");
 
-    const result = await saveNotificationPreferences({ ok: false, message: "" }, formData);
-
-    expect(result.ok).toBe(false);
+    expect((await saveNotificationPreferences({ ok: false, message: "" }, formData)).ok).toBe(true);
+    expect(mockMergePreferences).toHaveBeenCalledWith("merge_profile_preferences", {
+      p_user_id: "author-1",
+      p_patch: { notifications: { email: false } },
+    });
     expect(mockProfilesUpsert).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed merge instead of claiming the settings were saved", async () => {
+    mockMergePreferences.mockResolvedValue({ data: null, error: { code: "40001", message: "serialization failure" } });
+    const formData = new FormData();
+    formData.set("email_notifications", "false");
+
+    expect((await saveNotificationPreferences({ ok: false, message: "" }, formData)).ok).toBe(false);
   });
 
   it("changes the password only when both fields agree", async () => {

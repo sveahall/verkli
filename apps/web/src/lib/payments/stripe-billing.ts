@@ -265,6 +265,18 @@ export async function getStripeSubscription(subscriptionId: string): Promise<Str
   };
 }
 
+/**
+ * End a subscription now.
+ *
+ * Used when an account is closed: banning the sign-in does not stop Stripe from
+ * charging the saved card, so a deleted author would keep paying for a product
+ * they can no longer reach. Immediate rather than at period end, because there
+ * is no one left to use the remainder.
+ */
+export async function cancelStripeSubscription(subscriptionId: string): Promise<void> {
+  await stripeRequest(`/subscriptions/${encodeURIComponent(subscriptionId)}`, { method: "DELETE" });
+}
+
 export async function getStripeCustomerSubscriptions(customerId: string): Promise<StripeSubscription[]> {
   const params = new URLSearchParams();
   params.set("customer", customerId);
