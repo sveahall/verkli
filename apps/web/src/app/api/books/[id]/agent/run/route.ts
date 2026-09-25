@@ -127,15 +127,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
    */
   const replayable = body.data.conversation && !body.data.conversation.temporary;
   const budgetJobId = replayable ? `request:${body.data.conversation!.requestId}` : randomUUID();
-  let reserved = false;
-  let modelStarted = false;
   try {
     const book = await loadAgentBook(supabase, parsedParams.data.id, user.id, body.data.versionId);
 
     const chapterChars = book.chapters.reduce((total, chapter) => total + (chapter.doc?.content.size ?? 0), 0);
     const reservedUnits = estimateAgentRunUnits(chapterChars);
     await checkBudget({ userId: user.id, pipeline: "agent", jobId: budgetJobId, units: reservedUnits });
-    reserved = true;
 
     // Saved conversations work exactly as they do for advice: the same reserve
     // and complete calls, so turning a specialist agentic does not quietly cost
@@ -162,7 +159,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
     }
 
-    modelStarted = true;
     const result = await runAgent({
       book,
       message: body.data.message,

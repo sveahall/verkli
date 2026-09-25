@@ -129,6 +129,11 @@ describe("launch flag matrix", () => {
     }
   });
 
+  it("opens marketing preparation for beta while social delivery stays off", () => {
+    expect(LAUNCH_FLAGS.find(spec => spec.key === "NEXT_PUBLIC_MARKETING_ENABLED")?.value).toBe("true");
+    expect(LAUNCH_FLAGS.find(spec => spec.key === "NEXT_PUBLIC_SOCIAL_ENABLED")?.value).toBe("false");
+  });
+
   it("keeps the flags the launch plan §3 cuts from September off", () => {
     // Translations left this list once they could actually run: the Railway
     // worker consumes the queue and Anthropic serves the Swedish pairs.
@@ -181,6 +186,7 @@ describe("verifyLaunchConfig", () => {
     return {
       NEXT_PUBLIC_AUDIOBOOK_ENABLED: "true",
       NEXT_PUBLIC_TRANSLATIONS_ENABLED: "true",
+      NEXT_PUBLIC_MARKETING_ENABLED: "true",
       NEXT_PUBLIC_DISCOVERY_ENABLED: "true",
       NEXT_PUBLIC_AI_CHAT_ENABLED: "true",
       AI_CRITIC_ENABLED: "true",
@@ -197,7 +203,6 @@ describe("verifyLaunchConfig", () => {
       EDITORIAL_DAILY_BUDGET: "200000",
       MARKETING_DAILY_BUDGET: "50000",
       MARKETING_JOB_CAP_UNITS: "30000",
-      NEXT_PUBLIC_MARKETING_ENABLED: "true",
       // Live-mode, because goodEnv() describes an environment that should pass
       // a PRODUCTION check. It held "sk_test_x" while the suite asserted zero
       // errors, which pinned the gate's blind spot open: production could ship
@@ -310,7 +315,7 @@ describe("verifyLaunchConfig", () => {
     env.NEXT_PUBLIC_SOCIAL_ENABLED = "false";
     env.SOCIAL_ENABLED = "true";
     // The public value is non-nullish, so `??` never reaches the twin and
-    // social publishing really is off. Flagging it would reject a valid deployment.
+    // socials really are off. Flagging it would reject a valid deployment.
     expect(errors(env)).toEqual([]);
   });
 

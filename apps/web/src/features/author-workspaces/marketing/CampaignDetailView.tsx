@@ -1,5 +1,6 @@
 "use client";
 
+import { CLOSED_BETA_MESSAGE } from "@/lib/marketing/beta-policy";
 import Link from "next/link";
 import { CampaignResultsSummary } from "@/components/marketing/CampaignResultsSummary";
 import { getPostDelivery, isPostDeliveryLocked } from "@/lib/marketing/post-delivery-state";
@@ -81,7 +82,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "Draft",
-  ready: "Ready to copy",
+  ready: "Approved",
   asset_pending: "Generating…",
   asset_failed: "Asset failed",
   posted: "Posted",
@@ -173,7 +174,7 @@ export default function CampaignDetailView({
   const patchLocal = (postId: string, patch: Partial<Post>) => {
     setPatches((prev) => ({
       ...prev,
-      [postId]: { ...(prev[postId] ?? {}), ...patch },
+      [postId]: { updatedAt: initialPosts.find(post => post.id === postId)?.updatedAt, ...(prev[postId] ?? {}), ...patch },
     }));
   };
 
@@ -207,48 +208,33 @@ export default function CampaignDetailView({
     return latest;
   };
 
-  const handleDelivery = async (postId: string, body: Record<string, unknown>) => {
-    const res = await fetch(`/api/author/marketing/posts/${postId}/publish`, {
-      method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-    });
-    const data = await res.json().catch(() => ({})) as { detail?: string };
-    if (!res.ok) throw new Error(data.detail ?? "Could not update delivery. Refresh and try again.");
-    return handleReloadPost(postId);
-  };
-
   const handleGenerateTrailer = async (postId: string) => {
     patchLocal(postId, { status: "asset_pending", assetError: null });
     try {
       const res = await fetch(
-        `/api/author/marketing/posts/${postId}/generate-trailer`,
+        `/api/author/marketing/posts/${postId}/${posts.find(post => post.id === postId)?.contentType === "podcast" ? "generate-audio" : "generate-trailer"}`,
         {
           method: "POST",
           credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ expectedUpdatedAt: posts.find(post => post.id === postId)?.updatedAt }),
         }
       );
       if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        patchLocal(postId, {
-          status: "asset_failed",
-          assetError: body.error ?? "failed",
-        });
-        return;
+        const body = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+        const latest = await handleReloadPost(postId);
+        patchLocal(postId, { ...latest, assetError: latest.assetError ?? body.detail ?? body.error ?? "Generation could not be completed. Try again." });
+        // A failed provider attempt advances the saved revision. Advance the drawer
+        // only if its copy is still identical; concurrent edits must still conflict.
+        const previous = posts.find(post => post.id === postId);
+        return latest.caption === previous?.caption && latest.hashtags === previous?.hashtags ? latest : undefined;
       }
-      const data = (await res.json()) as {
-        post?: { mediaAssetId: string; mediaAssetUrl: string; caption: string; hashtags: string };
-      };
-      if (data.post) {
-        patchLocal(postId, {
-          status: "draft",
-          mediaAssetId: data.post.mediaAssetId,
-          mediaAssetUrl: data.post.mediaAssetUrl,
-          caption: data.post.caption,
-          hashtags: data.post.hashtags,
-          assetError: null,
-        });
-      }
+      const latest = await handleReloadPost(postId);
+      patchLocal(postId, latest);
+      router.refresh();
+      return latest;
     } catch {
-      patchLocal(postId, { status: "asset_failed", assetError: "Could not confirm trailer generation. Refresh before retrying." });
+      patchLocal(postId, { status: "asset_failed", assetError: "Could not confirm media generation. Refresh before retrying." });
     }
   };
 
@@ -318,7 +304,7 @@ export default function CampaignDetailView({
                 </p>
               </div>
               <div className="flex items-center gap-2 text-[13px] text-muted-foreground dark:text-muted-foreground">
-                <span>{counts.posted}/{counts.total} marked as shared</span>
+                <span>{counts.ready}/{counts.total} approved</span>
               </div>
               <Button
                 variant="ghost"
@@ -331,7 +317,7 @@ export default function CampaignDetailView({
             </div>
 
             <p className="mt-3 text-[13px] text-muted-foreground">
-              Review each draft, then share it manually in your chosen channel.
+              {CLOSED_BETA_MESSAGE}
             </p>
 
             {campaign.status === "generating" ? (
@@ -392,7 +378,7 @@ export default function CampaignDetailView({
                   label="All statuses"
                   options={[
                     { value: "all", label: "All statuses" },
-                    { value: "ready", label: "Ready to copy" },
+                    { value: "ready", label: "Approved" },
                     { value: "draft", label: "Draft" },
                     { value: "asset_pending", label: "Generating" },
                     { value: "asset_failed", label: "Asset failed" },
@@ -482,7 +468,7 @@ export default function CampaignDetailView({
         onUpdate={handlePostUpdate}
         onReload={handleReloadPost}
         onGenerateTrailer={handleGenerateTrailer}
-        onDelivery={process.env.NODE_ENV === "development" ? handleDelivery : undefined}
+        allowManualSharing={false}
       />
     ) : null}
     </>
@@ -536,7 +522,7 @@ export function PostDrawer({
   onClose: () => void;
   onUpdate: (id: string, body: Record<string, unknown>) => Promise<Partial<Post> & { updatedAt: string }>;
   onReload: (id: string) => Promise<Post>;
-  onGenerateTrailer: (id: string) => Promise<void>;
+  onGenerateTrailer: (id: string) => Promise<{ updatedAt: string } | void>;
   onDelivery?: (id: string, body: Record<string, unknown>) => Promise<Post>;
 }) {
   // PostDrawer is remounted per post via `key={post.id}` from the parent,
@@ -696,21 +682,22 @@ export function PostDrawer({
               ) : (
                 <div className="mt-2 rounded-xl border border-dashed border-black/10 bg-black/[0.02] p-4 text-center text-[13px] text-muted-foreground dark:border-border dark:bg-card dark:text-muted-foreground">
                   {post.status === "asset_pending"
-                    ? "Generating trailer…"
+                    ? "Your trailer is processing. Check its status below to continue the same render."
                     : post.assetError
                       ? `Last attempt failed: ${post.assetError}`
                       : "No trailer yet."}
                 </div>
               )}
+              {post.assetError ? <p role="alert" className="mt-3 text-sm text-destructive">{post.assetError}</p> : null}
               <Button
                 size="sm"
-                onClick={() => onGenerateTrailer(post.id)}
-                disabled={busy || conflicted}
-                isLoading={post.status === "asset_pending"}
+                onClick={async () => { setBusy(true); try { const generated = await onGenerateTrailer(post.id); if (generated) setDraftRevision(generated.updatedAt); } finally { setBusy(false); } }}
+                disabled={busy || conflicted || hasUnsavedEdits || deliveryLocked}
+                isLoading={busy}
                 loadingText="Generating…"
                 className="mt-3 w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                {post.mediaAssetUrl ? "Regenerate trailer" : "Generate trailer"}
+                {post.status === "asset_pending" ? "Check trailer status" : post.mediaAssetUrl ? "Regenerate trailer" : "Generate trailer"}
               </Button>
             </section>
           ) : null}
@@ -718,9 +705,9 @@ export function PostDrawer({
           {post.contentType === "podcast" ? (
             <section>
               <p className="text-eyebrow">Podcast clip</p>
-              <div className="mt-2 rounded-xl border border-dashed border-black/10 bg-black/[0.02] p-4 text-center text-[13px] text-muted-foreground dark:border-border dark:bg-card dark:text-muted-foreground">
-                Audio clip generation is not connected. This entry contains draft copy only; it cannot be approved until an audio asset exists.
-              </div>
+              <p className="mt-2 text-sm text-muted-foreground">Turn the saved caption into a narrated audio clip. Save your edits before generating.</p>
+              {post.mediaAssetUrl ? <audio src={post.mediaAssetUrl} controls className="mt-3 w-full" /> : <p className="mt-3 text-sm text-muted-foreground">{post.assetError || "No audio yet. Review the script below, then generate your clip."}</p>}
+              <Button className="mt-3" onClick={async () => { setBusy(true); try { const generated = await onGenerateTrailer(post.id); if (generated) setDraftRevision(generated.updatedAt); } finally { setBusy(false); } }} disabled={busy || conflicted || hasUnsavedEdits || deliveryLocked} isLoading={post.status === "asset_pending"} loadingText="Generating audio…">{post.mediaAssetUrl ? "Regenerate audio" : "Generate audio clip"}</Button>
             </section>
           ) : null}
 
@@ -729,7 +716,7 @@ export function PostDrawer({
             <label htmlFor="post-caption" className="text-eyebrow">Caption</label>
             <textarea
               id="post-caption"
-              disabled={post.status === "posted" || deliveryLocked || busy}
+              disabled={post.status === "posted" || post.status === "asset_pending" || deliveryLocked || busy}
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               rows={6}
@@ -754,7 +741,7 @@ export function PostDrawer({
             <label htmlFor="post-hashtags" className="text-eyebrow">Hashtags</label>
             <textarea
               id="post-hashtags"
-              disabled={post.status === "posted" || deliveryLocked || busy}
+              disabled={post.status === "posted" || post.status === "asset_pending" || deliveryLocked || busy}
               value={hashtags}
               onChange={(e) => setHashtags(e.target.value)}
               rows={2}
@@ -788,15 +775,12 @@ export function PostDrawer({
             </section>
           ) : null}
 
-          {!onDelivery ? <p className="text-sm text-muted-foreground">Automatic publishing is unavailable. Copy and share your approved post manually.</p> : null}
+          {!onDelivery ? <p className="text-sm text-muted-foreground">{CLOSED_BETA_MESSAGE}</p> : null}
 
           {/* Quick actions */}
           <section className="rounded-2xl bg-black/[0.03] p-4 dark:bg-card">
             <p className="text-eyebrow">{allowManualSharing ? "Post this" : "Review and approve"}</p>
-            {allowManualSharing ? <>
-            <p className="mt-2 text-[13px] text-muted-foreground dark:text-muted-foreground">
-              Copy everything, open {post.channel}, paste, hit publish.
-            </p>
+            <p className="mt-2 text-[13px] text-muted-foreground">Copy or download material for private review.</p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
@@ -805,25 +789,24 @@ export function PostDrawer({
               >
                 {copyFlash === "all" ? "Copied!" : "Copy caption + hashtags"}
               </Button>
-              <a
+              {allowManualSharing ? <a
                 href={CHANNEL_OPEN_URL[post.channel] ?? "#"}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center rounded-full border border-border px-4 py-1.5 text-[13px] font-medium text-foreground hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
               >
                 Open {post.channel}
-              </a>
+              </a> : null}
               {post.mediaAssetUrl ? (
                 <a
                   href={post.mediaAssetUrl}
                   download
                   className="inline-flex items-center rounded-full border border-border px-4 py-1.5 text-[13px] font-medium text-foreground hover:border-border hover:text-foreground dark:border-border dark:text-muted-foreground dark:hover:border-border dark:hover:text-foreground"
                 >
-                  Download trailer
+                  Download media
                 </a>
               ) : null}
             </div>
-            </> : null}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {post.status !== "posted" && (post.status !== "ready" || hasUnsavedEdits) ? (
                 <Button size="sm" onClick={() => update({ caption, hashtags, status: "ready" })}
@@ -846,7 +829,7 @@ export function PostDrawer({
                   Mark as posted
                 </Button>
               ))}
-              {allowManualSharing && post.status !== "skipped" && post.status !== "posted" ? (
+              {(allowManualSharing || !onDelivery) && post.status !== "skipped" && post.status !== "posted" ? (
                 <Button
                   size="sm"
                   variant="ghost"

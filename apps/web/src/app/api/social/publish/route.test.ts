@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+vi.mock("@/lib/marketing/beta-policy", () => ({ isSocialPublishingEnabled: vi.fn(() => true), CLOSED_BETA_MESSAGE: "Social publishing is paused during the closed beta." }));
+import { isSocialPublishingEnabled } from "@/lib/marketing/beta-policy";
+
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 
 vi.mock("@/lib/auth/require-author", () => ({
@@ -232,4 +235,14 @@ describe("POST /api/social/publish", () => {
     expect((await res.json()).error).toBe("SOCIAL_PUBLISH_NOT_IMPLEMENTED");
   });
 
+});
+
+ it("blocks social posting during closed beta even when social connections are enabled", async () => {
+  vi.stubEnv("NEXT_PUBLIC_SOCIAL_ENABLED", "true");
+  vi.mocked(isSocialPublishingEnabled).mockReturnValueOnce(false);
+  const response = await POST(makeRequest());
+  expect(response.status).toBe(403);
+  expect(await response.json()).toMatchObject({ error: "SOCIAL_PUBLISHING_PAUSED" });
+  const { enqueueSocialPublishJob } = await import("@/lib/social-publish-queue");
+  expect(enqueueSocialPublishJob).not.toHaveBeenCalled();
 });

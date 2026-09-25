@@ -139,3 +139,17 @@ describe("journal fixture presentation", () => {
     expect(button(render(), "Schedule local simulation")).toBeDefined();
   });
 });
+
+it("lets an author check a pending trailer without starting another render", async () => {
+  props.post = { ...post, contentType: "trailer", status: "asset_pending", mediaAssetId: "saved-asset" };
+  const check = button(render(), "Check trailer status");
+  expect(check).toBeDefined();
+  expect(check.props.disabled).toBe(false);
+  await check.props.onClick!();
+  expect(props.onGenerateTrailer).toHaveBeenCalledWith(post.id);
+});
+
+it("shows a recovery error even while a trailer is pending with an older preview", () => {
+  props.post = { ...post, contentType: "trailer", status: "asset_pending", mediaAssetUrl: "https://example.com/old.mp4", assetError: "Contact support before generating again." };
+  expect(button(render(), "Contact support before generating again.")).toBeDefined();
+});

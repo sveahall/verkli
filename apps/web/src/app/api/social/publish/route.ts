@@ -1,3 +1,4 @@
+import { CLOSED_BETA_MESSAGE, isSocialPublishingEnabled } from "@/lib/marketing/beta-policy";
 import { NextResponse } from "next/server";
 import { isSocialEnabled } from "@/lib/flags";
 import { requireAuthorRoleForApi } from "@/lib/auth/require-author";
@@ -19,6 +20,10 @@ import { enqueueSocialPublishJob } from "@/lib/social-publish-queue";
 export async function POST(request: Request) {
   if (!isSocialEnabled()) {
     return apiError(E_SOCIAL_FEATURE_DISABLED, 403);
+  }
+
+  if (!isSocialPublishingEnabled()) {
+    return apiError("SOCIAL_PUBLISHING_PAUSED", 403, { detail: CLOSED_BETA_MESSAGE });
   }
 
   const { user, response } = await requireAuthorRoleForApi();

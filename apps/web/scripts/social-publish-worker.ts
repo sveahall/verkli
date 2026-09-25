@@ -1,3 +1,4 @@
+import { isSocialPublishingEnabled, CLOSED_BETA_MESSAGE } from "../src/lib/marketing/beta-policy";
 /**
  * BullMQ worker: process "publish" jobs for social media publishing.
  * Run from apps/web: npm run social-publish-worker
@@ -91,6 +92,10 @@ async function processJob(payload: SocialPublishJobData) {
   }
 
 
+  if (!isSocialPublishingEnabled()) {
+    if (!MOCK_MODE) throw new UnrecoverableError(CLOSED_BETA_MESSAGE);
+    assertLocalCampaignSimulation(MOCK_MODE);
+  }
   const supabase = createAdminClient();
   const updateJob = async (
     status: string,

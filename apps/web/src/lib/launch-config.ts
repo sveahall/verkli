@@ -86,7 +86,7 @@ export const LAUNCH_FLAGS: readonly LaunchFlagSpec[] = [
     serverTwin: "MARKETING_ENABLED",
     value: "true",
     reason:
-      "ON for the beta — decided by Svea 2026-09-24. Plan §3 cut it because nothing could run it; worker-marketing now consumes the queue on Railway and both budgets are set. Only the drafting half opens: publishing still needs social OAuth, which SOCIAL_ENABLED keeps off. NEXT_PUBLIC_, so it needs its ARG in Dockerfile.web and a rebuild.",
+      "Closed beta: authors can create, edit, preview and save marketing for unpublished books. External social publishing remains blocked independently in the API, queue and worker.",
   },
   {
     key: "NEXT_PUBLIC_SOCIAL_ENABLED",

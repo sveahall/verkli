@@ -8,7 +8,7 @@ import { assertBookOwned } from "@/lib/marketing/assert-book-owner";
 import { videoGenerateBodySchema } from "@/lib/marketing/schemas";
 import { evaluateDemoGuard } from "@/lib/demo-guard";
 import { uploadTrailerAndGetPublicUrl } from "@/lib/marketing/trailer-storage";
-import { generateImageToVideo } from "@/lib/higgsfield";
+import { HIGGSFIELD_MODEL, generateImageToVideo } from "@/lib/higgsfield";
 import { reserveVideoBudget, refundVideoBudget } from "@/lib/marketing/video-budget";
 import { validateProviderImageUrl } from "@/lib/security/url-allowlist";
 import {
@@ -29,8 +29,6 @@ export const maxDuration = 180;
 const videoLimiter = createPerUserRateLimiter({ name: "marketing-video-generate", maxPerMinute: 1 });
 const TRAILER_DOWNLOAD_TIMEOUT_MS = 20_000;
 
-/** Estimated cost per 5s Higgsfield trailer (USD). */
-const ESTIMATED_COST_USD = 0.15;
 
 async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
@@ -109,7 +107,7 @@ export async function POST(request: Request) {
   if (!budget.ok) return budget.response;
 
   const inputJson = {
-    model: "dop-standard",
+    model: HIGGSFIELD_MODEL,
     prompt,
     imageUrl: safeImageUrl,
     audio: includeAudio,
@@ -140,6 +138,7 @@ export async function POST(request: Request) {
       prompt,
       imageUrl: safeImageUrl,
       includeAudio,
+      meter: { userId: gate.user.id, pipeline: "video", bookId },
     });
 
     const res = await fetchWithTimeout(videoUrl, TRAILER_DOWNLOAD_TIMEOUT_MS);
@@ -175,7 +174,7 @@ export async function POST(request: Request) {
         provider_request_id: requestId,
         output_url: uploadResult.publicUrl,
         metadata,
-        estimated_cost_usd: ESTIMATED_COST_USD,
+        estimated_cost_usd: null,
         error: null,
       })
       .eq("id", inserted.id)

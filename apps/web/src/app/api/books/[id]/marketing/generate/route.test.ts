@@ -74,6 +74,25 @@ describe("marketing generation route", () => {
     expect(m.save).not.toHaveBeenCalled();
   });
 
+  it("generates a Facebook studio draft with its brief without overwriting saved campaigns", async () => {
+    const response = await POST(new Request("http://localhost/api/books/1/marketing/generate", {
+      method: "POST", body: JSON.stringify({ channel: "facebook", language: "sv", draftOnly: true, brief: { goal: "Spark curiosity", audience: "Adventure readers" } }),
+    }), { params: Promise.resolve({ id }) });
+    expect(response.status).toBe(200);
+    expect(m.copy).toHaveBeenCalledWith(expect.objectContaining({ channel: "facebook", brief: { goal: "Spark curiosity", audience: "Adventure readers" } }));
+    expect(await response.json()).toMatchObject({ channel: "facebook", caption: draft.body });
+    expect(m.save).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsupported legacy persistence before spending on generation", async () => {
+    const response = await POST(new Request("http://localhost/api/books/1/marketing/generate", {
+      method: "POST", body: JSON.stringify({ channel: "facebook" }),
+    }), { params: Promise.resolve({ id }) });
+    expect(response.status).toBe(400);
+    expect(m.copy).not.toHaveBeenCalled();
+    expect(m.save).not.toHaveBeenCalled();
+  });
+
   it("does not generate for another author's book", async () => {
     m.auth.mockResolvedValue({ user: { id: "someone-else" } });
     expect((await post()).status).toBe(404);

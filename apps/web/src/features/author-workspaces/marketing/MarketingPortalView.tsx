@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import WorkspaceLayout from "@/features/author-workspaces/WorkspaceLayout";
 import WorkspaceHeaderActions from "@/features/author-workspaces/components/WorkspaceHeaderActions";
 import { getLanguageLabel } from "@/lib/languages";
+import MarketingStudio from "./MarketingStudio";
+import { CLOSED_BETA_MESSAGE } from "@/lib/marketing/beta-policy";
 import { cn } from "@/lib/utils";
 import type { CampaignWizardCompleteConfig } from "@/components/marketing/CampaignWizard";
 
@@ -21,6 +23,9 @@ export type PortalBook = {
   title: string | null;
   cover_image: string | null;
   language?: string | null;
+  description?: string | null;
+  trailer_status?: string | null;
+  trailer_url?: string | null;
 };
 
 export type PortalCampaign = {
@@ -48,6 +53,7 @@ type Props = {
   campaigns: PortalCampaign[];
   initialBookId: string | null;
   marketingEnabled: boolean;
+  loadError?: string | null;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -87,17 +93,24 @@ export default function MarketingPortalView({
   campaigns,
   initialBookId,
   marketingEnabled,
+  loadError,
 }: Props) {
   const router = useRouter();
+  const [selectedBookId, setSelectedBookId] = useState(initialBookId ?? books[0]?.id ?? null);
+  const [activeTab, setActiveTab] = useState<"studio" | "campaigns">("studio");
+  const [dirty, setDirty] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const initialBook = useMemo(
-    () => books.find((b) => b.id === initialBookId) ?? books[0] ?? null,
-    [books, initialBookId]
+    () => books.find((b) => b.id === selectedBookId) ?? books[0] ?? null,
+    [books, selectedBookId]
   );
 
+  const visibleCampaigns = campaigns.filter(campaign => campaign.bookId === initialBook?.id);
+
   const handleCreate = async (config: CampaignWizardCompleteConfig) => {
+    if (dirty && !window.confirm("Create the campaign and leave your unsaved studio draft? Save it first if you want to keep it.")) throw new Error("Your studio draft is still here. Close this window to save it first.");
     setError(null);
     const res = await fetch("/api/author/marketing/campaigns", {
       method: "POST",
@@ -111,7 +124,7 @@ export default function MarketingPortalView({
         frequency: config.frequency,
         template: config.template,
         startDate: config.startDate,
-        durationWeeks: 4,
+        durationWeeks: config.durationWeeks,
         weeklySchedule: config.schedule,
         mode: "organic",
       }),
@@ -156,7 +169,7 @@ export default function MarketingPortalView({
     );
   }
 
-  if (books.length === 0) {
+  if (books.length === 0 && !loadError) {
     return (
       <WorkspaceLayout
         header={
@@ -174,8 +187,8 @@ export default function MarketingPortalView({
               Add a book first
             </h2>
             <p className="mx-auto mt-3 max-w-lg text-[15px] text-muted-foreground dark:text-muted-foreground">
-              Trailers, podcast clips, and captions are generated from your
-              published book. Add one and come back here.
+              Prepare captions, trailers and campaign plans from a draft book.
+              Start with a title and description; no publication is needed.
             </p>
             <Link
               href="/author/books/new"
@@ -201,48 +214,41 @@ export default function MarketingPortalView({
       headerRight={<WorkspaceHeaderActions />}
       main={
         <div className="space-y-6">
-          {/* Hero CTA */}
-          <div className="rounded-2xl border border-border bg-card p-6 dark:bg-card sm:p-8">
-            <p className="text-eyebrow">Campaigns</p>
-            <h2 className="author-section-title mt-4 text-[28px] font-medium tracking-tight text-foreground dark:text-foreground sm:text-[32px]">
-              One wizard. Trailers, clips, captions — every language.
-            </h2>
-            <p className="mt-2 max-w-2xl text-[15px] text-muted-foreground dark:text-muted-foreground">
-              Choose a book, languages and formats. We generate a calendar of
-              drafts for you to review and share manually.
-            </p>
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <Button
-                onClick={() => setWizardOpen(true)}
-                className="rounded-full bg-primary px-6 text-primary-foreground hover:bg-primary/90"
-              >
-                Create campaign
-              </Button>
-              <Link href="/author/marketing/channels" className="text-sm font-medium underline underline-offset-4">Manage channel connections</Link>
-              <span className="text-[13px] text-muted-foreground dark:text-muted-foreground">
-                Organic now · Paid ads later
-              </span>
-            </div>
-            {error ? (
-              <p className="mt-4 text-[13px] text-red-600 dark:text-red-400">
-                {error}
-              </p>
-            ) : null}
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-accent/30 px-5 py-4">
+            <span className="shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">Closed beta</span>
+            <p className="text-sm text-muted-foreground">{CLOSED_BETA_MESSAGE}</p>
           </div>
-
-          <Link href="/author/marketing/ads" className="text-sm font-medium underline underline-offset-4">Plan an ad draft and budget</Link>
-
+          {loadError ? <div role="alert" className="rounded-2xl border border-border p-5"><p>{loadError}</p><Button variant="ghost" onClick={() => router.refresh()}>Retry loading marketing</Button></div> : null}
+          <div className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-end">
+            <label className="min-w-0 flex-1 space-y-2 text-sm font-medium" htmlFor="marketing-book">Your book
+              <select id="marketing-book" value={initialBook?.id ?? ""} className="input-base block w-full max-w-lg" onChange={event => {
+                if (dirty && !window.confirm("Switch books and discard your unsaved draft?")) return;
+                setDirty(false); setSelectedBookId(event.target.value);
+                const url = new URL(window.location.href); url.searchParams.set("bookId", event.target.value); window.history.replaceState(null, "", url);
+              }}>{books.map(book => <option key={book.id} value={book.id}>{book.title || "Untitled book"}</option>)}</select>
+            </label>
+            <Button className="w-full sm:w-auto" disabled={!initialBook} onClick={() => setWizardOpen(true)}>Create campaign plan</Button>
+          </div>
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm"><Link href="/author/marketing/ads" className="text-accent-foreground underline underline-offset-4">Ad drafts & budgets</Link><Link href="/author/marketing/channels" className="text-muted-foreground underline underline-offset-4">Channel connections</Link></div>
+          <div className="flex gap-2 border-b border-border pb-3" role="tablist" aria-label="Marketing workspace">
+            {([ ["studio", "Create & save material"], ["campaigns", `Campaign plans (${visibleCampaigns.length})`] ] as const).map(([id, label]) => <button key={id} id={`marketing-tab-${id}`} type="button" role="tab" aria-selected={activeTab === id} aria-controls={`marketing-panel-${id}`} onClick={() => setActiveTab(id)} className={cn("min-h-11 rounded-full px-5 text-sm font-medium", activeTab === id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent")}>{label}</button>)}
+          </div>
+          <div id="marketing-panel-studio" role="tabpanel" aria-labelledby="marketing-tab-studio" hidden={activeTab !== "studio"}>
+            {initialBook ? <MarketingStudio key={initialBook.id} book={initialBook} onDirtyChange={setDirty} /> : null}
+          </div>
+          <section id="marketing-panel-campaigns" role="tabpanel" aria-labelledby="marketing-tab-campaigns" hidden={activeTab !== "campaigns"} className="space-y-5">
+            <div><h2 className="text-section-title">Your campaign calendar</h2><p className="mt-2 text-sm text-muted-foreground">Plan a sequence of drafts, generate the copy, then review each post. Calendar dates are for your plan; nothing is sent to social media.</p></div>
           {/* Campaign list */}
-          {campaigns.length === 0 ? (
+          {visibleCampaigns.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-white/40 p-8 text-center dark:border-border dark:bg-card">
               <p className="text-[14px] text-muted-foreground dark:text-muted-foreground">
-                No campaigns yet — create one above to generate your first
-                drafts for review.
+                No campaign plan for this book yet. Create one to choose your
+                channels, languages and a draft calendar.
               </p>
             </div>
           ) : (
             <ul className="grid gap-3 sm:grid-cols-2">
-              {campaigns.map((campaign) => (
+              {visibleCampaigns.map((campaign) => (
                 <li key={campaign.id}>
                   <Link
                     href={`/author/marketing/${campaign.id}`}
@@ -294,7 +300,7 @@ export default function MarketingPortalView({
                         <div className="mt-3 flex items-center gap-3 text-[12px] text-muted-foreground dark:text-muted-foreground">
                           <span>{campaign.counts.total} posts</span>
                           <span aria-hidden="true">·</span>
-                          <span>{campaign.counts.posted} posted</span>
+                          <span>{campaign.counts.ready} approved</span>
                           <span aria-hidden="true">·</span>
                           <span>Starts {formatDate(campaign.startDate)}</span>
                         </div>
@@ -305,6 +311,9 @@ export default function MarketingPortalView({
               ))}
             </ul>
           )}
+
+          </section>
+          {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
 
           {/* Wizard */}
           <CampaignWizard

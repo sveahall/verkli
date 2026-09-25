@@ -17,7 +17,6 @@ import path from "node:path";
  * missing was a caller. So this walks the source for the network calls that
  * cost money and asserts each file also reaches the meter.
  */
-const srcDir = path.resolve(__dirname, "../..");
 const libDir = path.resolve(__dirname, "..");
 
 /** Distinctive markers for "this line spends money at a vendor". */

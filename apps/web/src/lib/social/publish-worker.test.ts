@@ -1,3 +1,5 @@
+vi.mock("@/lib/marketing/beta-policy", () => ({ isSocialPublishingEnabled: vi.fn(() => true), CLOSED_BETA_MESSAGE: "Social publishing is paused during the closed beta." }));
+import { isSocialPublishingEnabled } from "@/lib/marketing/beta-policy";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ processor: null as null | ((job: unknown) => Promise<void>), from: vi.fn(), fetch: vi.fn() }));
@@ -82,4 +84,11 @@ describe("social publishing evidence", () => {
     expect(output.results).toMatchObject({ x: { status: "ok", postId: "real-post-id" } });
     expect(campaignUpdates).toEqual([{ status: "published" }]);
   });
+});
+
+it("rejects an already queued live job during beta without contacting any provider", async () => {
+  vi.mocked(isSocialPublishingEnabled).mockReturnValueOnce(false);
+  await expect(run()).rejects.toThrow("closed beta");
+  expect(mocks.fetch).not.toHaveBeenCalled();
+  expect(mocks.from).not.toHaveBeenCalled();
 });

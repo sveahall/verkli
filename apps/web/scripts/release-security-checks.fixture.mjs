@@ -3,6 +3,7 @@
 import { createRequire, syncBuiltinESMExports } from "node:module";
 import childProcess from "node:child_process";
 import net from "node:net";
+import dns from "node:dns/promises";
 
 const require = createRequire(import.meta.url);
 require("dotenv").config = () => ({ parsed: {} });
@@ -55,6 +56,18 @@ globalThis.fetch = async (url, init) => {
     headers: { "Content-Type": "application/json" },
   });
 };
+
+if (scenario.queues) {
+  dns.lookup = async () => ({ address: "127.0.0.1", family: 4 });
+  const bullmqPath = require.resolve("bullmq");
+  require(bullmqPath);
+  require.cache[bullmqPath].exports = { Queue: class Queue {
+    constructor(name) { this.name = name; }
+    async getWorkers() { return Array(scenario.queues[this.name]?.workers ?? 1).fill({}); }
+    async getJobCounts() { return { waiting: scenario.queues[this.name]?.pending ?? 0 }; }
+    async close() {}
+  } };
+}
 
 // qa-beta's orchestration is real; its Redis SDK and child commands are mocks.
 const redisPath = require.resolve("ioredis");

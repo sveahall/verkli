@@ -73,14 +73,17 @@ export async function enqueueMarketingJob(data: MarketingJobData): Promise<strin
     return null;
   }
 
-  const jobId = makeJobId(
+  const legacyJobId = makeJobId(
     "marketing",
     data.authorId,
     data.bookId,
     data.language,
     data.campaignPlanId ?? "legacy"
   );
-  const existing = await q.getJob(jobId);
+  // BullMQ rejects ':' in custom IDs. Retain the same domain-key hash and
+  // check legacy jobs as well so an already active job is never duplicated.
+  const jobId = legacyJobId.replace(":", "-");
+  const existing = await q.getJob(jobId) ?? await q.getJob(legacyJobId);
 
   if (existing) {
     const state = await existing.getState();

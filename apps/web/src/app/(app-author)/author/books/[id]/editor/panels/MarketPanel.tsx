@@ -81,7 +81,7 @@ const TRAILER_TONES: { value: TrailerTone; label: string }[] = [
   { value: "epic", label: "Epic" },
 ];
 
-function TrailerCard({
+export function TrailerCard({
   bookId,
   trailerStatus: initialStatus,
   trailerUrl: initialUrl,
@@ -157,7 +157,7 @@ function TrailerCard({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.message ?? `Request failed (${res.status})`);
+        throw new Error(typeof data?.detail === "string" ? data.detail : data?.message ?? `Request failed (${res.status})`);
       }
 
       const data = await res.json();
@@ -186,7 +186,7 @@ function TrailerCard({
           </div>
           <div>
             <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Book Trailer</h3>
-            <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">Your trailer is live for readers</p>
+            <p className="text-[11px] text-muted-foreground dark:text-muted-foreground">Your trailer is ready to preview</p>
           </div>
         </div>
         <video
@@ -225,7 +225,7 @@ function TrailerCard({
         <div>
           <h3 className="text-sm font-semibold text-foreground dark:text-foreground">Creating your trailer...</h3>
           <p className="mt-1 text-xs text-muted-foreground dark:text-muted-foreground">
-            This usually takes a few minutes. You can leave this page — we&apos;ll finish in the background.
+            This usually takes a few minutes. Keep this page open until your trailer is ready.
           </p>
         </div>
         <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-muted dark:bg-card">
@@ -268,6 +268,7 @@ function TrailerCard({
             Genre
           </label>
           <select
+            aria-label="Trailer genre"
             value={genre}
             onChange={(e) => setGenre(e.target.value as TrailerGenre)}
             className="w-full rounded-lg border border-black/[0.08] bg-card px-2.5 py-2 text-xs text-foreground dark:border-border dark:bg-card dark:text-foreground"
@@ -282,6 +283,7 @@ function TrailerCard({
             Tone
           </label>
           <select
+            aria-label="Trailer tone"
             value={tone}
             onChange={(e) => setTone(e.target.value as TrailerTone)}
             className="w-full rounded-lg border border-black/[0.08] bg-card px-2.5 py-2 text-xs text-foreground dark:border-border dark:bg-card dark:text-foreground"
@@ -363,7 +365,7 @@ export default function MarketPanel({
     const parts: string[] = [];
     if (currentCampaign.caption) parts.push(currentCampaign.caption);
     if (currentCampaign.hashtags) parts.push(currentCampaign.hashtags);
-    if (currentCampaign.share_url) {
+    if (isPublished && currentCampaign.share_url) {
       const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
       parts.push(`${baseUrl}${currentCampaign.share_url}`);
     }
@@ -376,31 +378,17 @@ export default function MarketPanel({
     } catch {
       setCopyFeedback(null);
     }
-  }, [currentCampaign]);
+  }, [currentCampaign, isPublished]);
 
   const readerUrl = `/reader/books/${bookId}`;
 
-  // Not published gate
-  if (!isPublished) {
-    return (
-      <div className="mx-auto max-w-2xl space-y-6">
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-black/[0.05] bg-white/60 p-10 text-center backdrop-blur-sm dark:border-border dark:bg-card">
-          <div className="rounded-full bg-muted p-4 dark:bg-card">
-            <svg className="h-8 w-8 text-muted-foreground dark:text-muted-foreground" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5" />
-            </svg>
-          </div>
-          <h2 className="author-section-title text-lg font-medium text-foreground dark:text-foreground">Publish first to start marketing</h2>
-          <p className="max-w-md text-sm text-muted-foreground dark:text-muted-foreground">
-            Your book needs to be published before you can generate marketing copy or create trailers. Go to the Publish tab to get started.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-4xl space-y-6">
+      <div className="rounded-2xl border border-border bg-accent/40 p-4 text-sm">
+        <p className="font-medium">Closed beta · Private preparation</p>
+        <p className="mt-1 text-muted-foreground">Create and review material for draft or published books. Social publishing is paused.</p>
+        <Link href={`/author/marketing?bookId=${bookId}`} className="mt-2 inline-block font-medium text-accent-foreground underline">Open marketing studio</Link>
+      </div>
       {/* ── Two paths: Quick copy + Trailer studio ── */}
       <div className="grid gap-4 sm:grid-cols-2">
         {/* Trailer section */}
@@ -415,6 +403,7 @@ export default function MarketPanel({
         />
 
         {/* Reader link card */}
+        {isPublished ? (
         <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/60 p-5 backdrop-blur-sm dark:border-border dark:bg-card">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-primary p-2.5 text-primary-foreground shadow-sm">
@@ -448,6 +437,10 @@ export default function MarketPanel({
             {copyFeedback === "Link copied!" ? "Copied!" : "Copy link"}
           </button>
         </div>
+        ) : <div className="rounded-2xl border border-border bg-card p-5">
+          <h3 className="font-medium">Your book can stay a draft</h3>
+          <p className="mt-2 text-sm text-muted-foreground">Use your saved title, description and cover to prepare marketing. No public reader link is needed.</p>
+        </div>}
       </div>
 
       {/* ── Channel selector ── */}

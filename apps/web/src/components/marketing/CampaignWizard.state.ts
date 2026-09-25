@@ -24,6 +24,7 @@ export type CampaignWizardState = {
   channels: Set<ChannelId>;
   frequency: PostFrequency | null;
   startDate: string;
+  durationWeeks: number;
   template: ContentTemplate;
   schedule: Map<WeekDay, ChannelId[]>;
 };
@@ -45,6 +46,7 @@ export function createInitialState(
     channels: new Set(),
     frequency: null,
     startDate: dateStr,
+    durationWeeks: 1,
     template: "launch",
     schedule: new Map(),
   };
@@ -75,5 +77,10 @@ export function buildDefaultSchedule(
     schedule.set(day, [channelForDay]);
   });
 
+  // If more channels were chosen than active days, keep every channel in the plan.
+  channelList.slice(activeDays.length).forEach((channel, index) => {
+    const day = activeDays[index % activeDays.length];
+    schedule.get(day)!.push(channel);
+  });
   return schedule;
 }

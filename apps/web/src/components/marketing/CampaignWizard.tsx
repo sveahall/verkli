@@ -141,7 +141,7 @@ function StepLanguages({
     <div className="space-y-5">
       <div>
         <h3 className="text-[16px] font-semibold text-foreground dark:text-foreground">
-          Which languages do you want to publish in?
+          Which languages should your drafts use?
         </h3>
         <p className="mt-1.5 text-[14px] text-muted-foreground dark:text-muted-foreground">
           Each post is regenerated for every language you pick.
@@ -262,7 +262,7 @@ function StepChannels({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-[16px] font-semibold text-foreground dark:text-foreground">
-              Where do you want to publish?
+              Which channels are you preparing for?
             </h3>
             <p className="mt-1.5 text-[14px] text-muted-foreground dark:text-muted-foreground">
               You can select multiple platforms
@@ -311,7 +311,7 @@ function StepChannels({
 
       <div>
         <h3 className="text-[16px] font-semibold text-foreground dark:text-foreground">
-          How often do you want to post per week?
+          How many draft slots do you want each week?
         </h3>
         <div className="mt-3 flex flex-wrap gap-2.5">
           {FREQUENCY_OPTIONS.map((opt) => {
@@ -501,6 +501,7 @@ function StepSchedule({
                       onToggleDayChannel(day, channelList[0].id);
                     }
                   }}
+                  aria-label={`${WEEKDAY_LABELS[day]}: ${dayChannels.join(", ") || "No draft"}`}
                   className={cn(
                     "flex h-14 flex-col items-center justify-center gap-1 rounded-xl border transition-all duration-150 active:scale-[0.96]",
                     hasContent
@@ -536,6 +537,7 @@ export type CampaignWizardCompleteConfig = {
   channels: ChannelId[];
   frequency: PostFrequency;
   startDate: string;
+  durationWeeks: number;
   template: ContentTemplate;
   schedule: Record<string, string[]>;
 };
@@ -621,7 +623,7 @@ function CampaignWizardInner({
       case 4:
         return state.channels.size > 0 && state.frequency !== null;
       case 5:
-        return true;
+        return !!state.startDate && [...state.schedule.values()].some(channels => channels.length > 0);
       default:
         return false;
     }
@@ -632,6 +634,8 @@ function CampaignWizardInner({
     state.contentTypes.size,
     state.channels.size,
     state.frequency,
+    state.startDate,
+    state.schedule,
   ]);
 
   const goNext = useCallback(() => {
@@ -699,6 +703,7 @@ function CampaignWizardInner({
         channels: [...state.channels],
         frequency: state.frequency,
         startDate: state.startDate,
+        durationWeeks: state.durationWeeks,
         template: state.template,
         schedule: scheduleObj,
       });
@@ -759,7 +764,7 @@ function CampaignWizardInner({
         </button>
 
         {/* Title */}
-        <DialogTitle className="pr-10">Create campaign</DialogTitle>
+        <DialogTitle className="pr-10">Create campaign plan</DialogTitle>
 
         {/* Progress */}
         <div className="mt-5">
@@ -819,6 +824,15 @@ function CampaignWizardInner({
           )}
         </div>
 
+        {state.step === 5 ? <div className="mt-5 space-y-3 rounded-xl bg-accent/30 p-4">
+          <label className="flex flex-wrap items-center justify-between gap-3 text-sm">Plan length
+            <select aria-label="Plan length" className="input-base" value={state.durationWeeks} onChange={event => setState(previous => ({ ...previous, durationWeeks: Number(event.target.value) }))}>
+              {[1, 2, 4].map(weeks => <option key={weeks} value={weeks}>{weeks} {weeks === 1 ? "week" : "weeks"}</option>)}
+            </select>
+          </label>
+          <p className="text-sm font-medium">{[...state.schedule.values()].reduce((sum, channels) => sum + channels.length, 0) * state.durationWeeks * state.languages.size * state.contentTypes.size} drafts to generate</p>
+          <p className="text-xs text-muted-foreground">Text is generated first. Review each audio or trailer script before generating its media. Nothing will be posted.</p>
+        </div> : null}
         {submitError && (
           <p role="alert" className="mt-4 text-[13px] text-red-600 dark:text-red-400">
             {submitError}

@@ -76,3 +76,11 @@ describe("campaign post review", () => {
  });
 
 });
+
+it("requires fresh audio when the narrated script changes", async () => {
+  post = { ...post, content_type: "podcast", media_asset_url: "/private/audio", metadata: { audioScript: "Reviewed caption" } };
+  expect((await patch({ caption: "Different script", status: "ready" })).status).toBe(422);
+  expect(m.update).not.toHaveBeenCalled();
+  expect((await patch({ caption: "Different script" })).status).toBe(200);
+  expect(m.update).toHaveBeenCalledWith(expect.objectContaining({ media_asset_url: null, status: "draft" }));
+});

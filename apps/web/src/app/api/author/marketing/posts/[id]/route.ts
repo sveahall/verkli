@@ -62,6 +62,8 @@ export async function PATCH(
   if (current.status === "asset_pending" || (current.status === "posted" && copyChanged)) {
     return apiError("POST_NOT_EDITABLE", 409, { detail: "This post is generating or has already been marked as posted." });
   }
+  const audioScriptChanged = current.content_type === "podcast" && input.caption !== undefined && input.caption !== current.caption;
+  if (input.status === "ready" && audioScriptChanged) return apiError("POST_NOT_READY", 422, { detail: "Save your revised script and regenerate its audio before approving." });
   if (input.status === "ready" && (!(input.caption ?? current.caption)?.trim()
     || (current.content_type !== "text" && !current.media_asset_url))) {
     return apiError("POST_NOT_READY", 422, { detail: "Add the caption and finish the media before approving this post." });
@@ -81,6 +83,8 @@ export async function PATCH(
     delete metadata.delivery;
     update.metadata = metadata;
   }
+
+  if (audioScriptChanged) update.media_asset_url = null;
 
   if (copyChanged && input.status !== "ready") update.status = "draft";
 
@@ -109,7 +113,7 @@ export async function PATCH(
   if (!data) return apiError("POST_CHANGED", 409, { detail: "This post changed. Refresh and review the latest version." });
   return NextResponse.json({ post: {
     id: data.id, status: data.status, caption: data.caption, hashtags: data.hashtags,
-    cta: data.cta, postedAt: data.posted_at, postedUrl: data.posted_url, metadata: data.metadata, updatedAt: data.updated_at,
+    mediaAssetUrl: audioScriptChanged ? null : current.media_asset_url, cta: data.cta, postedAt: data.posted_at, postedUrl: data.posted_url, metadata: data.metadata, updatedAt: data.updated_at,
   } });
 }
 

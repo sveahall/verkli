@@ -30,6 +30,7 @@ import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
 import { Queue } from "bullmq";
 import { QUEUE_NAMES } from "../src/lib/queue-names";
+import { isSocialPublishingEnabled } from "../src/lib/marketing/beta-policy";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const strict = process.argv.includes("--strict");
@@ -140,6 +141,12 @@ async function main() {
       }
 
       const pending = (counts.waiting ?? 0) + (counts.delayed ?? 0) + (counts.active ?? 0);
+      if (name === QUEUE_NAMES.SOCIAL_PUBLISH && !isSocialPublishingEnabled()) {
+        console.log(`   ${pending > 0 ? "✖" : "·"} ${name.padEnd(24)} workers=${workers}  pending=${pending}  (social delivery blocked by closed-beta policy)`);
+        if (pending > 0) errors.push(`${name}: ${pending} jobs pending while social delivery is blocked. Inspect old jobs; do not enable delivery to clear this check.`);
+        else notes.push(`${name}: social delivery blocked by closed-beta policy; no jobs are pending.`);
+        continue;
+      }
       const noProducer = NO_PRODUCER.has(name);
       const ok = workers > 0;
 
@@ -179,7 +186,7 @@ async function main() {
     for (const e of errors) console.error(`   • ${e}\n`);
     if (!strict) console.log("Reporting only — pass --strict to fail on these.\n");
   } else {
-    console.log("✔  Every queue with a producer has a worker consuming it.\n");
+    console.log("✔  Every enabled queue with a producer has a worker consuming it; blocked social delivery has no pending jobs.\n");
   }
 
   process.exit(strict && errors.length > 0 ? 1 : 0);
