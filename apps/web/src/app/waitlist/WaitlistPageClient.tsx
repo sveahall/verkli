@@ -497,6 +497,10 @@ export default function WaitlistPageClient({ accessPending }: { accessPending: b
         </aside>
       )}
 
+      <section className="wl-demo-video wl-shell" aria-label="Verkli demo video">
+        <video src="/verkli-demo.mp4" poster="/verkli-demo-poster.jpg" controls playsInline preload="metadata" />
+      </section>
+
       <section className="wl-hero wl-shell" aria-labelledby="waitlist-heading">
         <div className="wl-hero-copy">
 
